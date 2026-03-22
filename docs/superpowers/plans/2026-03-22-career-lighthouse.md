@@ -120,34 +120,34 @@ DATA_PATH=/data/qdrant
 EOF
 ```
 
-- [ ] **Step 2: Write demo data — NUS alumni paths**
+- [ ] **Step 2: Write demo data — SMU alumni paths**
 
 ```bash
 cat > demo-data/nus-alumni-paths.txt << 'EOF'
-NUS Career Paths: Alumni Success Stories
+SMU Career Paths: Alumni Success Stories
 
 INVESTMENT BANKING
-NUS Business School (Finance) → Goldman Sachs Singapore (IBD Analyst)
+SMU Lee Kong Chian School of Business (Finance) → Goldman Sachs Singapore (IBD Analyst)
 Typical path: Strong GPA (3.8+), CFA Level 1 before graduation, IBSA club leadership.
-NUS typically places 8-12 students annually into BB IBD Singapore. Key firms: GS, MS, JP Morgan, Citi, UBS.
+SMU typically places 5-8 students annually into BB IBD Singapore. Key firms: GS, MS, JP Morgan, Citi, UBS.
 Timeline: Apply in Year 2/3 summer for internships. Full-time offers come from internship conversion (80% rate at GS Singapore 2024).
 
 PUBLIC SECTOR / STATUTORY BOARDS
-NUS any faculty → GIC / Temasek / MAS
-GIC recruits heavily from NUS across all faculties. Technology roles from SoC, investment roles from Business/Economics.
-PSC Scholarship holders from NUS have strong placement into MAS (Monetary Authority of Singapore).
-GIC 2024: 40% of Singapore graduate hires from NUS. Interview process: 3 rounds, case study + fit.
+SMU any faculty → GIC / Temasek / MAS
+GIC recruits from SMU across all faculties. Technology roles from SoC, investment roles from Business/Economics.
+PSC Scholarship holders from SMU have strong placement into MAS (Monetary Authority of Singapore).
+GIC 2024: SMU among top 3 feeder schools for Singapore graduate hires. Interview process: 3 rounds, case study + fit.
 
 CONSULTING
-NUS → McKinsey / BCG / Bain Singapore
-MBB in Singapore recruit ~15 NUS students per year combined. Target: Business, Engineering, Computing.
-McKinsey Singapore holds annual "Problem Solving Workshop" exclusively for NUS students each October.
-Bain Singapore has a dedicated NUS campus recruiting team. Apply by September for July start.
+SMU → McKinsey / BCG / Bain Singapore
+MBB in Singapore recruit ~10-12 SMU students per year combined. Target: Business, Engineering, Computing.
+McKinsey Singapore holds annual "Problem Solving Workshop" for SMU students each October.
+Bain Singapore has a dedicated SMU campus recruiting team. Apply by September for July start.
 
 TECHNOLOGY
-NUS SoC → Google / Meta / Bytedance Singapore
-Google Singapore: 20+ NUS SoC hires annually. Focus on SWE and data roles.
-Leetcode proficiency (Medium) required. NUS ACM team members have high conversion.
+SMU SCIS → Google / Meta / Bytedance Singapore
+Google Singapore: 10+ SMU SCIS hires annually. Focus on SWE and data roles.
+Leetcode proficiency (Medium) required. SMU ICPC team members have high conversion.
 Bytedance Singapore growing fast; less competitive than Google but strong comp packages.
 EOF
 ```
@@ -156,34 +156,34 @@ EOF
 
 ```bash
 cat > demo-data/gic-recruiting-guide.txt << 'EOF'
-GIC Private Limited — NUS Recruiting Guide (Career Office Internal)
+GIC Private Limited — SMU Recruiting Guide (Career Office Internal)
 
 OVERVIEW
 GIC manages Singapore's foreign reserves. ~$700B AUM. Highly prestigious employer.
-Actively recruits from NUS. Investment, Technology, Risk, and Operations tracks.
+Actively recruits from SMU. Investment, Technology, Risk, and Operations tracks.
 
 INVESTMENT TRACK
-Target: NUS Business (Finance), Economics, Applied Mathematics
+Target: SMU Lee Kong Chian School of Business (Finance, Quantitative Finance), Economics
 Requirements: Strong quantitative ability. GPA 3.7+ preferred. CFA progression valued.
 Interview: 3 rounds. Round 1: numerical reasoning + fit. Round 2: investment case study.
 Round 3: MD panel. Case: typically a sector analysis or portfolio construction problem.
 Timeline: Applications open August. Offers by November for July start.
 
 TECHNOLOGY TRACK
-Target: NUS SoC, CEng, Data Science
+Target: SMU School of Computing and Information Systems (SCIS), Data Science
 Requirements: Strong coding (Python/Java), system design awareness.
 Interview: Technical coding round + system design + fit.
-NUS SoC Career Fair booth every September. GIC CTO attends NUS Tech Talk annually.
+SMU SCIS Career Fair booth every September. GIC CTO attends SMU Tech Talk annually.
 
-TIPS FROM NUS ALUMNI AT GIC
+TIPS FROM SMU ALUMNI AT GIC
 "The case study isn't about getting the right answer — it's about showing structured thinking."
 "They value people who ask good questions more than people who have all the answers."
 "GIC culture is low-ego, long-term oriented. Don't oversell short-term trading experience."
-"Networking at NUS-GIC events matters. They track who shows up."
+"Networking at SMU-GIC events matters. They track who shows up."
 
 CONTACTS (Career Office Use Only)
 Campus Recruiting Lead: Refer students to careers.gic.com.sg/campus
-NUS Alumni at GIC willing to do informational calls: Contact career office for referral list.
+SMU Alumni at GIC willing to do informational calls: Contact career office for referral list.
 EOF
 ```
 
@@ -191,10 +191,10 @@ EOF
 
 ```bash
 cat > demo-data/goldman-singapore-guide.txt << 'EOF'
-Goldman Sachs Singapore — NUS Campus Recruiting (2024-2025)
+Goldman Sachs Singapore — SMU Campus Recruiting (2024-2025)
 
-DIVISIONS HIRING FROM NUS
-Investment Banking Division (IBD): 6-8 analysts/year from NUS
+DIVISIONS HIRING FROM SMU
+Investment Banking Division (IBD): 4-6 analysts/year from SMU
 Securities (Equities/FICC): 4-6 analysts/year
 Engineering (Technology): 10-15 engineers/year
 Asset Management: 2-3 analysts/year
@@ -206,25 +206,25 @@ Step 3: Superday — 4-6 back-to-back interviews, mix of technical and behaviora
 Technical: DCF, LBO concepts, M&A mechanics, current deal awareness
 Behavioral: Why GS? Why IBD? Describe a time you worked in a team under pressure.
 
-WHAT GS SINGAPORE LOOKS FOR (from NUS alumni interviews)
+WHAT GS SINGAPORE LOOKS FOR (from SMU alumni interviews)
 - Deal awareness: read the GS press releases, know recent SEA deals
 - Quantitative: comfortable with Excel modeling, accounting basics
 - Communication: can explain complex concepts simply
 - Cultural fit: Goldman culture is intense; show you thrive under pressure
 
-NUS-SPECIFIC ADVANTAGES
-GS has a dedicated NUS relationship. Campus Ambassador program (apply separately).
-GS Singapore MD is NUS Business alumnus — strong institutional affinity.
-NUS IBSA partnership: GS sponsors annual case competition, winners get fast-tracked.
+SMU-SPECIFIC ADVANTAGES
+GS has a dedicated SMU relationship. Campus Ambassador program (apply separately).
+GS Singapore recognises SMU's strong finance alumni network — strong institutional affinity.
+SMU Investment Club partnership: GS sponsors annual case competition, winners get fast-tracked.
 EOF
 
 cat > demo-data/consulting-paths.txt << 'EOF'
-Management Consulting from NUS — Career Office Guide
+Management Consulting from SMU — Career Office Guide
 
 MBB IN SINGAPORE
-McKinsey Singapore: 5-7 NUS hires/year. Recruits from all faculties but favors Business/Engineering.
-BCG Singapore: 4-6 NUS hires/year. Strong preference for quantitative backgrounds.
-Bain Singapore: 4-5 NUS hires/year. Known for culture fit emphasis over pure academics.
+McKinsey Singapore: 4-6 SMU hires/year. Recruits from all faculties but favors Business/Engineering.
+BCG Singapore: 3-5 SMU hires/year. Strong preference for quantitative backgrounds.
+Bain Singapore: 3-4 SMU hires/year. Known for culture fit emphasis over pure academics.
 
 APPLICATION TIMELINE
 Year 2/3: Apply for summer internships (applications open January, deadline March)
@@ -232,21 +232,21 @@ Year 3/4: Apply for full-time analyst roles (applications open August, deadline 
 Internship → full-time conversion rate at MBB Singapore: ~70%
 
 CASE INTERVIEW PREPARATION
-NUS Consulting Club runs weekly case practice sessions (every Tuesday, 7pm).
-Recommended resources: Case in Point (Cosentino), Victor Cheng videos, NUS case bank.
+SMU Consulting Club runs weekly case practice sessions (every Tuesday, 7pm).
+Recommended resources: Case in Point (Cosentino), Victor Cheng videos, SMU case bank.
 Partner with 2-3 serious case partners for 50+ case practices before recruiting season.
 
-WHAT SETS NUS CANDIDATES APART
-"The NUS candidates who get MBB offers are the ones who can quantify their impact."
+WHAT SETS SMU CANDIDATES APART
+"The SMU candidates who get MBB offers are the ones who can quantify their impact."
 "Show regional knowledge — SEA market sizing, ASEAN business dynamics."
 "McKinsey Singapore does a lot of government/GLCs work; public policy awareness helps."
 EOF
 
 cat > demo-data/career-office-faq.txt << 'EOF'
-NUS Career Services — Frequently Asked Questions
+SMU Career Services — Frequently Asked Questions
 
 Q: I want to go into investment banking. What should I do in Year 1?
-A: Join NUS IBSA (Investment Banking Student Association) immediately. Take FIN3101 (Corporate Finance) early. Start reading Financial Times and Bloomberg daily. Get comfortable with Excel. Reach out to NUS alumni in IBD via LinkedIn — most are willing to do 20-minute calls if you're specific about what you want to learn.
+A: Join SMU Investment Club immediately. Take FNCE321 (Corporate Finance) early. Start reading Financial Times and Bloomberg daily. Get comfortable with Excel. Reach out to SMU alumni in IBD via LinkedIn — most are willing to do 20-minute calls if you're specific about what you want to learn.
 
 Q: Is GPA the most important factor for finance roles?
 A: For GS/MS/GIC, 3.7+ is a soft filter for initial screening. However, a 3.6 with strong internships and leadership beats a 3.9 with nothing else. Internship experience (especially relevant internships) matters more than GPA after Year 2.
@@ -999,7 +999,7 @@ def get_client() -> anthropic.Anthropic:
         _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     return _client
 
-SCHOOL_NAME = "NUS (National University of Singapore)"
+SCHOOL_NAME = "SMU (Singapore Management University)"
 
 def chat_with_context(message: str, resume_text: str | None,
                        chunks: list[dict], history: list[dict]) -> str:
@@ -1179,7 +1179,7 @@ def test_chat_returns_response_and_citations(in_memory_qdrant, mock_embedder):
     vec = np.ones(384, dtype=np.float32)
     store.upsert([{"id": "c1", "vector": vec,
                    "payload": {"source_filename": "guide.txt", "chunk_index": 0,
-                               "upload_timestamp": "2026-01-01", "text": "GIC recruits from NUS"}}])
+                               "upload_timestamp": "2026-01-01", "text": "GIC recruits from SMU"}}])
     mock_embedder.encode.return_value = vec
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
@@ -1215,7 +1215,7 @@ def test_brief_returns_brief_text(in_memory_qdrant, mock_embedder):
 
     with patch.object(llm_module, "generate_brief", return_value="# Student Brief\nGoals: finance"):
         client = TestClient(app)
-        r = client.post("/api/brief", json={"resume_text": "NUS Business Year 3, interested in GIC"})
+        r = client.post("/api/brief", json={"resume_text": "SMU Business Year 3, interested in GIC"})
 
     assert r.status_code == 200
     assert "brief" in r.json()
@@ -1972,7 +1972,7 @@ curl http://localhost:8000/api/docs | python3 -m json.tool
 ```bash
 curl -s -X POST http://localhost:8000/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "How do I get into GIC from NUS?", "resume_text": null, "history": []}' \
+  -d '{"message": "How do I get into GIC from SMU?", "resume_text": null, "history": []}' \
   | python3 -m json.tool
 # Expected: response with citations referencing gic-recruiting-guide.txt or nus-alumni-paths.txt
 ```

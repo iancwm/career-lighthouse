@@ -1,7 +1,7 @@
-NUS Career Services — Frequently Asked Questions
+SMU Career Services — Frequently Asked Questions
 
 Q: I want to go into investment banking. What should I do in Year 1?
-A: Join NUS IBSA (Investment Banking Student Association) immediately. Take FIN3101 (Corporate Finance) early. Start reading Financial Times and Bloomberg daily. Get comfortable with Excel. Reach out to NUS alumni in IBD via LinkedIn — most are willing to do 20-minute calls if you're specific about what you want to learn.
+A: Join SMU Investment Club immediately. Take FNCE321 (Corporate Finance) early. Start reading Financial Times and Bloomberg daily. Get comfortable with Excel. Reach out to SMU alumni in IBD via LinkedIn — most are willing to do 20-minute calls if you're specific about what you want to learn.
 
 Q: Is GPA the most important factor for finance roles?
 A: For GS/MS/GIC, 3.7+ is a soft filter for initial screening. However, a 3.6 with strong internships and leadership beats a 3.9 with nothing else. Internship experience (especially relevant internships) matters more than GPA after Year 2.
@@ -9,8 +9,8 @@ A: For GS/MS/GIC, 3.7+ is a soft filter for initial screening. However, a 3.6 wi
 Q: What's the difference between applying to GIC vs. Temasek?
 A: GIC focuses on public markets and manages foreign reserves — more structured recruiting with clear campus timeline. Temasek is more opportunistic in hiring, smaller class sizes, focuses on private markets and portfolio company management. Temasek typically hires more experienced candidates; GIC hires more fresh graduates.
 
-Q: I'm from SoC — can I still go into finance?
-A: Absolutely. GIC's technology track is one of the best entry points into the investment industry for engineers. Goldman's technology division is also a strong path. Some SoC students successfully pivot to IBD by doing finance internships early and demonstrating business acumen alongside technical skills.
+Q: I'm from SCIS — can I still go into finance?
+A: Absolutely. GIC's technology track is one of the best entry points into the investment industry for engineers. Goldman's technology division is also a strong path. Some SCIS students successfully pivot to IBD by doing finance internships early and demonstrating business acumen alongside technical skills.
 
 Q: When should I come see a career counselor?
 A: Ideally Year 2 before you apply for your first internship. Come with a specific question, not "I don't know what I want to do." The more prepared you are, the more valuable our time together. Use this AI advisor for general questions first — our counselors are best used for personalized strategy and relationship introductions.
