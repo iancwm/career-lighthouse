@@ -34,7 +34,7 @@ def chat_with_context(message: str, resume_text: str | None,
 
     response = get_client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=1024,
+        max_tokens=2048,
         system=(
             f"You are a knowledgeable career advisor at {SCHOOL_NAME}. "
             "Answer questions using the provided school knowledge base. "

@@ -1,0 +1,661 @@
+## Q1
+What is the 'Big Four' people keep talking about? Is it a sports thing?
+
+### A1
+The "Big Four" isn't a sports reference — it's a term commonly used in the **accounting and professional services industry**! It refers to the four largest global accounting/professional services firms:
+
+1. **Deloitte**
+2. **PricewaterhouseCoopers (PwC)**
+3. **Ernst & Young (EY)**
+4. **KPMG**
+
+These firms offer roles in **audit, tax, advisory, and consulting**, and are very popular graduate employers in Singapore.
+
+---
+
+### Honest Caveat
+
+I should be transparent with you — **my knowledge base doesn't currently include specific information about Big Four recruiting at SMU**. So I can't give you SMU-specific details like hiring numbers, timelines, or interview processes for these firms the way I can for Goldman Sachs or GIC.
+
+---
+
+### What I *Can* Tell You
+
+Based on my knowledge base, if you're exploring professional services or advisory careers, SMU's career resources cover paths like:
+
+- **Management Consulting** (McKinsey, BCG, Bain) — see the consulting guide
+- **Investment Banking and Finance** (Goldman Sachs, GIC)
+
+For Big Four-specific guidance, I'd strongly recommend:
+- **Visiting SMU Career Services directly** — they'll have the most current recruiting relationships and timelines
+- Checking **SMU's career portal** for Big Four job postings
+
+---
+
+## Q2
+What's the difference between an investment bank and the bank where I have my checking account?
+
+### A2
+Great foundational question! These are actually very different types of institutions, even though both have "bank" in the name.
+
+---
+
+### Your Checking Account Bank — **Retail/Commercial Bank**
+
+This is what most people interact with daily. Examples: **DBS, OCBC, UOB** in Singapore.
+
+What they do:
+- Hold deposits (your savings/checking account)
+- Give out loans (mortgages, personal loans, car loans)
+- Offer credit cards
+- Make money on the **difference between deposit interest rates and lending rates**
+
+---
+
+### Investment Banks — A Very Different Business
+
+Examples from my knowledge base: **Goldman Sachs, Morgan Stanley, JP Morgan, Citi, UBS**
+
+What they do:
+- Help **companies raise money** (issuing stocks or bonds)
+- Advise on **mergers and acquisitions (M&A)** — when companies buy or merge with each other
+- Trade financial instruments (equities, bonds, derivatives)
+- Manage large institutional investments
+
+They work with **corporations and governments**, not everyday consumers.
+
+---
+
+### A Simple Analogy
+
+| | Retail Bank | Investment Bank |
+|---|---|---|
+| **Clients** | Individuals | Companies, governments |
+| **Services** | Deposits, loans | M&A advice, fundraising, trading |
+| **Everyday example** | Your DBS savings account | Advising Grab on its IPO |
+
+---
+
+### Why This Matters for Your Career
+
+Based on my knowledge base, **investment banking (IBD)** at firms like Goldman Sachs is one of SMU's most competitive career paths:
+
+- GS Singapore hires **4-6 IBD analysts/year** from SMU
+- Requires strong GPA (3.7+), finance knowledge, and interview preparation including **DCF, LBO, and M&A concepts**
+- SMU Investment Club is a key stepping stone
+
+---
+
+## Q3
+What does a 'Consultant' actually do all day? Do they just give advice?
+
+### A3
+It's a fair question — "giving advice" sounds vague! The reality is more structured and demanding than that.
+
+---
+
+### The Core Job
+
+Consultants are hired by companies (or governments) to **solve specific business problems** that the client either doesn't have the expertise or bandwidth to solve internally.
+
+Think of it like this: a company's CEO knows something is broken — maybe they're losing market share, or they want to expand into Vietnam, or they need to cut costs. They hire consultants to **diagnose the problem and recommend solutions**.
+
+---
+
+### What a Typical Day Actually Looks Like
+
+| Activity | What It Involves |
+|---|---|
+| **Structuring the problem** | Breaking a big messy question into smaller, answerable parts |
+| **Data gathering** | Interviews, surveys, market research, financial analysis |
+| **Excel/PowerPoint work** | A *lot* of this — building models, making slides |
+| **Client meetings** | Presenting findings, asking questions, managing relationships |
+| **Internal team discussions** | Debating hypotheses, checking each other's logic |
+
+So no — it's not just giving advice. There's significant **analytical and communication work** behind every recommendation.
+
+---
+
+### A Real Example
+
+Imagine a Singaporean bank hires McKinsey and asks: *"Should we expand into Indonesia?"*
+
+The consulting team would:
+1. Analyze the Indonesian banking market size
+2. Study competitors already there
+3. Model the financial returns
+4. Identify risks
+5. Present a structured recommendation with evidence
+
+*(This type of work is exactly what McKinsey Singapore does — my knowledge base notes they do significant **government and GLC work** in Singapore too)*
+
+---
+
+### The Honest Reality
+
+- **Junior consultants (analysts)** spend more time on data gathering and slides than client-facing work
+- **Travel** can be significant — you may be at a client's office frequently
+- **Hours are long**, especially before major client presentations
+- The learning curve is steep but fast
+
+---
+
+### Why SMU Candidates Are Well-Positioned
+
+Based on **consulting-paths.txt**, SMU has some specific advantages:
+
+> *"SMU's seminar format trains you to articulate under pressure — use that in your interviews."*
+
+The ability to **structure your thinking and communicate clearly under pressure** is exactly what consulting demands daily. SMU's interactive classroom style genuinely builds this.
+
+MBB firms (McKinsey, BCG, Bain) hire **10-12 SMU students per year combined**, which is meaningful for a Singapore-based recruiting pool.
+
+---
+
+## Q4
+I keep seeing roles for 'Analysts' and 'Associates.' Which one is higher up?
+
+### A4
+Great question, and the answer can be **confusing because it depends on the industry**. Let me break it down.
+
+---
+
+### General Rule: Associate is Higher Than Analyst
+
+In most corporate career tracks:
+
+| Level | Typical Profile |
+|---|---|
+| **Analyst** | Fresh graduate (entry-level) |
+| **Associate** | ~2-4 years experience, or MBA hire |
+| **Manager/VP/Director** | More senior still |
+
+Think of it as: **Analyst → Associate → Manager → VP → Director → MD/Partner**
+
+---
+
+### How This Plays Out in Industries Relevant to SMU
+
+#### Investment Banking (e.g., Goldman Sachs)
+- **Analyst**: Fresh graduate, 2-3 year program. This is what SMU students recruit into.
+- **Associate**: Typically post-MBA or promoted Analyst. More client-facing responsibility.
+
+From **goldman-singapore-guide.txt**, GS Singapore hires SMU students as **Analysts** (4-6 IBD analysts/year). That's your entry point.
+
+#### Consulting (e.g., McKinsey, Bain, BCG)
+- **Analyst/Business Analyst**: Undergraduate entry-level hire
+- **Associate/Consultant**: Typically post-MBA or promoted Analyst
+
+From **consulting-paths.txt**, SMU graduates enter MBB at the **Analyst level**, with applications opening August and deadline in October for full-time roles.
+
+#### GIC / Public Sector
+- Titles vary more — GIC uses terms like **Investment Analyst** at the graduate entry level
+
+From **gic-recruiting-guide.txt**, fresh SMU graduates enter the Investment Track as entry-level hires through the August application cycle.
+
+---
+
+### A Simple Way to Remember
+
+> **Analyst = where you start**
+> **Associate = where you go after proving yourself**
+
+When you see a job posting as a fresh graduate or final-year student, you should almost always be targeting **Analyst-level roles**.
+
+---
+
+### One Caveat
+
+Some companies (especially tech firms) use these titles differently — a "Senior Analyst" could outrank a junior "Associate." Always check the **job description and reporting structure**, not just the title.
+
+---
+
+## Q5
+What am I supposed to post on LinkedIn? Is it just a Facebook for jobs?
+
+### A5
+LinkedIn *looks* like a social network, but how you use it for career purposes is quite different from Facebook.
+
+---
+
+### What LinkedIn Actually Is (For Your Career)
+
+Think of LinkedIn as your **living professional portfolio + networking tool + job application platform** — all in one.
+
+Recruiters from firms like Goldman Sachs and GIC actively search LinkedIn to **find and evaluate candidates**, often *before* formal applications even open.
+
+---
+
+### What You Should Actually Post
+
+| Type of Content | Examples |
+|---|---|
+| **Professional updates** | Started a new internship, completed a course, won a competition |
+| **Insights and opinions** | Your take on a news story relevant to your field |
+| **Sharing useful content** | Reposting an article about SEA markets with your own comment |
+| **Milestones** | Graduating, receiving an award, joining a club leadership role |
+| **Genuine reflections** | What you learned from an internship or project |
+
+---
+
+### What You Should *Not* Post
+
+- What you had for lunch
+- Vague "hustler" quotes with no substance
+- Anything you'd be embarrassed showing a Goldman Sachs recruiter
+
+---
+
+### The More Important Part: Your *Profile*
+
+Honestly, **what you post matters less than how your profile looks**. Recruiters spend far more time on your profile than your feed.
+
+Key sections to complete:
+
+1. **Headline** — Not just "Student at SMU." Try: *"SMU Business (Finance) | Interested in Investment Banking | SMU Investment Club"*
+2. **About section** — 3-5 sentences on who you are and what you're pursuing
+3. **Experience** — Every internship, part-time role, relevant project
+4. **Education** — SMU, your faculty, relevant coursework
+5. **Skills** — Excel, financial modeling, Python, etc.
+6. **Recommendations** — Even one from a professor or internship supervisor helps
+
+---
+
+### How LinkedIn Connects to SMU's Recruiting Paths
+
+Based on my knowledge base, LinkedIn is specifically relevant for SMU students in these ways:
+
+- **Investment Banking**: *"Reach out to SMU alumni in IBD via LinkedIn — most are willing to do 20-minute calls if you're specific about what you want to learn"* — *(career-office-faq.txt)*
+- **GIC**: Alumni networking matters — LinkedIn helps you identify SMU alumni at GIC before events *(gic-recruiting-guide.txt)*
+- **Consulting**: Identifying SMU alumni at McKinsey, BCG, Bain for informational conversations
+
+---
+
+### One Practical Tip to Start
+
+Search **"SMU Goldman Sachs"** or **"SMU GIC"** on LinkedIn. You'll find alumni who've walked the exact path you're considering. Send a short, specific message — not "can you help me get a job?" but:
+
+> *"Hi [Name], I'm a Year 2 SMU Business student interested in IBD. I'd love to learn about your experience at GS. Would you have 20 minutes for a quick call?"*
+
+Most people say yes to that.
+
+---
+
+## Q6
+Who should I ask for a 'referral' if I don't know anyone who works at these companies?
+
+### A6
+This is one of the most common situations SMU students face — and the good news is **you're not actually starting from zero**. You have more connections than you think.
+
+---
+
+### Start With SMU Alumni — They're Your Warmest Leads
+
+You already have something in common with every SMU graduate: **the same school, same seminar culture, same experience**. That's a genuine conversation starter.
+
+Based on my knowledge base, here's where to find them:
+
+#### For Goldman Sachs / Investment Banking
+- Search LinkedIn for "SMU Goldman Sachs" or "SMU IBD"
+- **SMU Investment Club** is a direct pipeline — senior club members often have IBD internships and can make introductions *(goldman-singapore-guide.txt)*
+- GS sponsors SMU's annual case competition — **winners get fast-tracked**, and the event itself is a networking opportunity
+
+#### For GIC
+- **SMU Career Office maintains an alumni referral list** — alumni at GIC who have specifically volunteered to do informational calls with students
+- Direct quote from **gic-recruiting-guide.txt**:
+  > *"SMU Alumni at GIC willing to do informational calls: Contact career office for referral list"*
+- Attend **SMU-GIC networking events** — the guide specifically notes: *"Networking at SMU-GIC events matters. They track who shows up."*
+
+#### For Consulting (McKinsey/BCG/Bain)
+- **SMU Consulting Club** meets every Wednesday, 7pm, LKCSB seminar rooms — senior members regularly have MBB internships *(consulting-paths.txt)*
+- Bain Singapore has a **dedicated SMU campus recruiting relationship**, meaning there are structured touchpoints
+
+---
+
+### The Referral Conversation — How to Ask Without Being Awkward
+
+Most students are afraid to ask. Here's the secret: **don't ask for a referral directly upfront**. Ask for a conversation first.
+
+**Step 1 — The outreach message:**
+> *"Hi [Name], I'm a Year 2 SMU Business student exploring careers in [IBD/consulting/GIC]. I came across your profile and noticed you went through SMU too. Would you have 20 minutes to share your experience? I have specific questions and won't take more of your time than that."*
+
+**Step 2 — Have a genuine conversation.** Ask about their path, what they look for, what they wish they'd known.
+
+**Step 3 — After the call**, if it went well:
+> *"Thank you so much for your time. I'm planning to apply for the [role] in [month]. If you feel comfortable, I'd really appreciate any guidance on the application — even just knowing who the right contact is would be helpful."*
+
+Most people will offer to refer you or flag your application **without you having to ask directly**.
+
+---
+
+### Other Places to Find Connection Points
+
+| Resource | How It Helps |
+|---|---|
+| **SMU Career Office** | Has direct alumni referral lists for GIC specifically; counselors can make introductions |
+| **SMU Investment Club** | Members with IBD internships, direct GS/bank connections |
+| **SMU Consulting Club** | Members with MBB experience, case practice partners who later become industry contacts |
+| **Company campus events** | GIC CTO attends SMU Tech Talk annually; GS runs case competitions — showing up *is* networking |
+
+---
+
+### One Honest Reality Check
+
+A referral **gets your resume read** — it doesn't guarantee an offer. The interview still has to stand on its own. So build relationships genuinely, not transactionally.
+
+As **gic-recruiting-guide.txt** puts it:
+> *"They value people who ask good questions more than people who have all the answers."*
+
+That applies to networking conversations too.
+
+---
+
+**Your immediate next step:** Visit SMU Career Services and ask specifically for the GIC alumni referral list — that's the most concrete resource my knowledge base confirms exists.
+
+---
+
+## Q7
+I'm a Junior now—is it too late to look for an internship for this summer?
+
+### A7
+Being a Junior (Year 3) is actually **prime recruiting season** for several of SMU's top career paths. Here's an honest assessment.
+
+---
+
+### Where You Stand in the Timeline
+
+#### Investment Banking (Goldman Sachs / BB Banks)
+From **goldman-singapore-guide.txt** and **smu-alumni-paths.txt**:
+- Target timeline: **Year 2/3 summer** for internships
+- GS summer analyst applications: **September deadline**
+- Year 3 is explicitly mentioned as a target year. You have not missed this window.
+
+#### GIC
+From **gic-recruiting-guide.txt**:
+- Applications open **August**, offers by November for July start
+- Technology track has **SCIS Career Fair booth every September**
+
+Again — **August/September is the opening of the window**, not the closing.
+
+#### Consulting (MBB)
+From **consulting-paths.txt**:
+- Summer internship applications: **open January, deadline March**
+- Full-time applications: open August, deadline October
+- Year 2/3 is the explicit target for summer internships
+
+**This one depends on timing** — if it's past March, the MBB summer internship window may have passed. However, full-time recruiting in August/October is still very relevant for you as a Junior.
+
+---
+
+### What You Should Do Right Now
+
+| Action | Why |
+|---|---|
+| **Visit SMU Career Services immediately** | They have the GIC alumni referral list and can advise on open deadlines |
+| **Join SMU Investment Club if not already** | Direct pipeline to IBD internships; GS fast-tracks competition winners |
+| **Check Consulting Club Wednesday sessions** | Case prep takes time — 50+ cases recommended before recruiting |
+| **Activate LinkedIn now** | Reach out to SMU alumni at target firms for informational calls |
+
+---
+
+### One Honest Note
+
+From **career-office-faq.txt**:
+> *"Internship experience (especially relevant internships) matters more than GPA after Year 2."*
+
+As a Junior, **this cuts both ways** — if you haven't had relevant internships yet, the urgency is real. But it also means a strong internship this summer can significantly strengthen your full-time applications in Year 4.
+
+---
+
+### Your Immediate Next Step
+
+Book an appointment with SMU Career Services **with a specific question** — not "I don't know what to do" but something like:
+
+> *"I'm a Year 3 [faculty] student targeting [IBD/GIC/consulting]. Which deadlines are still open for this summer, and can I get the alumni referral list?"*
+
+---
+
+## Q8
+How do I get 'experience' if every internship requires you to have had an internship before?
+
+### A8
+This frustration is real and nearly universal. But the good news is: **the barrier is lower than it looks**, and there are legitimate ways to build your first credible entry on your resume.
+
+---
+
+### First, Reframe What "Experience" Actually Means
+
+Recruiters asking for experience at the internship level are really asking:
+> *"Can you function professionally? Do you understand basic workplace norms? Can you do something relevant?"*
+
+They're not expecting you to have already done the job. Here's what actually counts:
+
+---
+
+### Paths to Your First Credible Experience
+
+#### 1. University Club Roles — Seriously Underrated
+From my knowledge base, SMU clubs are **explicitly part of the recruiting pipeline**, not just extracurriculars:
+
+- **SMU Investment Club**: Direct relationship with Goldman Sachs. GS sponsors the annual case competition — *"winners get fast-tracked"* *(goldman-singapore-guide.txt)*. Doing investment research for the club is real, citable experience.
+- **SMU Consulting Club**: Weekly case sessions, senior members with MBB internships *(consulting-paths.txt)*. Running case workshops or leading a project team is legitimate leadership experience.
+
+Club roles appear on resumes and are **recognized by recruiters at GS, GIC, and MBB** because they know SMU's club culture.
+
+#### 2. Competitions and Case Challenges
+Many firms use competitions as **informal screening and pipeline building**:
+
+- GS annual case competition through SMU Investment Club — winning or placing gets you noticed
+- MBB consulting case competitions — BCG Open, Bain challenges
+- GIC and MAS sometimes run investment/policy competitions
+
+**Placing in a competition = verifiable, firm-specific experience** that bypasses the resume screening problem entirely.
+
+#### 3. SME and Startup Internships First
+Large firms are competitive for first internships. But:
+
+- Smaller local companies, family businesses, startups often **don't require prior experience**
+- The work may be less structured, but you gain: professional communication, project ownership, real deliverables
+- This becomes your **first line on the resume** that unlocks the next application
+
+One relevant SME internship in Year 2 → credible application to GIC/GS in Year 3. That's the actual path many SMU students take.
+
+#### 4. Research Assistantships at SMU
+SMU professors hire undergraduates as **Research Assistants (RAs)** — in finance, economics, and data/computing. This is:
+
+- Paid or unpaid, but **legitimately listed as work experience**
+- Directly relevant for GIC (quantitative research) and consulting (analytical work)
+- Accessible without prior internship experience — professors care about grades and curiosity, not your resume
+
+Ask your Finance or Economics professors directly.
+
+#### 5. Certifications That Signal Commitment
+While not "experience," they show initiative and close skill gaps:
+
+- **CFA Level 1**: Explicitly valued by GIC and noted in SMU alumni IB paths
+- **Excel/Financial Modeling courses**: Bloomberg Market Concepts (free with student access), CFI courses
+- **Coding (Python)**: Valued for GIC technology track and data roles
+
+These appear on your resume and give you **something to talk about technically** in interviews before your first internship.
+
+---
+
+### The Honest Sequencing Most SMU Students Use
+
+```
+Year 1/2
+→ Join Investment Club or Consulting Club
+→ Do SMU case competitions
+→ Get RA role or SME internship
+
+Year 2/3
+→ Now have 1-2 resume lines
+→ Apply to GIC, GS, MBB summer internships
+→ Leverage alumni network via Career Office
+
+Year 3/4
+→ Convert internship to full-time
+→ (80% conversion rate at GS Singapore per smu-alumni-paths.txt)
+```
+
+---
+
+> ⚠️ *Note: Answer was cut off in the original session at this point.*
+
+---
+
+## Q9
+What is an 'off-cycle' internship, and why are people taking a Leave of Absence (LOA) for it? Won't I graduate later than my friends?
+
+### A9
+This is a very real phenomenon at SMU, and worth understanding clearly before you decide whether it's right for you.
+
+---
+
+### What Is an "Off-Cycle" Internship?
+
+Most internships you hear about are **on-cycle** — structured programs that run during a fixed summer window (typically May–August), recruited for months in advance with a formal campus process.
+
+**Off-cycle internships** are everything outside that window:
+- Roles that start in **January, March, September, October** — any non-summer period
+- Often less structured, shorter notice, filled on a **rolling/ad-hoc basis**
+- Common at: **banks, private equity firms, hedge funds, boutique advisories**
+
+They exist because deals don't stop in September just because recruiting season ended.
+
+---
+
+### Why Do People Take LOAs for Them?
+
+Off-cycle internships often run **4–6 months**, sometimes longer. You cannot do a full-time internship in London, Hong Kong, or even Singapore while attending SMU classes.
+
+So students take a **Leave of Absence** — officially pausing their studies for one or two semesters — to do the internship, then return to complete their degree.
+
+#### Why would someone do this?
+
+| Reason | Explanation |
+|---|---|
+| **Access to roles that don't recruit on-campus** | Many PE firms, hedge funds, and boutique banks in Singapore and Hong Kong **only hire off-cycle** |
+| **Depth of experience** | 4-6 months gives you real deal exposure vs. 10-week summer programs |
+| **Competitive differentiation** | An off-cycle stint at a top firm signals serious commitment |
+| **Internship conversion** | Some firms use off-cycle internships as **the primary pipeline for full-time hires** |
+
+---
+
+### Is It Worth Graduating Later?
+
+#### Reasons It Can Be Worth It
+- The internship-to-full-time conversion rate at GS Singapore is **80%** — the internship *is* effectively the hiring process
+- In competitive finance tracks, **what firm you interned at often matters more than when you graduated**
+- One extra semester is a relatively small cost against a 30-year career trajectory
+
+#### Reasons to Think Carefully
+- **Financial cost**: One extra semester of tuition and living expenses
+- **Social dimension**: Yes, your cohort moves on — this is real
+- **Not always necessary**: For GS, GIC, and MBB, the on-cycle SMU recruiting path is well-established. You don't *need* an LOA to access these firms.
+- **Opportunity cost**: That semester could be used for finals, CFA prep, or networking for full-time roles
+
+---
+
+### When Does an LOA Make Most Sense for SMU Students?
+
+1. **You're targeting firms with no SMU on-campus presence** — boutique PE, hedge funds, family offices, Hong Kong or regional roles
+2. **You received an off-cycle offer at a genuinely prestigious firm** and the on-cycle window has passed
+3. **You want to explore a path before committing** — some students use an LOA internship to confirm whether IBD or PE is actually right for them
+
+It makes **less sense** if you're using it to chase prestige without a clear offer, or if the firm is accessible through normal SMU recruiting channels anyway.
+
+---
+
+### A Practical Note on SMU's LOA Process
+
+SMU does allow LOAs for internship purposes — speak to your **academic advisor and SMU Career Services together** before deciding. Key questions:
+
+- Does this affect my financial aid or scholarship conditions?
+- Can I return to the same academic cohort?
+- Will this affect my CAP calculation?
+
+---
+
+> ⚠️ *Note: The comparison table at the end of this answer was cut off in the original session.*
+
+---
+
+## Q10
+Is a 3.5/5.0 GPA or a Second Lower (Class II) Honors the end of my chances for Management Consulting?
+
+### A10
+This is one of the most important questions to answer clearly, without false comfort or unnecessary despair. Here's the real picture.
+
+---
+
+### First, Let's Translate the Numbers
+
+At SMU, a 3.5/5.0 GPA corresponds roughly to a **Second Lower (2nd Lower) Honours classification**. For context, my knowledge base notes that for competitive finance roles, **3.7+ is a soft filter for initial screening** at firms like GS and GIC *(career-office-faq.txt)*. Consulting has similar dynamics.
+
+---
+
+### The Honest Answer: Harder, But Not Over
+
+From **career-office-faq.txt**:
+> *"A 3.6 with strong internships and leadership beats a 3.9 with nothing else. Internship experience (especially relevant internships) matters more than GPA after Year 2."*
+
+**GPA is a filter at the resume screening stage — it is not the final word.**
+
+---
+
+### How MBB Actually Screens SMU Candidates
+
+From **consulting-paths.txt**, what actually gets SMU candidates MBB offers:
+
+> *"The SMU candidates who get MBB offers are the ones who can quantify their impact."*
+> *"McKinsey Singapore does a lot of government/GLCs work; public policy awareness helps."*
+> *"SMU's seminar format trains you to articulate under pressure — use that in your interviews."*
+
+Notice what's **not** on that list: a perfect GPA.
+
+---
+
+### Where the GPA Filter Actually Bites
+
+| Stage | How GPA Matters |
+|---|---|
+| **Online application screening** | Some firms use GPA cutoffs in automated screening — this is where 3.5 can get filtered before a human sees your resume |
+| **Resume review by recruiter** | A human weighs GPA alongside everything else — internships, leadership, communication |
+| **Interview stage** | GPA is essentially irrelevant once you're in the room. Case performance and structured thinking take over completely |
+
+The challenge is **getting past stage one**. That's solvable.
+
+---
+
+### Strategies to Get Past the GPA Filter
+
+#### 1. Referrals Are More Important for You Than Anyone Else
+When a current employee or SMU alumni refers you, your application often **bypasses automated GPA screening** and goes directly to a recruiter's desk.
+
+> A referral from an SMU Consulting Club senior who interned at Bain is worth more than 0.2 GPA points.
+
+#### 2. The SMU Consulting Club Is Your Most Valuable Asset Right Now
+- Meets every **Wednesday, 7pm, LKCSB seminar rooms**
+- Senior members have MBB internships and can refer you
+- 50+ case practices recommended — **case performance, not GPA, determines offers**
+
+#### 3. Target Firms With Less Rigid GPA Filters First
+- **Big 4 Strategy arms** (Deloitte, PwC Strategy&, EY-Parthenon, KPMG) — less rigid GPA cutoffs, still excellent experience
+- **Accenture Strategy, Oliver Wyman, Roland Berger** — strong firms, more holistic screening
+- **Government/GLC consulting arms** — meaningful entry points exist
+
+A strong stint at Deloitte Strategy → lateral move to MBB in 2-3 years is **a real and documented path**.
+
+#### 4. Your Internship Record Needs to Be Unambiguous
+
+> ⚠️ *Note: Answer was cut off in the original session at this point.*
+
+---
+
+## Q11
+I want to ask someone from LinkedIn for a 'coffee chat.' Do I have to pay for their $7 latte? I'm on a student budget.
+
+### A11
+
+> ⚠️ *Note: No answer captured — session ended before response was received.*
