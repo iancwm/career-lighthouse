@@ -1,6 +1,7 @@
 # api/routers/docs_router.py
 from fastapi import APIRouter, Depends
 from models import DocInfo, DeleteResponse
+from services import health_cache
 from services.vector_store import VectorStore
 from dependencies import get_vector_store
 
@@ -18,4 +19,5 @@ def delete_doc(doc_id: str, store: VectorStore = Depends(get_vector_store)):
     if not any(d["filename"] == doc_id for d in docs):
         return DeleteResponse(status="not_found")
     store.delete_by_filename(doc_id)
+    health_cache.invalidate_overlap_cache()
     return DeleteResponse(status="deleted")
