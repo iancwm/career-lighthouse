@@ -55,7 +55,7 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
 
     response = get_client().messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=1024,
+        max_tokens=2048,
         system=(
             "You are a career counselor assistant. Given a student's resume and "
             "school-specific career knowledge, produce a pre-meeting brief with: "
