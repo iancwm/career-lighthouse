@@ -13,7 +13,8 @@ export default function DocList({ refreshKey, onDeleted }: Props) {
   }, [refreshKey])
 
   async function handleDelete(docId: string) {
-    await fetch(`${apiUrl}/api/docs/${encodeURIComponent(docId)}`, { method: "DELETE" })
+    const res = await fetch(`${apiUrl}/api/docs/${encodeURIComponent(docId)}`, { method: "DELETE" })
+    if (!res.ok) return
     setDocs(docs.filter(d => d.doc_id !== docId))
     onDeleted?.()
   }

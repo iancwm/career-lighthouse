@@ -64,12 +64,22 @@ async def ingest(
     content = await file.read()
     filename = file.filename or "upload.txt"
 
-    # Delete existing chunks for this filename before re-ingesting.
+    # Prepare (parse + chunk + embed) BEFORE deleting the existing version.
+    # This ensures that if parsing or embedding fails, the previous document
+    # is not lost — the KB is never left in a deleted-but-not-stored state.
+    points = prepare_document(content, filename, embedder)
+
+    if not points:
+        # Empty file or unsupported format — do not delete the existing version.
+        return IngestResponse(
+            doc_id=filename,
+            chunk_count=0,
+            status="error_empty",
+        )
+
+    # Delete existing chunks for this filename only after successful prepare.
     # This ensures dedup check compares against OTHER documents only.
     store.delete_by_filename(filename)
-
-    # Prepare (parse + chunk + embed) without storing yet
-    points = prepare_document(content, filename, embedder)
 
     # Deduplication check against existing KB (before storing).
     # Wrapped in try/except: if the check fails (e.g., Qdrant blip after delete),
