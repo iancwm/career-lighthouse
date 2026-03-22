@@ -48,7 +48,7 @@ test-api:
 
 # Run web tests
 test-web:
-    cd web && npm run test
+    cd web && npm run test -- --run
 
 # ── Demo data ─────────────────────────────────────────────────────────────────
 

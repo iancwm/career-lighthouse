@@ -14,16 +14,18 @@
     "react-dom": "^18"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16",
+    "@testing-library/user-event": "^14",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "typescript": "^5",
-    "tailwindcss": "^3",
-    "autoprefixer": "^10",
-    "postcss": "^8",
-    "vitest": "^2",
     "@vitejs/plugin-react": "^4",
-    "@testing-library/react": "^16",
-    "@testing-library/user-event": "^14"
+    "autoprefixer": "^10",
+    "happy-dom": "^20.8.4",
+    "postcss": "^8",
+    "tailwindcss": "^3",
+    "typescript": "^5",
+    "vitest": "^2"
   }
 }
