@@ -121,8 +121,10 @@ def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
         if not chunk_points:
             continue
 
-        # Sample for large documents
-        sample = chunk_points[::3] if len(chunk_points) > 200 else chunk_points
+        # Note: scroll is capped at limit=200 so len(chunk_points) <= 200 always.
+        # Sampling for very large docs would require Qdrant scroll pagination; deferred
+        # until KB exceeds pre-launch scale. Use all retrieved chunks for now.
+        sample = chunk_points
 
         overlap_against: dict[str, int] = {}
         for pt in sample:

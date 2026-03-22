@@ -17,6 +17,10 @@ export default function KnowledgeUpload({ onUploaded }: Props) {
       const form = new FormData()
       form.append("file", file)
       const res = await fetch(`${apiUrl}/api/ingest`, { method: "POST", body: form })
+      if (!res.ok) {
+        setMessage((prev) => prev + `✗ ${file.name}: upload failed (${res.status})\n`)
+        continue
+      }
       const data = await res.json()
       setMessage((prev) => prev + `✓ ${file.name} (${data.chunk_count} chunks)\n`)
       if (data.similarity_warning) {
