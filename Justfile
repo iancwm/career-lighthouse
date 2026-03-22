@@ -44,7 +44,7 @@ test: test-api test-web
 
 # Run API tests
 test-api:
-    cd api && uv run pytest
+    cd api && uv sync --extra dev && uv run python -m pytest
 
 # Run web tests
 test-web:

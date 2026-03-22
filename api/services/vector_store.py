@@ -1,10 +1,16 @@
 # api/services/vector_store.py
+import uuid
 import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     VectorParams, Distance, PointStruct,
     Filter, FieldCondition, MatchValue
 )
+
+
+def _to_uuid(id_str: str) -> str:
+    """Convert any string ID to a deterministic UUID (Qdrant requires UUID or uint)."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, id_str))
 
 
 class VectorStore:
@@ -24,7 +30,7 @@ class VectorStore:
         self._client.upsert(
             collection_name=self._collection,
             points=[
-                PointStruct(id=p["id"], vector=p["vector"].tolist(), payload=p["payload"])
+                PointStruct(id=_to_uuid(p["id"]), vector=p["vector"].tolist(), payload=p["payload"])
                 for p in points
             ],
         )
