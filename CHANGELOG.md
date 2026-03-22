@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.1.1] - 2026-03-23
+
+### Added
+- `KnowledgeUpload` test suite: success, error (non-ok response), similarity warning banner, and `onUploaded` callback coverage
+
+### Fixed
+- Ingest router: `prepare_document` now runs before `delete_by_filename`, preventing data loss if embedding fails; empty-document uploads now return `status="error_empty"` instead of silent `chunk_count=0` success
+- `DocList`: document deletion now checks the HTTP response before removing the item from the UI; failed deletes no longer silently show the document as gone
+- `health_cache`: all reads and writes to module-level globals wrapped in `threading.Lock` to prevent torn writes and race conditions in the thread pool
+- `KnowledgeUpload`: upload error responses (non-ok HTTP status) now show a failure message instead of crashing on missing `chunk_count`
+- `kb_router`: removed unreachable `len(chunk_points) > 200` sampling condition; added clarifying comment that scroll pagination is deferred
+
 ## [0.1.1.0] - 2026-03-23
 
 ### Added
