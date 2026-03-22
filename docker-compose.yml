@@ -1,0 +1,30 @@
+services:
+  api:
+    build: ./api
+    ports:
+      - "8000:8000"
+    volumes:
+      - qdrant_data:/data/qdrant
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - DATA_PATH=/data/qdrant
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web
+      args:
+        # NEXT_PUBLIC_* vars are baked into the Next.js build at image build time.
+        # For local demo: http://localhost:8000 (browser calls this from the host machine).
+        # For AWS/Terraform: rebuild the image with the actual ALB URL, or use runtime
+        # config injection (e.g. next.config.js rewrites) — see terraform/ task.
+        - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  qdrant_data:
