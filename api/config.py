@@ -7,5 +7,6 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     allowed_origins: str = "http://localhost:3000"
     data_path: str = "/data/qdrant"
+    query_log_path: str = "./logs/query_log.jsonl"
 
 settings = Settings()
