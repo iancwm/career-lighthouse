@@ -19,12 +19,14 @@ class VectorStore:
         self._collection = collection
 
     def ensure_collection(self, dim: int = 384):
-        existing = [c.name for c in self._client.get_collections().collections]
-        if self._collection not in existing:
+        try:
             self._client.create_collection(
                 collection_name=self._collection,
                 vectors_config=VectorParams(size=dim, distance=Distance.COSINE),
             )
+        except Exception as e:
+            if "already exists" not in str(e).lower():
+                raise
 
     def upsert(self, points: list[dict]):
         self._client.upsert(
