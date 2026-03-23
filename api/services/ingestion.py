@@ -37,17 +37,21 @@ def chunk_text(text: str, max_tokens: int = 512, overlap: int = 64) -> list[str]
     return chunks
 
 
-def ingest_document(file_content: bytes, filename: str, embedder, store) -> int:
-    """Parse, chunk, embed, and store a document. Returns chunk count."""
+def prepare_document(file_content: bytes, filename: str, embedder) -> list[dict]:
+    """Parse, chunk, and embed a document. Returns list of point dicts (without storing).
+
+    Separating preparation from storage allows callers to run deduplication checks
+    (or other pre-storage logic) before committing chunks to the vector store.
+    """
     text = parse_file(file_content, filename)
     chunks = chunk_text(text)
     if not chunks:
-        return 0
+        return []
 
     vectors = embedder.encode_batch(chunks)
     timestamp = datetime.now(timezone.utc).isoformat()
 
-    points = [
+    return [
         {
             "id": str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{filename}-{i}")),
             "vector": vectors[i],
@@ -60,5 +64,16 @@ def ingest_document(file_content: bytes, filename: str, embedder, store) -> int:
         }
         for i, chunk in enumerate(chunks)
     ]
+
+
+def ingest_document(file_content: bytes, filename: str, embedder, store) -> int:
+    """Parse, chunk, embed, and store a document. Returns chunk count.
+
+    Convenience wrapper around prepare_document + store.upsert.
+    Use prepare_document directly when pre-storage checks are needed.
+    """
+    points = prepare_document(file_content, filename, embedder)
+    if not points:
+        return 0
     store.upsert(points)
-    return len(chunks)
+    return len(points)

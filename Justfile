@@ -29,9 +29,13 @@ install:
     cd api && uv sync --extra dev
     cd web && npm ci
 
-# Run the API dev server locally with hot-reload
+# Start a local Qdrant server (required for dev-api)
+qdrant:
+    docker run --rm -p 6333:6333 -v $(pwd)/data/qdrant:/qdrant/storage qdrant/qdrant
+
+# Run the API dev server locally with hot-reload (requires: just qdrant in another terminal)
 dev-api:
-    cd api && uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    cd api && QDRANT_URL=http://localhost:6333 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # Run the Next.js dev server
 dev-web:

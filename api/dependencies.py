@@ -8,8 +8,13 @@ from config import settings
 
 @lru_cache
 def get_qdrant_client() -> QdrantClient:
-    client = QdrantClient(path=settings.data_path)
-    return client
+    if settings.qdrant_url:
+        # Server mode: Docker Compose sets QDRANT_URL=http://qdrant:6333.
+        # Avoids the file-lock conflict that occurs when the embedded client
+        # is used with multiple workers or on container restart.
+        return QdrantClient(url=settings.qdrant_url)
+    # Embedded mode: single-process local dev only (no QDRANT_URL set).
+    return QdrantClient(path=settings.data_path)
 
 
 @lru_cache
