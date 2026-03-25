@@ -2,6 +2,33 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2.0] - 2026-03-25
+
+### Added
+- **Guided Entry flow**: new landing screen replaces blank chat box with 4 option cards ("I don't know where to start", "Exploring a specific career", "Understanding the Singapore market", "I have an interview") — addresses primary UX gap for disoriented students
+- **Intake flow**: 2-step pill-selection questionnaire (background, region, interest area) that captures career context without storing personal data (PDPA-compliant)
+- **Career profile YAML injection**: 5 career profile YAML files (investment_banking, consulting, tech_product, public_sector, general_singapore) loaded at startup and injected into LLM system prompt as structured `=== CAREER CONTEXT ===` blocks; first response now includes specific employers, EP sponsorship levels, COMPASS scores, recruiting timelines, and salary ranges
+- **`CareerProfileStore` service**: singleton with startup loading, career type name embeddings for cosine matching, `get_profile()`, `match_career_type()`, and `list_profiles()` methods; gracefully skips malformed or incomplete YAML files with warnings
+- **`GET /api/kb/career-profiles`** endpoint: admin endpoint listing loaded profiles with completeness indicators
+- **`resolve_career_type_from_intake()`**: rule-based intake-to-career-type mapping (finance → investment_banking, consulting → consulting, tech → tech_product, etc.)
+- **`active_career_type` stateless persistence**: server returns resolved career type slug in response; client echoes it on subsequent requests as fallback; cosine similarity match can override at query time
+- **Profile badge in chat**: `Advising on: <Career Type>` pill shown in chat header once a career type is active
+- **Chat error state**: inline "Something went wrong — please try again." message on API failure; `intake_context` only marked consumed after successful response (not before fetch) so retries correctly re-send career context
+- **DESIGN.md**: documents emerging design system (blue-600 primary, gray palette, rounded-xl cards, 44px touch targets, focus:ring-2 focus:ring-blue-400, responsive grid breakpoints)
+- **Back navigation**: `← Back` link on intake screen returns to guided entry
+- **Test coverage**: full test suite for `CareerProfileStore`, `resolve_career_type_from_intake`, `profile_to_context_block`, chat router career profile integration, and all new frontend components (GuidedEntry, IntakeFlow, ChatInterface career type state + error handling + retry)
+
+### Fixed
+- `_load_profiles()` NameError: `career_type_name` undefined at `logger.info()` call — caused misleading "failed to load" warnings for every successfully-loaded profile; fixed to use `profile.get("career_type", slug)`
+- `setIntakeConsumed(true)` called before `await fetch()` — on API failure, intake context was permanently consumed and never re-sent on retry; moved to success path only
+- `test_career_context_injected_into_llm`: weak `or`-based assertion replaced with direct `assert kwargs.get("career_context") is not None`
+
+### Changed
+- Student page header (h1 + subtitle) now hidden after guided_entry state to maximise chat area on mobile
+- Guided entry grid: `grid-cols-2` → `grid-cols-1 sm:grid-cols-2` for correct layout at 320px
+- Touch targets: pill buttons and skip link bumped to min 44px height
+- All interactive buttons now have `focus:outline-none focus:ring-2 focus:ring-blue-400` keyboard focus rings
+
 ## [0.1.1.1] - 2026-03-23
 
 ### Added

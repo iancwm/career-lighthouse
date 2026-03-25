@@ -29,6 +29,7 @@ from models import (
     TestQueryResult,
 )
 from services import health_cache
+from services.career_profiles import CareerProfileStore, get_career_profile_store
 from services.embedder import Embedder  # used by test-query only
 from services.vector_store import VectorStore
 from config import settings
@@ -154,6 +155,21 @@ def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
+@router.get("/career-profiles")
+def career_profiles(
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    """List all loaded career profiles with metadata (admin use only).
+
+    Returns structured metadata from the 'structured:' YAML block alongside
+    basic completeness indicators. Does not return the full profile content.
+
+    Auth note: protected by Next.js middleware same as /health and /test-query.
+    See TODOS.md: "FastAPI-level auth on /api/kb/* endpoints"
+    """
+    return profile_store.list_profiles()
+
 
 @router.post("/test-query", response_model=list[TestQueryResult])
 def test_query(
