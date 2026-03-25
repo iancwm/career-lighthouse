@@ -1,0 +1,94 @@
+career_type: Public Sector / GLCs
+
+match_description: >
+  public sector government GLC statutory board GIC Temasek MAS EDB JTC HDB
+  Singapore civil service ministry management associate policy officer analyst
+  graduate programme EP sponsorship international
+
+# Machine-readable fields for filtering/dashboard use (e.g. KB Health profile list)
+structured:
+  sponsorship_tier: "High"          # Public sector has statutory EP / sponsorship for international talent
+  compass_points_typical: "40-50"   # Salary bands vary; MOE/MOM/statutory boards in mid range
+  salary_min_sgd: 55000             # Entry-level officer / MAS analyst floor
+  salary_max_sgd: 85000             # Senior analyst / GLC management associate ceiling
+  ep_realistic: true
+
+ep_sponsorship: >
+  High for statutory boards and GLCs (GIC, Temasek, MAS, EDB, JTC, HDB, CPF Board,
+  CAAS) — these organisations actively recruit international talent and have the
+  headcount scale to absorb EP hires comfortably. COMPASS scores are generally not
+  a concern because agency headcounts and diversity ratios are managed at the portfolio
+  level. Medium-to-Low for Civil Service (Ministries) roles: many positions are restricted
+  to Singapore citizens or PRs. International students should focus on statutory boards
+  and GLCs, not core Civil Service.
+
+compass_score_typical: >
+  40–50 for statutory board / GLC analyst roles (S$55K–85K salary band anchors 15–25 pts;
+  top-tier degree adds 10 pts; diversity contribution varies by employer). COMPASS minimum
+  is 40 — most statutory board hires clear this comfortably. Note: Ministry-of-X roles may
+  be citizen-only regardless of COMPASS score; always check eligibility before applying.
+
+top_employers_smu:
+  - GIC (Government of Singapore Investment Corporation — investment analyst roles)
+  - Temasek Holdings (investment and portfolio management roles)
+  - MAS (Monetary Authority of Singapore — financial regulation, policy)
+  - EDB (Economic Development Board — investment promotion, policy)
+  - JTC Corporation (industrial estate development)
+  - CPF Board (policy and operations roles)
+  - HDB (urban planning, project management)
+  - CAAS (Civil Aviation Authority of Singapore)
+  - SkillsFuture Singapore
+  - Singapore Tourism Board
+
+recruiting_timeline: >
+  Management Associate (MA) programmes: applications typically open August–October for
+  a July/August start the following year. GIC and Temasek investment analyst roles often
+  run on a rolling basis with internship-conversion as the primary route. MAS, EDB, and
+  other statutory boards run structured Graduate Programmes that open August–November.
+  SMU career centre typically lists all statutory board openings on its portal — monitor
+  from August onward. Internships (10–12 weeks, May–July) follow a similar October–January
+  application window. Note: some boards run separate internship and full-time application
+  cycles — apply to both independently.
+
+international_realistic: true
+
+entry_paths:
+  - Management Associate / Graduate Programme (structured 2-3 year rotation, most common)
+  - Internship → return offer (primary route at GIC, Temasek investment divisions)
+  - Direct hire into analyst / officer role (statutory boards, rolling openings)
+  - Scholarship → bond (Public Service Commission scholarships bond to Ministries; citizen-only)
+  - Lateral from consulting or banking (common at EDB and investment-focused boards after 2-3 years)
+
+salary_range_2024: >
+  Statutory board analyst / Graduate Programme: S$55,000–75,000 base.
+  GIC / Temasek investment analyst: S$70,000–90,000 base (closer to finance market rates).
+  MAS / EDB analyst officer: S$60,000–80,000 base.
+  Source: SMU career centre salary survey 2024 (approximate — verify with current cohort data).
+
+typical_background: >
+  Broad — statutory boards value diverse academic backgrounds. Finance/Economics for MAS
+  and investment-track boards; Engineering/Planning for JTC/HDB/CAAS; Policy/Social
+  Sciences for social policy boards. GLCs (GIC, Temasek) are most competitive and skew
+  toward quantitative backgrounds similar to banking. Strong academic record matters more
+  here than in banking — GPA thresholds are often explicit.
+
+counselor_contact: >
+  [TODO: Fill in SMU career centre contact for public sector / GLC tracks — name, email,
+  and any specific drop-in slots or events for government-track students.]
+
+notes: >
+  Key insight for international students: statutory board internships are the most
+  accessible entry point. Many boards explicitly state they welcome international hires
+  for permanent roles — but confirm EP sponsorship intent before accepting an offer, as
+  policy can change. EDB in particular has a strong track record of sponsoring
+  international hires given its mandate to attract global investment talent.
+
+  GIC vs Temasek: GIC manages foreign reserves (more fixed-income, macro, alternatives);
+  Temasek manages direct equity stakes in portfolio companies (more private equity/corporate
+  finance oriented). Both are extremely selective — treat them as equivalent to BB IBD in
+  terms of competitiveness. Network through SMU's finance alumni pipeline from August.
+
+  MA programmes vs direct hire: MA programmes rotate across functions (2-3 placements)
+  and are better for students unsure of their specialisation. Direct analyst hires go
+  straight into a specific team — better if you have a clear domain focus. Apply to both
+  where offered.

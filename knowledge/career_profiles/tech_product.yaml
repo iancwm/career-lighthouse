@@ -1,0 +1,120 @@
+career_type: Technology and Product
+
+match_description: >
+  technology software engineering product management Google Meta FAANG Grab Sea
+  Shopee ByteDance startup LeetCode coding interview SWE APM associate product
+  manager Singapore tech MNC internship EP sponsorship
+
+# Machine-readable fields for filtering/dashboard use (e.g. KB Health profile list)
+structured:
+  sponsorship_tier: "High"          # High | Medium | Low — reflects MNC/unicorn primary targets
+  compass_points_typical: "50-65"   # range for MNC SWE/PM/DS roles
+  salary_min_sgd: 80000             # Tier 2 MNC / SEA unicorn SWE base floor
+  salary_max_sgd: 120000            # FAANG SWE base ceiling
+  ep_realistic: true
+
+ep_sponsorship: >
+  High at large tech MNCs with established Singapore entities (Google, Meta, Amazon, Microsoft,
+  Apple, Salesforce, SAP): these firms have well-established EP processes, dedicated HR for
+  immigration, and diverse enough workforces to absorb international hires with minimal
+  COMPASS friction. High at SEA tech unicorns/large startups (Grab, Sea/Shopee/Garena,
+  Gojek, Lazada, Stripe Singapore, Atlassian Singapore): these firms hire internationally by
+  default and have strong precedent. Medium at local tech companies and mid-size software
+  firms: EP cost and process adds friction; they may prefer Singapore citizens/PRs for
+  junior roles to avoid overhead. Low at early-stage startups (<50 employees): small headcount
+  means COMPASS quota sensitivity is highest; EP sponsorship is not assured even if the team
+  wants to hire you — confirm before investing in the process.
+
+compass_score_typical: >
+  50–65 for software engineering roles at MNCs (S$80,000–110,000 starting salaries clear
+  the salary criterion at 25–30 pts; CS/engineering degree adds 10 pts; young tech workforce
+  boosts diversity component). Product management roles at S$80,000–100,000 score similarly.
+  Data science/ML roles at MNCs often reach 55–65 given higher salary bands.
+  Junior roles at local companies (S$50,000–65,000) may score 35–42 — borderline; confirm
+  employer's existing headcount composition before accepting below-market offers expecting EP.
+
+top_employers_smu:
+  - Google (Singapore APAC hub — SWE, PM, Data)
+  - Meta (Singapore Engineering)
+  - Amazon / AWS (Singapore data center + regional HQ)
+  - Microsoft (Singapore — Azure, enterprise sales, SWE)
+  - Grab (Singapore HQ — SWE, product, data science, ML)
+  - Sea Limited / Shopee / Garena / SeaMoney (Singapore HQ)
+  - Stripe (Singapore APAC engineering)
+  - Atlassian (Singapore engineering hub)
+  - ByteDance / TikTok (Singapore regional hub)
+  - Salesforce (Singapore — enterprise SaaS)
+  - Gojek (Singapore tech hub)
+  - Palantir (Singapore — forward deployed engineering)
+  - Workday, ServiceNow, Adobe (Singapore engineering)
+
+recruiting_timeline: >
+  Tech recruiting is year-round but clusters in two waves:
+  Main wave (SWE/PM): applications September–December for summer internships (May–August);
+  full-time new grad hiring September–February for August/January starts.
+  Off-cycle: many tech MNCs do rolling internship and new grad hiring throughout the year;
+  Grab and Sea in particular hire continuously.
+  SMU career centre runs a tech-specific networking event in October; SCIS (School of Computing
+  and Information Systems) has dedicated industry connections — SCIS students should engage
+  their school's career team in addition to the central career centre.
+  Coding interviews (LeetCode-style) are universal at FAANG+ and most tech MNCs — begin
+  prep 2–3 months before target application window.
+
+international_realistic: true
+
+entry_paths:
+  - Software engineering internship → return offer (standard; MNC conversion rate ~50–70%)
+  - Product management internship → APM/RPM programme (competitive; Google APM, Meta RPM etc.)
+  - Data science / analytics internship → full-time conversion
+  - Graduate new hire (direct full-time, common at Grab, Sea, and non-FAANG MNCs)
+  - Bootcamp / portfolio projects → junior SWE (viable for strong portfolios, less so for
+    PM roles which typically require degree + internship experience)
+  - MBA associate PM hire (career-change route into product)
+
+salary_range_2024: >
+  FAANG SWE (Google, Meta, Amazon): S$90,000–120,000 base + RSUs (often matching or
+  exceeding base); total comp S$130,000–180,000+ in first year.
+  Tier 2 MNC / SEA unicorn SWE (Grab, Sea, Stripe, Atlassian): S$80,000–100,000 base +
+  equity; total comp S$100,000–150,000.
+  Product Manager (mid-tier MNC): S$80,000–105,000 base.
+  Data Science (MNC): S$75,000–100,000 base.
+  Local tech / startups: S$50,000–75,000 base, equity upside variable.
+  Source: SMU career centre salary survey 2024 + Levels.fyi Singapore data (approximate).
+
+typical_background: >
+  SWE roles: Computer Science, Information Systems, Engineering (any), or Applied Math.
+  Practical coding ability (demonstrated via internships, projects, Kaggle, GitHub) matters
+  more than degree name. SMU SCIS graduates (Information Systems, CS) well-placed at Grab,
+  Sea, local tech, and increasingly at MNCs.
+  PM roles: Any degree; business/IS hybrid backgrounds common. PM internship experience
+  is almost a hard requirement for APM programmes at FAANG. Side projects and product
+  teardowns in portfolio help differentiate.
+  Data Science roles: Statistics, Applied Math, CS, or IS with strong ML coursework.
+  Kaggle competitions and published notebooks are genuine differentiators.
+
+counselor_contact: >
+  [TODO: Fill in SMU career centre contact for tech track — name, email, SCIS-specific
+  career counselor if applicable, and any tech networking events or recruiting prep sessions.]
+
+notes: >
+  LeetCode preparation: SWE interviews at FAANG and most Tier 1 tech require medium/hard
+  LeetCode proficiency. Students targeting Google, Meta, or Amazon should complete 150+
+  problems with emphasis on arrays, trees, graphs, and dynamic programming — not optional.
+  Blind (teamblind.com) and LeetCode Singapore groups have Singapore-specific interview
+  reports that are worth reading.
+
+  Grab / Sea vs. FAANG trade-off: Grab and Sea (Shopee) are genuinely strong employers
+  for international students — high EP sponsorship reliability, strong regional brand for
+  SEA career paths, and accelerated growth compared to large MNC structures. Students who
+  overlook them while only targeting FAANG are making a mistake.
+
+  Product Management reality check: PM roles at FAANG in Singapore are rare for fresh
+  graduates without prior PM internship experience at a recognisable company. APM/RPM
+  programmes (Google, Meta) are the legitimate fresh-grad path — apply in October,
+  expect 5–7 rounds. For students without an APM offer, Grab and Sea's PM associate
+  programmes are the best alternative entry point in Singapore.
+
+  Remote work caveat for EP: If you receive a job offer with the option to work remotely
+  from your home country, that arrangement does NOT require or provide an EP. EP is only
+  relevant for physically working in Singapore. Make sure your offer includes Singapore-
+  based employment before assuming EP sponsorship is in play.

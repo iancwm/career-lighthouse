@@ -1,0 +1,106 @@
+career_type: General Singapore Job Market
+
+match_description: >
+  Singapore career advice job market general guidance not sure undecided
+  exploring options international student COMPASS EP sponsorship work visa
+  salary fresh graduate career counselor SMU
+
+# Excluded from query-time cosine switching — only activated via intake (interest: not_sure/unknown).
+# A student asking a generic question should stay on their intake-derived track, not drift to this.
+match_cosine: false
+
+# Machine-readable fields for filtering/dashboard use (e.g. KB Health profile list)
+structured:
+  sponsorship_tier: "Varies — see specific career track"
+  compass_points_typical: "Varies — see specific career track"
+  salary_min_sgd: 45000             # broad market floor for fresh grad roles
+  salary_max_sgd: 95000             # broad market ceiling for competitive tracks
+  ep_realistic: true
+
+ep_sponsorship: >
+  Varies significantly by employer size and industry. Large MNCs (banks, tech firms,
+  consulting firms) generally have the headcount and diversity ratios to sponsor EPs
+  comfortably. SMEs and startups carry more risk — EP sponsorship is feasible but not
+  guaranteed, and COMPASS quota pressure is felt more acutely at smaller employers.
+  Rule of thumb: firms with > 200 Singapore-based employees are lower risk for EP
+  sponsorship. Always confirm explicitly before accepting any offer.
+
+  COMPASS basics: Your individual score is anchored by salary (roughly 20-25 pts for
+  S$60K+), degree qualification (10 pts from a top university), and bonus factors
+  (regional language skills, shortage occupations). The employer's quota component
+  depends on their workforce nationality ratios — you cannot control this. Target firms
+  with internationally distributed workforces.
+
+compass_score_typical: >
+  Varies — see specific career track for detailed scoring. For reference:
+  - Finance/tech roles at BBs/MNCs: 45-55 pts (comfortably above 40 minimum)
+  - Consulting at MBB: 45-55 pts (similar salary band)
+  - SME analyst roles (S$45K–55K): 30-38 pts (borderline — individual situation matters)
+  If you are unsure of your COMPASS score, use the MOM online checker with your expected
+  offer salary to get an estimate before signing.
+
+top_employers_smu:
+  - Goldman Sachs / JPMorgan / Morgan Stanley (finance)
+  - McKinsey / BCG / Bain (consulting)
+  - Google / Meta / Grab / Sea (tech)
+  - GIC / Temasek / MAS / EDB (public sector)
+  - Deloitte / PwC / EY / KPMG (Big 4 — tax, advisory, assurance)
+  - Procter & Gamble / Unilever / Nestlé (FMCG management trainee)
+  - DBS / OCBC / UOB (local banks — multiple tracks)
+
+recruiting_timeline: >
+  Finance (BB/IBD): applications October–January for summer internships (June–August start).
+  Consulting (MBB): applications September–November; case interview prep starts August.
+  Tech (FAANG/regional): rolling, but campus recruiting peaks October–February.
+  Public sector (statutory boards): MA programmes August–November; direct roles rolling.
+  Big 4: applications October–January for July/August start.
+  General rule: start building your shortlist in August, apply by November for competitive
+  roles. SMU career centre events in September–October are key networking touchpoints.
+
+international_realistic: true
+
+entry_paths:
+  - Internship → return offer (primary route across all competitive employers)
+  - Management Associate / Graduate Programme (structured rotation; open at banks, GLCs, FMCG)
+  - Direct graduate hire (tech, Big 4, some consulting)
+  - Lateral after 1-3 years elsewhere (common for career switchers from Big 4 or regional firms)
+
+salary_range_2024: >
+  Fresh graduate range varies widely by track:
+  - Finance (BB): S$85,000–95,000 base
+  - Consulting (MBB): S$85,000–100,000 base
+  - Tech (FAANG): S$80,000–110,000 base + stock
+  - Public sector (statutory boards): S$55,000–80,000 base
+  - Big 4 (advisory/assurance): S$50,000–65,000 base
+  - General MNC (FMCG, commercial): S$45,000–65,000 base
+  Source: SMU career centre salary survey 2024 (approximate — verify with current cohort data).
+
+typical_background: >
+  Depends on target sector. In general, Singapore employers value: strong GPA (top-20%
+  cohort or above), demonstrated internship experience (1-2 relevant internships), and
+  leadership activities (club president, competition wins, project leadership). For
+  international students, regional language skills (Bahasa Indonesia/Malaysia, Mandarin,
+  Hindi, Thai) are a concrete differentiator for APAC-coverage roles at any firm type.
+
+counselor_contact: >
+  [TODO: Fill in SMU career centre general enquiry contact — name, email, walk-in hours,
+  and any career fair schedule for the current year.]
+
+notes: >
+  If you are exploring the Singapore job market without a clear sector focus, the most
+  important first step is narrowing your target. Singapore's job market rewards specificity
+  — a student who says "I'm targeting IBD internships at bulge-brackets" will get better
+  advice, better referrals, and better interview prep than one who says "I'm open to
+  anything in finance."
+
+  Three questions to help you narrow down:
+  1. Do you prefer client-facing work (consulting, sales, coverage banking) or
+     analytical/execution work (quant, structuring, product)?
+  2. Do you prefer fast career progression + high intensity (banking, consulting) or
+     steadier pace + broader exposure (public sector, FMCG)?
+  3. Do you want to stay in Singapore long-term (public sector, local banks tend to be
+     more stable EP sponsors) or use Singapore as a launching pad (BBs, MBB, FAANG
+     have global mobility)?
+
+  Your counsellor at the SMU career centre can help you map your background to realistic
+  target lists — book an appointment as early as possible in the semester.

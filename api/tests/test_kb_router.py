@@ -226,3 +226,54 @@ class TestKBHealthQueryLog:
         data = r.json()
         # avg_match_score should only reflect the recent entry (0.9), not 0.1
         assert data["avg_match_score"] == pytest.approx(0.9, abs=0.001)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/kb/career-profiles
+# ---------------------------------------------------------------------------
+
+class TestCareerProfilesEndpoint:
+    def test_returns_empty_list_when_no_profiles_loaded(self, in_memory_qdrant, mock_embedder):
+        from main import app
+        from services.career_profiles import get_career_profile_store
+        from unittest.mock import MagicMock
+
+        mock_ps = MagicMock()
+        mock_ps.list_profiles.return_value = []
+        app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        r = client.get("/api/kb/career-profiles")
+
+        assert r.status_code == 200
+        assert r.json() == []
+
+    def test_returns_profile_metadata_list(self, in_memory_qdrant, mock_embedder):
+        from main import app
+        from services.career_profiles import get_career_profile_store
+        from unittest.mock import MagicMock
+
+        mock_ps = MagicMock()
+        mock_ps.list_profiles.return_value = [
+            {
+                "slug": "investment_banking",
+                "career_type": "Investment Banking",
+                "ep_tier": "High",
+                "ep_realistic": True,
+                "salary_min_sgd": 85000,
+                "salary_max_sgd": 95000,
+                "compass_points_typical": "45-55",
+                "has_counselor_contact": False,
+            },
+        ]
+        app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        r = client.get("/api/kb/career-profiles")
+
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) == 1
+        assert data[0]["slug"] == "investment_banking"
+        assert data[0]["career_type"] == "Investment Banking"
+        assert data[0]["ep_tier"] == "High"
