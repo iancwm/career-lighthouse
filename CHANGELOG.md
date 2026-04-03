@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.2.1] - 2026-04-03
+
+### Added
+- **Config externalization**: all hardcoded constants moved to `api/cfg/` YAML files — `model.yaml` (LLM model, embedding dim, history window, prompt templates, school name), `kb.yaml` (Qdrant collection, KB thresholds, log window), `career_profiles.yaml` (match threshold, required fields, intake map). Thin `api/cfg.py` loader exposes them as module-level dicts.
+- **`CareerProfileStore.invalidate()`**: resets in-memory profile cache on demand; counsellor-updated YAML files are picked up on next request without API restart.
+
+### Fixed
+- **Filename sanitization at ingest boundary**: `_sanitize_filename()` in `ingest_router.py` rejects null bytes, control chars, path separators, and shell metacharacters; allowlist: alphanumeric + `. - _ ` (space); max 255 chars; returns HTTP 400 on violation.
+- **Career profile cache after upload**: calling `/api/ingest` now invalidates `CareerProfileStore` so new YAML files written during a session are reflected immediately.
+
 ## [0.1.2.0] - 2026-03-25
 
 ### Added
