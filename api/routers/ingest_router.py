@@ -1,18 +1,45 @@
 # api/routers/ingest_router.py
 import logging
+import re
 import numpy as np
-from fastapi import APIRouter, Depends, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 logger = logging.getLogger(__name__)
 
 from dependencies import get_embedder, get_vector_store
 from models import IngestResponse
 from services import health_cache
+from services.career_profiles import get_career_profile_store
 from services.embedder import Embedder
 from services.ingestion import prepare_document
 from services.vector_store import VectorStore
 
 router = APIRouter(prefix="/api")
+
+_FILENAME_ALLOWLIST = re.compile(r"^[A-Za-z0-9._\- ]+$")
+_FILENAME_MAX_LEN = 255
+
+
+def _sanitize_filename(raw: str | None) -> str:
+    """Validate and sanitize an attacker-controlled multipart filename.
+
+    Rejects null bytes, control characters, path separators, and characters
+    outside the allowlist (alphanumeric, dot, hyphen, underscore, space).
+    Returns the sanitized name, or raises HTTP 400 for invalid inputs.
+    """
+    name = (raw or "upload.txt").strip()
+    # Strip leading path separators (path traversal guard)
+    name = name.lstrip("/\\")
+    if not name:
+        raise HTTPException(status_code=400, detail="Filename must not be empty.")
+    if len(name) > _FILENAME_MAX_LEN:
+        raise HTTPException(status_code=400, detail=f"Filename exceeds {_FILENAME_MAX_LEN} characters.")
+    if any(c < " " for c in name):  # null bytes and control characters
+        raise HTTPException(status_code=400, detail="Filename contains invalid characters.")
+    if not _FILENAME_ALLOWLIST.match(name):
+        raise HTTPException(status_code=400, detail="Filename contains invalid characters. Use letters, numbers, spaces, dots, hyphens, or underscores.")
+    return name
+
 
 # Deduplication: if > 30% of new chunks score ≥ 0.85 against a chunk from a
 # DIFFERENT document, emit a similarity_warning.
@@ -62,7 +89,7 @@ async def ingest(
     store: VectorStore = Depends(get_vector_store),
 ):
     content = await file.read()
-    filename = file.filename or "upload.txt"
+    filename = _sanitize_filename(file.filename)
 
     # Prepare (parse + chunk + embed) BEFORE deleting the existing version.
     # This ensures that if parsing or embedding fails, the previous document
@@ -97,8 +124,9 @@ async def ingest(
     # Store the document
     if points:
         store.upsert(points)
-        # Invalidate the overlap pairs cache — KB has changed
+        # Invalidate caches — KB has changed
         health_cache.invalidate_overlap_cache()
+        get_career_profile_store().invalidate()
 
     # Build similarity warning if overlap exceeds threshold
     similarity_warning: str | None = None
