@@ -25,54 +25,14 @@ from typing import Optional
 import numpy as np
 import yaml
 
+from cfg import career_profiles_cfg
+
 logger = logging.getLogger(__name__)
 
-# Cosine similarity threshold for query-time career type switching.
-# Pre-validate before changing: cd api && uv run python ../scripts/validate_profiles.py --threshold-check
-#
-# Current status: EFFECTIVELY DISABLED (threshold > max possible cosine of 1.0).
-#
-# Threshold validation (2026-03-23) showed all-MiniLM-L6-v2 produces max cosine scores
-# of 0.50–0.52 between keyword-list match_descriptions and full conversational questions.
-# Worse: some questions scored higher against the WRONG track than the correct one,
-# meaning any usable threshold would cause false positives (switching to wrong profile).
-#
-# For the demo: intake → active_career_type echo handles profile persistence reliably.
-# Profile switching mid-conversation can be revisited post-demo with a better approach:
-#   - Keyword matching (check for firm/role names in message text)
-#   - LLM-based classification (one extra API call per message)
-#   - A model trained for query classification rather than semantic similarity
-_CAREER_TYPE_MATCH_THRESHOLD = 1.01
-
-# Required top-level fields for a profile to be considered valid.
-_REQUIRED_FIELDS = frozenset({
-    "career_type",
-    "ep_sponsorship",
-    "top_employers_smu",
-    "recruiting_timeline",
-    "international_realistic",
-    "entry_paths",
-    "salary_range_2024",
-    "typical_background",
-})
-
-# Intake interest value → career type slug mapping.
-# Keys are normalised (lowercased, spaces → underscores).
-_INTAKE_INTEREST_MAP: dict[str, str] = {
-    "finance": "investment_banking",
-    "banking": "investment_banking",
-    "investment_banking": "investment_banking",
-    "consulting": "consulting",
-    "tech": "tech_product",
-    "technology": "tech_product",
-    "product": "tech_product",
-    "tech_product": "tech_product",
-    "public_sector": "public_sector",
-    "government": "public_sector",
-    "glc": "public_sector",
-    "public_sector_glcs": "public_sector",
-}
-_DEFAULT_CAREER_TYPE = "general_singapore"
+_CAREER_TYPE_MATCH_THRESHOLD: float = career_profiles_cfg["match_threshold"]
+_REQUIRED_FIELDS: frozenset = frozenset(career_profiles_cfg["required_fields"])
+_INTAKE_INTEREST_MAP: dict[str, str] = career_profiles_cfg["intake_interest_map"]
+_DEFAULT_CAREER_TYPE: str = career_profiles_cfg["default_career_type"]
 
 
 def resolve_career_type_from_intake(interest: Optional[str]) -> str:
@@ -257,6 +217,14 @@ class CareerProfileStore:
         if best_score >= _CAREER_TYPE_MATCH_THRESHOLD:
             return best_slug
         return None
+
+    def invalidate(self) -> None:
+        """Reset the loaded flag so profiles are reloaded on next access.
+
+        Called after any ingest operation so counsellor-updated YAML files are
+        picked up without restarting the API.
+        """
+        self._loaded = False
 
     def list_profiles(self) -> list[dict]:
         """Return metadata for all loaded profiles (for the admin /career-profiles endpoint).

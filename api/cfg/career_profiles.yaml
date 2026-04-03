@@ -1,0 +1,36 @@
+# Cosine similarity threshold for query-time career type switching.
+# Pre-validate before changing: cd api && uv run python ../scripts/validate_profiles.py --threshold-check
+#
+# Current status: EFFECTIVELY DISABLED (threshold > max possible cosine of 1.0).
+# all-MiniLM-L6-v2 produces max cosine scores of 0.50–0.52 on test queries.
+# See TODOS.md: "Replace cosine career type switching with keyword matching"
+match_threshold: 1.01
+
+default_career_type: "general_singapore"
+
+# Required top-level fields for a profile to be considered valid.
+required_fields:
+  - career_type
+  - ep_sponsorship
+  - top_employers_smu
+  - recruiting_timeline
+  - international_realistic
+  - entry_paths
+  - salary_range_2024
+  - typical_background
+
+# Intake interest value → career type slug mapping.
+# Keys are normalised at lookup time (lowercased, spaces/hyphens → underscores).
+intake_interest_map:
+  finance: investment_banking
+  banking: investment_banking
+  investment_banking: investment_banking
+  consulting: consulting
+  tech: tech_product
+  technology: tech_product
+  product: tech_product
+  tech_product: tech_product
+  public_sector: public_sector
+  government: public_sector
+  glc: public_sector
+  public_sector_glcs: public_sector

@@ -33,17 +33,18 @@ from services.career_profiles import CareerProfileStore, get_career_profile_stor
 from services.embedder import Embedder  # used by test-query only
 from services.vector_store import VectorStore
 from config import settings
+from cfg import kb_cfg
 
 router = APIRouter(prefix="/api/kb")
 logger = logging.getLogger(__name__)
 
-# Thresholds
-_COVERAGE_THIN_THRESHOLD = 20       # chunks; below this → "thin"
-_LOW_CONFIDENCE_THRESHOLD = 0.35    # max_score below this → low-confidence query
-_OVERLAP_SCORE_THRESHOLD = 0.85     # similarity score that indicates duplicate chunk
-_OVERLAP_PCT_THRESHOLD = 0.30       # fraction of chunks that must overlap to flag pair
-_LOG_WINDOW_DAYS = 7                # rolling window for query log metrics
-_MAX_LOW_CONF_QUERIES = 20          # max items in low_confidence_queries list
+_thresholds = kb_cfg["thresholds"]
+_COVERAGE_THIN_THRESHOLD = _thresholds["coverage_thin"]
+_LOW_CONFIDENCE_THRESHOLD = _thresholds["low_confidence"]
+_OVERLAP_SCORE_THRESHOLD = _thresholds["overlap_score"]
+_OVERLAP_PCT_THRESHOLD = _thresholds["overlap_pct"]
+_LOG_WINDOW_DAYS = kb_cfg["log_window_days"]
+_MAX_LOW_CONF_QUERIES = kb_cfg["max_low_conf_queries"]
 
 
 class TestQueryRequest(BaseModel):

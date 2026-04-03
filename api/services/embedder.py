@@ -1,7 +1,9 @@
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-_MODEL_NAME = "all-MiniLM-L6-v2"
+from cfg import model_cfg
+
+_MODEL_NAME = model_cfg["embedding"]["model"]
 
 
 class Embedder:

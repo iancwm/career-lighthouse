@@ -1,0 +1,11 @@
+storage:
+  collection: "knowledge"  # Qdrant collection name
+
+thresholds:
+  coverage_thin: 20       # chunks; docs below this are flagged as "thin"
+  low_confidence: 0.35    # max_score below this → query flagged as low-confidence
+  overlap_score: 0.85     # chunk similarity score that indicates a duplicate
+  overlap_pct: 0.30       # fraction of chunks that must overlap to flag a doc pair
+
+log_window_days: 7        # rolling window for query log metrics
+max_low_conf_queries: 20  # max items returned in low_confidence_queries list

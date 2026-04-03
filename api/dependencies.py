@@ -4,6 +4,7 @@ from qdrant_client import QdrantClient
 from services.embedder import Embedder
 from services.vector_store import VectorStore
 from config import settings
+from cfg import kb_cfg, model_cfg
 
 
 @lru_cache
@@ -25,6 +26,6 @@ def get_embedder() -> Embedder:
 @lru_cache
 def get_vector_store() -> VectorStore:
     client = get_qdrant_client()
-    store = VectorStore(client=client, collection="knowledge")
-    store.ensure_collection(dim=384)
+    store = VectorStore(client=client, collection=kb_cfg["storage"]["collection"])
+    store.ensure_collection(dim=model_cfg["embedding"]["dim"])
     return store
