@@ -58,10 +58,53 @@
 **Context:** Accepted risk for pre-launch private network deployment. The design doc (iancwm-main-design-20260322-160902.md) contains an explicit risk acceptance note. Must resolve before any public-facing deployment.
 **Depends on:** Broader API auth strategy — do this when auth is added to the rest of the API, not in isolation.
 
-### Sanitize file.filename at ingest boundary
-**What:** Validate and sanitize `file.filename` in `ingest_router.py` before using it as the document ID — strip path separators, enforce a max length (~255 chars), and reject filenames with null bytes or control characters.
-**Why:** `file.filename` is an attacker-controlled multipart header. Currently stored verbatim in Qdrant and displayed in the admin UI. No filesystem operations key on it today, but it creates a path traversal foothold if any future code reads/writes files by this name. Reject bad inputs early rather than add guards at each future callsite.
-**Pros:** Eliminates a trust boundary violation; cheap to add (3-4 lines at ingest entry point).
-**Cons:** Could reject legitimate filenames with unusual characters — use a permissive allowlist (alphanumeric + `.-_`) rather than a strict blocklist.
-**Context:** Found during adversarial review in Ship 2 (2026-03-23). No immediate vulnerability — no FS ops currently use this value. Add before any public-facing deployment.
-**Depends on:** None. Self-contained change to `ingest_router.py`.
+### ~~Sanitize file.filename at ingest boundary~~ ✓ Done (v0.1.2.1)
+`_sanitize_filename()` added to `ingest_router.py`. Allowlist: alphanumeric + `.-_ `. Rejects null bytes, control chars, path separators, shell metacharacters. Returns HTTP 400. 13 parametrized tests cover attack vectors and valid inputs.
+
+### FastAPI-level auth on new /api/kb/* write endpoints (Sprint 3)
+**What:** Sprint 3 adds write endpoints (`POST /api/kb/analyse`, `POST /api/kb/commit-analysis`, `PUT /api/kb/career-profiles/{slug}`, `DELETE /api/kb/career-profiles/{slug}`) with no FastAPI-level auth guard — only Next.js middleware blocks unauthenticated access.
+**Why:** Write endpoints that modify the KB, YAML profiles, and Qdrant are higher risk than the existing read-only endpoints. A direct HTTP call bypassing the frontend can commit arbitrary chunks or delete profiles.
+**Pros:** Defense in depth; safe to expose API without trusting frontend auth alone.
+**Cons:** Same as above — requires a system-wide auth scheme first.
+**Context:** Found during Sprint 3 eng review (2026-04-02). Confirmed by Codex outside voice. All new /api/kb/* endpoints have the same `TODO: Add Depends() auth guard` comment as existing endpoints. Accepted risk for pre-launch pilot deployment.
+**Depends on:** Broader API auth strategy. Resolve together with existing `/api/kb/health` and `/api/kb/test-query` auth TODO.
+
+### File upload size limit — /api/ingest and /api/kb/analyse
+**What:** Neither `/api/ingest` nor the planned `/api/kb/analyse` enforce a maximum file size. A large PDF (100MB+) would block a thread pool worker for minutes.
+**Why:** Pre-launch counsellor-only tool means no adversarial users, so risk is low. But an accidental large upload during a demo would be jarring.
+**Pros:** Simple FastAPI size check (e.g., `if len(await file.read()) > 10_000_000: raise HTTPException(400)`). Fast to implement.
+**Cons:** None significant.
+**Context:** Found during Sprint 3 eng review (2026-04-02). Apply to both endpoints in one PR. The filename sanitization work (v0.1.2.1) is the natural precedent.
+**Depends on:** None. Self-contained change to both router files.
+
+---
+
+## Data / Deployment
+
+### structured: values diverge from prose field edits after profile editor write
+**What:** When a counsellor edits prose fields (e.g., `ep_sponsorship`) via the Career Profile Editor, the `structured:` sub-block (e.g., `sponsorship_tier`) is preserved unchanged — the form doesn't manage those fields. Over time, `structured:` and prose fields describe different realities.
+**Why:** `structured:` is reserved for machine-readable access (tool calls, future filtering). After Sprint 3, `list_profiles()` drops `ep_tier` etc. from the response shape, so divergence is invisible. But if Sprint 4 exposes `structured:` via tool calls, stale values would produce wrong answers.
+**Pros of fixing:** Consistent machine-readable metadata; prevents silent errors in tool-call access.
+**Cons:** Requires mapping between prose field changes and `structured:` equivalents (e.g., ep_sponsorship text → sponsorship_tier). Non-trivial.
+**Context:** Found during Sprint 3 eng review (2026-04-02). Accepted as tech debt for Sprint 3 (`yaml.safe_dump` also strips YAML comments on first save — documented). Also note: `yaml.safe_dump` strips all inline comments from profile YAMLs on first write via the editor. Comments are developer orientation only; field values survive.
+**Depends on:** Sprint 3 Profile Editor (Feature 2). Address in Sprint 4 if `structured:` fields are actively consumed.
+
+### PDPA wording — query digest is not "anonymised aggregates"
+**What:** The design doc and code describe the Student Interaction Digest as "anonymised aggregates". In reality, `top_queries` and `gap_queries` contain raw student query text. The existing `query_log.jsonl` stores raw query text and timestamps; `LowConfidenceLog` already renders them in the admin UI.
+**Why:** Student query text ("How do I get into Goldman Sachs?") is not personally identifiable under PDPA, so this is not a compliance breach. However, calling it "anonymised" is technically inaccurate and could cause friction during a formal SMU IT review for pilot onboarding.
+**Pros of fixing:** Accurate documentation; no surprises in a PDPA review.
+**Cons:** Wording change only — no code impact.
+**Context:** Found during Sprint 3 eng review (2026-04-02). Fix: replace "anonymised aggregates" with "query aggregates" in the design doc, code comments, and any admin UI copy that uses this phrase. Resolve before any formal pilot deployment with SMU IT involvement.
+**Depends on:** None. Wording change in design doc + UI copy.
+
+---
+
+## UX / Polish
+
+### Unsaved changes warning — KnowledgeUpdateTab mid-flow navigation
+**What:** When the counsellor has a diff loaded in KnowledgeUpdateTab and clicks to another admin tab, the diff state is silently discarded. Add a browser `beforeunload`-style warning or an inline "You have unsaved changes — leave anyway?" confirmation dialog.
+**Why:** At pre-launch scale (1-2 counsellors), silent state loss is acceptable. But if analysis takes 5-10 seconds and the counsellor accidentally navigates away, they lose the diff and must re-run analysis.
+**Pros:** Prevents accidental work loss; standard UX for forms with unsaved state.
+**Cons:** React router tab-switching doesn't trigger `beforeunload` — requires a custom `useEffect` on route change or a tab-change interceptor. Minor complexity.
+**Context:** Found during Sprint 3 design review (2026-04-03). The plan explicitly notes state is discarded on tab switch. Deferred at pre-launch scale.
+**Depends on:** None. Add to KnowledgeUpdateTab when multi-counsellor use increases or after first counsellor reports losing a diff.
