@@ -1,8 +1,10 @@
 # api/routers/kb_router.py
-"""KB observability endpoints.
+"""KB observability and diff-first ingestion endpoints.
 
-POST /api/kb/test-query  — test a query, returns top-5 chunks with scores
-GET  /api/kb/health      — KB health metrics for the admin dashboard
+POST /api/kb/test-query       — test a query, returns top-5 chunks with scores
+GET  /api/kb/health           — KB health metrics for the admin dashboard
+POST /api/kb/analyse          — analyse counsellor input, return diff (no writes)
+POST /api/kb/commit-analysis  — commit a counsellor-approved diff to KB and YAMLs
 
 Auth note: These endpoints are protected by Next.js middleware (web/middleware.ts)
 which blocks unauthenticated requests to /admin. No FastAPI-level auth guard is
@@ -13,25 +15,36 @@ TODO: Add Depends() auth guard before any public-facing deployment.
 import json
 import logging
 import os
+import uuid
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException
+import yaml
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
 
 from dependencies import get_embedder, get_vector_store
 from models import (
+    AlreadyCovered,
     DocCoverageItem,
+    KBAnalysisResult,
+    KBCommitRequest,
+    KBCommitResponse,
     KBHealthResponse,
     LowConfidenceQuery,
+    NewChunk,
     OverlapPair,
+    ProfileFieldChange,
     TestQueryResult,
 )
 from services import health_cache
 from services.career_profiles import CareerProfileStore, get_career_profile_store
-from services.embedder import Embedder  # used by test-query only
+from services.embedder import Embedder
+from services.ingestion import chunk_text, parse_file
 from services.vector_store import VectorStore
+from services import llm as llm_service
 from config import settings
 from cfg import kb_cfg
 
@@ -49,6 +62,48 @@ _MAX_LOW_CONF_QUERIES = kb_cfg["max_low_conf_queries"]
 
 class TestQueryRequest(BaseModel):
     query: str
+
+
+# ---------------------------------------------------------------------------
+# Sprint 3 helpers
+# ---------------------------------------------------------------------------
+
+def _first_sentence(text: str, max_chars: int = 120) -> str:
+    """Extract first sentence up to max_chars — mirrors notebook spec."""
+    if not text:
+        return ""
+    text = str(text).strip()
+    dot = text.find(".")
+    if dot != -1 and dot < max_chars:
+        return text[: dot + 1]
+    return text[:max_chars]
+
+
+def _build_profile_summary(store: CareerProfileStore) -> str:
+    """Build the CURRENT CAREER PROFILE FIELDS block for the diff prompt."""
+    profiles = store.list_profiles()
+    lines = []
+    for meta in profiles:
+        slug = meta["slug"]
+        profile = store.get_profile(slug)
+        if not profile:
+            continue
+        ep = _first_sentence(str(profile.get("ep_sponsorship", "")))
+        compass = _first_sentence(str(profile.get("compass_score_typical", "")))
+        timeline = _first_sentence(str(profile.get("recruiting_timeline", "")))
+        notes = _first_sentence(str(profile.get("notes", "")))
+        lines.append(
+            f"{slug}: ep_sponsorship={ep} | compass={compass} | "
+            f"recruiting_timeline={timeline} | notes={notes}"
+        )
+    return "\n".join(lines)
+
+
+def _profiles_dir() -> Path:
+    return Path(os.environ.get(
+        "CAREER_PROFILES_DIR",
+        str(Path(__file__).parent.parent.parent / "knowledge" / "career_profiles"),
+    ))
 
 
 # ---------------------------------------------------------------------------
@@ -170,6 +225,197 @@ def career_profiles(
     See TODOS.md: "FastAPI-level auth on /api/kb/* endpoints"
     """
     return profile_store.list_profiles()
+
+
+@router.post("/analyse", response_model=KBAnalysisResult)
+def analyse(
+    text: str = Form(None),
+    source_type: str = Form("note"),
+    file: UploadFile = File(None),
+    embedder: Embedder = Depends(get_embedder),
+    store: VectorStore = Depends(get_vector_store),
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    """Analyse counsellor input and return a structured KB diff.
+
+    Accepts either a text note (form field 'text') or a file upload.
+    Does NOT write to the KB — returns KBAnalysisResult for counsellor review.
+
+    Auth note: protected by Next.js middleware only (same as /health).
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    # --- 1. Extract counsellor input text ---
+    if source_type == "file" and file is not None:
+        raw_bytes = file.file.read()
+        fname = file.filename or "upload.txt"
+        try:
+            counsellor_input = parse_file(raw_bytes, fname)
+        except Exception as exc:
+            logger.warning("analyse: failed to parse uploaded file %r: %s", fname, exc)
+            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
+        source_label = fname
+    else:
+        if not text or not text.strip():
+            raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
+        counsellor_input = text.strip()
+        source_label = "counsellor_note"
+
+    # --- 2. Embed and retrieve top-10 KB chunks ---
+    try:
+        chunks_for_query = chunk_text(counsellor_input, max_tokens=256)
+        query_text = chunks_for_query[0] if chunks_for_query else counsellor_input
+        query_vec = embedder.encode(query_text)
+        retrieved = store.search(query_vec, top_k=10)
+    except Exception as exc:
+        logger.error("analyse: KB search failed: %s", exc)
+        raise HTTPException(status_code=503, detail="KB unavailable")
+
+    # --- 3. Build profile summary for the diff prompt ---
+    profile_summary = _build_profile_summary(profile_store)
+
+    # --- 4. Call Claude ---
+    try:
+        raw = llm_service.analyse_kb_input(counsellor_input, retrieved, profile_summary)
+    except ValueError as exc:
+        logger.warning("analyse: Claude returned malformed JSON: %s", exc)
+        raise HTTPException(
+            status_code=422,
+            detail="Analysis failed — please try again or rephrase your input.",
+        )
+    except Exception as exc:
+        logger.error("analyse: LLM call failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Analysis service unavailable")
+
+    # --- 5. Validate and fill chunk_ids ---
+    try:
+        result = KBAnalysisResult(**raw)
+    except Exception as exc:
+        logger.warning("analyse: Pydantic validation failed: %s | raw=%r", exc, str(raw)[:300])
+        raise HTTPException(
+            status_code=422,
+            detail="Analysis failed — please try again or rephrase your input.",
+        )
+
+    for i, chunk in enumerate(result.new_chunks):
+        chunk.source_label = source_label
+        chunk.source_type = source_type if source_type in ("note", "file") else "note"
+        # Content-based chunk_id: same text → same ID (idempotent re-commit),
+        # different text → different ID (no clobbering across distinct notes).
+        content_key = chunk.text.strip()[:120]
+        chunk.chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_label}::{content_key}"))
+
+    return result
+
+
+@router.post("/commit-analysis", response_model=KBCommitResponse)
+def commit_analysis(
+    req: KBCommitRequest,
+    embedder: Embedder = Depends(get_embedder),
+    store: VectorStore = Depends(get_vector_store),
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    """Commit a counsellor-approved KB diff.
+
+    Upserts new chunks to Qdrant, writes updated YAML fields to profile files,
+    then invalidates caches so changes are reflected immediately.
+
+    Auth note: protected by Next.js middleware only (same as /health).
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    # Basic input validation — guard against malformed or outsized payloads
+    _MAX_CHUNKS = 10
+    _MAX_CHUNK_TEXT = 4000  # chars
+    if len(req.new_chunks) > _MAX_CHUNKS:
+        raise HTTPException(status_code=422, detail=f"Too many chunks (max {_MAX_CHUNKS}).")
+    for chunk in req.new_chunks:
+        if chunk.source_type not in ("note", "file"):
+            raise HTTPException(status_code=422, detail="Invalid source_type.")
+        if len(chunk.text) > _MAX_CHUNK_TEXT:
+            raise HTTPException(status_code=422, detail=f"Chunk text exceeds {_MAX_CHUNK_TEXT} chars.")
+
+    profiles_updated: list[str] = []
+
+    # --- 1. Upsert new chunks ---
+    timestamp = datetime.now(timezone.utc).isoformat()
+    points = []
+    # Track file source_filenames that need dedup-delete before upsert
+    file_source_filenames: set[str] = set()
+    for chunk in req.new_chunks:
+        if not chunk.text.strip():
+            continue
+        if not chunk.chunk_id:
+            chunk.chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{chunk.source_label}-{id(chunk)}"))
+        # Derive source_filename from source_label (matches list_docs() convention)
+        if chunk.source_type == "note":
+            date_suffix = datetime.now(timezone.utc).strftime("%Y%m%d")
+            source_filename = f"counsellor_note_{date_suffix}"
+        else:
+            source_filename = chunk.source_label
+            file_source_filenames.add(source_filename)
+
+        try:
+            vector = embedder.encode(chunk.text)
+        except Exception as exc:
+            logger.warning("commit-analysis: embed failed for chunk %r: %s", chunk.chunk_id, exc)
+            raise HTTPException(status_code=503, detail="Embedding service unavailable")
+
+        points.append({
+            "id": chunk.chunk_id,
+            "vector": vector,
+            "payload": {
+                "source_filename": source_filename,
+                "chunk_index": 0,
+                "upload_timestamp": timestamp,
+                "text": chunk.text,
+                "career_type": chunk.career_type,
+            },
+        })
+
+    if points:
+        # Delete previous version of any re-submitted files before upserting
+        for fn in file_source_filenames:
+            try:
+                store.delete_by_filename(fn)
+            except Exception as exc:
+                logger.warning("commit-analysis: delete_by_filename(%r) failed: %s", fn, exc)
+        try:
+            store.upsert(points)
+        except Exception as exc:
+            logger.error("commit-analysis: Qdrant upsert failed: %s", exc)
+            raise HTTPException(status_code=503, detail="KB unavailable")
+
+    # --- 2. Write profile YAML updates ---
+    pdir = _profiles_dir()
+    for slug, field_changes in req.profile_updates.items():
+        yaml_path = pdir / f"{slug}.yaml"
+        if not yaml_path.exists():
+            logger.warning("commit-analysis: profile %r not found on disk — skipping", slug)
+            continue
+        try:
+            with open(yaml_path, encoding="utf-8") as f:
+                profile = yaml.safe_load(f) or {}
+            for field_name, change in field_changes.items():
+                profile[field_name] = change.new
+            # Atomic write: write to temp file then rename
+            tmp = yaml_path.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            tmp.replace(yaml_path)
+            profiles_updated.append(slug)
+            logger.info("commit-analysis: updated profile %r fields: %s", slug, list(field_changes.keys()))
+        except Exception as exc:
+            logger.error("commit-analysis: failed to write profile %r: %s", slug, exc)
+            raise HTTPException(status_code=500, detail=f"Failed to write profile '{slug}'")
+
+    # --- 3. Invalidate caches ---
+    health_cache.invalidate_overlap_cache()
+    profile_store.invalidate()
+
+    return KBCommitResponse(
+        status="ok",
+        chunks_added=len(points),
+        profiles_updated=profiles_updated,
+    )
 
 
 @router.post("/test-query", response_model=list[TestQueryResult])
