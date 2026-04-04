@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.3.0] - 2026-04-04
+
+### Added
+- **Knowledge Update tab**: new admin tab ("Update Knowledge") with a diff-first KB ingestion flow — counsellors paste a note or upload a file, review exactly what would change in the knowledge base (new chunks, profile field updates, already-covered content), edit inline, then confirm. Nothing writes to the KB until the counsellor approves.
+- **`POST /api/kb/analyse`**: accepts counsellor note text or file upload, retrieves top-10 semantically similar KB chunks, calls Claude to produce a structured diff (`KBAnalysisResult`), and returns it for review — no writes.
+- **`POST /api/kb/commit-analysis`**: accepts a counsellor-approved `KBCommitRequest`, upserts new chunks to Qdrant (with `delete_by_filename` dedup for re-submitted files), atomically writes updated YAML fields to career profile files, and invalidates both the health cache and the profile store.
+- **Six new Pydantic models**: `ProfileFieldChange`, `NewChunk`, `AlreadyCovered`, `KBAnalysisResult`, `KBCommitRequest`, `KBCommitResponse`.
+
+### Fixed
+- **Note chunk_id clobbering**: switched to content-based `uuid5` keys (`source_label::text[:120]`) so distinct notes on the same day accumulate rather than overwrite each other.
+- **File dedup on re-commit**: `commit-analysis` now calls `store.delete_by_filename()` before upsert for `source_type="file"`, matching the existing `ingest_router` dedup convention.
+- **commit-analysis input validation**: added guards for `source_type`, chunk count (max 10), and chunk text size (max 4000 chars) to prevent oversized or malformed payloads.
+
 ## [0.1.2.1] - 2026-04-03
 
 ### Added

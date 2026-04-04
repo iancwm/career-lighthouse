@@ -108,3 +108,18 @@
 **Cons:** React router tab-switching doesn't trigger `beforeunload` — requires a custom `useEffect` on route change or a tab-change interceptor. Minor complexity.
 **Context:** Found during Sprint 3 design review (2026-04-03). The plan explicitly notes state is discarded on tab switch. Deferred at pre-launch scale.
 **Depends on:** None. Add to KnowledgeUpdateTab when multi-counsellor use increases or after first counsellor reports losing a diff.
+
+### Validate profile field names in commit-analysis
+**Priority:** P2
+**What:** `/api/kb/commit-analysis` accepts arbitrary `field_name` keys from the client in `profile_updates`. The server writes them verbatim to YAML. A hallucinated or malicious field name (e.g. `structured`) could corrupt the profile YAML and break `CareerProfileStore.list_profiles()`.
+**Why:** Field names come from Claude via `/analyse` (constrained by prompt), then echoed by the client. Both Claude and the client are untrusted. A reserved key like `structured` being overwritten would crash downstream list/inject code.
+**Fix:** Add an allowlist of writable fields per slug (top-level prose fields only: `ep_sponsorship`, `compass_score_typical`, `recruiting_timeline`, `notes`, etc.). Reject any `field_name` not in the allowlist with HTTP 422.
+**Context:** Found during adversarial review (v0.1.3.0 ship). Low risk at pre-launch scale (admin-only access), but must fix before any public-facing deployment.
+**Depends on:** None.
+
+---
+
+## Completed
+
+### ~~KnowledgeUpdateTab — diff-first KB ingestion (Sprint 3 Feature 1)~~ ✓ Done (v0.1.3.0)
+Shipped: `POST /api/kb/analyse`, `POST /api/kb/commit-analysis`, KnowledgeUpdateTab React component, admin tab nav. Content-based chunk_id idempotency, delete_by_filename dedup for file re-commits, input validation on commit payload. Validated by The Assignment (3 test cases) before build.
