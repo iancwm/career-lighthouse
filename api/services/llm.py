@@ -124,6 +124,8 @@ def analyse_kb_input(
         system=system,
         messages=[{"role": "user", "content": user}],
     )
+    if not response.content or response.content[0].type != "text":
+        raise ValueError("Claude returned an empty or non-text response")
     raw = response.content[0].text.strip()
 
     # Strip markdown code fences if Claude wraps the JSON

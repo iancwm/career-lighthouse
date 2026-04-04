@@ -50,17 +50,28 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
   const [alreadyCoveredOpen, setAlreadyCoveredOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const canAnalyse = inputMode === "note" ? noteText.trim().length > 0 : selectedFile !== null
 
   function resetToIdle() {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
     setState("idle")
     setDiff(null)
     setAlreadyCoveredOpen(false)
   }
 
   async function handleAnalyse() {
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
+    abortControllerRef.current?.abort()
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+
     setState("analysing")
     setStatusText("Comparing against knowledge base...")
     statusTimerRef.current = setTimeout(() => setStatusText("Generating diff..."), 2000)
@@ -75,7 +86,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/kb/analyse`, { method: "POST", body: form })
+      const res = await fetch(`${API_URL}/api/kb/analyse`, { method: "POST", body: form, signal: controller.signal })
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
       if (!res.ok) {
         setState("error_analyse")
@@ -94,14 +105,16 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
       setDiff({ result, profileEdits, chunkEdits })
       setState("diff")
       setAlreadyCoveredOpen(false)
-    } catch {
+    } catch (err) {
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
+      if (err instanceof Error && err.name === "AbortError") return  // intentional cancel
       setState("error_analyse")
     }
   }
 
   async function handleCommit() {
     if (!diff) return
+    if (successTimerRef.current) clearTimeout(successTimerRef.current)
 
     // Build commit body from edited state
     const profileUpdates: Record<string, Record<string, ProfileFieldChange>> = {}
@@ -139,7 +152,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
       setSelectedFile(null)
       setDiff(null)
       onCommitted?.()
-      setTimeout(() => setState("idle"), 4000)
+      successTimerRef.current = setTimeout(() => setState("idle"), 4000)
     } catch {
       setState("error_commit")
     }

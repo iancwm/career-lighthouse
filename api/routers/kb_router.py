@@ -387,6 +387,11 @@ def commit_analysis(
     # --- 2. Write profile YAML updates ---
     pdir = _profiles_dir()
     for slug, field_changes in req.profile_updates.items():
+        # Reject non-alphanumeric slugs to prevent path traversal via crafted keys.
+        # Valid slugs are lowercase_with_underscores (e.g. investment_banking).
+        if not slug.replace("_", "").isalnum() or "/" in slug or ".." in slug:
+            logger.warning("commit-analysis: unsafe slug %r — skipping (path traversal guard)", slug)
+            continue
         yaml_path = pdir / f"{slug}.yaml"
         if not yaml_path.exists():
             logger.warning("commit-analysis: profile %r not found on disk — skipping", slug)
