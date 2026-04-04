@@ -100,3 +100,41 @@ class KBHealthResponse(BaseModel):
     low_confidence_queries: list[LowConfidenceQuery] = []
     doc_coverage: list[DocCoverageItem] = []
     high_overlap_pairs: list[OverlapPair] = []
+
+
+# Sprint 3 — diff-first KB ingestion models
+
+class ProfileFieldChange(BaseModel):
+    old: Optional[str] = None   # current value in YAML (None if field is new)
+    new: str                    # proposed replacement value (counsellor-editable)
+
+
+class NewChunk(BaseModel):
+    text: str
+    source_type: str            # "note" | "file"
+    source_label: str           # "counsellor_note" for notes; filename for uploads
+    career_type: Optional[str] = None
+    chunk_id: str = ""          # filled by server after Claude returns
+
+
+class AlreadyCovered(BaseModel):
+    excerpt: str
+    source_doc: str
+
+
+class KBAnalysisResult(BaseModel):
+    interpretation_bullets: list[str]
+    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    new_chunks: list[NewChunk] = []
+    already_covered: list[AlreadyCovered] = []
+
+
+class KBCommitRequest(BaseModel):
+    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    new_chunks: list[NewChunk] = []
+
+
+class KBCommitResponse(BaseModel):
+    status: str
+    chunks_added: int
+    profiles_updated: list[str] = []
