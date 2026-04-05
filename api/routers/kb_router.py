@@ -29,6 +29,7 @@ from dependencies import get_embedder, get_vector_store
 from models import (
     AlreadyCovered,
     DocCoverageItem,
+    EmployerDetail,
     KBAnalysisResult,
     KBCommitRequest,
     KBCommitResponse,
@@ -41,6 +42,11 @@ from models import (
 )
 from services import health_cache
 from services.career_profiles import CareerProfileStore, get_career_profile_store
+from services.employer_store import (
+    EmployerEntityStore,
+    ALLOWED_EMPLOYER_FIELDS,
+    get_employer_store,
+)
 from services.embedder import Embedder
 from services.ingestion import chunk_text, parse_file
 from services.vector_store import VectorStore
@@ -104,6 +110,36 @@ def _profiles_dir() -> Path:
         "CAREER_PROFILES_DIR",
         str(Path(__file__).parent.parent.parent / "knowledge" / "career_profiles"),
     ))
+
+
+def _employers_dir() -> Path:
+    return Path(os.environ.get(
+        "EMPLOYERS_DIR",
+        str(Path(__file__).parent.parent.parent / "knowledge" / "employers"),
+    ))
+
+
+def _slug_is_safe(slug: str) -> bool:
+    """Return True if slug is safe for filesystem use (no path traversal)."""
+    return (
+        bool(slug)
+        and slug.replace("_", "").isalnum()
+        and "/" not in slug
+        and ".." not in slug
+    )
+
+
+def _build_employer_summary(store: EmployerEntityStore) -> str:
+    """Build the CURRENT EMPLOYER FACTS block for the analyse diff prompt."""
+    employers = store.list_employers()
+    lines = []
+    for emp in employers:
+        slug = emp.get("slug", "")
+        name = emp.get("employer_name", slug)
+        ep = _first_sentence(str(emp.get("ep_requirement", "")))
+        seasons = ", ".join(emp.get("intake_seasons") or [])
+        lines.append(f"{slug} ({name}): ep_requirement={ep} | intake_seasons={seasons}")
+    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -227,6 +263,216 @@ def career_profiles(
     return profile_store.list_profiles()
 
 
+@router.get("/employers", response_model=list[EmployerDetail])
+def list_employers(
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """List all active employer entities (admin use only).
+
+    Excludes disabled employers (*.yaml.disabled).
+    Auth note: protected by Next.js middleware same as /health.
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    result = []
+    for emp in employer_store.list_employers():
+        result.append(EmployerDetail(
+            slug=emp.get("slug", ""),
+            employer_name=emp.get("employer_name", ""),
+            tracks=emp.get("tracks") or [],
+            ep_requirement=emp.get("ep_requirement"),
+            intake_seasons=emp.get("intake_seasons") or [],
+            singapore_headcount_estimate=emp.get("singapore_headcount_estimate"),
+            application_process=emp.get("application_process"),
+            counsellor_contact=emp.get("counsellor_contact"),
+            notes=emp.get("notes"),
+            last_updated=emp.get("last_updated"),
+            completeness=emp.get("completeness", "amber"),
+        ))
+    return result
+
+
+@router.get("/employers/{slug}", response_model=EmployerDetail)
+def get_employer(
+    slug: str,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Get a single employer entity by slug.
+
+    Auth note: protected by Next.js middleware.
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    emp = employer_store.get_employer(slug)
+    if emp is None:
+        raise HTTPException(status_code=404, detail=f"Employer '{slug}' not found.")
+    return EmployerDetail(
+        slug=emp.get("slug", slug),
+        employer_name=emp.get("employer_name", ""),
+        tracks=emp.get("tracks") or [],
+        ep_requirement=emp.get("ep_requirement"),
+        intake_seasons=emp.get("intake_seasons") or [],
+        singapore_headcount_estimate=emp.get("singapore_headcount_estimate"),
+        application_process=emp.get("application_process"),
+        counsellor_contact=emp.get("counsellor_contact"),
+        notes=emp.get("notes"),
+        last_updated=emp.get("last_updated"),
+        completeness=emp.get("completeness", "amber"),
+    )
+
+
+@router.post("/employers", response_model=EmployerDetail, status_code=201)
+def create_employer(
+    detail: EmployerDetail,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Create a new employer entity.
+
+    Returns 409 if a YAML (or .yaml.disabled) already exists for this slug.
+    Auth note: protected by Next.js middleware.
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    slug = detail.slug
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    if not detail.employer_name or not detail.employer_name.strip():
+        raise HTTPException(status_code=422, detail="employer_name is required.")
+
+    edir = _employers_dir()
+    edir.mkdir(parents=True, exist_ok=True)
+    yaml_path = edir / f"{slug}.yaml"
+    disabled_path = edir / f"{slug}.yaml.disabled"
+
+    if yaml_path.exists() or disabled_path.exists():
+        raise HTTPException(status_code=409, detail=f"Employer '{slug}' already exists.")
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    data = {
+        "employer_name": detail.employer_name.strip(),
+        "slug": slug,
+        "tracks": detail.tracks or [],
+        "ep_requirement": detail.ep_requirement,
+        "intake_seasons": detail.intake_seasons or [],
+        "singapore_headcount_estimate": detail.singapore_headcount_estimate,
+        "application_process": detail.application_process,
+        "counsellor_contact": detail.counsellor_contact,
+        "notes": detail.notes,
+        "last_updated": now,
+    }
+    # Remove None values to keep YAML clean
+    data = {k: v for k, v in data.items() if v is not None}
+
+    tmp = yaml_path.with_suffix(".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        tmp.replace(yaml_path)
+    except Exception as exc:
+        tmp.unlink(missing_ok=True)
+        logger.error("create_employer: failed to write %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to write employer YAML.")
+
+    employer_store.invalidate()
+    logger.info("create_employer: created %r", slug)
+
+    data["slug"] = slug
+    from services.employer_store import _compute_completeness
+    return EmployerDetail(**{**data, "completeness": _compute_completeness(data)})
+
+
+@router.put("/employers/{slug}", response_model=EmployerDetail)
+def update_employer(
+    slug: str,
+    detail: EmployerDetail,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Update an existing employer entity.
+
+    Server always sets last_updated to today regardless of request body.
+    The 'completeness' field in the request body is ignored (server-computed).
+    Auth note: protected by Next.js middleware.
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+
+    edir = _employers_dir()
+    yaml_path = edir / f"{slug}.yaml"
+    if not yaml_path.exists():
+        raise HTTPException(status_code=404, detail=f"Employer '{slug}' not found.")
+
+    try:
+        with open(yaml_path, encoding="utf-8") as f:
+            existing = yaml.safe_load(f) or {}
+    except Exception as exc:
+        logger.error("update_employer: failed to read %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to read employer YAML.")
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    # Merge incoming fields; server always sets last_updated
+    existing.update({
+        "employer_name": detail.employer_name.strip() if detail.employer_name else existing.get("employer_name", ""),
+        "tracks": detail.tracks if detail.tracks is not None else existing.get("tracks", []),
+        "ep_requirement": detail.ep_requirement,
+        "intake_seasons": detail.intake_seasons if detail.intake_seasons is not None else existing.get("intake_seasons", []),
+        "singapore_headcount_estimate": detail.singapore_headcount_estimate,
+        "application_process": detail.application_process,
+        "counsellor_contact": detail.counsellor_contact,
+        "notes": detail.notes,
+        "last_updated": now,
+    })
+    # Preserve slug field
+    existing["slug"] = slug
+
+    tmp = yaml_path.with_suffix(".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            yaml.safe_dump(existing, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        tmp.replace(yaml_path)
+    except Exception as exc:
+        tmp.unlink(missing_ok=True)
+        logger.error("update_employer: failed to write %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to write employer YAML.")
+
+    employer_store.invalidate()
+    logger.info("update_employer: updated %r", slug)
+
+    from services.employer_store import _compute_completeness
+    return EmployerDetail(**{**existing, "completeness": _compute_completeness(existing)})
+
+
+@router.delete("/employers/{slug}", status_code=204)
+def delete_employer(
+    slug: str,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Disable an employer entity by renaming its YAML to *.yaml.disabled.
+
+    Does NOT hard-delete — counsellor can restore via manual rename or future
+    PATCH /api/kb/employers/{slug}/restore endpoint.
+    Auth note: protected by Next.js middleware.
+    TODO: Add Depends() auth guard — see TODOS.md.
+    TODO: Add PATCH restore endpoint — see TODOS.md "Restore path for disabled employer entities".
+    """
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+
+    edir = _employers_dir()
+    yaml_path = edir / f"{slug}.yaml"
+    if not yaml_path.exists():
+        raise HTTPException(status_code=404, detail=f"Employer '{slug}' not found.")
+
+    disabled_path = edir / f"{slug}.yaml.disabled"
+    try:
+        yaml_path.rename(disabled_path)
+    except Exception as exc:
+        logger.error("delete_employer: failed to rename %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to disable employer.")
+
+    employer_store.invalidate()
+    logger.info("delete_employer: disabled %r (renamed to .yaml.disabled)", slug)
+
+
 @router.post("/analyse", response_model=KBAnalysisResult)
 def analyse(
     text: str = Form(None),
@@ -235,6 +481,7 @@ def analyse(
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
     """Analyse counsellor input and return a structured KB diff.
 
@@ -270,12 +517,13 @@ def analyse(
         logger.error("analyse: KB search failed: %s", exc)
         raise HTTPException(status_code=503, detail="KB unavailable")
 
-    # --- 3. Build profile summary for the diff prompt ---
+    # --- 3. Build profile + employer summaries for the diff prompt ---
     profile_summary = _build_profile_summary(profile_store)
+    employer_summary = _build_employer_summary(employer_store)
 
     # --- 4. Call Claude ---
     try:
-        raw = llm_service.analyse_kb_input(counsellor_input, retrieved, profile_summary)
+        raw = llm_service.analyse_kb_input(counsellor_input, retrieved, profile_summary, employer_summary)
     except ValueError as exc:
         logger.warning("analyse: Claude returned malformed JSON: %s", exc)
         raise HTTPException(
@@ -313,6 +561,7 @@ def commit_analysis(
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
     """Commit a counsellor-approved KB diff.
 
@@ -412,14 +661,50 @@ def commit_analysis(
             logger.error("commit-analysis: failed to write profile %r: %s", slug, exc)
             raise HTTPException(status_code=500, detail=f"Failed to write profile '{slug}'")
 
-    # --- 3. Invalidate caches ---
+    # --- 3. Write employer YAML updates ---
+    employers_updated: list[str] = []
+    edir = _employers_dir()
+    for slug, field_changes in req.employer_updates.items():
+        if not _slug_is_safe(slug):
+            logger.warning("commit-analysis: unsafe employer slug %r — skipping", slug)
+            continue
+        yaml_path = edir / f"{slug}.yaml"
+        if not yaml_path.exists():
+            logger.warning("commit-analysis: employer %r not found on disk — skipping", slug)
+            continue
+        try:
+            with open(yaml_path, encoding="utf-8") as f:
+                employer = yaml.safe_load(f) or {}
+            for field_name, change in field_changes.items():
+                if field_name not in ALLOWED_EMPLOYER_FIELDS:
+                    logger.warning(
+                        "commit-analysis: employer field %r not in allowlist — skipping", field_name
+                    )
+                    continue
+                employer[field_name] = change.new
+            employer["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            tmp = yaml_path.with_suffix(".tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                yaml.safe_dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            tmp.replace(yaml_path)
+            employers_updated.append(slug)
+            logger.info(
+                "commit-analysis: updated employer %r fields: %s", slug, list(field_changes.keys())
+            )
+        except Exception as exc:
+            logger.error("commit-analysis: failed to write employer %r: %s", slug, exc)
+            raise HTTPException(status_code=500, detail=f"Failed to write employer '{slug}'")
+
+    # --- 4. Invalidate caches ---
     health_cache.invalidate_overlap_cache()
     profile_store.invalidate()
+    employer_store.invalidate()
 
     return KBCommitResponse(
         status="ok",
         chunks_added=len(points),
         profiles_updated=profiles_updated,
+        employers_updated=employers_updated,
     )
 
 
