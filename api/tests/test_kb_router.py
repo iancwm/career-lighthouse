@@ -84,10 +84,12 @@ class TestTestQuery:
 # ---------------------------------------------------------------------------
 
 class TestKBHealthDocCoverage:
-    def test_empty_kb_returns_zeroes_and_nulls(self, in_memory_qdrant, mock_embedder):
+    def test_empty_kb_returns_zeroes_and_nulls(self, in_memory_qdrant, mock_embedder, tmp_path):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
-        r = client.get("/api/kb/health")
+        with patch("routers.kb_router.settings") as mock_settings:
+            mock_settings.query_log_path = str(tmp_path / "empty.jsonl")
+            r = client.get("/api/kb/health")
 
         assert r.status_code == 200
         data = r.json()
@@ -161,11 +163,13 @@ class TestKBHealthQueryLog:
         assert data["low_confidence_queries"] == []
 
     def test_avg_match_score_computed_from_log(self, in_memory_qdrant, mock_embedder, tmp_path):
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
         self._write_log(log_path, [
-            {"ts": "2026-03-22T10:00:00+00:00", "query_text": "q1", "scores": [0.8, 0.5], "doc_matched": "a.txt", "top_docs": ["a.txt", "b.txt"]},
-            {"ts": "2026-03-22T11:00:00+00:00", "query_text": "q2", "scores": [0.6, 0.4], "doc_matched": "b.txt", "top_docs": ["b.txt", "a.txt"]},
+            {"ts": now, "query_text": "q1", "scores": [0.8, 0.5], "doc_matched": "a.txt", "top_docs": ["a.txt", "b.txt"]},
+            {"ts": now, "query_text": "q2", "scores": [0.6, 0.4], "doc_matched": "b.txt", "top_docs": ["b.txt", "a.txt"]},
         ])
 
         with patch("routers.kb_router.settings") as mock_settings:
@@ -176,11 +180,13 @@ class TestKBHealthQueryLog:
         assert data["avg_match_score"] == pytest.approx(0.7, abs=0.001)
 
     def test_low_confidence_query_appears_in_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
         self._write_log(log_path, [
-            {"ts": "2026-03-22T10:00:00+00:00", "query_text": "weak question", "scores": [0.20], "doc_matched": None, "top_docs": []},
-            {"ts": "2026-03-22T11:00:00+00:00", "query_text": "strong question", "scores": [0.90], "doc_matched": "a.txt", "top_docs": ["a.txt"]},
+            {"ts": now, "query_text": "weak question", "scores": [0.20], "doc_matched": None, "top_docs": []},
+            {"ts": now, "query_text": "strong question", "scores": [0.90], "doc_matched": "a.txt", "top_docs": ["a.txt"]},
         ])
 
         with patch("routers.kb_router.settings") as mock_settings:
@@ -196,9 +202,11 @@ class TestKBHealthQueryLog:
     def test_malformed_log_line_skipped(self, in_memory_qdrant, mock_embedder, tmp_path):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
         with open(log_path, "w") as f:
             f.write("this is not json\n")
-            f.write(json.dumps({"ts": "2026-03-22T10:00:00+00:00", "query_text": "q", "scores": [0.7], "doc_matched": "a.txt", "top_docs": ["a.txt"]}) + "\n")
+            f.write(json.dumps({"ts": now, "query_text": "q", "scores": [0.7], "doc_matched": "a.txt", "top_docs": ["a.txt"]}) + "\n")
 
         with patch("routers.kb_router.settings") as mock_settings:
             mock_settings.query_log_path = log_path
@@ -212,11 +220,13 @@ class TestKBHealthQueryLog:
     def test_entries_outside_7day_window_excluded(self, in_memory_qdrant, mock_embedder, tmp_path):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc).isoformat()
         self._write_log(log_path, [
             # Old entry — outside 7 day window (year 2020)
             {"ts": "2020-01-01T00:00:00+00:00", "query_text": "old q", "scores": [0.1], "doc_matched": None, "top_docs": []},
             # Recent entry
-            {"ts": "2026-03-22T10:00:00+00:00", "query_text": "recent q", "scores": [0.9], "doc_matched": "a.txt", "top_docs": ["a.txt"]},
+            {"ts": now, "query_text": "recent q", "scores": [0.9], "doc_matched": "a.txt", "top_docs": ["a.txt"]},
         ])
 
         with patch("routers.kb_router.settings") as mock_settings:
@@ -277,3 +287,405 @@ class TestCareerProfilesEndpoint:
         assert data[0]["slug"] == "investment_banking"
         assert data[0]["career_type"] == "Investment Banking"
         assert data[0]["ep_tier"] == "High"
+
+
+# ---------------------------------------------------------------------------
+# Employer CRUD — helpers
+# ---------------------------------------------------------------------------
+
+import textwrap
+
+
+def make_employer_client(in_memory_qdrant, mock_embedder, employers_dir):
+    """Create a TestClient with a real EmployerEntityStore pointed at employers_dir."""
+    from main import app
+    from services.vector_store import VectorStore
+    from services.employer_store import EmployerEntityStore, get_employer_store
+    import dependencies
+
+    EmployerEntityStore._instance = None
+
+    store = VectorStore(client=in_memory_qdrant, collection="knowledge")
+    store.ensure_collection(384)
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+
+    # Override EMPLOYERS_DIR via env for the singleton
+    os.environ["EMPLOYERS_DIR"] = str(employers_dir)
+    emp_store = EmployerEntityStore()
+    app.dependency_overrides[get_employer_store] = lambda: emp_store
+
+    return TestClient(app), store, emp_store
+
+
+def make_employers_dir(tmp_path):
+    d = tmp_path / "employers"
+    d.mkdir()
+    (d / "goldman_sachs.yaml").write_text(textwrap.dedent("""\
+        employer_name: Goldman Sachs
+        slug: goldman_sachs
+        tracks:
+          - investment_banking
+        ep_requirement: "EP4 (COMPASS 40+)"
+        intake_seasons:
+          - Jan
+          - Jul
+        last_updated: "2026-04-05"
+    """), encoding="utf-8")
+    return d
+
+
+# ---------------------------------------------------------------------------
+# GET /api/kb/employers
+# ---------------------------------------------------------------------------
+
+class TestListEmployersEndpoint:
+    def test_returns_employer_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.get("/api/kb/employers")
+        assert r.status_code == 200
+        data = r.json()
+        assert len(data) == 1
+        assert data[0]["slug"] == "goldman_sachs"
+        assert data[0]["employer_name"] == "Goldman Sachs"
+
+    def test_empty_dir_returns_empty_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+        empty = tmp_path / "emp"
+        empty.mkdir()
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, empty)
+        r = client.get("/api/kb/employers")
+        assert r.status_code == 200
+        assert r.json() == []
+
+
+# ---------------------------------------------------------------------------
+# GET /api/kb/employers/{slug}
+# ---------------------------------------------------------------------------
+
+class TestGetEmployerEndpoint:
+    def test_returns_employer_by_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.get("/api/kb/employers/goldman_sachs")
+        assert r.status_code == 200
+        assert r.json()["employer_name"] == "Goldman Sachs"
+
+    def test_404_for_unknown_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.get("/api/kb/employers/nonexistent")
+        assert r.status_code == 404
+
+    def test_422_for_path_traversal_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.get("/api/kb/employers/..%2Fevil")
+        assert r.status_code in (404, 422)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/kb/employers — create
+# ---------------------------------------------------------------------------
+
+class TestCreateEmployerEndpoint:
+    def test_creates_new_employer(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, emp_store = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "meta",
+            "employer_name": "Meta",
+            "tracks": ["tech_product"],
+            "ep_requirement": "EP3",
+            "intake_seasons": ["Jul"],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.post("/api/kb/employers", json=payload)
+        assert r.status_code == 201
+        assert r.json()["slug"] == "meta"
+        assert (d / "meta.yaml").exists()
+
+    def test_409_on_duplicate_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "goldman_sachs",
+            "employer_name": "Goldman Sachs Duplicate",
+            "tracks": [],
+            "ep_requirement": None,
+            "intake_seasons": [],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.post("/api/kb/employers", json=payload)
+        assert r.status_code == 409
+
+    def test_409_if_disabled_file_exists(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        (d / "disabled_corp.yaml.disabled").touch()
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "disabled_corp",
+            "employer_name": "Disabled Corp",
+            "tracks": [],
+            "ep_requirement": None,
+            "intake_seasons": [],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.post("/api/kb/employers", json=payload)
+        assert r.status_code == 409
+
+    def test_422_unsafe_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "../evil",
+            "employer_name": "Evil Corp",
+            "tracks": [],
+            "ep_requirement": None,
+            "intake_seasons": [],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.post("/api/kb/employers", json=payload)
+        assert r.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/kb/employers/{slug}
+# ---------------------------------------------------------------------------
+
+class TestUpdateEmployerEndpoint:
+    def test_updates_ep_requirement(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "goldman_sachs",
+            "employer_name": "Goldman Sachs",
+            "tracks": ["investment_banking"],
+            "ep_requirement": "EP3 (updated)",
+            "intake_seasons": ["Jan"],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": "2020-01-01",   # server should override this
+            "completeness": "amber",         # server should override this
+        }
+        r = client.put("/api/kb/employers/goldman_sachs", json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert data["ep_requirement"] == "EP3 (updated)"
+        # Server must set last_updated to today, not use the body value
+        from datetime import datetime, timezone
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        assert data["last_updated"] == today
+
+    def test_server_ignores_completeness_in_body(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "goldman_sachs",
+            "employer_name": "Goldman Sachs",
+            "tracks": ["investment_banking"],
+            "ep_requirement": "EP4",
+            "intake_seasons": ["Jan"],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "green",  # will be computed by server
+        }
+        r = client.put("/api/kb/employers/goldman_sachs", json=payload)
+        assert r.status_code == 200
+        # completeness is computed from actual fields, not echoed from body
+
+    def test_404_for_unknown_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "nonexistent",
+            "employer_name": "No One",
+            "tracks": [],
+            "ep_requirement": None,
+            "intake_seasons": [],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.put("/api/kb/employers/nonexistent", json=payload)
+        assert r.status_code == 404
+
+    def test_422_unsafe_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "../evil",
+            "employer_name": "Evil",
+            "tracks": [],
+            "ep_requirement": None,
+            "intake_seasons": [],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.put("/api/kb/employers/../evil", json=payload)
+        assert r.status_code in (422, 404)
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/kb/employers/{slug}
+# ---------------------------------------------------------------------------
+
+class TestDeleteEmployerEndpoint:
+    def test_delete_renames_to_disabled(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        r = client.delete("/api/kb/employers/goldman_sachs")
+        assert r.status_code == 204
+        assert not (d / "goldman_sachs.yaml").exists()
+        assert (d / "goldman_sachs.yaml.disabled").exists()
+
+    def test_404_for_unknown_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.delete("/api/kb/employers/nonexistent")
+        assert r.status_code == 404
+
+    def test_422_unsafe_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.delete("/api/kb/employers/../evil")
+        assert r.status_code in (422, 404)
+
+
+# ---------------------------------------------------------------------------
+# POST /api/kb/commit-analysis — employer_updates write path
+# ---------------------------------------------------------------------------
+
+class TestCommitAnalysisEmployerUpdates:
+    def test_valid_field_updates_yaml(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "profile_updates": {},
+            "employer_updates": {
+                "goldman_sachs": {
+                    "ep_requirement": {"old": "EP4", "new": "EP3 (updated)"}
+                }
+            },
+            "new_chunks": [],
+        }
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        data = r.json()
+        assert "goldman_sachs" in data["employers_updated"]
+
+        # Verify YAML was written
+        import yaml as _yaml
+        with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:
+            written = _yaml.safe_load(f)
+        assert written["ep_requirement"] == "EP3 (updated)"
+
+    def test_unknown_field_skipped_by_allowlist(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "profile_updates": {},
+            "employer_updates": {
+                "goldman_sachs": {
+                    "structured": {"old": None, "new": "evil value"}
+                }
+            },
+            "new_chunks": [],
+        }
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        # "structured" not in allowlist — should not appear in YAML
+        import yaml as _yaml
+        with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:
+            written = _yaml.safe_load(f)
+        assert "structured" not in written
+
+    def test_unsafe_employer_slug_skipped(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "profile_updates": {},
+            "employer_updates": {
+                "../evil": {
+                    "ep_requirement": {"old": None, "new": "EP3"}
+                }
+            },
+            "new_chunks": [],
+        }
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        assert "../evil" not in r.json().get("employers_updated", [])
+
+    def test_unknown_employer_slug_skipped_with_warning(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "profile_updates": {},
+            "employer_updates": {
+                "nonexistent_corp": {
+                    "ep_requirement": {"old": None, "new": "EP3"}
+                }
+            },
+            "new_chunks": [],
+        }
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        assert "nonexistent_corp" not in r.json().get("employers_updated", [])
+
+    def test_empty_employer_updates_returns_ok(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "profile_updates": {},
+            "employer_updates": {},
+            "new_chunks": [],
+        }
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        assert r.json()["employers_updated"] == []
