@@ -9,6 +9,7 @@ import DocCoverageList from "@/components/admin/DocCoverageList"
 import LowConfidenceLog from "@/components/admin/LowConfidenceLog"
 import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import KnowledgeUpdateTab from "@/components/admin/KnowledgeUpdateTab"
+import EmployerFactsTab from "@/components/admin/EmployerFactsTab"
 
 interface KBHealth {
   total_docs: number
@@ -35,7 +36,7 @@ interface KBHealth {
   }[]
 }
 
-type Tab = "knowledge" | "update"
+type Tab = "knowledge" | "update" | "employers"
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("knowledge")
@@ -71,6 +72,9 @@ export default function AdminPage() {
         </TabButton>
         <TabButton active={tab === "update"} onClick={() => setTab("update")}>
           Update Knowledge
+        </TabButton>
+        <TabButton active={tab === "employers"} onClick={() => setTab("employers")}>
+          Employer Facts
         </TabButton>
       </div>
 
@@ -138,6 +142,11 @@ export default function AdminPage() {
       {/* Update Knowledge tab */}
       {tab === "update" && (
         <KnowledgeUpdateTab onCommitted={() => setRefreshKey((k) => k + 1)} />
+      )}
+
+      {/* Employer Facts tab */}
+      {tab === "employers" && (
+        <EmployerFactsTab />
       )}
     </div>
   )

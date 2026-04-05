@@ -26,6 +26,7 @@ interface AlreadyCovered {
 interface KBAnalysisResult {
   interpretation_bullets: string[]
   profile_updates: Record<string, Record<string, ProfileFieldChange>>
+  employer_updates: Record<string, Record<string, ProfileFieldChange>>
   new_chunks: NewChunk[]
   already_covered: AlreadyCovered[]
 }
@@ -33,8 +34,9 @@ interface KBAnalysisResult {
 // Mutable diff state for counsellor edits
 interface DiffState {
   result: KBAnalysisResult
-  profileEdits: Record<string, Record<string, string>>  // slug → field → edited new value
-  chunkEdits: string[]                                   // parallel to result.new_chunks
+  profileEdits: Record<string, Record<string, string>>    // slug → field → edited new value
+  employerEdits: Record<string, Record<string, string>>   // slug → field → edited new value
+  chunkEdits: string[]                                     // parallel to result.new_chunks
 }
 
 // ── Component ─────────────────────────────────────────────────────────────
@@ -101,8 +103,15 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
           profileEdits[slug][field] = change.new
         }
       }
+      const employerEdits: Record<string, Record<string, string>> = {}
+      for (const [slug, fields] of Object.entries(result.employer_updates ?? {})) {
+        employerEdits[slug] = {}
+        for (const [field, change] of Object.entries(fields)) {
+          employerEdits[slug][field] = change.new
+        }
+      }
       const chunkEdits = result.new_chunks.map((c) => c.text)
-      setDiff({ result, profileEdits, chunkEdits })
+      setDiff({ result, profileEdits, employerEdits, chunkEdits })
       setState("diff")
       setAlreadyCoveredOpen(false)
     } catch (err) {
@@ -127,6 +136,16 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
         }
       }
     }
+    const employerUpdates: Record<string, Record<string, ProfileFieldChange>> = {}
+    for (const [slug, fields] of Object.entries(diff.result.employer_updates ?? {})) {
+      employerUpdates[slug] = {}
+      for (const [field, change] of Object.entries(fields)) {
+        employerUpdates[slug][field] = {
+          old: change.old,
+          new: diff.employerEdits[slug]?.[field] ?? change.new,
+        }
+      }
+    }
     const newChunks = diff.result.new_chunks.map((chunk, i) => ({
       ...chunk,
       text: diff.chunkEdits[i] ?? chunk.text,
@@ -136,7 +155,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
       const res = await fetch(`${API_URL}/api/kb/commit-analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ profile_updates: profileUpdates, new_chunks: newChunks }),
+        body: JSON.stringify({ profile_updates: profileUpdates, employer_updates: employerUpdates, new_chunks: newChunks }),
       })
       if (!res.ok) {
         setState("error_commit")
@@ -146,6 +165,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
       const parts: string[] = []
       if (data.chunks_added > 0) parts.push(`${data.chunks_added} chunk${data.chunks_added !== 1 ? "s" : ""} added`)
       if (data.profiles_updated?.length > 0) parts.push(`${data.profiles_updated.length} profile${data.profiles_updated.length !== 1 ? "s" : ""} updated`)
+      if (data.employers_updated?.length > 0) parts.push(`${data.employers_updated.length} employer${data.employers_updated.length !== 1 ? "s" : ""} updated`)
       setSuccessMsg(parts.length > 0 ? `Saved — ${parts.join(", ")}` : "Saved — no changes committed")
       setState("success")
       setNoteText("")
@@ -161,6 +181,9 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
   const newChunkCount = diff?.result.new_chunks.length ?? 0
   const profileFieldCount = diff
     ? Object.values(diff.result.profile_updates).reduce((n, f) => n + Object.keys(f).length, 0)
+    : 0
+  const employerFieldCount = diff
+    ? Object.values(diff.result.employer_updates ?? {}).reduce((n, f) => n + Object.keys(f).length, 0)
     : 0
   const alreadyCoveredCount = diff?.result.already_covered.length ?? 0
 
@@ -309,6 +332,9 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                 {newChunkCount} new chunk{newChunkCount !== 1 ? "s" : ""}
                 {" · "}
                 {profileFieldCount} profile field{profileFieldCount !== 1 ? "s" : ""} updated
+                {employerFieldCount > 0 && (
+                  <> {" · "} + {employerFieldCount} employer field{employerFieldCount !== 1 ? "s" : ""} updated</>
+                )}
                 {" · "}
                 {alreadyCoveredCount} already covered
               </p>
@@ -340,6 +366,45 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                                   profileEdits: {
                                     ...prev.profileEdits,
                                     [slug]: { ...prev.profileEdits[slug], [field]: val },
+                                  },
+                                }
+                              })
+                            }}
+                          />
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </section>
+              )}
+
+              {/* Employer Fact Updates */}
+              {employerFieldCount > 0 && (
+                <section>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Employer Fact Updates</h3>
+                  <div className="space-y-3">
+                    {Object.entries(diff.result.employer_updates ?? {}).map(([slug, fields]) =>
+                      Object.entries(fields).map(([field, change]) => (
+                        <div key={`${slug}-${field}`} className="rounded-lg border border-gray-200 p-3 text-xs">
+                          <p className="font-medium text-gray-600 mb-1">
+                            {slug} / {field}
+                          </p>
+                          {change.old && (
+                            <p className="text-gray-400 line-through mb-1 leading-relaxed">{change.old}</p>
+                          )}
+                          <textarea
+                            className="w-full border border-blue-200 bg-blue-50 rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 leading-relaxed"
+                            rows={3}
+                            value={diff.employerEdits[slug]?.[field] ?? change.new}
+                            onChange={(e) => {
+                              const val = e.target.value
+                              setDiff((prev) => {
+                                if (!prev) return prev
+                                return {
+                                  ...prev,
+                                  employerEdits: {
+                                    ...prev.employerEdits,
+                                    [slug]: { ...prev.employerEdits[slug], [field]: val },
                                   },
                                 }
                               })
@@ -408,7 +473,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               )}
 
               {/* Nothing to commit */}
-              {newChunkCount === 0 && profileFieldCount === 0 && (
+              {newChunkCount === 0 && profileFieldCount === 0 && employerFieldCount === 0 && (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
                   Nothing new to add — this content is already covered in the knowledge base.
                 </div>
@@ -418,7 +483,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               <div className="flex gap-3 pt-2 border-t border-gray-100">
                 <button
                   onClick={handleCommit}
-                  disabled={newChunkCount === 0 && profileFieldCount === 0}
+                  disabled={newChunkCount === 0 && profileFieldCount === 0 && employerFieldCount === 0}
                   className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   Confirm
