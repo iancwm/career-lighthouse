@@ -125,12 +125,14 @@ class AlreadyCovered(BaseModel):
 class KBAnalysisResult(BaseModel):
     interpretation_bullets: list[str]
     profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
     new_chunks: list[NewChunk] = []
     already_covered: list[AlreadyCovered] = []
 
 
 class KBCommitRequest(BaseModel):
     profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
     new_chunks: list[NewChunk] = []
 
 
@@ -138,3 +140,21 @@ class KBCommitResponse(BaseModel):
     status: str
     chunks_added: int
     profiles_updated: list[str] = []
+    employers_updated: list[str] = []
+
+
+# Sprint 3 Addendum — Employer Entity YAML models
+
+class EmployerDetail(BaseModel):
+    """Single employer entity. Persisted as knowledge/employers/{slug}.yaml."""
+    slug: str
+    employer_name: str
+    tracks: list[str] = []
+    ep_requirement: str | None = None
+    intake_seasons: list[str] = []
+    singapore_headcount_estimate: str | None = None
+    application_process: str | None = None
+    counsellor_contact: str | None = None
+    notes: str | None = None
+    last_updated: str | None = None
+    completeness: str = "amber"  # computed by server: "green" | "amber"
