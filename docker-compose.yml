@@ -13,6 +13,9 @@ services:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
       - QDRANT_URL=http://qdrant:6333
+    volumes:
+      - ./knowledge:/app/knowledge
+      - ./logs:/app/logs
     depends_on:
       - qdrant
     restart: unless-stopped

@@ -1,0 +1,18 @@
+employer_name: Meta
+slug: meta
+tracks:
+  - tech_product
+ep_requirement: "EP3 typically sufficient (COMPASS 30+). Meta Singapore office focuses
+  on APAC infrastructure and monetisation roles; EP requirements confirmed Q1 2026."
+intake_seasons:
+  - "Jan"
+  - "Jul"
+singapore_headcount_estimate: "5-10 engineers and PMs per year"
+application_process: "Online application via Meta Careers. Recruiter screen, 1 technical
+  phone screen, virtual onsite (3-5 rounds: coding, system design, behavioural).
+  Strong LeetCode preparation recommended (medium/hard)."
+counsellor_contact: "[TODO: Fill in SMU career centre contact for Meta track]"
+notes: "SMU SCIS has placed students into SWE roles. Singapore office primarily hires
+  for infrastructure, ads, and WhatsApp-related work. University recruiting pipeline
+  active — apply before final year exams."
+last_updated: "2026-04-05"
