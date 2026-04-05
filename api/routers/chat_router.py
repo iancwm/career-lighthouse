@@ -16,6 +16,7 @@ from services.career_profiles import (
     profile_to_context_block,
     resolve_career_type_from_intake,
 )
+from services.employer_store import EmployerEntityStore, get_employer_store
 from services.embedder import Embedder
 from services.vector_store import VectorStore
 
@@ -100,6 +101,7 @@ def chat(
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
     query_vec = embedder.encode(req.message)
     chunks = store.search(query_vec, top_k=5)
@@ -114,6 +116,10 @@ def chat(
         if profile:
             career_context = profile_to_context_block(profile)
 
+    # Employer injection: filter to active career type (or all if no type resolved)
+    employer_block = employer_store.to_context_block(active_career_type)
+    employer_context: Optional[str] = employer_block if employer_block else None
+
     citations = [
         Citation(filename=c["payload"]["source_filename"],
                  excerpt=c["payload"]["text"][:150])
@@ -125,6 +131,7 @@ def chat(
         chunks=chunks,
         history=[m.model_dump() for m in req.history],
         career_context=career_context,
+        employer_context=employer_context,
     )
     _log_query(req.message, chunks, active_career_type)
     return ChatResponse(
