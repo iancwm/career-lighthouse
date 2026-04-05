@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.4.0] - 2026-04-05
+
+### Added
+- **Employer Entity YAML**: fixed-schema YAML files per employer in `knowledge/employers/`. Each file captures EP requirement, intake seasons, headcount estimate, application process, counsellor contact, and notes. Three seed employers included (Goldman Sachs, McKinsey, Meta).
+- **`EmployerEntityStore`**: singleton service (mirrors `CareerProfileStore`) that loads employer YAMLs, computes completeness indicators (green/amber), and exposes `to_context_block(active_career_type)` for career-type-filtered LLM injection.
+- **Employer CRUD API**: five new endpoints — `GET /api/kb/employers`, `GET /api/kb/employers/{slug}`, `POST /api/kb/employers`, `PUT /api/kb/employers/{slug}`, `DELETE /api/kb/employers/{slug}`. Delete soft-disables by renaming to `.yaml.disabled` (recoverable). Path traversal guard on all slug inputs.
+- **Employer context injection in chat**: employer facts injected into every chat response, filtered to the active career type. Injection order: career profile → employer facts → KB chunks, so authoritative YAML data always precedes potentially stale KB chunks.
+- **Employer-aware `analyse` flow**: `POST /api/kb/analyse` now passes an employer summary to Claude alongside career profiles. Claude can propose `employer_updates` (field-level supersession) in the analysis result. `ALLOWED_EMPLOYER_FIELDS` allowlist prevents hallucinated field writes on commit.
+- **`employer_updates` in `commit-analysis`**: `POST /api/kb/commit-analysis` writes approved employer field changes atomically to YAML. `KBCommitResponse` now includes `employers_updated: list[str]`.
+- **Employer Facts admin tab**: new "Employer Facts" tab in the admin dashboard. Master-detail layout — left panel lists employers with completeness dots and inline delete confirmation; right panel is a form editor with pill toggles (tracks), chip/tag input (intake seasons), auto-slug generation, sticky Save, and unsaved-changes warning on employer switch.
+- **`employer_updates` diff section in Update Knowledge tab**: counsellor can review and edit proposed employer field changes before committing, same UX pattern as career profile changes. Summary bar shows `+ N employer field(s) updated`.
+- **36 new tests**: 15 unit tests for `EmployerEntityStore` (load, invalidate, completeness, context filtering, note truncation) and 21 integration tests for employer CRUD endpoints and commit-analysis employer write path.
+- **docker-compose volume mounts**: `./knowledge:/app/knowledge` and `./logs:/app/logs` added to the api service — employer YAMLs and query logs were not persisted across container restarts.
+
+### Fixed
+- **Test isolation for query log metrics**: three `TestKBHealthQueryLog` tests now use `datetime.now()` for log timestamps rather than hardcoded dates that fell outside the 7-day window. One test now mocks `settings.query_log_path` to prevent real log file pollution.
+
 ## [0.1.3.0] - 2026-04-04
 
 ### Added

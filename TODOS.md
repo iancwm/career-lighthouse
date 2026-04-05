@@ -79,6 +79,31 @@
 
 ---
 
+## Employer Entity YAML (Sprint 3 Addendum)
+
+### P1: Stale chunk deprecation on employer entity update
+**What:** When a counsellor updates an employer entity (e.g., Goldman EP3 → EP4), old Qdrant chunks saying "EP3" continue to retrieve and may confuse the LLM even though the YAML is authoritative. After each employer PUT that changes `ep_requirement` or `intake_seasons`, run a background similarity scan and surface: "You updated Goldman's EP requirement — these 3 chunks may be stale. Delete them?"
+**Why:** Context ordering (YAML above chunks) is a meaningful improvement but not complete supersession. Old chunks still retrieve. Chunk deprecation is the actual mechanism that closes the stale knowledge loop.
+**Pros:** Complete supersession semantics. Counsellor gets explicit control over stale chunks.
+**Cons:** Requires async job or blocking scan on each employer PUT. Similarity threshold must be tuned. Extra UI surface.
+**Context:** Found during Sprint 3 addendum eng review (2026-04-05). Codex outside voice flagged this as the actual fix for the original failure mode. Accepted as P1 next-sprint work, not a v1 blocker given pilot scale (few conflicting chunks). See design doc iancwm-main-design-20260404-225135.md "Open Questions #3".
+**Depends on:** Employer entity CRUD shipping first. Then extend PUT handler.
+
+### Restore path for disabled employer entities
+**What:** DELETE renames employer YAML to `.yaml.disabled`. POST blocks on disabled entities (409). But there's no UI or endpoint to restore a disabled employer — requires manual container filesystem rename.
+**Why:** At 10-15 pilot employers, accidental delete is unlikely. But an intentional "disable for the season" pattern (e.g., intake closed) needs a restore path to be useful.
+**Fix:** Add `PATCH /api/kb/employers/{slug}/restore` + "Restore" button in EmployerFactsTab (disabled entities list section).
+**Context:** Found during Sprint 3 addendum eng review (2026-04-05). Outside voice flagged incomplete lifecycle.
+**Depends on:** Employer entity CRUD. Self-contained addition.
+
+### Employer context token budget — per-career-type filter at >20 employers per track
+**What:** `to_context_block(active_career_type)` filters to employers on the active track. If a single career track accumulates >20 employers, the injected context block grows to ~6K chars per chat request. Add a per-track employer count cap (top 10 by `last_updated`) or a completeness-based filter (green > amber).
+**Why:** With career-type filtering, the global count is not the bottleneck — per-track density is. Pilot unlikely to hit this, but should be captured before launch.
+**Context:** Found during Sprint 3 addendum eng review (2026-04-05). Trigger: when any single career track has >20 employer entities.
+**Depends on:** Career-type filtered injection shipping in v1.
+
+---
+
 ## Data / Deployment
 
 ### structured: values diverge from prose field edits after profile editor write
@@ -107,6 +132,7 @@
 **Pros:** Prevents accidental work loss; standard UX for forms with unsaved state.
 **Cons:** React router tab-switching doesn't trigger `beforeunload` — requires a custom `useEffect` on route change or a tab-change interceptor. Minor complexity.
 **Context:** Found during Sprint 3 design review (2026-04-03). The plan explicitly notes state is discarded on tab switch. Deferred at pre-launch scale.
+**Note (2026-04-05):** EmployerFactsTab v1 DOES implement the employer-switch inline confirmation ("Unsaved changes to [Goldman Sachs] — Save / Discard"). That covers the intra-tab case. This TODO covers only the inter-tab navigation case (clicking "Knowledge Base" while employer form has unsaved edits).
 **Depends on:** None. Add to KnowledgeUpdateTab when multi-counsellor use increases or after first counsellor reports losing a diff.
 
 ### Validate profile field names in commit-analysis
@@ -120,6 +146,9 @@
 ---
 
 ## Completed
+
+### ~~Employer Entity YAML — CRUD API + LLM injection + Admin UI (Sprint 3 Addendum)~~ ✓ Done (v0.1.4.0)
+Shipped: `EmployerEntityStore` singleton, `GET/POST/PUT/DELETE /api/kb/employers`, employer context injection in chat (career-type filtered, ordered before KB chunks), employer-aware `analyse` flow with `ALLOWED_EMPLOYER_FIELDS` allowlist on commit, `EmployerFactsTab` master-detail admin UI (pill toggles, chip/tag input, inline delete confirm, unsaved-changes warning), `employer_updates` diff section in `KnowledgeUpdateTab`, 36 new tests. docker-compose volume mounts for `knowledge/` and `logs/` added. 3 seed employer YAMLs (Goldman Sachs, McKinsey, Meta).
 
 ### ~~KnowledgeUpdateTab — diff-first KB ingestion (Sprint 3 Feature 1)~~ ✓ Done (v0.1.3.0)
 Shipped: `POST /api/kb/analyse`, `POST /api/kb/commit-analysis`, KnowledgeUpdateTab React component, admin tab nav. Content-based chunk_id idempotency, delete_by_filename dedup for file re-commits, input validation on commit payload. Validated by The Assignment (3 test cases) before build.
