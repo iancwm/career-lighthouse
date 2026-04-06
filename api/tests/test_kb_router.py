@@ -637,6 +637,7 @@ class TestCommitAnalysisEmployerUpdates:
         }
         r = client.post("/api/kb/commit-analysis", json=payload)
         assert r.status_code == 200
+        assert r.json()["employers_updated"] == []
         # "structured" not in allowlist — should not appear in YAML
         import yaml as _yaml
         with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:

@@ -177,13 +177,12 @@ class TestToContextBlock:
         assert "Goldman Sachs" in block
         assert "McKinsey" not in block
 
-    def test_career_type_none_includes_all(self, employers_dir, monkeypatch):
+    def test_career_type_none_returns_empty(self, employers_dir, monkeypatch):
         monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
         from services.employer_store import EmployerEntityStore
         store = EmployerEntityStore()
         block = store.to_context_block(None)
-        assert "Goldman Sachs" in block
-        assert "McKinsey" in block
+        assert block == ""
 
     def test_no_matching_employers_returns_empty(self, employers_dir, monkeypatch):
         monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
@@ -223,6 +222,6 @@ class TestToContextBlock:
         monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
         from services.employer_store import EmployerEntityStore
         store = EmployerEntityStore()
-        block = store.to_context_block()
+        block = store.to_context_block("investment_banking")
         assert "=== EMPLOYER FACTS" in block
         assert "=== END EMPLOYER FACTS ===" in block

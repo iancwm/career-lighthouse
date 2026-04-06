@@ -675,6 +675,7 @@ def commit_analysis(
         try:
             with open(yaml_path, encoding="utf-8") as f:
                 employer = yaml.safe_load(f) or {}
+            changed_fields: list[str] = []
             for field_name, change in field_changes.items():
                 if field_name not in ALLOWED_EMPLOYER_FIELDS:
                     logger.warning(
@@ -682,6 +683,10 @@ def commit_analysis(
                     )
                     continue
                 employer[field_name] = change.new
+                changed_fields.append(field_name)
+            if not changed_fields:
+                logger.info("commit-analysis: employer %r had no valid field updates", slug)
+                continue
             employer["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
             tmp = yaml_path.with_suffix(".tmp")
             with open(tmp, "w", encoding="utf-8") as f:
@@ -689,7 +694,7 @@ def commit_analysis(
             tmp.replace(yaml_path)
             employers_updated.append(slug)
             logger.info(
-                "commit-analysis: updated employer %r fields: %s", slug, list(field_changes.keys())
+                "commit-analysis: updated employer %r fields: %s", slug, changed_fields
             )
         except Exception as exc:
             logger.error("commit-analysis: failed to write employer %r: %s", slug, exc)

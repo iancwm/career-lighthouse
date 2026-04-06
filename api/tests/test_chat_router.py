@@ -277,3 +277,36 @@ def test_stale_active_career_type_from_client_falls_through(in_memory_qdrant, mo
     assert r.json()["active_career_type"] is None
     _, kwargs = mock_llm.call_args
     assert kwargs.get("career_context") is None
+
+
+def test_employer_context_not_injected_without_active_career_type(in_memory_qdrant, mock_embedder):
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    with patch.object(llm_module, "chat_with_context", return_value="general advice") as mock_llm:
+        client = TestClient(app)
+        r = client.post("/api/chat", json={
+            "message": "What should I explore?",
+            "resume_text": None,
+            "history": [],
+        })
+
+    assert r.status_code == 200
+    mock_employer_store.to_context_block.assert_called_once_with(None)
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("employer_context") is None

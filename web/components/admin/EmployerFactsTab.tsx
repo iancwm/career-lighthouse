@@ -40,7 +40,6 @@ function completenessTooltip(emp: EmployerDetail): string {
   if (!emp.employer_name) missing.push("employer_name")
   if (!emp.tracks?.length) missing.push("tracks")
   if (!emp.ep_requirement) missing.push("ep_requirement")
-  if (!emp.intake_seasons?.length) missing.push("intake_seasons")
   return missing.length > 0 ? `Missing: ${missing.join(", ")}` : "Incomplete"
 }
 

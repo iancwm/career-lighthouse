@@ -26,7 +26,6 @@ _COMPLETENESS_REQUIRED: frozenset = frozenset([
     "employer_name",
     "tracks",
     "ep_requirement",
-    "intake_seasons",
 ])
 
 # Fields writable via commit-analysis (allowlist prevents hallucinated field writes)
@@ -172,7 +171,8 @@ class EmployerEntityStore:
         """Build the employer context block for LLM injection.
 
         Filters to employers whose 'tracks' list includes active_career_type.
-        If active_career_type is None, includes all active employers.
+        If active_career_type is None, returns empty string so general chats do
+        not get contaminated by unrelated employer facts.
         Returns empty string if no employers match (safe to skip injection).
 
         Token budget: ~6 lines per employer × 12 chars/line ≈ 72 tokens per employer.
@@ -180,12 +180,13 @@ class EmployerEntityStore:
         See TODOS.md: "Employer context token budget" for >20 employers per track.
         """
         self._ensure_loaded()
+        if not active_career_type:
+            return ""
         employers = list(self._employers.values())
-        if active_career_type:
-            employers = [
-                e for e in employers
-                if active_career_type in (e.get("tracks") or [])
-            ]
+        employers = [
+            e for e in employers
+            if active_career_type in (e.get("tracks") or [])
+        ]
         if not employers:
             return ""
 
