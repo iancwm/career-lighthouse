@@ -335,6 +335,29 @@ def make_employers_dir(tmp_path):
     return d
 
 
+def make_profiles_dir(tmp_path):
+    d = tmp_path / "career_profiles"
+    d.mkdir()
+    (d / "investment_banking.yaml").write_text(textwrap.dedent("""\
+        career_type: Investment Banking
+        ep_sponsorship: "High"
+        compass_score_typical: "45-55"
+        top_employers_smu:
+          - Goldman Sachs
+        recruiting_timeline: "Oct-Jan"
+        international_realistic: true
+        entry_paths:
+          - Internship
+        salary_range_2024: "S$85K-95K"
+        typical_background: "Finance"
+        counselor_contact: ""
+        notes: "Original note"
+        structured:
+          sponsorship_tier: High
+    """), encoding="utf-8")
+    return d
+
+
 # ---------------------------------------------------------------------------
 # GET /api/kb/employers
 # ---------------------------------------------------------------------------
@@ -638,6 +661,88 @@ class TestCommitAnalysisEmployerUpdates:
         r = client.post("/api/kb/commit-analysis", json=payload)
         assert r.status_code == 200
         assert r.json()["employers_updated"] == []
+
+
+# ---------------------------------------------------------------------------
+# POST /api/kb/commit-analysis — profile_updates write path
+# ---------------------------------------------------------------------------
+
+class TestCommitAnalysisProfileUpdates:
+    def test_valid_profile_field_updates_yaml(self, in_memory_qdrant, mock_embedder, tmp_path):
+        from main import app
+        import dependencies
+        from services.vector_store import VectorStore
+        from services.career_profiles import get_career_profile_store
+        from services.employer_store import get_employer_store
+        from unittest.mock import MagicMock
+
+        pdir = make_profiles_dir(tmp_path)
+        os.environ["CAREER_PROFILES_DIR"] = str(pdir)
+
+        store = VectorStore(client=in_memory_qdrant, collection="knowledge")
+        store.ensure_collection(384)
+        app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+        app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+        app.dependency_overrides[get_career_profile_store] = lambda: MagicMock()
+        app.dependency_overrides[get_employer_store] = lambda: MagicMock()
+
+        client = TestClient(app)
+        payload = {
+            "profile_updates": {
+                "investment_banking": {
+                    "notes": {"old": "Original note", "new": "Updated note"}
+                }
+            },
+            "employer_updates": {},
+            "new_chunks": [],
+        }
+
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        assert "investment_banking" in r.json()["profiles_updated"]
+
+        import yaml as _yaml
+        with open(pdir / "investment_banking.yaml", encoding="utf-8") as f:
+            written = _yaml.safe_load(f)
+        assert written["notes"] == "Updated note"
+
+    def test_unknown_profile_field_skipped_by_allowlist(self, in_memory_qdrant, mock_embedder, tmp_path):
+        from main import app
+        import dependencies
+        from services.vector_store import VectorStore
+        from services.career_profiles import get_career_profile_store
+        from services.employer_store import get_employer_store
+        from unittest.mock import MagicMock
+
+        pdir = make_profiles_dir(tmp_path)
+        os.environ["CAREER_PROFILES_DIR"] = str(pdir)
+
+        store = VectorStore(client=in_memory_qdrant, collection="knowledge")
+        store.ensure_collection(384)
+        app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+        app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+        app.dependency_overrides[get_career_profile_store] = lambda: MagicMock()
+        app.dependency_overrides[get_employer_store] = lambda: MagicMock()
+
+        client = TestClient(app)
+        payload = {
+            "profile_updates": {
+                "investment_banking": {
+                    "structured": {"old": None, "new": "evil value"}
+                }
+            },
+            "employer_updates": {},
+            "new_chunks": [],
+        }
+
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        assert r.json()["profiles_updated"] == []
+
+        import yaml as _yaml
+        with open(pdir / "investment_banking.yaml", encoding="utf-8") as f:
+            written = _yaml.safe_load(f)
+        assert written["structured"]["sponsorship_tier"] == "High"
         # "structured" not in allowlist — should not appear in YAML
         import yaml as _yaml
         with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:

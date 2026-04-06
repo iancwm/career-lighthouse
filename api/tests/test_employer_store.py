@@ -184,6 +184,28 @@ class TestToContextBlock:
         block = store.to_context_block(None)
         assert block == ""
 
+    def test_explicit_employer_mention_includes_match_without_active_career_type(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block(active_career_type=None, query_text="Tell me about McKinsey Singapore")
+        assert "McKinsey" in block
+        assert "Goldman Sachs" not in block
+
+    def test_explicit_acronym_employer_mention_matches_single_token_name(self, employers_dir, monkeypatch):
+        (employers_dir / "dbs.yaml").write_text(textwrap.dedent("""\
+            employer_name: DBS
+            slug: dbs
+            tracks:
+              - investment_banking
+            ep_requirement: "EP3"
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block(active_career_type=None, query_text="Does DBS sponsor EP?")
+        assert "DBS" in block
+
     def test_no_matching_employers_returns_empty(self, employers_dir, monkeypatch):
         monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
         from services.employer_store import EmployerEntityStore

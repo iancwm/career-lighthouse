@@ -35,6 +35,18 @@ _INTAKE_INTEREST_MAP: dict[str, str] = career_profiles_cfg["intake_interest_map"
 _DEFAULT_CAREER_TYPE: str = career_profiles_cfg["default_career_type"]
 
 
+def _default_profiles_dir() -> Path:
+    """Resolve the default profiles dir across local repo and Docker layouts."""
+    candidates = [
+        Path(__file__).resolve().parent.parent / "knowledge" / "career_profiles",
+        Path(__file__).resolve().parent.parent.parent / "knowledge" / "career_profiles",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return candidates[0]
+
+
 def resolve_career_type_from_intake(interest: Optional[str]) -> str:
     """Map an intake interest value to a career type slug.
 
@@ -123,7 +135,7 @@ class CareerProfileStore:
     def _load_profiles(self) -> None:
         profiles_dir = Path(os.environ.get(
             "CAREER_PROFILES_DIR",
-            str(Path(__file__).parent.parent.parent / "knowledge" / "career_profiles"),
+            str(_default_profiles_dir()),
         ))
         if not profiles_dir.exists():
             logger.warning(

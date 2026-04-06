@@ -116,8 +116,12 @@ def chat(
         if profile:
             career_context = profile_to_context_block(profile)
 
-    # Employer injection: filter to active career type (or all if no type resolved)
-    employer_block = employer_store.to_context_block(active_career_type)
+    # Employer injection: include track-matched employers plus any employer the
+    # student explicitly names in the current message.
+    employer_block = employer_store.to_context_block(
+        active_career_type=active_career_type,
+        query_text=req.message,
+    )
     employer_context: Optional[str] = employer_block if employer_block else None
 
     citations = [

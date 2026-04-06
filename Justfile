@@ -10,6 +10,19 @@ default:
 up:
     docker compose up --build
 
+# Explain where knowledge and logs are stored when running via Docker
+where-data:
+    @echo "Local Docker storage paths:"
+    @echo "  Employer YAMLs:       ./knowledge/employers/        -> /app/knowledge/employers/"
+    @echo "  Career profile YAMLs: ./knowledge/career_profiles/  -> /app/knowledge/career_profiles/"
+    @echo "  Query log:            ./logs/query_log.jsonl        -> /app/logs/query_log.jsonl"
+    @echo "  Uploaded documents:   stored in Qdrant, not as files under ./knowledge/"
+    @echo ""
+    @echo "What persists where:"
+    @echo "  Employer/Profile edits from the admin UI write back to ./knowledge/"
+    @echo "  Document uploads via /api/ingest are embedded and stored in Qdrant"
+    @echo "  Student query logs are appended to ./logs/query_log.jsonl"
+
 # Stop all services
 down:
     docker compose down

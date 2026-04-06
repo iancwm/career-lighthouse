@@ -307,6 +307,45 @@ def test_employer_context_not_injected_without_active_career_type(in_memory_qdra
         })
 
     assert r.status_code == 200
-    mock_employer_store.to_context_block.assert_called_once_with(None)
+    mock_employer_store.to_context_block.assert_called_once_with(
+        active_career_type=None,
+        query_text="What should I explore?",
+    )
     _, kwargs = mock_llm.call_args
     assert kwargs.get("employer_context") is None
+
+
+def test_chat_passes_message_to_employer_matching_layer(in_memory_qdrant, mock_embedder):
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = "=== EMPLOYER FACTS ===\n  DBS:\n=== END EMPLOYER FACTS ==="
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    with patch.object(llm_module, "chat_with_context", return_value="dbs advice") as mock_llm:
+        client = TestClient(app)
+        r = client.post("/api/chat", json={
+            "message": "What are DBS hiring requirements?",
+            "resume_text": None,
+            "history": [],
+        })
+
+    assert r.status_code == 200
+    mock_employer_store.to_context_block.assert_called_once_with(
+        active_career_type=None,
+        query_text="What are DBS hiring requirements?",
+    )
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("employer_context") is not None

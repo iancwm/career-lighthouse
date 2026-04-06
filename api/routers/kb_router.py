@@ -45,6 +45,7 @@ from services.career_profiles import CareerProfileStore, get_career_profile_stor
 from services.employer_store import (
     EmployerEntityStore,
     ALLOWED_EMPLOYER_FIELDS,
+    _default_employers_dir,
     get_employer_store,
 )
 from services.embedder import Embedder
@@ -53,6 +54,7 @@ from services.vector_store import VectorStore
 from services import llm as llm_service
 from config import settings
 from cfg import kb_cfg
+from services.career_profiles import _default_profiles_dir
 
 router = APIRouter(prefix="/api/kb")
 logger = logging.getLogger(__name__)
@@ -64,6 +66,15 @@ _OVERLAP_SCORE_THRESHOLD = _thresholds["overlap_score"]
 _OVERLAP_PCT_THRESHOLD = _thresholds["overlap_pct"]
 _LOG_WINDOW_DAYS = kb_cfg["log_window_days"]
 _MAX_LOW_CONF_QUERIES = kb_cfg["max_low_conf_queries"]
+ALLOWED_PROFILE_FIELDS: frozenset = frozenset([
+    "ep_sponsorship",
+    "compass_score_typical",
+    "recruiting_timeline",
+    "salary_range_2024",
+    "typical_background",
+    "counselor_contact",
+    "notes",
+])
 
 
 class TestQueryRequest(BaseModel):
@@ -108,14 +119,14 @@ def _build_profile_summary(store: CareerProfileStore) -> str:
 def _profiles_dir() -> Path:
     return Path(os.environ.get(
         "CAREER_PROFILES_DIR",
-        str(Path(__file__).parent.parent.parent / "knowledge" / "career_profiles"),
+        str(_default_profiles_dir()),
     ))
 
 
 def _employers_dir() -> Path:
     return Path(os.environ.get(
         "EMPLOYERS_DIR",
-        str(Path(__file__).parent.parent.parent / "knowledge" / "employers"),
+        str(_default_employers_dir()),
     ))
 
 
@@ -648,15 +659,25 @@ def commit_analysis(
         try:
             with open(yaml_path, encoding="utf-8") as f:
                 profile = yaml.safe_load(f) or {}
+            changed_fields: list[str] = []
             for field_name, change in field_changes.items():
+                if field_name not in ALLOWED_PROFILE_FIELDS:
+                    logger.warning(
+                        "commit-analysis: profile field %r not in allowlist — skipping", field_name
+                    )
+                    continue
                 profile[field_name] = change.new
+                changed_fields.append(field_name)
+            if not changed_fields:
+                logger.info("commit-analysis: profile %r had no valid field updates", slug)
+                continue
             # Atomic write: write to temp file then rename
             tmp = yaml_path.with_suffix(".tmp")
             with open(tmp, "w", encoding="utf-8") as f:
                 yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
             tmp.replace(yaml_path)
             profiles_updated.append(slug)
-            logger.info("commit-analysis: updated profile %r fields: %s", slug, list(field_changes.keys()))
+            logger.info("commit-analysis: updated profile %r fields: %s", slug, changed_fields)
         except Exception as exc:
             logger.error("commit-analysis: failed to write profile %r: %s", slug, exc)
             raise HTTPException(status_code=500, detail=f"Failed to write profile '{slug}'")

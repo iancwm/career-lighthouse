@@ -13,6 +13,7 @@ Usage:
 """
 import logging
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -37,6 +38,18 @@ ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset([
     "counsellor_contact",
     "notes",
 ])
+
+
+def _default_employers_dir() -> Path:
+    """Resolve the default employers dir across local repo and Docker layouts."""
+    candidates = [
+        Path(__file__).resolve().parent.parent / "knowledge" / "employers",
+        Path(__file__).resolve().parent.parent.parent / "knowledge" / "employers",
+    ]
+    for path in candidates:
+        if path.exists():
+            return path
+    return candidates[0]
 
 
 def _compute_completeness(employer: dict) -> str:
@@ -78,6 +91,38 @@ def employer_to_context_block(employer: dict, max_notes: int = 150, max_process:
     return "\n".join(lines)
 
 
+def _normalized_terms(text: str) -> set[str]:
+    """Return lowercase alphanumeric tokens for lightweight name matching."""
+    return set(re.findall(r"[a-z0-9]+", (text or "").lower()))
+
+
+def _employer_matches_query(employer: dict, query_text: str) -> bool:
+    """Return True when the query explicitly mentions the employer by name/slug."""
+    if not query_text or not query_text.strip():
+        return False
+
+    query_lower = query_text.lower()
+    query_terms = _normalized_terms(query_text)
+    name = str(employer.get("employer_name") or "").strip().lower()
+    slug = str(employer.get("slug") or "").strip().lower()
+
+    if name and name in query_lower:
+        return True
+    if slug and slug.replace("_", " ") in query_lower:
+        return True
+
+    employer_terms = _normalized_terms(name) | _normalized_terms(slug.replace("_", " "))
+    if not employer_terms:
+        return False
+
+    # Acronym-style employers like DBS or UBS are represented as a single token.
+    if len(employer_terms) == 1:
+        return next(iter(employer_terms)) in query_terms
+
+    # For multi-word names, require all salient terms to appear somewhere in the query.
+    return employer_terms.issubset(query_terms)
+
+
 class EmployerEntityStore:
     """Singleton that loads employer entity YAMLs from knowledge/employers/.
 
@@ -111,7 +156,7 @@ class EmployerEntityStore:
     def _load_employers(self) -> None:
         employers_dir = Path(os.environ.get(
             "EMPLOYERS_DIR",
-            str(Path(__file__).parent.parent.parent / "knowledge" / "employers"),
+            str(_default_employers_dir()),
         ))
         if not employers_dir.exists():
             logger.warning(
@@ -167,12 +212,18 @@ class EmployerEntityStore:
         self._ensure_loaded()
         return list(self._employers.values())
 
-    def to_context_block(self, active_career_type: Optional[str] = None) -> str:
+    def to_context_block(
+        self,
+        active_career_type: Optional[str] = None,
+        query_text: Optional[str] = None,
+    ) -> str:
         """Build the employer context block for LLM injection.
 
         Filters to employers whose 'tracks' list includes active_career_type.
-        If active_career_type is None, returns empty string so general chats do
-        not get contaminated by unrelated employer facts.
+        If query_text explicitly mentions an employer, include that employer even
+        when the active track is absent or different. This preserves relevance
+        for queries like "Tell me about DBS" without globally injecting every
+        employer into general chat.
         Returns empty string if no employers match (safe to skip injection).
 
         Token budget: ~6 lines per employer × 12 chars/line ≈ 72 tokens per employer.
@@ -180,13 +231,26 @@ class EmployerEntityStore:
         See TODOS.md: "Employer context token budget" for >20 employers per track.
         """
         self._ensure_loaded()
-        if not active_career_type:
-            return ""
         employers = list(self._employers.values())
-        employers = [
-            e for e in employers
-            if active_career_type in (e.get("tracks") or [])
-        ]
+        selected: list[dict] = []
+        seen_slugs: set[str] = set()
+
+        if active_career_type:
+            for employer in employers:
+                if active_career_type in (employer.get("tracks") or []):
+                    selected.append(employer)
+                    seen_slugs.add(employer.get("slug", ""))
+
+        if query_text:
+            for employer in employers:
+                slug = employer.get("slug", "")
+                if slug in seen_slugs:
+                    continue
+                if _employer_matches_query(employer, query_text):
+                    selected.append(employer)
+                    seen_slugs.add(slug)
+
+        employers = selected
         if not employers:
             return ""
 
