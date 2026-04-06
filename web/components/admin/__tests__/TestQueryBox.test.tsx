@@ -9,8 +9,8 @@ describe("TestQueryBox", () => {
 
   it("renders input and search button", () => {
     render(<TestQueryBox apiUrl="http://localhost:8000" />)
-    expect(screen.getByPlaceholderText(/student question/i)).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /search/i })).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/DBS hiring requirements for internships/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /run test/i })).toBeInTheDocument()
   })
 
   it("does not show results before a search", () => {
@@ -21,12 +21,12 @@ describe("TestQueryBox", () => {
   it("shows empty state when API returns no results", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => [] }))
     render(<TestQueryBox apiUrl="http://localhost:8000" />)
-    fireEvent.change(screen.getByPlaceholderText(/student question/i), {
+    fireEvent.change(screen.getByPlaceholderText(/DBS hiring requirements for internships/i), {
       target: { value: "career advice" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+    fireEvent.click(screen.getByRole("button", { name: /run test/i }))
     await waitFor(() =>
-      expect(screen.getByText(/no chunks matched/i)).toBeInTheDocument()
+      expect(screen.getByText(/No matching excerpts found/i)).toBeInTheDocument()
     )
   })
 
@@ -37,10 +37,10 @@ describe("TestQueryBox", () => {
     ]
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => results }))
     render(<TestQueryBox apiUrl="http://localhost:8000" />)
-    fireEvent.change(screen.getByPlaceholderText(/student question/i), {
+    fireEvent.change(screen.getByPlaceholderText(/DBS hiring requirements for internships/i), {
       target: { value: "how to prepare" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+    fireEvent.click(screen.getByRole("button", { name: /run test/i }))
     await waitFor(() => expect(screen.getByText("resume.pdf")).toBeInTheDocument())
     expect(screen.getByText("interview.pdf")).toBeInTheDocument()
     expect(screen.getByText("Tailor your resume.")).toBeInTheDocument()
@@ -51,10 +51,10 @@ describe("TestQueryBox", () => {
       ok: true, json: async () => [{ source_filename: "a.pdf", excerpt: "x", score: 0.72 }],
     }))
     const { container } = render(<TestQueryBox apiUrl="http://localhost:8000" />)
-    fireEvent.change(screen.getByPlaceholderText(/student question/i), {
+    fireEvent.change(screen.getByPlaceholderText(/DBS hiring requirements for internships/i), {
       target: { value: "q" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+    fireEvent.click(screen.getByRole("button", { name: /run test/i }))
     await waitFor(() => expect(screen.getByText("0.720")).toBeInTheDocument())
     expect(container.querySelector(".bg-green-100")).not.toBeNull()
   })
@@ -64,10 +64,10 @@ describe("TestQueryBox", () => {
       ok: true, json: async () => [{ source_filename: "a.pdf", excerpt: "x", score: 0.20 }],
     }))
     const { container } = render(<TestQueryBox apiUrl="http://localhost:8000" />)
-    fireEvent.change(screen.getByPlaceholderText(/student question/i), {
+    fireEvent.change(screen.getByPlaceholderText(/DBS hiring requirements for internships/i), {
       target: { value: "q" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+    fireEvent.click(screen.getByRole("button", { name: /run test/i }))
     await waitFor(() => expect(screen.getByText("0.200")).toBeInTheDocument())
     expect(container.querySelector(".bg-red-100")).not.toBeNull()
   })
@@ -76,7 +76,7 @@ describe("TestQueryBox", () => {
     const mockFetch = vi.fn()
     vi.stubGlobal("fetch", mockFetch)
     render(<TestQueryBox apiUrl="http://localhost:8000" />)
-    fireEvent.click(screen.getByRole("button", { name: /search/i }))
+    fireEvent.click(screen.getByRole("button", { name: /run test/i }))
     expect(mockFetch).not.toHaveBeenCalled()
   })
 })

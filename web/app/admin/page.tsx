@@ -63,15 +63,18 @@ export default function AdminPage() {
   return (
     <div className="max-w-6xl mx-auto p-6">
       <h1 className="text-2xl font-bold mb-1">Career Lighthouse</h1>
-      <p className="text-sm text-gray-500 mb-6">Career Office Dashboard</p>
+      <p className="text-sm text-gray-500 mb-2">Counsellor workspace</p>
+      <p className="text-sm text-gray-500 mb-6 max-w-3xl">
+        Upload source material, turn new notes into reviewed updates, and keep employer facts current before students see them in chat.
+      </p>
 
       {/* Tab nav */}
       <div className="flex gap-1 mb-8 border-b border-gray-200">
         <TabButton active={tab === "knowledge"} onClick={() => setTab("knowledge")}>
-          Knowledge Base
+          Documents
         </TabButton>
         <TabButton active={tab === "update"} onClick={() => setTab("update")}>
-          Update Knowledge
+          Review Updates
         </TabButton>
         <TabButton active={tab === "employers"} onClick={() => setTab("employers")}>
           Employer Facts

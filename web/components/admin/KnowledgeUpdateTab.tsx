@@ -191,7 +191,10 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Update Knowledge Base</h2>
+      <h2 className="text-lg font-semibold mb-1">Review New Knowledge Before Saving</h2>
+      <p className="text-sm text-gray-500 mb-4 max-w-3xl">
+        Paste a counsellor note or upload a file. We will suggest searchable notes and structured fact updates for you to review before anything is saved.
+      </p>
 
       {state === "success" && (
         <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
@@ -209,14 +212,14 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               className={`flex-1 py-2 font-medium transition-colors ${inputMode === "note" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
               disabled={state === "analysing"}
             >
-              Note
+              Counsellor note
             </button>
             <button
               onClick={() => setInputMode("file")}
               className={`flex-1 py-2 font-medium transition-colors ${inputMode === "file" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
               disabled={state === "analysing"}
             >
-              Upload file
+              Uploaded file
             </button>
           </div>
 
@@ -224,7 +227,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
           {inputMode === "note" ? (
             <textarea
               className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[160px]"
-              placeholder="Type a note, e.g. 'Goldman changed their EP sponsorship threshold to 50+ COMPASS for 2026'"
+              placeholder="Example: 'Goldman changed their EP sponsorship threshold to 50+ COMPASS for 2026.'"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
               disabled={state === "analysing"}
@@ -244,8 +247,8 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                 <p className="text-sm text-gray-700 font-medium">{selectedFile.name}</p>
               ) : (
                 <>
-                  <p className="text-gray-500 text-sm">Drag &amp; drop or click to select</p>
-                  <p className="text-xs text-gray-400 mt-1">PDF, DOCX, TXT</p>
+                  <p className="text-gray-500 text-sm">Drag and drop or click to choose a file</p>
+                  <p className="text-xs text-gray-400 mt-1">Accepted formats: PDF, DOCX, TXT</p>
                 </>
               )}
               <input
@@ -264,13 +267,13 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
             disabled={!canAnalyse || state === "analysing"}
             className="w-full py-3 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-400"
           >
-            Analyse Changes
+            Review proposed changes
           </button>
 
           {/* Interpretation bullets — shown in diff state */}
           {state === "diff" && diff && diff.result.interpretation_bullets.length > 0 && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
-              <p className="text-xs font-medium text-gray-500 mb-2">AI understood:</p>
+              <p className="text-xs font-medium text-gray-500 mb-2">Summary of what will change:</p>
               <ul className="space-y-1">
                 {diff.result.interpretation_bullets.map((b, i) => (
                   <li key={i} className="text-xs text-gray-700 flex gap-2">
@@ -287,7 +290,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
         <div className="w-3/5">
           {state === "idle" && (
             <div className="h-full min-h-[240px] flex items-center justify-center rounded-xl border-2 border-dashed border-gray-200">
-              <p className="text-sm text-gray-400">Diff will appear here</p>
+              <p className="text-sm text-gray-400">Your review summary will appear here</p>
             </div>
           )}
 
@@ -303,7 +306,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
 
           {(state === "error_analyse") && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-              <p>Analysis failed — please try again or rephrase your input.</p>
+              <p>We could not prepare the review. Please try again or make the note more specific.</p>
               <button
                 onClick={handleAnalyse}
                 className="mt-3 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
@@ -315,7 +318,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
 
           {(state === "error_commit") && diff && (
             <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-4 text-sm text-red-700">
-              <p>Commit failed — please retry.</p>
+              <p>We could not save these updates. Please retry.</p>
               <button
                 onClick={handleCommit}
                 className="mt-3 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
@@ -331,9 +334,9 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               <p className="text-xs text-gray-500">
                 {newChunkCount} new chunk{newChunkCount !== 1 ? "s" : ""}
                 {" · "}
-                {profileFieldCount} profile field{profileFieldCount !== 1 ? "s" : ""} updated
+                {profileFieldCount} career profile field{profileFieldCount !== 1 ? "s" : ""} updated
                 {employerFieldCount > 0 && (
-                  <> {" · "} + {employerFieldCount} employer field{employerFieldCount !== 1 ? "s" : ""} updated</>
+                  <> {" · "} {employerFieldCount} employer field{employerFieldCount !== 1 ? "s" : ""} updated</>
                 )}
                 {" · "}
                 {alreadyCoveredCount} already covered
@@ -342,7 +345,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               {/* Career Profile Changes */}
               {profileFieldCount > 0 && (
                 <section>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Career Profile Changes</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Career Profile Updates</h3>
                   <div className="space-y-3">
                     {Object.entries(diff.result.profile_updates).map(([slug, fields]) =>
                       Object.entries(fields).map(([field, change]) => (
@@ -420,7 +423,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               {/* New Knowledge Chunks */}
               {newChunkCount > 0 && (
                 <section>
-                  <h3 className="text-sm font-semibold text-gray-700 mb-2">New Knowledge Chunks</h3>
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">New Searchable Notes</h3>
                   <div className="space-y-2">
                     {diff.result.new_chunks.map((chunk, i) => (
                       <div key={chunk.chunk_id || i} className="rounded-lg border border-gray-200 p-3 text-xs">
@@ -457,7 +460,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                     className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
                   >
                     <span>{alreadyCoveredOpen ? "▾" : "▸"}</span>
-                    Already in knowledge base ({alreadyCoveredCount})
+                    Already covered by existing documents ({alreadyCoveredCount})
                   </button>
                   {alreadyCoveredOpen && (
                     <div className="mt-2 space-y-2">
@@ -475,7 +478,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               {/* Nothing to commit */}
               {newChunkCount === 0 && profileFieldCount === 0 && employerFieldCount === 0 && (
                 <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
-                  Nothing new to add — this content is already covered in the knowledge base.
+                  No new updates suggested. This content appears to already be covered.
                 </div>
               )}
 
@@ -486,7 +489,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                   disabled={newChunkCount === 0 && profileFieldCount === 0 && employerFieldCount === 0}
                   className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                  Confirm
+                  Save reviewed changes
                 </button>
                 <button
                   onClick={() => {
@@ -495,7 +498,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                   }}
                   className="px-4 py-2.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
-                  Edit before saving
+                  Start over
                 </button>
                 <button
                   onClick={resetToIdle}

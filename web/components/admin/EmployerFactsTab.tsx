@@ -388,7 +388,10 @@ export default function EmployerFactsTab() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-4">Employer Facts</h2>
+      <h2 className="text-lg font-semibold mb-1">Employer Fact Library</h2>
+      <p className="text-sm text-gray-500 mb-4 max-w-3xl">
+        Keep employer-specific information current here. These facts are used to answer direct student questions about hiring requirements, timelines, and application process.
+      </p>
 
       <div className="flex gap-0 rounded-xl border border-gray-200 overflow-hidden min-h-[560px]">
         {/* ── Left panel (35%) ─────────────────────────────────── */}
@@ -414,7 +417,7 @@ export default function EmployerFactsTab() {
             <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
               <p className="text-sm text-gray-500">No employers yet</p>
               <p className="text-xs text-gray-400">
-                Add employers so the AI can give students accurate EP requirements and application tips.
+                Add an employer record so counsellors can maintain one current source of truth for student-facing answers.
               </p>
               <button
                 onClick={startCreate}
@@ -540,7 +543,7 @@ export default function EmployerFactsTab() {
             <div className="flex-1 flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 <h3 className="text-sm font-semibold text-gray-700">
-                  {mode === "create" ? "New Employer" : selected?.employer_name}
+                  {mode === "create" ? "New employer record" : selected?.employer_name}
                 </h3>
 
                 <div>
@@ -557,12 +560,12 @@ export default function EmployerFactsTab() {
                 {mode === "create" && (
                   <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">
-                      Slug <span className="text-gray-400 font-normal">(auto-generated, editable)</span>
+                      Record ID <span className="text-gray-400 font-normal">(auto-generated, editable)</span>
                     </label>
                     <input
                       type="text"
                       className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="e.g. goldman_sachs"
+                      placeholder="Example: goldman_sachs"
                       value={slugPreview}
                       onChange={(e) => {
                         setSlugPreview(e.target.value)
@@ -573,7 +576,7 @@ export default function EmployerFactsTab() {
                 )}
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1.5">Career tracks</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1.5">Relevant career tracks</label>
                   <PillToggleGroup
                     options={trackOptions.length > 0 ? trackOptions : [
                       { value: "investment_banking", label: "Investment Banking" },
@@ -586,11 +589,11 @@ export default function EmployerFactsTab() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">EP requirement</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Work pass / EP requirement</label>
                   <input
                     type="text"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    placeholder="e.g. EP4 (as of Q1 2026)"
+                    placeholder="Example: EP4 typically required as of Q1 2026"
                     value={(form.ep_requirement ?? "") as string}
                     onChange={(e) => updateField("ep_requirement", e.target.value || null)}
                   />
@@ -598,17 +601,17 @@ export default function EmployerFactsTab() {
 
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">
-                    Intake seasons <span className="text-gray-400 font-normal">— Enter or comma to add</span>
+                    Intake timing <span className="text-gray-400 font-normal">— press Enter or comma to add each window</span>
                   </label>
                   <ChipInput
                     values={(form.intake_seasons ?? []) as string[]}
                     onChange={(v) => updateField("intake_seasons", v)}
-                    placeholder="e.g. Jan"
+                    placeholder="Example: July"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">SG headcount estimate</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Singapore hiring estimate</label>
                   <input
                     type="text"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -623,14 +626,14 @@ export default function EmployerFactsTab() {
                   <textarea
                     rows={3}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    placeholder="e.g. Online application, HireVue, Superday"
+                    placeholder="Example: Online application, HireVue, assessment centre, final interviews"
                     value={(form.application_process ?? "") as string}
                     onChange={(e) => updateField("application_process", e.target.value || null)}
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Counsellor contact</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Internal counsellor contact</label>
                   <input
                     type="text"
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
@@ -641,11 +644,11 @@ export default function EmployerFactsTab() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">Counsellor notes</label>
                   <textarea
                     rows={4}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400"
-                    placeholder="Context for counsellors — e.g. when EP requirement changed, known exceptions"
+                    placeholder="Add context for counsellors, for example when the requirement changed or any known exceptions"
                     value={(form.notes ?? "") as string}
                     onChange={(e) => updateField("notes", e.target.value || null)}
                   />
@@ -668,7 +671,7 @@ export default function EmployerFactsTab() {
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                       Saving...
                     </span>
-                  ) : mode === "create" ? "Create employer" : "Save changes"}
+                  ) : mode === "create" ? "Create employer record" : "Save employer updates"}
                 </button>
               </div>
             </div>

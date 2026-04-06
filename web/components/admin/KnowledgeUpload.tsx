@@ -46,14 +46,17 @@ export default function KnowledgeUpload({ onUploaded }: Props) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-3">Upload Knowledge</h2>
+      <h2 className="text-lg font-semibold mb-1">Upload Source Documents</h2>
+      <p className="text-sm text-gray-500 mb-3">
+        Add PDFs, DOCX files, or text notes that should be searchable in student chat.
+      </p>
       <div
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
         className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 transition-colors"
       >
-        <p className="text-gray-500 mb-2">Drag &amp; drop files here</p>
-        <p className="text-sm text-gray-400">PDF, DOCX, TXT accepted</p>
+        <p className="text-gray-600 mb-2">Drag and drop files here</p>
+        <p className="text-sm text-gray-400">Accepted formats: PDF, DOCX, TXT</p>
         <input
           type="file"
           multiple
@@ -66,10 +69,13 @@ export default function KnowledgeUpload({ onUploaded }: Props) {
           htmlFor="file-input"
           className="mt-3 inline-block px-4 py-2 bg-blue-600 text-white rounded cursor-pointer text-sm"
         >
-          Browse Files
+          Choose files
         </label>
       </div>
-      {uploading && <p className="mt-2 text-sm text-blue-600">Uploading…</p>}
+      <p className="mt-2 text-xs text-gray-400">
+        Uploaded documents are indexed into the knowledge base. They do not change employer facts or career profile summaries automatically.
+      </p>
+      {uploading && <p className="mt-2 text-sm text-blue-600">Uploading files…</p>}
       {message && (
         <pre className="mt-2 text-sm text-green-700 whitespace-pre-wrap">{message}</pre>
       )}
