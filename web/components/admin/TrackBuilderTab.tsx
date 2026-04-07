@@ -67,9 +67,13 @@ export default function TrackBuilderTab() {
   const [tracks, setTracks] = useState<TrackRegistryEntry[]>([])
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
   const [form, setForm] = useState<DraftTrackDetail>(EMPTY_DRAFT)
+  const [sourceMode, setSourceMode] = useState<"note" | "file">("note")
+  const [sourceText, setSourceText] = useState("")
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
 
@@ -152,9 +156,43 @@ export default function TrackBuilderTab() {
     }
   }
 
+  async function generateDraft() {
+    setGenerating(true)
+    setError("")
+    setNotice("")
+    try {
+      const payload = new FormData()
+      payload.append("slug", form.slug.trim())
+      payload.append("track_name", form.track_name.trim())
+      if (sourceMode === "file" && sourceFile) {
+        payload.append("source_type", "file")
+        payload.append("file", sourceFile)
+      } else {
+        payload.append("source_type", "note")
+        payload.append("text", sourceText.trim())
+      }
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/generate`, {
+        method: "POST",
+        body: payload,
+      })
+      if (!res.ok) throw new Error("generate failed")
+      const generated: DraftTrackDetail = await res.json()
+      setNotice("Draft created from research.")
+      setSourceText("")
+      setSourceFile(null)
+      await loadAll(generated.slug)
+    } catch {
+      setError("We could not turn this research into a draft yet.")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   function startNewDraft() {
     setSelectedSlug(null)
     setForm(EMPTY_DRAFT)
+    setSourceText("")
+    setSourceFile(null)
     setError("")
     setNotice("")
   }
@@ -228,6 +266,49 @@ export default function TrackBuilderTab() {
         </div>
 
         <div className="rounded-xl border border-gray-200 p-5">
+          {!selectedSlug && (
+            <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+              <h3 className="text-sm font-semibold text-gray-800 mb-1">Start From Research</h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Paste counsellor notes or upload a file to generate a first draft for this track, then edit the result before publishing.
+              </p>
+              <div className="flex rounded-lg border border-blue-200 overflow-hidden text-sm mb-3">
+                <button
+                  onClick={() => { setSourceMode("note"); setSourceFile(null) }}
+                  className={`flex-1 py-2 font-medium transition-colors ${sourceMode === "note" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-blue-50"}`}
+                  type="button"
+                >
+                  Counsellor note
+                </button>
+                <button
+                  onClick={() => setSourceMode("file")}
+                  className={`flex-1 py-2 font-medium transition-colors ${sourceMode === "file" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-blue-50"}`}
+                  type="button"
+                >
+                  Uploaded file
+                </button>
+              </div>
+              {sourceMode === "note" ? (
+                <textarea
+                  value={sourceText}
+                  onChange={(e) => setSourceText(e.target.value)}
+                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[110px] mb-3"
+                  placeholder="Example: After speaking to alumni, we think data science roles in Singapore value Python, SQL, experimentation, and applied ML more than pure theory..."
+                />
+              ) : (
+                <div className="mb-3 rounded border border-dashed border-gray-300 p-4">
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
+                    className="text-sm"
+                  />
+                  {sourceFile && <p className="mt-2 text-sm text-gray-600">{sourceFile.name}</p>}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4 mb-4">
             <label className="text-sm text-gray-700">
               Track slug
@@ -349,16 +430,30 @@ export default function TrackBuilderTab() {
               {form.status === "ready_for_publish" ? "This draft is ready to publish." : "Complete the required fields to make this draft publish-ready."}
             </p>
             <div className="flex gap-3">
+              {!selectedSlug && (
+                <button
+                  onClick={generateDraft}
+                  disabled={
+                    generating ||
+                    !form.slug.trim() ||
+                    !form.track_name.trim() ||
+                    (sourceMode === "note" ? !sourceText.trim() : !sourceFile)
+                  }
+                  className="rounded-xl border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                >
+                  {generating ? "Generating…" : "Generate from research"}
+                </button>
+              )}
               <button
                 onClick={saveDraft}
-                disabled={saving || !form.slug || !form.track_name}
+                disabled={saving || generating || !form.slug || !form.track_name}
                 className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
               >
                 {saving ? "Saving…" : "Save draft"}
               </button>
               <button
                 onClick={publishDraft}
-                disabled={publishing || !selectedSlug || form.status !== "ready_for_publish"}
+                disabled={publishing || generating || !selectedSlug || form.status !== "ready_for_publish"}
                 className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
               >
                 {publishing ? "Publishing…" : "Publish track"}

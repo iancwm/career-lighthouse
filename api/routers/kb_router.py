@@ -379,6 +379,85 @@ def update_draft_track(
         raise HTTPException(status_code=422, detail=str(exc))
 
 
+@router.post("/draft-tracks/generate", response_model=DraftTrackDetail, status_code=201)
+def generate_draft_track(
+    slug: str = Form(...),
+    track_name: str = Form(...),
+    text: str = Form(None),
+    source_type: str = Form("note"),
+    file: UploadFile = File(None),
+    embedder: Embedder = Depends(get_embedder),
+    store: VectorStore = Depends(get_vector_store),
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    """Generate and save a draft track from counsellor research input."""
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    if not track_name or not track_name.strip():
+        raise HTTPException(status_code=422, detail="track_name is required.")
+    if draft_store.get_draft(slug) is not None:
+        raise HTTPException(status_code=409, detail=f"Draft track '{slug}' already exists.")
+
+    if source_type == "file" and file is not None:
+        raw_bytes = file.file.read()
+        fname = file.filename or "upload.txt"
+        try:
+            counsellor_input = parse_file(raw_bytes, fname)
+        except Exception as exc:
+            logger.warning("generate_draft_track: failed to parse uploaded file %r: %s", fname, exc)
+            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
+        source_label = fname
+    else:
+        if not text or not text.strip():
+            raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
+        counsellor_input = text.strip()
+        source_type = "note"
+        source_label = "counsellor_note"
+
+    try:
+        chunks_for_query = chunk_text(counsellor_input, max_tokens=256)
+        query_text = chunks_for_query[0] if chunks_for_query else counsellor_input
+        query_vec = embedder.encode(query_text)
+        retrieved = store.search(query_vec, top_k=8)
+    except Exception as exc:
+        logger.error("generate_draft_track: KB search failed: %s", exc)
+        raise HTTPException(status_code=503, detail="KB unavailable")
+
+    try:
+        raw = llm_service.generate_track_draft(
+            counsellor_input=counsellor_input,
+            track_name=track_name.strip(),
+            slug=slug,
+            existing_tracks=profile_store.list_profiles(),
+            retrieved_chunks=retrieved,
+            source_label=source_label,
+            source_type=source_type,
+        )
+    except ValueError as exc:
+        logger.warning("generate_draft_track: Claude returned malformed JSON: %s", exc)
+        raise HTTPException(status_code=422, detail="We could not generate a draft from this research yet.")
+    except Exception as exc:
+        logger.error("generate_draft_track: LLM call failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Draft generation service unavailable")
+
+    try:
+        detail = DraftTrackDetail(**raw)
+    except Exception as exc:
+        logger.warning("generate_draft_track: validation failed: %s | raw=%r", exc, str(raw)[:300])
+        raise HTTPException(status_code=422, detail="We could not generate a draft from this research yet.")
+
+    detail.slug = slug
+    detail.track_name = track_name.strip()
+    detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
+    if not detail.source_refs:
+        detail.source_refs = [{"type": source_type, "label": source_label}]
+    try:
+        return draft_store.save_draft(detail)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
 @router.post("/draft-tracks/{slug}/publish", response_model=TrackPublishResponse)
 def publish_draft_track(
     slug: str,

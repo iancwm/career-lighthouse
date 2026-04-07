@@ -159,6 +159,103 @@ def analyse_kb_input(
         raise ValueError(f"Claude returned malformed JSON: {exc}") from exc
 
 
+def generate_track_draft(
+    counsellor_input: str,
+    track_name: str,
+    slug: str,
+    existing_tracks: list[dict],
+    retrieved_chunks: list[dict],
+    source_label: str,
+    source_type: str,
+) -> dict:
+    """Generate a structured draft career track from counsellor research input.
+
+    Returns a raw JSON dict shaped for DraftTrackDetail (caller validates).
+    Raises ValueError if Claude returns malformed JSON.
+    """
+    import json
+
+    tracks_text = "\n".join(
+        f"- {item.get('slug')}: {item.get('career_type') or item.get('label') or item.get('slug')}"
+        for item in existing_tracks
+    ) or "(No existing tracks configured)"
+
+    excerpts_text = "\n\n".join(
+        f"[{i+1}] score={c['score']:.3f} source={c['payload'].get('source_filename', 'unknown')}\n"
+        f"{str(c['payload'].get('text', ''))[:400]}"
+        for i, c in enumerate(retrieved_chunks)
+    ) or "(No related knowledge retrieved)"
+
+    system = (
+        f"You are a career knowledge curator for {SCHOOL_NAME}.\n"
+        "You will be given counsellor research input for a new or underdeveloped career track.\n"
+        "Return ONLY a JSON object matching the schema below. Do not wrap it in markdown.\n\n"
+        "Output schema:\n"
+        "{\n"
+        '  "slug": "<slug>",\n'
+        '  "track_name": "<display name>",\n'
+        '  "status": "draft",\n'
+        '  "match_description": "<1-2 sentence routing description>",\n'
+        '  "match_keywords": ["<keyword>", "<keyword>"],\n'
+        '  "ep_sponsorship": "<guidance>",\n'
+        '  "compass_score_typical": "<guidance>",\n'
+        '  "top_employers_smu": ["<employer>"],\n'
+        '  "recruiting_timeline": "<guidance>",\n'
+        '  "international_realistic": true,\n'
+        '  "entry_paths": ["<path>"],\n'
+        '  "salary_range_2024": "<guidance>",\n'
+        '  "typical_background": "<guidance>",\n'
+        '  "counselor_contact": "",\n'
+        '  "notes": "<counsellor notes>",\n'
+        '  "source_refs": [{"type": "<note|file>", "label": "<source label>"}],\n'
+        '  "structured": {\n'
+        '    "sponsorship_tier": "<High|Medium|Low|>",\n'
+        '    "compass_points_typical": "<range or empty>",\n'
+        '    "salary_min_sgd": 0,\n'
+        '    "salary_max_sgd": 0,\n'
+        '    "ep_realistic": true\n'
+        "  }\n"
+        "}\n\n"
+        "Rules:\n"
+        "- Preserve the provided slug and track_name exactly.\n"
+        "- Only include claims supported by the counsellor input or the retrieved excerpts.\n"
+        "- If a fact is unclear, leave it cautious rather than inventing detail.\n"
+        "- match_keywords should be concrete phrases students might actually type.\n"
+        "- top_employers_smu and entry_paths may be empty if the input is too weak, but prefer a useful first draft.\n"
+        "- Use source_refs with the provided source_type and source_label.\n"
+        "- structured fields should be conservative defaults; use 0 for unknown salary bounds and empty strings when unsure.\n"
+    )
+
+    user = (
+        f"TARGET TRACK NAME: {track_name}\n"
+        f"TARGET SLUG: {slug}\n\n"
+        f"EXISTING TRACKS:\n{tracks_text}\n\n"
+        f"COUNSELLOR INPUT:\n{counsellor_input}\n\n"
+        f"RELATED KNOWLEDGE EXCERPTS:\n{excerpts_text}\n\n"
+        f"SOURCE LABEL: {source_label}\n"
+        f"SOURCE TYPE: {source_type}\n"
+    )
+
+    response = get_client().messages.create(
+        model=_llm["model"],
+        max_tokens=2500,
+        system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    if not response.content or response.content[0].type != "text":
+        raise ValueError("Claude returned an empty or non-text response")
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[1]
+        if "```" in raw:
+            raw = raw.rsplit("```", 1)[0]
+    raw = raw.strip()
+    try:
+        return json.loads(raw)
+    except Exception as exc:
+        raise ValueError(f"Claude returned malformed JSON: {exc}") from exc
+
+
 def generate_brief(resume_text: str, chunks: list[dict]) -> str:
     kb_text = "\n\n---\n\n".join(
         f"[{c['payload']['source_filename']}]\n{c['payload']['text']}"

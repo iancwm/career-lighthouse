@@ -408,6 +408,43 @@ class TestTrackBuilderEndpoints:
             restored = yaml.safe_load(f)
         assert restored["notes"] == "First version"
 
+    def test_generate_draft_track_from_note(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        configure_track_paths(monkeypatch, tmp_path)
+        client, store = make_client(in_memory_qdrant, mock_embedder)
+        seed_chunk(store, "ds-guide.txt", "Data scientists at Grab need Python and SQL skills.")
+
+        generated = sample_draft_payload()
+        generated["status"] = "draft"
+        generated["source_refs"] = [{"type": "note", "label": "counsellor_note"}]
+
+        with patch("services.llm.generate_track_draft", return_value=generated):
+            r = client.post("/api/kb/draft-tracks/generate", data={
+                "slug": "data_science",
+                "track_name": "Data Science",
+                "text": "Create a data science track from these counsellor notes.",
+                "source_type": "note",
+            })
+
+        assert r.status_code == 201
+        data = r.json()
+        assert data["slug"] == "data_science"
+        assert data["track_name"] == "Data Science"
+        assert data["source_refs"][0]["label"] == "counsellor_note"
+
+    def test_generate_draft_track_rejects_duplicate_slug(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        client.post("/api/kb/draft-tracks", json=sample_draft_payload())
+
+        r = client.post("/api/kb/draft-tracks/generate", data={
+            "slug": "data_science",
+            "track_name": "Data Science",
+            "text": "Try to create it again",
+            "source_type": "note",
+        })
+
+        assert r.status_code == 409
+
     def test_returns_profile_metadata_list(self, in_memory_qdrant, mock_embedder):
         from main import app
         from services.career_profiles import get_career_profile_store
