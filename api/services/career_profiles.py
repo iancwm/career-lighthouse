@@ -47,6 +47,10 @@ def _default_profiles_dir() -> Path:
     return candidates[0]
 
 
+def _default_tracks_version_path() -> Path:
+    return _default_profiles_dir().parent / ".tracks-version"
+
+
 def resolve_career_type_from_intake(interest: Optional[str]) -> str:
     """Map an intake interest value to a career type slug.
 
@@ -125,11 +129,15 @@ class CareerProfileStore:
         return cls._instance
 
     def _ensure_loaded(self) -> None:
-        if self._loaded:
+        version_path = Path(os.environ.get("TRACKS_VERSION_PATH", str(_default_tracks_version_path())))
+        current_mtime = version_path.stat().st_mtime if version_path.exists() else None
+        if self._loaded and getattr(self, "_tracks_version_mtime", None) == current_mtime:
             return
         self._profiles: dict[str, dict] = {}            # slug → profile dict
         self._type_embeddings: dict[str, np.ndarray] = {}  # slug → 384-dim vector (cosine-eligible only)
+        self._keyword_index: dict[str, list[str]] = {}  # slug → keyword list (lowercased)
         self._load_profiles()
+        self._tracks_version_mtime = current_mtime
         self._loaded = True
 
     def _load_profiles(self) -> None:
@@ -171,6 +179,18 @@ class CareerProfileStore:
                 # Falls back to career_type name if match_description is absent.
                 match_text = str(profile.get("match_description") or profile["career_type"]).strip()
                 self._profiles[slug] = profile
+                keywords = profile.get("match_keywords") or []
+                if not keywords:
+                    keywords = [slug.replace("_", " "), str(profile.get("career_type", slug))]
+                cleaned_keywords: list[str] = []
+                seen: set[str] = set()
+                for keyword in keywords:
+                    token = str(keyword).strip().lower()
+                    if not token or token in seen:
+                        continue
+                    seen.add(token)
+                    cleaned_keywords.append(token)
+                self._keyword_index[slug] = cleaned_keywords
                 # match_cosine: false → only activatable via intake, never by cosine switching
                 if profile.get("match_cosine", True):
                     self._type_embeddings[slug] = embedder.encode(match_text)
@@ -229,6 +249,26 @@ class CareerProfileStore:
         if best_score >= _CAREER_TYPE_MATCH_THRESHOLD:
             return best_slug
         return None
+
+    def match_career_type_keywords(self, message: str) -> Optional[str]:
+        """Return a career type slug if the message explicitly mentions a known keyword.
+
+        Keyword matching is deterministic and is used as the primary activation path for
+        newly published tracks whose cosine routing is intentionally disabled.
+        """
+        self._ensure_loaded()
+        haystack = str(message or "").strip().lower()
+        if not haystack:
+            return None
+
+        best_slug = None
+        best_length = 0
+        for slug, keywords in self._keyword_index.items():
+            for keyword in keywords:
+                if keyword and keyword in haystack and len(keyword) > best_length:
+                    best_slug = slug
+                    best_length = len(keyword)
+        return best_slug
 
     def invalidate(self) -> None:
         """Reset the loaded flag so profiles are reloaded on next access.

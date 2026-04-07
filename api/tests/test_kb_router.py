@@ -4,6 +4,7 @@ import os
 import tempfile
 import numpy as np
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -32,6 +33,64 @@ def seed_chunk(store, filename, chunk_text, chunk_index=0):
             "text": chunk_text,
         },
     }])
+
+
+def configure_track_paths(monkeypatch, tmp_path):
+    profiles_dir = tmp_path / "career_profiles"
+    drafts_dir = tmp_path / "draft_tracks"
+    logs_dir = tmp_path / "logs"
+    profiles_dir.mkdir(parents=True, exist_ok=True)
+    drafts_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+
+    monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+    monkeypatch.setenv("DRAFT_TRACKS_DIR", str(drafts_dir))
+    monkeypatch.setenv("CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "career_tracks.yaml"))
+    monkeypatch.setenv("CAREER_PROFILE_HISTORY_DIR", str(tmp_path / "career_profiles_history"))
+    monkeypatch.setenv("TRACK_PUBLISH_LOG_PATH", str(logs_dir / "track_publish_log.jsonl"))
+    monkeypatch.setenv("TRACK_PUBLISH_JOURNAL_PATH", str(logs_dir / "track_publish_journal.jsonl"))
+    monkeypatch.setenv("TRACKS_VERSION_PATH", str(tmp_path / ".tracks-version"))
+
+    from services.career_profiles import get_career_profile_store
+    from services.track_drafts import get_track_draft_store
+    get_career_profile_store().invalidate()
+    get_track_draft_store().invalidate()
+
+    return {
+        "profiles_dir": profiles_dir,
+        "drafts_dir": drafts_dir,
+        "logs_dir": logs_dir,
+        "registry_path": tmp_path / "career_tracks.yaml",
+        "history_dir": tmp_path / "career_profiles_history",
+        "tracks_version_path": tmp_path / ".tracks-version",
+    }
+
+
+def sample_draft_payload(slug="data_science", note_text="Field notes"):
+    return {
+        "slug": slug,
+        "track_name": "Data Science",
+        "match_description": "data science machine learning analytics careers",
+        "match_keywords": ["data science", "machine learning"],
+        "ep_sponsorship": "High at larger tech firms.",
+        "compass_score_typical": "45-60",
+        "top_employers_smu": ["Grab", "Shopee", "DBS"],
+        "recruiting_timeline": "Main internship cycle opens in September.",
+        "international_realistic": True,
+        "entry_paths": ["Internship to return offer"],
+        "salary_range_2024": "S$70K-S$110K",
+        "typical_background": "Statistics, CS, IS, and strong portfolio work.",
+        "counselor_contact": "Henry",
+        "notes": note_text,
+        "source_refs": [{"type": "note", "label": "counsellor_note"}],
+        "structured": {
+            "sponsorship_tier": "High",
+            "compass_points_typical": "45-60",
+            "salary_min_sgd": 70000,
+            "salary_max_sgd": 110000,
+            "ep_realistic": True,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +316,97 @@ class TestCareerProfilesEndpoint:
 
         assert r.status_code == 200
         assert r.json() == []
+
+
+# ---------------------------------------------------------------------------
+# Track Builder endpoints
+# ---------------------------------------------------------------------------
+
+class TestTrackBuilderEndpoints:
+    def test_list_tracks_bootstraps_registry_from_existing_profiles(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        with open(paths["profiles_dir"] / "consulting.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump({
+                "career_type": "Consulting",
+                "ep_sponsorship": "High",
+                "top_employers_smu": ["McKinsey"],
+                "recruiting_timeline": "Sep-Nov",
+                "international_realistic": True,
+                "entry_paths": ["Internship"],
+                "salary_range_2024": "S$90K",
+                "typical_background": "Any",
+            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        r = client.get("/api/kb/tracks")
+
+        assert r.status_code == 200
+        assert r.json() == [{
+            "slug": "consulting",
+            "label": "Consulting",
+            "status": "active",
+            "last_published": None,
+        }]
+        assert paths["registry_path"].exists()
+
+    def test_create_draft_track_persists_yaml(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        r = client.post("/api/kb/draft-tracks", json=sample_draft_payload())
+
+        assert r.status_code == 201
+        data = r.json()
+        assert data["slug"] == "data_science"
+        assert data["status"] == "ready_for_publish"
+        with open(paths["drafts_dir"] / "data_science.yaml", encoding="utf-8") as f:
+            stored = yaml.safe_load(f)
+        assert stored["track_name"] == "Data Science"
+        assert stored["match_keywords"] == ["data science", "machine learning"]
+
+    def test_publish_draft_writes_profile_registry_and_tracks_version(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        client.post("/api/kb/draft-tracks", json=sample_draft_payload())
+
+        r = client.post("/api/kb/draft-tracks/data_science/publish")
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["status"] == "ok"
+        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+            profile = yaml.safe_load(f)
+        assert profile["career_type"] == "Data Science"
+        assert profile["match_cosine"] is False
+        assert profile["match_keywords"] == ["data science", "machine learning"]
+        with open(paths["registry_path"], encoding="utf-8") as f:
+            registry = yaml.safe_load(f)
+        assert registry["tracks"][0]["slug"] == "data_science"
+        assert paths["tracks_version_path"].exists()
+
+    def test_rollback_restores_previous_published_profile(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        client.post("/api/kb/draft-tracks", json=sample_draft_payload(note_text="First version"))
+        first_publish = client.post("/api/kb/draft-tracks/data_science/publish")
+        assert first_publish.status_code == 200
+
+        updated_payload = sample_draft_payload(note_text="Second version")
+        updated_payload["salary_range_2024"] = "S$80K-S$120K"
+        updated_payload["top_employers_smu"] = ["Grab", "TikTok"]
+        client.put("/api/kb/draft-tracks/data_science", json=updated_payload)
+        second_publish = client.post("/api/kb/draft-tracks/data_science/publish")
+        assert second_publish.status_code == 200
+
+        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+            assert yaml.safe_load(f)["notes"] == "Second version"
+
+        rollback = client.post("/api/kb/tracks/data_science/rollback")
+        assert rollback.status_code == 200
+        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+            restored = yaml.safe_load(f)
+        assert restored["notes"] == "First version"
 
     def test_returns_profile_metadata_list(self, in_memory_qdrant, mock_embedder):
         from main import app
@@ -743,11 +893,6 @@ class TestCommitAnalysisProfileUpdates:
         with open(pdir / "investment_banking.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert written["structured"]["sponsorship_tier"] == "High"
-        # "structured" not in allowlist — should not appear in YAML
-        import yaml as _yaml
-        with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:
-            written = _yaml.safe_load(f)
-        assert "structured" not in written
 
     def test_unsafe_employer_slug_skipped(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)

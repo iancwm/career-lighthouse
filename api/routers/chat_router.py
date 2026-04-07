@@ -81,18 +81,26 @@ def _resolve_career_type(
     if req.intake_context and req.intake_context.interest:
         intake_slug = resolve_career_type_from_intake(req.intake_context.interest)
 
-    # Query-time cosine match (all messages)
-    cosine_slug = profile_store.match_career_type(query_vec)
-
-    if cosine_slug:
-        return cosine_slug
     if intake_slug:
         return intake_slug
+
+    active_slug: Optional[str] = None
     if req.active_career_type:
         # Validate client-provided slug — get_profile logs WARNING and returns None on miss
         if profile_store.get_profile(req.active_career_type) is not None:
-            return req.active_career_type
-    return None
+            active_slug = req.active_career_type
+
+    # Deterministic keyword matching only runs when no active career type is set.
+    if active_slug is None:
+        keyword_slug = profile_store.match_career_type_keywords(req.message)
+        if keyword_slug:
+            return keyword_slug
+
+    # Query-time cosine match remains as a final fallback for legacy profiles.
+    cosine_slug = profile_store.match_career_type(query_vec)
+    if cosine_slug:
+        return cosine_slug
+    return active_slug
 
 
 @router.post("/chat", response_model=ChatResponse)

@@ -29,6 +29,7 @@ from dependencies import get_embedder, get_vector_store
 from models import (
     AlreadyCovered,
     DocCoverageItem,
+    DraftTrackDetail,
     EmployerDetail,
     KBAnalysisResult,
     KBCommitRequest,
@@ -39,6 +40,9 @@ from models import (
     OverlapPair,
     ProfileFieldChange,
     TestQueryResult,
+    TrackPublishResponse,
+    TrackRegistryEntry,
+    TrackVersionInfo,
 )
 from services import health_cache
 from services.career_profiles import CareerProfileStore, get_career_profile_store
@@ -55,6 +59,7 @@ from services import llm as llm_service
 from config import settings
 from cfg import kb_cfg
 from services.career_profiles import _default_profiles_dir
+from services.track_drafts import TrackDraftStore, get_track_draft_store
 
 router = APIRouter(prefix="/api/kb")
 logger = logging.getLogger(__name__)
@@ -151,6 +156,23 @@ def _build_employer_summary(store: EmployerEntityStore) -> str:
         seasons = ", ".join(emp.get("intake_seasons") or [])
         lines.append(f"{slug} ({name}): ep_requirement={ep} | intake_seasons={seasons}")
     return "\n".join(lines)
+
+
+def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
+    """Return True if the draft has the minimum required fields to publish."""
+    required_text = [
+        detail.track_name,
+        detail.ep_sponsorship,
+        detail.recruiting_timeline,
+        detail.salary_range_2024,
+        detail.typical_background,
+    ]
+    return (
+        all(str(value).strip() for value in required_text)
+        and len(detail.top_employers_smu) > 0
+        and len(detail.entry_paths) > 0
+        and len(detail.match_keywords) > 0
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -272,6 +294,132 @@ def career_profiles(
     See TODOS.md: "FastAPI-level auth on /api/kb/* endpoints"
     """
     return profile_store.list_profiles()
+
+
+@router.get("/tracks", response_model=list[TrackRegistryEntry])
+def list_tracks(
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    """List registered career tracks.
+
+    Bootstraps the registry from existing career profile YAMLs on first access.
+    """
+    try:
+        return draft_store.list_registry()
+    except ValueError as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@router.get("/tracks/{slug}/history", response_model=list[TrackVersionInfo])
+def list_track_history(
+    slug: str,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    return draft_store.list_history(slug)
+
+
+@router.get("/draft-tracks", response_model=list[DraftTrackDetail])
+def list_draft_tracks(
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    """List all counsellor draft tracks."""
+    return draft_store.list_drafts()
+
+
+@router.get("/draft-tracks/{slug}", response_model=DraftTrackDetail)
+def get_draft_track(
+    slug: str,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    draft = draft_store.get_draft(slug)
+    if draft is None:
+        raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
+    return draft
+
+
+@router.post("/draft-tracks", response_model=DraftTrackDetail, status_code=201)
+def create_draft_track(
+    detail: DraftTrackDetail,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    if not _slug_is_safe(detail.slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    if not detail.track_name or not detail.track_name.strip():
+        raise HTTPException(status_code=422, detail="track_name is required.")
+    if draft_store.get_draft(detail.slug) is not None:
+        raise HTTPException(status_code=409, detail=f"Draft track '{detail.slug}' already exists.")
+
+    detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
+    try:
+        return draft_store.save_draft(detail)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.put("/draft-tracks/{slug}", response_model=DraftTrackDetail)
+def update_draft_track(
+    slug: str,
+    detail: DraftTrackDetail,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    existing = draft_store.get_draft(slug)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
+    detail.slug = slug
+    detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
+    try:
+        return draft_store.save_draft(detail)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.post("/draft-tracks/{slug}/publish", response_model=TrackPublishResponse)
+def publish_draft_track(
+    slug: str,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    draft = draft_store.get_draft(slug)
+    if draft is None:
+        raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
+    if not _draft_ready_for_publish(draft):
+        raise HTTPException(status_code=422, detail="Draft is incomplete and cannot be published yet.")
+    try:
+        version = draft_store.publish_draft(slug, actor="admin")
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error("publish_draft_track: failed for %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to publish draft track.")
+    profile_store.invalidate()
+    return TrackPublishResponse(status="ok", slug=slug, version=version, registry_updated=True)
+
+
+@router.post("/tracks/{slug}/rollback", response_model=TrackPublishResponse)
+def rollback_track(
+    slug: str,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    try:
+        version = draft_store.rollback_track(slug, actor="admin")
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error("rollback_track: failed for %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to roll back track.")
+    profile_store.invalidate()
+    return TrackPublishResponse(status="ok", slug=slug, version=version, registry_updated=True)
 
 
 @router.get("/employers", response_model=list[EmployerDetail])
