@@ -445,6 +445,47 @@ class TestTrackBuilderEndpoints:
 
         assert r.status_code == 409
 
+    def test_refresh_existing_draft_from_note_updates_fields_and_merges_sources(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        configure_track_paths(monkeypatch, tmp_path)
+        client, store = make_client(in_memory_qdrant, mock_embedder)
+        client.post("/api/kb/draft-tracks", json=sample_draft_payload(note_text="First draft notes"))
+        seed_chunk(store, "alumni-call.txt", "Data scientists at DBS often come from analytics and experimentation roles.")
+
+        refreshed = sample_draft_payload(note_text="Updated from alumni call")
+        refreshed["track_name"] = "Data Science"
+        refreshed["top_employers_smu"] = ["DBS", "Grab"]
+        refreshed["source_refs"] = [{"type": "file", "label": "alumni-call.txt"}]
+
+        with patch("services.llm.generate_track_draft", return_value=refreshed):
+            r = client.post(
+                "/api/kb/draft-tracks/data_science/generate-update",
+                data={
+                    "text": "We learned DBS hires analytics candidates with strong SQL and experimentation exposure.",
+                    "source_type": "note",
+                },
+            )
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["notes"] == "Updated from alumni call"
+        assert data["top_employers_smu"] == ["DBS", "Grab"]
+        assert {"type": "file", "label": "alumni-call.txt"} in data["source_refs"]
+        assert {"type": "note", "label": "counsellor_note"} in data["source_refs"]
+
+    def test_refresh_existing_draft_requires_existing_slug(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        r = client.post(
+            "/api/kb/draft-tracks/data_science/generate-update",
+            data={
+                "text": "Try to update a missing draft",
+                "source_type": "note",
+            },
+        )
+
+        assert r.status_code == 404
+
     def test_returns_profile_metadata_list(self, in_memory_qdrant, mock_embedder):
         from main import app
         from services.career_profiles import get_career_profile_store

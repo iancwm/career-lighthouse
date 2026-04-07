@@ -167,6 +167,7 @@ def generate_track_draft(
     retrieved_chunks: list[dict],
     source_label: str,
     source_type: str,
+    existing_draft: dict | None = None,
 ) -> dict:
     """Generate a structured draft career track from counsellor research input.
 
@@ -185,10 +186,12 @@ def generate_track_draft(
         f"{str(c['payload'].get('text', ''))[:400]}"
         for i, c in enumerate(retrieved_chunks)
     ) or "(No related knowledge retrieved)"
+    existing_draft_text = json.dumps(existing_draft or {}, indent=2, ensure_ascii=False) or "{}"
 
     system = (
         f"You are a career knowledge curator for {SCHOOL_NAME}.\n"
         "You will be given counsellor research input for a new or underdeveloped career track.\n"
+        "Sometimes you will also receive an existing draft. In that case, treat it as the current best draft and improve it cautiously.\n"
         "Return ONLY a JSON object matching the schema below. Do not wrap it in markdown.\n\n"
         "Output schema:\n"
         "{\n"
@@ -220,6 +223,7 @@ def generate_track_draft(
         "- Preserve the provided slug and track_name exactly.\n"
         "- Only include claims supported by the counsellor input or the retrieved excerpts.\n"
         "- If a fact is unclear, leave it cautious rather than inventing detail.\n"
+        "- If an existing draft is provided, preserve its useful fields unless the new evidence clearly improves or corrects them.\n"
         "- match_keywords should be concrete phrases students might actually type.\n"
         "- top_employers_smu and entry_paths may be empty if the input is too weak, but prefer a useful first draft.\n"
         "- Use source_refs with the provided source_type and source_label.\n"
@@ -230,6 +234,7 @@ def generate_track_draft(
         f"TARGET TRACK NAME: {track_name}\n"
         f"TARGET SLUG: {slug}\n\n"
         f"EXISTING TRACKS:\n{tracks_text}\n\n"
+        f"CURRENT DRAFT (if any):\n{existing_draft_text}\n\n"
         f"COUNSELLOR INPUT:\n{counsellor_input}\n\n"
         f"RELATED KNOWLEDGE EXCERPTS:\n{excerpts_text}\n\n"
         f"SOURCE LABEL: {source_label}\n"

@@ -43,6 +43,7 @@ from models import (
     TrackPublishResponse,
     TrackRegistryEntry,
     TrackVersionInfo,
+    SourceRef,
 )
 from services import health_cache
 from services.career_profiles import CareerProfileStore, get_career_profile_store
@@ -173,6 +174,62 @@ def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
         and len(detail.entry_paths) > 0
         and len(detail.match_keywords) > 0
     )
+
+
+def _extract_generation_input(
+    text: str | None,
+    source_type: str,
+    file: UploadFile | None,
+) -> tuple[str, str, str]:
+    """Return counsellor input text plus normalized source metadata."""
+    if source_type == "file" and file is not None:
+        raw_bytes = file.file.read()
+        fname = file.filename or "upload.txt"
+        try:
+            counsellor_input = parse_file(raw_bytes, fname)
+        except Exception as exc:
+            logger.warning("draft generation: failed to parse uploaded file %r: %s", fname, exc)
+            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
+        return counsellor_input, "file", fname
+
+    if not text or not text.strip():
+        raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
+    return text.strip(), "note", "counsellor_note"
+
+
+def _retrieve_generation_chunks(
+    counsellor_input: str,
+    embedder: Embedder,
+    store: VectorStore,
+) -> list[dict]:
+    try:
+        chunks_for_query = chunk_text(counsellor_input, max_tokens=256)
+        query_text = chunks_for_query[0] if chunks_for_query else counsellor_input
+        query_vec = embedder.encode(query_text)
+        return store.search(query_vec, top_k=8)
+    except Exception as exc:
+        logger.error("draft generation: KB search failed: %s", exc)
+        raise HTTPException(status_code=503, detail="KB unavailable")
+
+
+def _merge_source_refs(existing_refs: list[dict] | list, source_type: str, source_label: str) -> list[SourceRef]:
+    seen: set[tuple[str, str]] = set()
+    merged: list[SourceRef] = []
+    for raw in list(existing_refs or []) + [{"type": source_type, "label": source_label}]:
+        if isinstance(raw, dict):
+            ref_type = str(raw.get("type", "")).strip()
+            label = str(raw.get("label", "")).strip()
+        else:
+            ref_type = str(getattr(raw, "type", "")).strip()
+            label = str(getattr(raw, "label", "")).strip()
+        if not ref_type or not label:
+            continue
+        key = (ref_type.lower(), label.lower())
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(SourceRef(type=ref_type, label=label))
+    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -399,30 +456,8 @@ def generate_draft_track(
     if draft_store.get_draft(slug) is not None:
         raise HTTPException(status_code=409, detail=f"Draft track '{slug}' already exists.")
 
-    if source_type == "file" and file is not None:
-        raw_bytes = file.file.read()
-        fname = file.filename or "upload.txt"
-        try:
-            counsellor_input = parse_file(raw_bytes, fname)
-        except Exception as exc:
-            logger.warning("generate_draft_track: failed to parse uploaded file %r: %s", fname, exc)
-            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
-        source_label = fname
-    else:
-        if not text or not text.strip():
-            raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
-        counsellor_input = text.strip()
-        source_type = "note"
-        source_label = "counsellor_note"
-
-    try:
-        chunks_for_query = chunk_text(counsellor_input, max_tokens=256)
-        query_text = chunks_for_query[0] if chunks_for_query else counsellor_input
-        query_vec = embedder.encode(query_text)
-        retrieved = store.search(query_vec, top_k=8)
-    except Exception as exc:
-        logger.error("generate_draft_track: KB search failed: %s", exc)
-        raise HTTPException(status_code=503, detail="KB unavailable")
+    counsellor_input, source_type, source_label = _extract_generation_input(text, source_type, file)
+    retrieved = _retrieve_generation_chunks(counsellor_input, embedder, store)
 
     try:
         raw = llm_service.generate_track_draft(
@@ -451,7 +486,62 @@ def generate_draft_track(
     detail.track_name = track_name.strip()
     detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
     if not detail.source_refs:
-        detail.source_refs = [{"type": source_type, "label": source_label}]
+        detail.source_refs = [SourceRef(type=source_type, label=source_label)]
+    try:
+        return draft_store.save_draft(detail)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.post("/draft-tracks/{slug}/generate-update", response_model=DraftTrackDetail)
+def refresh_draft_track_from_research(
+    slug: str,
+    text: str = Form(None),
+    source_type: str = Form("note"),
+    file: UploadFile = File(None),
+    embedder: Embedder = Depends(get_embedder),
+    store: VectorStore = Depends(get_vector_store),
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    """Refresh an existing draft track using additional counsellor research."""
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    existing = draft_store.get_draft(slug)
+    if existing is None:
+        raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
+
+    counsellor_input, source_type, source_label = _extract_generation_input(text, source_type, file)
+    retrieved = _retrieve_generation_chunks(counsellor_input, embedder, store)
+
+    try:
+        raw = llm_service.generate_track_draft(
+            counsellor_input=counsellor_input,
+            track_name=existing.track_name.strip(),
+            slug=slug,
+            existing_tracks=profile_store.list_profiles(),
+            retrieved_chunks=retrieved,
+            source_label=source_label,
+            source_type=source_type,
+            existing_draft=existing.model_dump(),
+        )
+    except ValueError as exc:
+        logger.warning("refresh_draft_track_from_research: Claude returned malformed JSON: %s", exc)
+        raise HTTPException(status_code=422, detail="We could not update this draft from the new research yet.")
+    except Exception as exc:
+        logger.error("refresh_draft_track_from_research: LLM call failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Draft generation service unavailable")
+
+    try:
+        detail = DraftTrackDetail(**raw)
+    except Exception as exc:
+        logger.warning("refresh_draft_track_from_research: validation failed: %s | raw=%r", exc, str(raw)[:300])
+        raise HTTPException(status_code=422, detail="We could not update this draft from the new research yet.")
+
+    detail.slug = slug
+    detail.track_name = existing.track_name.strip()
+    detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
+    detail.source_refs = _merge_source_refs(detail.source_refs, source_type, source_label)
     try:
         return draft_store.save_draft(detail)
     except ValueError as exc:

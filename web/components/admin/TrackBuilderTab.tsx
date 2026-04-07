@@ -19,6 +19,7 @@ interface DraftTrackDetail {
   typical_background: string
   counselor_contact: string | null
   notes: string
+  source_refs: { type: string; label: string }[]
   last_updated: string | null
 }
 
@@ -27,6 +28,12 @@ interface TrackRegistryEntry {
   label: string
   status: string
   last_published: string | null
+}
+
+interface TrackVersionInfo {
+  version: string
+  published_at: string
+  filename: string
 }
 
 const EMPTY_DRAFT: DraftTrackDetail = {
@@ -45,6 +52,7 @@ const EMPTY_DRAFT: DraftTrackDetail = {
   typical_background: "",
   counselor_contact: "",
   notes: "",
+  source_refs: [],
   last_updated: null,
 }
 
@@ -70,10 +78,12 @@ export default function TrackBuilderTab() {
   const [sourceMode, setSourceMode] = useState<"note" | "file">("note")
   const [sourceText, setSourceText] = useState("")
   const [sourceFile, setSourceFile] = useState<File | null>(null)
+  const [history, setHistory] = useState<TrackVersionInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [rollingBack, setRollingBack] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
 
@@ -106,6 +116,20 @@ export default function TrackBuilderTab() {
   useEffect(() => {
     loadAll()
   }, [])
+
+  useEffect(() => {
+    if (!selectedSlug || !tracks.some((track) => track.slug === selectedSlug)) {
+      setHistory([])
+      return
+    }
+    fetch(`${API_URL}/api/kb/tracks/${selectedSlug}/history`)
+      .then((r) => {
+        if (!r.ok) throw new Error("history failed")
+        return r.json()
+      })
+      .then((data: TrackVersionInfo[]) => setHistory(data))
+      .catch(() => setHistory([]))
+  }, [selectedSlug, tracks])
 
   function updateField<K extends keyof DraftTrackDetail>(key: K, value: DraftTrackDetail[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -156,6 +180,25 @@ export default function TrackBuilderTab() {
     }
   }
 
+  async function rollbackTrack() {
+    if (!selectedSlug) return
+    setRollingBack(true)
+    setError("")
+    setNotice("")
+    try {
+      const res = await fetch(`${API_URL}/api/kb/tracks/${selectedSlug}/rollback`, {
+        method: "POST",
+      })
+      if (!res.ok) throw new Error("rollback failed")
+      setNotice("Published track rolled back.")
+      await loadAll(selectedSlug)
+    } catch {
+      setError("We could not roll back this published track.")
+    } finally {
+      setRollingBack(false)
+    }
+  }
+
   async function generateDraft() {
     setGenerating(true)
     setError("")
@@ -188,6 +231,37 @@ export default function TrackBuilderTab() {
     }
   }
 
+  async function refreshDraftFromResearch() {
+    if (!selectedSlug) return
+    setGenerating(true)
+    setError("")
+    setNotice("")
+    try {
+      const payload = new FormData()
+      if (sourceMode === "file" && sourceFile) {
+        payload.append("source_type", "file")
+        payload.append("file", sourceFile)
+      } else {
+        payload.append("source_type", "note")
+        payload.append("text", sourceText.trim())
+      }
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/${selectedSlug}/generate-update`, {
+        method: "POST",
+        body: payload,
+      })
+      if (!res.ok) throw new Error("refresh failed")
+      const refreshed: DraftTrackDetail = await res.json()
+      setNotice("Draft updated from new research.")
+      setSourceText("")
+      setSourceFile(null)
+      await loadAll(refreshed.slug)
+    } catch {
+      setError("We could not update this draft from the new research yet.")
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   function startNewDraft() {
     setSelectedSlug(null)
     setForm(EMPTY_DRAFT)
@@ -196,6 +270,10 @@ export default function TrackBuilderTab() {
     setError("")
     setNotice("")
   }
+
+  const selectedPublishedTrack = selectedSlug
+    ? tracks.find((track) => track.slug === selectedSlug) ?? null
+    : null
 
   return (
     <div>
@@ -266,48 +344,54 @@ export default function TrackBuilderTab() {
         </div>
 
         <div className="rounded-xl border border-gray-200 p-5">
-          {!selectedSlug && (
-            <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-              <h3 className="text-sm font-semibold text-gray-800 mb-1">Start From Research</h3>
-              <p className="text-sm text-gray-600 mb-3">
-                Paste counsellor notes or upload a file to generate a first draft for this track, then edit the result before publishing.
-              </p>
-              <div className="flex rounded-lg border border-blue-200 overflow-hidden text-sm mb-3">
-                <button
-                  onClick={() => { setSourceMode("note"); setSourceFile(null) }}
-                  className={`flex-1 py-2 font-medium transition-colors ${sourceMode === "note" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-blue-50"}`}
-                  type="button"
-                >
-                  Counsellor note
-                </button>
-                <button
-                  onClick={() => setSourceMode("file")}
-                  className={`flex-1 py-2 font-medium transition-colors ${sourceMode === "file" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-blue-50"}`}
-                  type="button"
-                >
-                  Uploaded file
-                </button>
-              </div>
-              {sourceMode === "note" ? (
-                <textarea
-                  value={sourceText}
-                  onChange={(e) => setSourceText(e.target.value)}
-                  className="w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[110px] mb-3"
-                  placeholder="Example: After speaking to alumni, we think data science roles in Singapore value Python, SQL, experimentation, and applied ML more than pure theory..."
-                />
-              ) : (
-                <div className="mb-3 rounded border border-dashed border-gray-300 p-4">
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt"
-                    onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
-                    className="text-sm"
-                  />
-                  {sourceFile && <p className="mt-2 text-sm text-gray-600">{sourceFile.name}</p>}
-                </div>
-              )}
+          <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+            <h3 className="text-sm font-semibold text-gray-800 mb-1">
+              {selectedSlug ? "Refresh Draft With New Research" : "Start From Research"}
+            </h3>
+            <p className="text-sm text-gray-600 mb-3">
+              {selectedSlug
+                ? "Paste follow-up notes or upload a file to improve the selected draft while keeping its existing structure and source history."
+                : "Paste counsellor notes or upload a file to generate a first draft for this track, then edit the result before publishing."}
+            </p>
+            <div className="flex rounded-lg border border-blue-200 overflow-hidden text-sm mb-3">
+              <button
+                onClick={() => { setSourceMode("note"); setSourceFile(null) }}
+                className={`flex-1 py-2 font-medium transition-colors ${sourceMode === "note" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-blue-50"}`}
+                type="button"
+              >
+                Counsellor note
+              </button>
+              <button
+                onClick={() => setSourceMode("file")}
+                className={`flex-1 py-2 font-medium transition-colors ${sourceMode === "file" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-blue-50"}`}
+                type="button"
+              >
+                Uploaded file
+              </button>
             </div>
-          )}
+            {sourceMode === "note" ? (
+              <textarea
+                value={sourceText}
+                onChange={(e) => setSourceText(e.target.value)}
+                className="w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[110px] mb-3"
+                placeholder={
+                  selectedSlug
+                    ? "Example: A recent alumni conversation suggests DBS data roles value experimentation, stakeholder communication, and SQL-heavy analytics more than deeper ML research..."
+                    : "Example: After speaking to alumni, we think data science roles in Singapore value Python, SQL, experimentation, and applied ML more than pure theory..."
+                }
+              />
+            ) : (
+              <div className="mb-3 rounded border border-dashed border-gray-300 p-4">
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  onChange={(e) => setSourceFile(e.target.files?.[0] ?? null)}
+                  className="text-sm"
+                />
+                {sourceFile && <p className="mt-2 text-sm text-gray-600">{sourceFile.name}</p>}
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4 mb-4">
             <label className="text-sm text-gray-700">
@@ -340,6 +424,22 @@ export default function TrackBuilderTab() {
               placeholder="Describe the field in the language students and counsellors would naturally use."
             />
           </label>
+
+          {form.source_refs.length > 0 && (
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <p className="text-xs font-medium text-gray-500 mb-2">Source references</p>
+              <div className="flex flex-wrap gap-2">
+                {form.source_refs.map((ref, index) => (
+                  <span
+                    key={`${ref.type}-${ref.label}-${index}`}
+                    className="inline-flex items-center rounded-full bg-white border border-gray-200 px-3 py-1 text-xs text-gray-700"
+                  >
+                    {ref.type}: {ref.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           <label className="block text-sm text-gray-700 mb-4">
             Match keywords
@@ -444,6 +544,18 @@ export default function TrackBuilderTab() {
                   {generating ? "Generating…" : "Generate from research"}
                 </button>
               )}
+              {selectedSlug && (
+                <button
+                  onClick={refreshDraftFromResearch}
+                  disabled={
+                    generating ||
+                    (sourceMode === "note" ? !sourceText.trim() : !sourceFile)
+                  }
+                  className="rounded-xl border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                >
+                  {generating ? "Refreshing…" : "Refresh from research"}
+                </button>
+              )}
               <button
                 onClick={saveDraft}
                 disabled={saving || generating || !form.slug || !form.track_name}
@@ -451,15 +563,46 @@ export default function TrackBuilderTab() {
               >
                 {saving ? "Saving…" : "Save draft"}
               </button>
-              <button
-                onClick={publishDraft}
-                disabled={publishing || generating || !selectedSlug || form.status !== "ready_for_publish"}
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
-              >
-                {publishing ? "Publishing…" : "Publish track"}
-              </button>
+                <button
+                  onClick={publishDraft}
+                  disabled={publishing || generating || !selectedSlug || form.status !== "ready_for_publish"}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {publishing ? "Publishing…" : "Publish track"}
+                </button>
+              </div>
             </div>
-          </div>
+          {selectedPublishedTrack && (
+            <div className="mt-5 rounded-xl border border-gray-200 p-4">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800">Published track history</h3>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Last published version: {selectedPublishedTrack.last_published || "Unknown"}
+                  </p>
+                </div>
+                <button
+                  onClick={rollbackTrack}
+                  disabled={rollingBack || history.length === 0}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  {rollingBack ? "Rolling back…" : "Rollback published track"}
+                </button>
+              </div>
+              {history.length === 0 ? (
+                <p className="text-sm text-gray-400">No published versions recorded yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {history.map((item) => (
+                    <div key={item.version} className="rounded-lg border border-gray-200 px-3 py-2">
+                      <p className="text-sm font-medium text-gray-800">{item.version}</p>
+                      <p className="text-xs text-gray-500">{item.filename}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
