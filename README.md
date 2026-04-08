@@ -27,13 +27,28 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | `just logs` | Follow logs for all services |
 | `just clean` | Stop services and wipe Qdrant data volume |
 | `just install` | Install all dependencies (`uv sync` + `npm ci`) |
+| `just lock-api` | Refresh `api/uv.lock` after changing Python dependencies |
 | `just qdrant` | Start a local Qdrant server (needed for `dev-api`) |
 | `just dev-api` | Run API dev server locally with hot-reload |
 | `just dev-web` | Run Next.js dev server |
 | `just test` | Run all tests (API + web) |
 | `just test-api` | Run pytest suite |
 | `just test-web` | Run Vitest suite |
+| `just push-changes` | Analyze the current diff against TODOs/plans and summarize progress toward a goal |
 | `just ingest` | Ingest all `demo-data/` files into the running API |
+
+## Python Package Management
+
+The backend uses `uv` with [api/pyproject.toml](/home/iancwm/git/career-lighthouse/api/pyproject.toml) as the dependency manifest and [api/uv.lock](/home/iancwm/git/career-lighthouse/api/uv.lock) as the locked resolution.
+
+```bash
+cd api
+uv sync --extra dev
+uv run python -m pytest
+uv lock
+```
+
+Use `uv lock` after editing `api/pyproject.toml`, then commit both the manifest and `api/uv.lock`.
 
 ## Admin Dashboard
 

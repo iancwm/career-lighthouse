@@ -3,13 +3,13 @@
 Sprint 2 pre-validation: test whether YAML career profiles improve answer quality.
 
 Usage:
-    cd /home/iancwm/git/career-lighthouse
-    uv run python scripts/validate_profiles.py investment_banking
-    uv run python scripts/validate_profiles.py consulting
-    uv run python scripts/validate_profiles.py tech_product
+    cd /home/iancwm/git/career-lighthouse/api
+    uv run python ../scripts/validate_profiles.py investment_banking
+    uv run python ../scripts/validate_profiles.py consulting
+    uv run python ../scripts/validate_profiles.py tech_product
 
     # Compare with/without profile side-by-side:
-    uv run python scripts/validate_profiles.py investment_banking --compare
+    uv run python ../scripts/validate_profiles.py investment_banking --compare
 
 The script calls Claude directly (no Qdrant, no KB chunks) to isolate the
 profile's contribution. The question is: does structured YAML context alone
@@ -124,14 +124,14 @@ def run_threshold_check(threshold: float = 0.70) -> None:
     - Messages that reference a different track should score lower
 
     Run before implementing the cosine matching logic in chat_router.py:
-        uv run python scripts/validate_profiles.py --threshold-check
-        uv run python scripts/validate_profiles.py --threshold-check --threshold 0.60
+        cd api && uv run python ../scripts/validate_profiles.py --threshold-check
+        cd api && uv run python ../scripts/validate_profiles.py --threshold-check --threshold 0.60
     """
     try:
         import numpy as np
         from sentence_transformers import SentenceTransformer
     except ImportError:
-        print("ERROR: sentence-transformers not installed. Run: pip install sentence-transformers", file=sys.stderr)
+        print("ERROR: sentence-transformers not installed. Run: cd api && uv sync --extra dev", file=sys.stderr)
         sys.exit(1)
 
     profiles_dir = Path(__file__).parent.parent / "knowledge" / "career_profiles"

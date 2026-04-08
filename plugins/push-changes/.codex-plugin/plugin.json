@@ -1,0 +1,38 @@
+{
+  "name": "push-changes",
+  "version": "0.1.0",
+  "description": "Analyze the current diff against repo goals before pushing.",
+  "author": {
+    "name": "Career Lighthouse",
+    "url": "[TODO: author-url]"
+  },
+  "homepage": "[TODO: plugin-homepage]",
+  "repository": "[TODO: plugin-repository]",
+  "license": "MIT",
+  "keywords": [
+    "git",
+    "review",
+    "progress",
+    "workflow",
+    "planning"
+  ],
+  "interface": {
+    "displayName": "Push Changes",
+    "shortDescription": "Review the current diff against TODOs and plans",
+    "longDescription": "Adds a Codex slash command that analyzes the current diff, compares it to repo TODOs and plan docs, and summarizes how much progress the changes make toward a sprint goal or ad hoc task.",
+    "developerName": "Career Lighthouse",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read"
+    ],
+    "websiteURL": "[TODO: website-url]",
+    "privacyPolicyURL": "[TODO: privacy-policy-url]",
+    "termsOfServiceURL": "[TODO: terms-of-service-url]",
+    "defaultPrompt": [
+      "Run /push-changes on my current diff",
+      "Compare this work against the TODO list",
+      "Summarize how much closer this gets us"
+    ]
+  }
+}

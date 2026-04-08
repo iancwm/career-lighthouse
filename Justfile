@@ -37,10 +37,14 @@ clean:
 
 # ── Local development ─────────────────────────────────────────────────────────
 
-# Install all dependencies (uv sync for API, npm ci for web)
+# Install all dependencies (uv-managed API deps + npm ci for web)
 install:
-    cd api && uv sync --extra dev
+    cd api && uv sync --extra dev --frozen
     cd web && npm ci
+
+# Refresh the API lockfile after editing api/pyproject.toml
+lock-api:
+    cd api && uv lock
 
 # Start a local Qdrant server (required for dev-api)
 qdrant:
@@ -61,11 +65,15 @@ test: test-api test-web
 
 # Run API tests
 test-api:
-    cd api && uv sync --extra dev && uv run python -m pytest
+    cd api && uv sync --extra dev --frozen && uv run python -m pytest
 
 # Run web tests
 test-web:
     cd web && npm run test -- --run
+
+# Analyze the current diff against TODOs/specs and summarize progress before pushing
+push-changes:
+    python3 scripts/push_changes.py
 
 # ── Demo data ─────────────────────────────────────────────────────────────────
 

@@ -1,0 +1,20 @@
+{
+  "name": "career-lighthouse-local",
+  "interface": {
+    "displayName": "Career Lighthouse Local"
+  },
+  "plugins": [
+    {
+      "name": "push-changes",
+      "source": {
+        "source": "local",
+        "path": "./plugins/push-changes"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
