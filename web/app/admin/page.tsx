@@ -11,6 +11,7 @@ import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import KnowledgeUpdateTab from "@/components/admin/KnowledgeUpdateTab"
 import EmployerFactsTab from "@/components/admin/EmployerFactsTab"
 import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
+import CareerTracksTab from "@/components/admin/CareerTracksTab"
 
 interface KBHealth {
   total_docs: number
@@ -37,7 +38,7 @@ interface KBHealth {
   }[]
 }
 
-type Tab = "knowledge" | "update" | "employers" | "tracks"
+type Tab = "knowledge" | "update" | "careers" | "employers" | "tracks"
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("knowledge")
@@ -76,6 +77,9 @@ export default function AdminPage() {
         </TabButton>
         <TabButton active={tab === "update"} onClick={() => setTab("update")}>
           Review Updates
+        </TabButton>
+        <TabButton active={tab === "careers"} onClick={() => setTab("careers")}>
+          Career Tracks
         </TabButton>
         <TabButton active={tab === "employers"} onClick={() => setTab("employers")}>
           Employer Facts
@@ -149,6 +153,11 @@ export default function AdminPage() {
       {/* Update Knowledge tab */}
       {tab === "update" && (
         <KnowledgeUpdateTab onCommitted={() => setRefreshKey((k) => k + 1)} />
+      )}
+
+      {/* Career tracks tab */}
+      {tab === "careers" && (
+        <CareerTracksTab />
       )}
 
       {/* Employer Facts tab */}
