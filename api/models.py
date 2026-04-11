@@ -223,3 +223,20 @@ class KnowledgeSession(BaseModel):
     created_by: str = "counsellor"
     created_at: str
     updated_at: str
+
+
+class CreateSessionRequest(BaseModel):
+    raw_input: str
+    counsellor_id: str = "counsellor"
+
+
+class CardCommitResponse(BaseModel):
+    card_id: str
+    domain: str
+    status: str
+    message: str
+
+
+class CardDiscardResponse(BaseModel):
+    card_id: str
+    status: str = "discarded"

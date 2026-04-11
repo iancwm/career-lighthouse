@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from models import KnowledgeSession, KBCommitRequest, KBCommitResponse
+from models import KnowledgeSession, CreateSessionRequest
 from services.session_store import SessionStore
 from typing import List
 
@@ -9,8 +9,8 @@ def get_session_store():
     return SessionStore()
 
 @router.post("", response_model=KnowledgeSession, status_code=201)
-def create_session(raw_input: str, store: SessionStore = Depends(get_session_store)):
-    return store.create_session(raw_input)
+def create_session(req: CreateSessionRequest, store: SessionStore = Depends(get_session_store)):
+    return store.create_session(req.raw_input, created_by=req.counsellor_id)
 
 @router.get("/{session_id}", response_model=KnowledgeSession)
 def get_session(session_id: str, store: SessionStore = Depends(get_session_store)):
