@@ -122,11 +122,17 @@ class AlreadyCovered(BaseModel):
     source_doc: str
 
 
-class KBAnalysisResult(BaseModel):
-    interpretation_bullets: list[str]
-    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
-    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
-    new_chunks: list[NewChunk] = []
+class IntentCard(BaseModel):
+    card_id: str
+    domain: str  # "employer" | "track"
+    summary: str
+    diff: dict  # structured representation of the proposed change
+    raw_input_ref: str # reference back to the originating text chunk
+
+
+class MultiIntentAnalysisResult(BaseModel):
+    session_id: str
+    cards: list[IntentCard]
     already_covered: list[AlreadyCovered] = []
 
 
@@ -207,3 +213,13 @@ class TrackPublishResponse(BaseModel):
     slug: str
     version: str
     registry_updated: bool = True
+
+
+class KnowledgeSession(BaseModel):
+    id: str
+    status: str  # "in-progress" | "analyzed" | "completed"
+    raw_input: str
+    intent_cards: list[dict] = []
+    created_by: str = "counsellor"
+    created_at: str
+    updated_at: str

@@ -14,22 +14,15 @@ interface Props {
   intakeContext?: IntakeContext | null
 }
 
-const CAREER_TYPE_LABELS: Record<string, string> = {
-  investment_banking: "Investment Banking",
-  consulting: "Consulting",
-  tech_product: "Tech / Product",
-  public_sector: "Public Sector / GLCs",
-  general_singapore: "General Singapore Market",
-}
-
 export default function ChatInterface({ resumeText, intakeContext }: Props) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState("")
   const [loading, setLoading] = useState(false)
   const [activeCareerType, setActiveCareerType] = useState<string | null>(null)
   const [intakeConsumed, setIntakeConsumed] = useState(false)
+  const [careerLabels, setCareerLabels] = useState<Record<string, string>>({})
   const bottomRef = useRef<HTMLDivElement>(null)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -41,6 +34,25 @@ export default function ChatInterface({ resumeText, intakeContext }: Props) {
     setIntakeConsumed(false)
     setMessages([])
   }, [intakeContext])
+
+  useEffect(() => {
+    async function loadTracks() {
+      try {
+        const res = await fetch(`${apiUrl}/api/tracks`)
+        if (res.ok) {
+          const data = await res.json()
+          const map: Record<string, string> = {}
+          data.forEach((t: any) => {
+            map[t.slug] = t.label
+          })
+          setCareerLabels(map)
+        }
+      } catch (err) {
+        console.error("Failed to load tracks", err)
+      }
+    }
+    loadTracks()
+  }, [apiUrl])
 
   async function send() {
     const msg = input.trim()
@@ -94,7 +106,7 @@ export default function ChatInterface({ resumeText, intakeContext }: Props) {
     }
   }
 
-  const careerLabel = activeCareerType ? CAREER_TYPE_LABELS[activeCareerType] ?? activeCareerType : null
+  const careerLabel = activeCareerType ? careerLabels[activeCareerType] ?? activeCareerType : null
 
   return (
     <div className="flex flex-col h-[600px]">

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends
 
 from config import settings
 from dependencies import get_embedder, get_vector_store
-from models import ChatRequest, ChatResponse, Citation
+from models import ChatRequest, ChatResponse, Citation, TrackRegistryEntry
 from services import llm
 from services.career_profiles import (
     CareerProfileStore,
@@ -19,9 +19,22 @@ from services.career_profiles import (
 from services.employer_store import EmployerEntityStore, get_employer_store
 from services.embedder import Embedder
 from services.vector_store import VectorStore
+from services.track_drafts import TrackDraftStore
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
+
+
+@router.get("/ping")
+def ping():
+    return {"ping": "pong"}
+
+
+@router.get("/tracks/active", response_model=list[TrackRegistryEntry])
+def list_active_tracks():
+    """Return the canonical list of active career tracks for student selection."""
+    store = TrackDraftStore()
+    return [t for t in store.list_registry() if t.status == "active"]
 
 
 def _log_query(message: str, chunks: list[dict],

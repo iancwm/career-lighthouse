@@ -31,7 +31,15 @@ logger = logging.getLogger(__name__)
 
 _CAREER_TYPE_MATCH_THRESHOLD: float = career_profiles_cfg["match_threshold"]
 _REQUIRED_FIELDS: frozenset = frozenset(career_profiles_cfg["required_fields"])
-_INTAKE_INTEREST_MAP: dict[str, str] = career_profiles_cfg["intake_interest_map"]
+_INTAKE_INTEREST_MAP: dict[str, str] = {
+    "finance": "investment_banking",
+    "consulting": "consulting",
+    "tech": "tech_product",
+    "public_sector": "public_sector",
+    "dsai": "dsai",
+    "data_science": "dsai",
+    "artificial_intelligence": "dsai",
+}
 _DEFAULT_CAREER_TYPE: str = career_profiles_cfg["default_career_type"]
 
 

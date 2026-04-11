@@ -1,5 +1,7 @@
 "use client"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 export interface IntakeContext {
   background: string | null
@@ -23,14 +25,6 @@ const REGIONS = [
   { id: "south_asia", label: "South Asia" },
   { id: "east_asia", label: "East Asia" },
   { id: "other", label: "Other" },
-]
-
-const INTERESTS = [
-  { id: "finance", label: "Finance / Banking" },
-  { id: "consulting", label: "Consulting" },
-  { id: "tech", label: "Tech / Product" },
-  { id: "public_sector", label: "Public Sector / GLCs" },
-  { id: "not_sure", label: "Not sure yet" },
 ]
 
 function PillGroup({
@@ -65,6 +59,34 @@ export default function IntakeFlow({ onComplete, onBack }: Props) {
   const [background, setBackground] = useState<string | null>(null)
   const [region, setRegion] = useState<string | null>(null)
   const [interest, setInterest] = useState<string | null>(null)
+  const [interests, setInterests] = useState<{ id: string; label: string }[]>([])
+
+  useEffect(() => {
+    async function loadTracks() {
+      try {
+        const res = await fetch(`${API_URL}/api/tracks/active`)
+        if (res.ok) {
+          const data = await res.json()
+          const options = data.map((t: any) => ({
+            id: t.slug,
+            label: t.label
+          }))
+          options.push({ id: "not_sure", label: "Not sure yet" })
+          setInterests(options)
+        }
+      } catch (err) {
+        console.error("Failed to load tracks", err)
+        // Fallback to minimal static list if API is down
+        setInterests([
+          { id: "finance", label: "Finance / Banking" },
+          { id: "consulting", label: "Consulting" },
+          { id: "tech", label: "Tech / Product" },
+          { id: "not_sure", label: "Not sure yet" },
+        ])
+      }
+    }
+    loadTracks()
+  }, [])
 
   function handleSubmit() {
     onComplete({ background, region, interest })
@@ -91,7 +113,7 @@ export default function IntakeFlow({ onComplete, onBack }: Props) {
 
       <div>
         <p className="text-sm font-medium text-gray-700 mb-2">What you're interested in</p>
-        <PillGroup options={INTERESTS} selected={interest} onSelect={setInterest} />
+        <PillGroup options={interests} selected={interest} onSelect={setInterest} />
       </div>
 
       <button

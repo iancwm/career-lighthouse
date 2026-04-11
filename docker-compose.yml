@@ -16,9 +16,12 @@ services:
       - CAREER_PROFILES_DIR=/app/knowledge/career_profiles
       - EMPLOYERS_DIR=/app/knowledge/employers
       - QUERY_LOG_PATH=/app/logs/query_log.jsonl
+      - SENTENCE_TRANSFORMERS_HOME=/app/.cache
     volumes:
+      - ./api:/app
       - ./knowledge:/app/knowledge
       - ./logs:/app/logs
+      - transformers_cache:/app/.cache
     depends_on:
       - qdrant
     restart: unless-stopped
@@ -40,3 +43,4 @@ services:
 
 volumes:
   qdrant_data:
+  transformers_cache:
