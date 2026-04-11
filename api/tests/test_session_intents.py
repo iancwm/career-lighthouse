@@ -81,3 +81,33 @@ def test_empty_result_on_total_failure(mock_client):
     result = generate_session_intents(raw_input, existing_tracks=[], existing_employers=[])
 
     assert result == {"cards": [], "already_covered": []}
+
+
+@patch("services.llm.get_client")
+def test_context_includes_existing_tracks_and_employers(mock_client):
+    """Existing tracks and employers are included in the LLM context."""
+    tracks = [{"career_type": "Finance", "match_description": "Banking track"}]
+    employers = [{"slug": "gs", "tracks": ["finance"], "ep_requirement": "EP4"}]
+
+    mock_resp = _make_claude_response(json.dumps({"cards": [], "already_covered": []}))
+    mock_client.return_value.messages.create.return_value = mock_resp
+
+    generate_session_intents("test", existing_tracks=tracks, existing_employers=employers)
+
+    call_kwargs = mock_client.return_value.messages.create.call_args.kwargs
+    messages = call_kwargs.get("messages", [])
+    context_text = messages[0]["content"] if messages else ""
+    assert "Finance" in context_text
+    assert "gs" in context_text
+    assert "EP4" in context_text
+
+
+@patch("services.llm.get_client")
+def test_missing_cards_key_returns_empty(mock_client):
+    """If Claude returns valid JSON but without 'cards' key, return empty."""
+    mock_resp = _make_claude_response(json.dumps({"already_covered": []}))
+    mock_client.return_value.messages.create.return_value = mock_resp
+
+    result = generate_session_intents("test", existing_tracks=[], existing_employers=[])
+
+    assert result == {"cards": [], "already_covered": []}
