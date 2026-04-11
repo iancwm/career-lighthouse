@@ -1,9 +1,13 @@
 """Tests for the session router — Task 0 scaffolding."""
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock
+import json
 import sys
+import tempfile
 from datetime import datetime, timezone
+from unittest.mock import patch, MagicMock
+
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(autouse=True)
@@ -185,3 +189,105 @@ class TestSessionRouterExported:
         with open(init_path) as f:
             content = f.read()
         assert "session_router" in content
+
+
+# --- POST /api/sessions/{id}/analyze with LLM integration ---
+
+@pytest.fixture
+def app_with_session_router():
+    """Real FastAPI app with session router using temp directory."""
+    import services.session_store as ss_module
+    from services.session_store import SessionStore
+
+    # Save original dir and reset singleton
+    original_dir = ss_module._SESSIONS_DIR
+    SessionStore._instance = None
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmp_path = ss_module.Path(tmpdir)
+        ss_module._SESSIONS_DIR = tmp_path
+
+        # Import session_router directly by file path to avoid routers/__init__.py
+        # which pulls in kb_router (has broken imports in this worktree)
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "session_router_test", "routers/session_router.py"
+        )
+        session_router_mod = importlib.util.module_from_spec(spec)
+        sys.modules["session_router_test"] = session_router_mod
+        spec.loader.exec_module(session_router_mod)
+
+        app = FastAPI()
+        app.include_router(session_router_mod.router)
+
+        yield app
+
+    # Cleanup
+    SessionStore._instance = None
+    ss_module._SESSIONS_DIR = original_dir
+    sys.modules.pop("session_router_test", None)
+
+
+@patch("services.llm.get_client")
+def test_analyze_extracts_intents_and_stores_on_session(mock_client, app_with_session_router):
+    """Analyze calls LLM and stores cards on the session."""
+    client = TestClient(app_with_session_router)
+
+    # Create a session first
+    resp = client.post("/api/sessions", json={"raw_input": "Goldman raised EP to EP4"})
+    assert resp.status_code == 201
+    session_id = resp.json()["id"]
+
+    # Mock Claude response
+    mock_msg = MagicMock()
+    mock_msg.content = [MagicMock(text=json.dumps({
+        "cards": [{
+            "card_id": "card-abc",
+            "domain": "employer",
+            "summary": "Update Goldman EP",
+            "diff": {"ep_requirement": "EP4"},
+            "raw_input_ref": "Goldman raised EP"
+        }],
+        "already_covered": []
+    }))]
+    mock_client.return_value.messages.create.return_value = mock_msg
+
+    resp = client.post(f"/api/sessions/{session_id}/analyze")
+    assert resp.status_code == 200
+
+    data = resp.json()
+    assert "session_id" in data
+    assert len(data["cards"]) == 1
+    assert data["cards"][0]["card_id"] == "card-abc"
+
+    # Session status should be "analyzed"
+    get_resp = client.get(f"/api/sessions/{session_id}")
+    assert get_resp.json()["status"] == "analyzed"
+    assert len(get_resp.json()["intent_cards"]) == 1
+
+
+@patch("services.llm.get_client")
+def test_analyze_returns_already_covered(mock_client, app_with_session_router):
+    """Analyze returns already_covered when LLM identifies no changes needed."""
+    client = TestClient(app_with_session_router)
+
+    resp = client.post("/api/sessions", json={"raw_input": "Nothing changed"})
+    session_id = resp.json()["id"]
+
+    mock_msg = MagicMock()
+    mock_msg.content = [MagicMock(text=json.dumps({
+        "cards": [],
+        "already_covered": [{"content": "Nothing changed", "reason": "Already known"}]
+    }))]
+    mock_client.return_value.messages.create.return_value = mock_msg
+
+    resp = client.post(f"/api/sessions/{session_id}/analyze")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data["cards"]) == 0
+    assert len(data["already_covered"]) == 1
+
+
+def test_analyze_nonexistent_session_returns_404(app_with_session_router):
+    resp = TestClient(app_with_session_router).post("/api/sessions/nonexistent/analyze")
+    assert resp.status_code == 404

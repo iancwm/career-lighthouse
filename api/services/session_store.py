@@ -9,7 +9,7 @@ from typing import Optional
 from models import KnowledgeSession
 
 # Storage directory within the API root
-_SESSIONS_DIR = Path("/app/data/sessions")
+_SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", "/app/data/sessions"))
 
 
 class SessionStore:
