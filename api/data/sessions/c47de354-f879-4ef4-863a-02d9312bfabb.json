@@ -1,0 +1,26 @@
+{
+  "id": "c47de354-f879-4ef4-863a-02d9312bfabb",
+  "status": "completed",
+  "raw_input": "Met with Ernst and Young for Transaction Advisory. They shared their assessment now includes data analytics questions like data visualization theory and SQL",
+  "intent_cards": [
+    {
+      "card_id": "card-a3f7b2c1",
+      "domain": "employer",
+      "summary": "Update Ernst & Young Transaction Advisory assessment process to include data analytics questions (data visualization theory and SQL)",
+      "diff": {
+        "slug": "ernst_and_young",
+        "display_name": "Ernst & Young",
+        "tracks": [
+          "transaction_advisory"
+        ],
+        "application_process": "Assessment now includes data analytics questions covering data visualization theory and SQL.",
+        "notes": "Transaction Advisory division confirmed assessment includes data analytics component (data visualization theory and SQL). Updated from counsellor meeting."
+      },
+      "raw_input_ref": "They shared their assessment now includes data analytics questions like data visualization theory and SQL",
+      "status": "committed"
+    }
+  ],
+  "created_by": "counsellor",
+  "created_at": "2026-04-11T13:58:53.767471+00:00",
+  "updated_at": "2026-04-11T13:58:53.767471+00:00"
+}

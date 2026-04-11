@@ -1,0 +1,21 @@
+{
+  "id": "b5d05225-7e65-42b7-b5ba-cae67e78bade",
+  "status": "completed",
+  "raw_input": "McKinsey has raised their EP requirement from EP4 to EP5 for the 2027 intake.",
+  "intent_cards": [
+    {
+      "card_id": "card-a3f7c1b2",
+      "domain": "employer",
+      "summary": "Update McKinsey EP requirement from EP3 to EP5 for 2027 intake",
+      "diff": {
+        "slug": "mckinsey",
+        "ep_requirement": "EP5 required for 2027 intake (raised from EP3). McKinsey has historically been more flexible on EP tier than banks, prioritising academic and problem-solving credentials."
+      },
+      "raw_input_ref": "McKinsey has raised their EP requirement from EP4 to EP5 for the 2027 intake.",
+      "status": "committed"
+    }
+  ],
+  "created_by": "test",
+  "created_at": "2026-04-11T13:24:29.952363+00:00",
+  "updated_at": "2026-04-11T13:24:29.952363+00:00"
+}

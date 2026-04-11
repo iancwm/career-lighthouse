@@ -1,0 +1,25 @@
+{
+  "id": "10344121-9951-4ef8-979b-ec633106b627",
+  "status": "completed",
+  "raw_input": "McKinsey has raised their EP requirement to EP5 for 2027 intake. They are now hiring in Apr and Oct seasons.",
+  "intent_cards": [
+    {
+      "card_id": "card-a3f7e291",
+      "domain": "employer",
+      "summary": "Update McKinsey EP requirement to EP5 and set intake seasons to Apr and Oct for 2027",
+      "diff": {
+        "slug": "mckinsey",
+        "ep_requirement": "EP5 required (2027 intake onwards).",
+        "intake_seasons": [
+          "Apr",
+          "Oct"
+        ]
+      },
+      "raw_input_ref": "McKinsey has raised their EP requirement to EP5 for 2027 intake. They are now hiring in Apr and Oct seasons.",
+      "status": "committed"
+    }
+  ],
+  "created_by": "test",
+  "created_at": "2026-04-11T14:07:16.973128+00:00",
+  "updated_at": "2026-04-11T14:07:16.973128+00:00"
+}

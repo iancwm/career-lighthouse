@@ -1,0 +1,49 @@
+{
+  "id": "a574bd89-3d24-47f9-a43a-5b82b7084f87",
+  "status": "completed",
+  "raw_input": "I just had a chat with Darren Tan from Accenture. He is an alumnus of the MITB programme. Accenture is now hiring more juniors and increasing the pay from 5500 to 6000 SGD per month. They are looking for students that have expertise in LangGraph and Python to aid with their rollout of their new Generative AI business unit.",
+  "intent_cards": [
+    {
+      "card_id": "card-a1b2c3d4",
+      "domain": "employer",
+      "summary": "Update Accenture employer record with new junior hiring push, increased salary to 6000 SGD/month, and GenAI skill requirements (LangGraph, Python)",
+      "diff": {
+        "slug": "accenture",
+        "display_name": "Accenture",
+        "tracks": [
+          "tech_product",
+          "consulting"
+        ],
+        "headcount_estimate": "Increasing junior hires as part of new Generative AI business unit rollout",
+        "counselor_contact": "Darren Tan (Accenture, MITB alumnus)",
+        "notes": "Accenture is ramping up junior hiring for their new Generative AI business unit. Looking for candidates with expertise in LangGraph and Python. Monthly salary increased from 5500 to 6000 SGD."
+      },
+      "raw_input_ref": "Accenture is now hiring more juniors and increasing the pay from 5500 to 6000 SGD per month. They are looking for students that have expertise in LangGraph and Python to aid with their rollout of their new Generative AI business unit.",
+      "status": "committed"
+    },
+    {
+      "card_id": "card-e5f6g7h8",
+      "domain": "track",
+      "summary": "Add LangGraph and Python as match keywords for Data Science and Artificial Intelligence track, reflecting Accenture GenAI demand",
+      "diff": {
+        "slug": "data_science_and_artificial_intelligence",
+        "match_keywords": [
+          "LangGraph",
+          "Python",
+          "Generative AI",
+          "Large Language Models"
+        ],
+        "top_employers_smu": [
+          "Accenture"
+        ],
+        "salary_range_2024": "6000 SGD/month (Accenture junior benchmark, updated from 5500)",
+        "notes": "Accenture's new Generative AI business unit is actively recruiting juniors with LangGraph and Python skills. Salary benchmark updated to 6000 SGD/month as of latest counsellor contact."
+      },
+      "raw_input_ref": "They are looking for students that have expertise in LangGraph and Python to aid with their rollout of their new Generative AI business unit.",
+      "status": "committed"
+    }
+  ],
+  "created_by": "test",
+  "created_at": "2026-04-11T13:37:45.298408+00:00",
+  "updated_at": "2026-04-11T13:37:45.298408+00:00"
+}

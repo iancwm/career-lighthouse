@@ -1,0 +1,21 @@
+{
+  "id": "ac0468ac-9d78-450d-84ea-f1648046ea9e",
+  "status": "analyzed",
+  "raw_input": "I just had a chat with Darren Tan from Accenture. He is an alumnus of the MITB programme. Accenture is now hiring more juniors and increasing the pay from 5500 to 6000 SGD per month. They are looking for students that have expertise in LangGraph and Python to aid with their rollout of their new Generative AI business unit.",
+  "intent_cards": [
+    {
+      "card_id": "card-a3f9b1",
+      "domain": "employer",
+      "summary": "Update Accenture salary range and match keywords for new Generative AI unit hiring",
+      "diff": {
+        "slug": "accenture",
+        "notes": "Accenture increasing junior hire pay from 5500 to 6000 SGD/month. Actively seeking candidates with LangGraph and Python expertise for new Generative AI business unit rollout. Alumni contact: Darren Tan (MITB alumnus)."
+      },
+      "raw_input_ref": "Accenture is now hiring more juniors and increasing the pay from 5500 to 6000 SGD per month. They are looking for students that have expertise in LangGraph and Python to aid with their rollout of their new Generative AI business unit.",
+      "status": "pending"
+    }
+  ],
+  "created_by": "test",
+  "created_at": "2026-04-11T13:26:32.110903+00:00",
+  "updated_at": "2026-04-11T13:26:32.110903+00:00"
+}
