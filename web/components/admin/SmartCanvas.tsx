@@ -12,11 +12,17 @@ interface IntentCard {
   status: string
 }
 
+interface AlreadyCovered {
+  content: string
+  reason: string
+}
+
 interface KnowledgeSession {
   id: string
   status: string
   raw_input: string
   intent_cards: IntentCard[]
+  already_covered?: AlreadyCovered[]
   created_by: string
   created_at: string
   updated_at: string
@@ -65,7 +71,7 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
 
   async function analyzeSession() {
     setActionLoading(true)
-    setNotice("Extracting intents from your notes…")
+    setNotice("Analyzing your notes with AI…")
     setError("")
     try {
       const res = await fetch(`${API_URL}/api/sessions/${sessionId}/analyze`, {
@@ -75,17 +81,21 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail || "Analysis failed")
       }
-      setNotice("Intents extracted — select a card to review.")
       // Reload session to get the cards
       const reloadRes = await fetch(`${API_URL}/api/sessions/${sessionId}`)
       if (reloadRes.ok) {
         const data: KnowledgeSession = await reloadRes.json()
         setSession(data)
-        // Auto-select first card
-        const firstCard = data.intent_cards[0]
-        if (firstCard) {
+        if (data.intent_cards.length > 0) {
+          setNotice(`${data.intent_cards.length} intent(s) extracted — select a card to review.`)
+          // Auto-select first card
+          const firstCard = data.intent_cards[0]
           setSelectedCardId(firstCard.card_id)
           setEditingDiff({ ...firstCard.diff })
+        } else if ((data.already_covered?.length ?? 0) > 0) {
+          setNotice("No changes needed — your notes confirm existing knowledge.")
+        } else {
+          setError("No intents were extracted. Your notes may not contain specific changes to tracks or employers.")
         }
       }
     } catch (err: any) {
@@ -146,11 +156,23 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
     }
   }
 
-  if (loading) return <p className="text-sm text-gray-400">Loading session…</p>
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3 text-sm text-gray-500 py-8">
+        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+        </svg>
+        {session?.status === "in-progress" ? "Analyzing your notes with AI…" : "Loading session…"}
+      </div>
+    )
+  }
   if (!session) return <p className="text-sm text-red-500">Session not found.</p>
 
   const isComplete = session.status === "completed"
+  const isAnalyzed = session.status === "analyzed"
   const pendingCards = session.intent_cards.filter((c) => c.status === "pending")
+  const hasNoCards = session.intent_cards.length === 0
 
   return (
     <div>
@@ -166,6 +188,16 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
             Created {new Date(session.created_at).toLocaleString()} by {session.created_by}
           </p>
         </div>
+        {/* Retry analysis button for sessions with zero cards */}
+        {isAnalyzed && hasNoCards && (
+          <button
+            onClick={analyzeSession}
+            disabled={actionLoading}
+            className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+          >
+            {actionLoading ? "Analyzing…" : "Re-analyze"}
+          </button>
+        )}
       </div>
 
       {error && (
@@ -176,6 +208,21 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
       {notice && (
         <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {notice}
+        </div>
+      )}
+
+      {/* Already covered section */}
+      {(session.already_covered?.length ?? 0) > 0 && (
+        <div className="mb-6 rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">Already Covered</h3>
+          <div className="space-y-2">
+            {session.already_covered!.map((item, i) => (
+              <div key={i} className="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-600">
+                <p>{item.content}</p>
+                {item.reason && <p className="text-xs text-gray-400 mt-1">{item.reason}</p>}
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
