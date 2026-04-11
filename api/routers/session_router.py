@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from models import KnowledgeSession, CreateSessionRequest, IntentCard
+from models import KnowledgeSession, CreateSessionRequest, IntentCard, AlreadyCovered
 from services.session_store import SessionStore
 from typing import List
 
@@ -39,14 +39,14 @@ def analyze_session(
     existing_tracks = []
     try:
         profiles = profile_store.list_profiles()
-        existing_tracks = list(profiles)
+        existing_tracks = [p.model_dump() for p in profiles]
     except Exception:
         pass  # Non-fatal — LLM works without track context
 
     existing_employers = []
     try:
         employers = employer_store.list_employers()
-        existing_employers = list(employers)
+        existing_employers = [e.model_dump() for e in employers]
     except Exception:
         pass  # Non-fatal
 
@@ -64,7 +64,11 @@ def analyze_session(
         card = IntentCard(**card_data)
         cards.append(card)
 
-    already_covered = result.get("already_covered", [])
+    # Build AlreadyCovered objects
+    already_covered = []
+    for ac_data in result.get("already_covered", []):
+        ac = AlreadyCovered(**ac_data)
+        already_covered.append(ac)
 
     # Store on session
     session.intent_cards = [c.model_dump() for c in cards]
@@ -74,5 +78,5 @@ def analyze_session(
     return {
         "session_id": session.id,
         "cards": [c.model_dump() for c in cards],
-        "already_covered": already_covered,
+        "already_covered": [a.model_dump() for a in already_covered],
     }

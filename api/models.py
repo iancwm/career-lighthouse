@@ -118,8 +118,8 @@ class NewChunk(BaseModel):
 
 
 class AlreadyCovered(BaseModel):
-    excerpt: str
-    source_doc: str
+    content: str  # the text that is already covered
+    reason: str = ""  # why no action is needed
 
 
 class IntentCard(BaseModel):
