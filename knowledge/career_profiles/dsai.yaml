@@ -1,28 +1,83 @@
 career_type: Data Science and Artificial Intelligence
-match_description: Category for technology roles that require in depth data and artificial
-  intelligence domain knowledge
+match_description: For students targeting roles that require deep data science, machine
+  learning, or AI domain expertise across tech, finance, healthcare, and public sector
+  employers in Singapore.
 match_keywords:
 - data science
 - artificial intelligence
 - machine learning
 - computer vision
+- data analyst
+- ML engineer
+- NLP
+- deep learning
+- Python
+- SQL
+- big data
+- analytics
+- GovTech
+- smart nation
+- quantitative researcher
 match_cosine: false
 structured:
-  sponsorship_tier: ''
+  sponsorship_tier: Medium
   compass_points_typical: ''
-  salary_min_sgd: null
-  salary_max_sgd: null
+  salary_min_sgd: 7000
+  salary_max_sgd: 14350
   ep_realistic: true
-ep_sponsorship: Most firms can pay well enough but there have been cases of SMU graduates
-  employed under S Pass
-compass_score_typical: Nil
+ep_sponsorship: Most private sector employers (tech, fintech, banking) pay above the
+  Employment Pass threshold. However, some SMU graduates have been placed on S Pass,
+  particularly at smaller firms or for junior roles — verify salary offer carefully.
+  Public sector roles via GovTech and ministries are open to Singapore PRs and citizens
+  only in most cases.
+compass_score_typical: No specific Compass score threshold identified for this track.
+  EP eligibility is primarily driven by salary level rather than sector norms here.
 top_employers_smu:
-- TikTok, ByteDance, Shopee, DBS, Grab, GIC, PayPal
-recruiting_timeline: Nil
+- GovTech
+- DBS Bank
+- GIC
+- Grab
+- Shopee
+- TikTok / ByteDance
+- PayPal
+- EY
+- Merck
+- Johnson & Johnson
+- Ministry of Defence
+- Ministry of Health
+recruiting_timeline: No fixed campus recruiting cycle identified for most DSAI roles.
+  Private sector hiring is largely rolling/open market via LinkedIn, Glassdoor, and
+  company portals. Public sector (GovTech, ministries) typically recruits through
+  Careers@Gov on a rolling basis. The Technology in Finance Immersion Programme (TFIP)
+  offers a structured entry point for fintech/finance-sector transitions.
 international_realistic: true
 entry_paths:
-- Direct entry
-salary_range_2024: 7000 (Masters graduate)
-typical_background: MITB (AI), MPhil Information Systems
+- Direct application via company careers portal or LinkedIn (most common)
+- GovTech and public sector via Careers@Gov
+- Technology in Finance Immersion Programme (TFIP) for fintech/finance transitions
+- Graduate programmes at banks (e.g. DBS Technology track)
+- Research/academic route via MPhil or PhD leading to industry AI roles
+salary_range_2024: 'Private sector entry-level (0–2 years): ~S$88,000/year (~S$7,300/month);
+  mid-level (2–5 years): ~S$119,700/year; senior (5–10 years): ~S$172,200/year. Masters
+  graduates typically enter at the higher end of the entry band (~S$7,000/month cited
+  for SMU MITB AI). Public sector entry (MX13I): ~S$3,800/month (~S$45,600/year),
+  rising significantly with performance. Banking and finance subsectors offer the
+  best median private sector salaries.'
+typical_background: 'SMU MITB (AI track), MPhil Information Systems, or undergraduate
+  degrees with strong quantitative/computing components. Key technical skills sought:
+  Python, SQL, machine learning, data engineering. AWS or cloud certifications add
+  value. CFA or finance domain knowledge is advantageous for banking/fintech data
+  science roles.'
 counselor_contact: ''
-notes: Nil
+notes: 'Entry-level openings are scarce — only ~11% of Singapore data science job
+  postings are junior roles, with ~74% mid-level. Singapore''s 2026 Shortage Occupation
+  List recognises data science as one of the country''s highest-demand roles, particularly
+  in finance, healthcare, and technology. ~30% of fintech firms plan to expand hiring
+  in 2026. Banking and finance sectors offer the best median salaries; top private
+  sector employers include DBS Bank (highest median salaries), EY, Traveloka, Merck,
+  and Johnson & Johnson. Top in-demand technical skills: Python, SQL, engineering,
+  analytics, computer science. Public sector data science roles follow the MX Scheme:
+  entry MX13(I) ~S$3,800/month; private sector salaries significantly outpace public
+  sector starting rates. Key public sector employers: GovTech, STB, MoD, MoH, MoE.
+  The Technology in Finance Immersion Programme (TFIP) provides funding for data science
+  and fintech training/certifications for career transitioners.'
