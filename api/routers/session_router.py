@@ -123,6 +123,11 @@ def _check_session_completion(session: KnowledgeSession) -> None:
     if all_done and len(session.intent_cards) > 0:
         session.status = "completed"
 
+@router.get("", response_model=List[KnowledgeSession])
+def list_sessions(store: SessionStore = Depends(get_session_store)):
+    """List all sessions, most recently updated first."""
+    return store.list_sessions()
+
 @router.post("", response_model=KnowledgeSession, status_code=201)
 def create_session(req: CreateSessionRequest, store: SessionStore = Depends(get_session_store)):
     return store.create_session(req.raw_input, created_by=req.counsellor_id)

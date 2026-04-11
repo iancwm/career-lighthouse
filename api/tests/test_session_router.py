@@ -293,6 +293,20 @@ def test_analyze_nonexistent_session_returns_404(app_with_session_router):
     assert resp.status_code == 404
 
 
+# --- GET /api/sessions (list) ---
+
+def test_list_sessions_returns_all(app_with_session_router):
+    client = TestClient(app_with_session_router)
+    client.post("/api/sessions", json={"raw_input": "first note"})
+    client.post("/api/sessions", json={"raw_input": "second note"})
+    resp = client.get("/api/sessions")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) >= 2
+    # Most recently updated first
+    assert data[0]["raw_input"] in ("first note", "second note")
+
+
 # --- POST /api/sessions/{id}/cards/{card_id}/commit and /discard ---
 
 @patch("services.llm.get_client")
