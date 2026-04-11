@@ -13,6 +13,7 @@ import EmployerFactsTab from "@/components/admin/EmployerFactsTab"
 import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
+import SmartCanvas from "@/components/admin/SmartCanvas"
 
 interface KBHealth {
   total_docs: number
@@ -177,7 +178,19 @@ export default function AdminPage() {
 
       {/* Sessions tab */}
       {tab === "sessions" && (
-        <SessionInbox onSelectSession={(id) => setSelectedSessionId(id)} />
+        selectedSessionId ? (
+          <SmartCanvas
+            sessionId={selectedSessionId}
+            onBack={() => {
+              setSelectedSessionId(null)
+              setRefreshKey((k) => k + 1)
+            }}
+          />
+        ) : (
+          <SessionInbox
+            onSelectSession={(id) => setSelectedSessionId(id)}
+          />
+        )
       )}
     </div>
   )

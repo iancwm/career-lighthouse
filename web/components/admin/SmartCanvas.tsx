@@ -1,0 +1,268 @@
+"use client"
+import { useEffect, useState } from "react"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+
+interface IntentCard {
+  card_id: string
+  domain: string
+  summary: string
+  diff: Record<string, string>
+  raw_input_ref: string
+  status: string
+}
+
+interface KnowledgeSession {
+  id: string
+  status: string
+  raw_input: string
+  intent_cards: IntentCard[]
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+interface SmartCanvasProps {
+  sessionId: string
+  onBack: () => void
+}
+
+export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
+  const [session, setSession] = useState<KnowledgeSession | null>(null)
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
+  const [editingDiff, setEditingDiff] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true)
+  const [actionLoading, setActionLoading] = useState(false)
+  const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+
+  async function loadSession() {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${sessionId}`)
+      if (!res.ok) throw new Error("not found")
+      const data: KnowledgeSession = await res.json()
+      setSession(data)
+      // Auto-select first pending card
+      const firstPending = data.intent_cards.find((c) => c.status === "pending")
+      if (firstPending) {
+        setSelectedCardId(firstPending.card_id)
+        setEditingDiff({ ...firstPending.diff })
+      }
+    } catch {
+      setError("Could not load session.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSession()
+  }, [sessionId])
+
+  const selectedCard = session?.intent_cards.find((c) => c.card_id === selectedCardId) ?? null
+
+  async function commitCard() {
+    if (!selectedCardId || !session) return
+    setActionLoading(true)
+    setError("")
+    setNotice("")
+    try {
+      const res = await fetch(
+        `${API_URL}/api/sessions/${session.id}/cards/${selectedCardId}/commit`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ diff: editingDiff }),
+        }
+      )
+      if (!res.ok) throw new Error("commit failed")
+      setNotice("Card committed.")
+      await loadSession()
+    } catch {
+      setError("Could not commit card.")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  async function discardCard() {
+    if (!selectedCardId || !session) return
+    setActionLoading(true)
+    setError("")
+    setNotice("")
+    try {
+      const res = await fetch(
+        `${API_URL}/api/sessions/${session.id}/cards/${selectedCardId}/discard`,
+        { method: "POST" }
+      )
+      if (!res.ok) throw new Error("discard failed")
+      setNotice("Card discarded.")
+      await loadSession()
+    } catch {
+      setError("Could not discard card.")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  if (loading) return <p className="text-sm text-gray-400">Loading session…</p>
+  if (!session) return <p className="text-sm text-red-500">Session not found.</p>
+
+  const isComplete = session.status === "completed"
+  const pendingCards = session.intent_cards.filter((c) => c.status === "pending")
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <button onClick={onBack} className="text-sm text-blue-600 hover:text-blue-800 mb-1">
+            ← Back to Sessions
+          </button>
+          <h2 className="text-lg font-semibold">
+            {isComplete ? "Session Complete" : `Session: ${session.status}`}
+          </h2>
+          <p className="text-xs text-gray-500">
+            Created {new Date(session.created_at).toLocaleString()} by {session.created_by}
+          </p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {notice}
+        </div>
+      )}
+
+      {isComplete && (
+        <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-6 py-4 text-center">
+          <p className="text-lg font-semibold text-green-700">All cards processed</p>
+          <button
+            onClick={onBack}
+            className="mt-2 rounded-lg border border-green-300 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100"
+          >
+            Return to Inbox
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-[320px_minmax(0,1fr)] gap-6">
+        {/* Left Column — Cards */}
+        <div className="rounded-xl border border-gray-200 p-4">
+          <h3 className="text-sm font-semibold text-gray-700 mb-3">
+            Intents ({pendingCards.length} pending)
+          </h3>
+          <div className="space-y-2">
+            {session.intent_cards.map((card) => (
+              <button
+                key={card.card_id}
+                onClick={() => {
+                  if (card.status === "pending") {
+                    setSelectedCardId(card.card_id)
+                    setEditingDiff({ ...card.diff })
+                  }
+                }}
+                disabled={card.status !== "pending"}
+                className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                  selectedCardId === card.card_id
+                    ? "border-blue-500 bg-blue-50"
+                    : card.status === "pending"
+                    ? "border-gray-200 hover:border-gray-300"
+                    : "border-gray-100 opacity-50 cursor-default"
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
+                      card.domain === "employer"
+                        ? "bg-purple-100 text-purple-700"
+                        : "bg-blue-100 text-blue-700"
+                    }`}
+                  >
+                    {card.domain}
+                  </span>
+                  <span
+                    className={`text-xs ${
+                      card.status === "committed"
+                        ? "text-green-600"
+                        : card.status === "discarded"
+                        ? "text-gray-400"
+                        : "text-amber-600"
+                    }`}
+                  >
+                    {card.status}
+                  </span>
+                </div>
+                <p className="text-sm font-medium text-gray-800 mt-1">{card.summary}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Right Column — Diff View */}
+        <div className="rounded-xl border border-gray-200 p-5">
+          {selectedCard ? (
+            <>
+              <h3 className="text-sm font-semibold text-gray-800 mb-1">{selectedCard.summary}</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                Domain: {selectedCard.domain}
+              </p>
+
+              {/* Raw input reference */}
+              {selectedCard.raw_input_ref && (
+                <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+                  <p className="text-xs font-medium text-gray-500 mb-1">From your notes:</p>
+                  <p className="text-sm text-gray-700 italic">{selectedCard.raw_input_ref}</p>
+                </div>
+              )}
+
+              {/* Diff fields */}
+              {Object.entries(editingDiff).map(([key, value]) => (
+                <label key={key} className="block text-sm text-gray-700 mb-4">
+                  {key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  <textarea
+                    value={value}
+                    onChange={(e) =>
+                      setEditingDiff((prev) => ({ ...prev, [key]: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
+                  />
+                </label>
+              ))}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-3 border-t border-gray-100">
+                <button
+                  onClick={commitCard}
+                  disabled={actionLoading}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {actionLoading ? "Committing…" : "Commit"}
+                </button>
+                <button
+                  onClick={discardCard}
+                  disabled={actionLoading}
+                  className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  {actionLoading ? "Processing…" : "Discard"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <div>
+              <h3 className="text-sm font-semibold text-gray-800 mb-2">Raw Input</h3>
+              <pre className="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
+                {session.raw_input}
+              </pre>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
