@@ -1,0 +1,28 @@
+career_type: Data Science and Artificial Intelligence
+match_description: Category for technology roles that require in depth data and artificial
+  intelligence domain knowledge
+match_keywords:
+- data science
+- artificial intelligence
+- machine learning
+- computer vision
+match_cosine: false
+structured:
+  sponsorship_tier: ''
+  compass_points_typical: ''
+  salary_min_sgd: null
+  salary_max_sgd: null
+  ep_realistic: true
+ep_sponsorship: Most firms can pay well enough but there have been cases of SMU graduates
+  employed under S Pass
+compass_score_typical: Nil
+top_employers_smu:
+- TikTok, ByteDance, Shopee, DBS, Grab, GIC, PayPal
+recruiting_timeline: Nil
+international_realistic: true
+entry_paths:
+- Direct entry
+salary_range_2024: 7000 (Masters graduate)
+typical_background: MITB (AI), MPhil Information Systems
+counselor_contact: ''
+notes: Nil
