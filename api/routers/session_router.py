@@ -35,18 +35,22 @@ def _slug_is_safe(slug: str) -> bool:
     return all(c.isalnum() or c in "-_" for c in slug)
 
 
-def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
-    """Apply diff dict to a career profile YAML. Returns list of changed fields."""
+def _apply_field_updates_to_profile(slug: str, diff: dict) -> tuple[list[str], bool]:
+    """Apply diff dict to a career profile YAML. Creates new file if missing.
+    Returns (changed_fields, is_new)."""
     from services.career_profiles import _default_profiles_dir
     if not _slug_is_safe(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format")
     pdir = _default_profiles_dir()
     yaml_path = pdir / f"{slug}.yaml"
-    if not yaml_path.exists():
-        logger.warning("Card commit: profile %r not found — skipping", slug)
-        return []
-    with open(yaml_path, encoding="utf-8") as f:
-        profile = yaml.safe_load(f) or {}
+
+    # Create new profile if it doesn't exist
+    is_new = not yaml_path.exists()
+    profile = {}
+    if not is_new:
+        with open(yaml_path, encoding="utf-8") as f:
+            profile = yaml.safe_load(f) or {}
+
     changed = []
     for field, value in diff.items():
         if field == "slug":
@@ -72,21 +76,24 @@ def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
             CareerProfileStore().invalidate()
         except Exception:
             pass
-    return changed
+    return changed, is_new
 
 
-def _apply_field_updates_to_employer(slug: str, diff: dict) -> list[str]:
-    """Apply diff dict to an employer YAML. Returns list of changed fields."""
+def _apply_field_updates_to_employer(slug: str, diff: dict) -> tuple[list[str], bool]:
+    """Apply diff dict to an employer YAML. Creates new file if missing.
+    Returns (changed_fields, is_new)."""
     from services.employer_store import _default_employers_dir
     if not _slug_is_safe(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format")
     edir = _default_employers_dir()
     yaml_path = edir / f"{slug}.yaml"
-    if not yaml_path.exists():
-        logger.warning("Card commit: employer %r not found — skipping", slug)
-        return []
-    with open(yaml_path, encoding="utf-8") as f:
-        employer = yaml.safe_load(f) or {}
+
+    # Create new employer if it doesn't exist
+    is_new = not yaml_path.exists()
+    employer = {"slug": slug}
+    if not is_new:
+        with open(yaml_path, encoding="utf-8") as f:
+            employer = yaml.safe_load(f) or {}
     changed = []
     for field, value in diff.items():
         if field == "slug":
@@ -114,7 +121,7 @@ def _apply_field_updates_to_employer(slug: str, diff: dict) -> list[str]:
             EmployerEntityStore().invalidate()
         except Exception:
             pass
-    return changed
+    return changed, is_new
 
 
 def _check_session_completion(session: KnowledgeSession) -> None:
@@ -241,21 +248,19 @@ def commit_card(
     if not _slug_is_safe(target_slug):
         raise HTTPException(status_code=422, detail="Invalid slug format")
 
-    changed_fields = []
+    changed_fields: list[str] = []
+    is_new = False
     domain = card.get("domain", "")
     if domain == "track":
-        changed_fields = _apply_field_updates_to_profile(target_slug, effective_diff)
+        changed_fields, is_new = _apply_field_updates_to_profile(target_slug, effective_diff)
     elif domain == "employer":
-        changed_fields = _apply_field_updates_to_employer(target_slug, effective_diff)
+        changed_fields, is_new = _apply_field_updates_to_employer(target_slug, effective_diff)
     else:
         raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
 
-    if not changed_fields:
-        # The target entity doesn't exist — return helpful error
-        raise HTTPException(
-            status_code=404,
-            detail=f"Entity '{target_slug}' not found. Create it first via the Employer Facts or Track Builder tab."
-        )
+    # Build message — differentiate create vs update
+    action = "Created new" if is_new else "Updated"
+    msg = f"{action} {domain} '{target_slug}' ({len(changed_fields)} field(s))"
 
     card["status"] = "committed"
     _check_session_completion(session)
