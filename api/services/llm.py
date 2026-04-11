@@ -359,6 +359,13 @@ def generate_session_intents(
 
         text = response.content[0].text.strip()
 
+        # Strip markdown code fences if Claude wraps the JSON
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1]
+            if "```" in text:
+                text = text.rsplit("```", 1)[0]
+        text = text.strip()
+
         try:
             parsed = json.loads(text)
             if "cards" not in parsed:
@@ -374,6 +381,12 @@ def generate_session_intents(
                 messages=[{"role": "user", "content": context}],
             )
             retry_text = retry_response.content[0].text.strip()
+            # Strip markdown code fences on retry too
+            if retry_text.startswith("```"):
+                retry_text = retry_text.split("\n", 1)[1]
+                if "```" in retry_text:
+                    retry_text = retry_text.rsplit("```", 1)[0]
+            retry_text = retry_text.strip()
             try:
                 parsed = json.loads(retry_text)
                 if "cards" not in parsed:
