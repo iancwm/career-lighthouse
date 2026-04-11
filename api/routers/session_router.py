@@ -28,9 +28,16 @@ ALLOWED_CARD_EMPLOYER_FIELDS = {
 }
 
 
+def _slug_is_safe(slug: str) -> bool:
+    """Reject path traversal and injection in slug values."""
+    return bool(slug) and slug.replace("_", "").isalnum() and "/" not in slug and ".." not in slug
+
+
 def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
     """Apply diff dict to a career profile YAML. Returns list of changed fields."""
     from services.career_profiles import _default_profiles_dir
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format")
     pdir = _default_profiles_dir()
     yaml_path = pdir / f"{slug}.yaml"
     if not yaml_path.exists():
@@ -49,9 +56,14 @@ def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
         changed.append(field)
     if changed:
         tmp = yaml_path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-        tmp.replace(yaml_path)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            tmp.replace(yaml_path)
+        except Exception as exc:
+            tmp.unlink(missing_ok=True)
+            logger.error("_apply_field_updates_to_profile: failed to write %r: %s", yaml_path, exc)
+            raise HTTPException(status_code=500, detail=f"Failed to write profile '{slug}'")
         # Invalidate profile store cache
         try:
             from services.career_profiles import CareerProfileStore
@@ -64,6 +76,8 @@ def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
 def _apply_field_updates_to_employer(slug: str, diff: dict) -> list[str]:
     """Apply diff dict to an employer YAML. Returns list of changed fields."""
     from services.employer_store import _default_employers_dir
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format")
     edir = _default_employers_dir()
     yaml_path = edir / f"{slug}.yaml"
     if not yaml_path.exists():
@@ -84,9 +98,14 @@ def _apply_field_updates_to_employer(slug: str, diff: dict) -> list[str]:
         from datetime import datetime, timezone
         employer["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         tmp = yaml_path.with_suffix(".tmp")
-        with open(tmp, "w", encoding="utf-8") as f:
-            yaml.safe_dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-        tmp.replace(yaml_path)
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                yaml.safe_dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            tmp.replace(yaml_path)
+        except Exception as exc:
+            tmp.unlink(missing_ok=True)
+            logger.error("_apply_field_updates_to_employer: failed to write %r: %s", yaml_path, exc)
+            raise HTTPException(status_code=500, detail=f"Failed to write employer '{slug}'")
         # Invalidate employer store cache
         try:
             from services.employer_store import EmployerEntityStore
