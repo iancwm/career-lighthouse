@@ -1,4 +1,6 @@
 # api/services/llm.py
+import json
+
 import anthropic
 from config import settings
 from cfg import model_cfg
@@ -275,3 +277,106 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
             f"Resume:\n{resume_text}\n\nKnowledge base:\n{kb_text}"}],
     )
     return response.content[0].text
+
+
+def generate_session_intents(
+    raw_input: str,
+    existing_tracks: list[dict] | None = None,
+    existing_employers: list[dict] | None = None,
+) -> dict:
+    """Extract distinct update intents from counsellor raw research notes.
+
+    Returns a dict with keys 'cards' (list of IntentCard-shaped dicts) and
+    'already_covered' (list of AlreadyCovered-shaped dicts).
+
+    Calls Claude with a structured prompt and retries once on malformed JSON.
+    On total failure, returns empty result without raising.
+    """
+    tracks_text = ""
+    if existing_tracks:
+        tracks_text = "\n".join(
+            f"- {t.get('career_type', t.get('slug', 'unknown'))}: {t.get('match_description', '')}"
+            for t in existing_tracks
+        )
+
+    employers_text = ""
+    if existing_employers:
+        employers_text = "\n".join(
+            f"- {e.get('slug', 'unknown')}: tracks={e.get('tracks', [])}, "
+            f"ep={e.get('ep_requirement', 'N/A')}"
+            for e in existing_employers
+        )
+
+    system_prompt = (
+        "You are a knowledge extraction assistant for a career advisory platform.\n"
+        "Given raw counsellor research notes, extract distinct update intents.\n"
+        "Each intent targets EXACTLY ONE domain: 'employer' or 'track'.\n"
+        "Return ONLY valid JSON with this structure:\n"
+        '{\n'
+        '  "cards": [\n'
+        '    {\n'
+        '      "card_id": "card-<short-uuid>",\n'
+        '      "domain": "employer" | "track",\n'
+        '      "summary": "One-line summary of the change",\n'
+        '      "diff": {"field_name": "proposed_new_value", ...},\n'
+        '      "raw_input_ref": "The original text excerpt that triggered this intent"\n'
+        '    }\n'
+        '  ],\n'
+        '  "already_covered": [\n'
+        '    {"content": "...", "reason": "..."}\n'
+        '  ]\n'
+        '}\n'
+        "Rules:\n"
+        "- If the note confirms something already in the knowledge base, put it in already_covered (no card).\n"
+        "- If the note proposes a change, create a card with the domain and structured diff.\n"
+        "- diff should contain only the fields that need updating — not the entire entity.\n"
+        "- raw_input_ref should be a short excerpt (1-2 sentences) from the original note.\n"
+        "- Generate unique card_ids using 'card-<short-uuid>' format.\n"
+        "- If no changes are needed, return empty cards and populated already_covered.\n"
+    )
+
+    context = (
+        f"Counsellor raw input:\n{raw_input}\n\n"
+        f"Existing career tracks:\n{tracks_text or '(none)'}\n\n"
+        f"Existing employers:\n{employers_text or '(none)'}\n\n"
+        "Extract intents as JSON:"
+    )
+
+    try:
+        client = get_client()
+        model = _llm["model"]
+
+        response = client.messages.create(
+            model=model,
+            max_tokens=2048,
+            temperature=0,
+            system=system_prompt,
+            messages=[{"role": "user", "content": context}],
+        )
+
+        text = response.content[0].text.strip()
+
+        try:
+            parsed = json.loads(text)
+            if "cards" not in parsed:
+                parsed = {"cards": [], "already_covered": []}
+            return parsed
+        except json.JSONDecodeError:
+            # Retry with error feedback
+            retry_response = client.messages.create(
+                model=model,
+                max_tokens=2048,
+                temperature=0,
+                system=system_prompt + "\n\nIMPORTANT: Your previous response was not valid JSON. Respond ONLY with valid JSON.",
+                messages=[{"role": "user", "content": context}],
+            )
+            retry_text = retry_response.content[0].text.strip()
+            try:
+                parsed = json.loads(retry_text)
+                if "cards" not in parsed:
+                    parsed = {"cards": [], "already_covered": []}
+                return parsed
+            except json.JSONDecodeError:
+                return {"cards": [], "already_covered": []}
+    except Exception:
+        return {"cards": [], "already_covered": []}
