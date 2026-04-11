@@ -40,6 +40,8 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
 
   useEffect(() => {
     loadSessions()
+    const interval = setInterval(loadSessions, 30000)
+    return () => clearInterval(interval)
   }, [])
 
   async function createSession() {

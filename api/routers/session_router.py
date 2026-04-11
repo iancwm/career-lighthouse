@@ -30,7 +30,9 @@ ALLOWED_CARD_EMPLOYER_FIELDS = {
 
 def _slug_is_safe(slug: str) -> bool:
     """Reject path traversal and injection in slug values."""
-    return bool(slug) and slug.replace("_", "").isalnum() and "/" not in slug and ".." not in slug
+    if not slug or "/" in slug or ".." in slug or " " in slug:
+        return False
+    return all(c.isalnum() or c in "-_" for c in slug)
 
 
 def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
@@ -224,8 +226,16 @@ def commit_card(
     # Use edited diff if provided, otherwise use card's stored diff
     effective_diff = req.diff if req and req.diff else card.get("diff", {})
 
-    # Determine the target slug from the diff
-    target_slug = effective_diff.get("slug", card.get("domain", ""))
+    # Strip empty values to avoid writing blank fields
+    effective_diff = {k: v for k, v in effective_diff.items() if v}
+
+    # Require slug in diff to identify the target entity
+    target_slug = effective_diff.get("slug")
+    if not target_slug:
+        raise HTTPException(status_code=400, detail="Card diff is missing 'slug' field — cannot determine target entity")
+
+    if not _slug_is_safe(target_slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format")
 
     changed_fields = []
     domain = card.get("domain", "")

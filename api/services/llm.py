@@ -1,8 +1,11 @@
 # api/services/llm.py
 import json
+import logging
 
 import anthropic
 from config import settings
+
+logger = logging.getLogger(__name__)
 from cfg import model_cfg
 
 _client = None
@@ -378,5 +381,6 @@ def generate_session_intents(
                 return parsed
             except json.JSONDecodeError:
                 return {"cards": [], "already_covered": []}
-    except Exception:
+    except Exception as exc:
+        logger.warning("generate_session_intents: LLM call failed: %s", exc)
         return {"cards": [], "already_covered": []}

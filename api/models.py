@@ -131,6 +131,14 @@ class IntentCard(BaseModel):
     status: str = "pending"  # "pending" | "committed" | "discarded"
 
 
+class KBAnalysisResult(BaseModel):
+    """Result from LLM analysis of counsellor input (diff-first review)."""
+    new_chunks: list[NewChunk] = []
+    profile_updates: dict[str, dict[str, str]] = {}
+    employer_updates: dict[str, dict[str, str]] = {}
+    already_covered: list[AlreadyCovered] = []
+
+
 class MultiIntentAnalysisResult(BaseModel):
     session_id: str
     cards: list[IntentCard]
