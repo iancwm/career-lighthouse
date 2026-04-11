@@ -43,6 +43,13 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
       if (!res.ok) throw new Error("not found")
       const data: KnowledgeSession = await res.json()
       setSession(data)
+
+      // Auto-trigger analysis for new sessions
+      if (data.status === "in-progress" && data.intent_cards.length === 0) {
+        await analyzeSession()
+        return // analyzeSession reloads and sets cards
+      }
+
       // Auto-select first pending card
       const firstPending = data.intent_cards.find((c) => c.status === "pending")
       if (firstPending) {
@@ -52,6 +59,39 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
     } catch {
       setError("Could not load session.")
     } finally {
+      setLoading(false)
+    }
+  }
+
+  async function analyzeSession() {
+    setActionLoading(true)
+    setNotice("Extracting intents from your notes…")
+    setError("")
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${sessionId}/analyze`, {
+        method: "POST",
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || "Analysis failed")
+      }
+      setNotice("Intents extracted — select a card to review.")
+      // Reload session to get the cards
+      const reloadRes = await fetch(`${API_URL}/api/sessions/${sessionId}`)
+      if (reloadRes.ok) {
+        const data: KnowledgeSession = await reloadRes.json()
+        setSession(data)
+        // Auto-select first card
+        const firstCard = data.intent_cards[0]
+        if (firstCard) {
+          setSelectedCardId(firstCard.card_id)
+          setEditingDiff({ ...firstCard.diff })
+        }
+      }
+    } catch (err: any) {
+      setError(err.message || "Could not analyze session.")
+    } finally {
+      setActionLoading(false)
       setLoading(false)
     }
   }
