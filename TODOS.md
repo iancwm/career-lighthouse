@@ -20,6 +20,18 @@
 
 ---
 
+## Publishing Sessions
+
+### Session Cleanup Script
+**What:** Cron or startup job to delete completed sessions older than 30 days.
+**Why:** Prevents `logs/sessions/` from growing indefinitely.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
+### Counsellor RBAC
+**What:** Integrate session IDs with actual user authentication.
+**Why:** Currently, `counsellor_id` is passed as a string. This should be a hard-enforced security context.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
 ## Sprint 2 — Career Profiles
 
 ### Document structured: YAML block intent
@@ -47,6 +59,18 @@
 **Depends on:** Getting contact info from SMU career centre. When ready, also add `counselor_contact` to `profile_to_context_block()` in `career_profiles.py`.
 
 ---
+
+## Publishing Sessions
+
+### Session Cleanup Script
+**What:** Cron or startup job to delete completed sessions older than 30 days.
+**Why:** Prevents `logs/sessions/` from growing indefinitely.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
+### Counsellor RBAC
+**What:** Integrate session IDs with actual user authentication.
+**Why:** Currently, `counsellor_id` is passed as a string. This should be a hard-enforced security context.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
 
 ## Security
 
@@ -79,6 +103,18 @@
 
 ---
 
+## Publishing Sessions
+
+### Session Cleanup Script
+**What:** Cron or startup job to delete completed sessions older than 30 days.
+**Why:** Prevents `logs/sessions/` from growing indefinitely.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
+### Counsellor RBAC
+**What:** Integrate session IDs with actual user authentication.
+**Why:** Currently, `counsellor_id` is passed as a string. This should be a hard-enforced security context.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
 ## Employer Entity YAML (Sprint 3 Addendum)
 
 ### P1: Stale chunk deprecation on employer entity update
@@ -104,6 +140,18 @@
 
 ---
 
+## Publishing Sessions
+
+### Session Cleanup Script
+**What:** Cron or startup job to delete completed sessions older than 30 days.
+**Why:** Prevents `logs/sessions/` from growing indefinitely.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
+### Counsellor RBAC
+**What:** Integrate session IDs with actual user authentication.
+**Why:** Currently, `counsellor_id` is passed as a string. This should be a hard-enforced security context.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
 ## Data / Deployment
 
 ### structured: values diverge from prose field edits after profile editor write
@@ -123,6 +171,18 @@
 **Depends on:** None. Wording change in design doc + UI copy.
 
 ---
+
+## Publishing Sessions
+
+### Session Cleanup Script
+**What:** Cron or startup job to delete completed sessions older than 30 days.
+**Why:** Prevents `logs/sessions/` from growing indefinitely.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
+### Counsellor RBAC
+**What:** Integrate session IDs with actual user authentication.
+**Why:** Currently, `counsellor_id` is passed as a string. This should be a hard-enforced security context.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
 
 ## UX / Polish
 
@@ -144,6 +204,18 @@
 **Depends on:** None.
 
 ---
+
+## Publishing Sessions
+
+### Session Cleanup Script
+**What:** Cron or startup job to delete completed sessions older than 30 days.
+**Why:** Prevents `logs/sessions/` from growing indefinitely.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
+
+### Counsellor RBAC
+**What:** Integrate session IDs with actual user authentication.
+**Why:** Currently, `counsellor_id` is passed as a string. This should be a hard-enforced security context.
+**Context:** Added during Sprint 4/5 Eng Review (2026-04-11).
 
 ## Completed
 
