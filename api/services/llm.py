@@ -331,9 +331,8 @@ def generate_session_intents(
         '}\n'
         "Rules:\n"
         "- If the note confirms something already in the knowledge base, put it in already_covered (no card).\n"
-        "- CRITICAL: ONLY create cards for entities whose EXACT slug appears in the 'Existing career tracks' or 'Existing employers' lists above.\n"
-        "- If a NEW entity is mentioned (no matching slug exists), DO NOT create a card. Instead put it in already_covered with reason 'new entity — create via Employer Facts or Track Builder first'.\n"
-        "- diff MUST include 'slug' — use the EXACT slug from the existing entities list (e.g. 'consulting', 'gs', 'mckinsey'). Use lowercase_with_underscores.\n"
+        "- If the note proposes a change to any entity, create a card. The entity may be NEW — that's fine, it will be auto-created.\n"
+        "- diff MUST include 'slug' — a lowercase_with_underscores slug derived from the entity name (e.g. 'accenture', 'consulting', 'gs', 'mckinsey').\n"
         "- For 'employer' domain, diff fields must be from: display_name, tracks, ep_requirement, intake_seasons, application_process, headcount_estimate, counselor_contact, notes.\n"
         "- For 'track' domain, diff fields must be from: track_name, match_description, match_keywords, ep_sponsorship, compass_score_typical, top_employers_smu, recruiting_timeline, international_realistic, entry_paths, salary_range_2024, typical_background, counselor_contact, notes.\n"
         "- diff should contain only the fields that need updating — not the entire entity.\n"
