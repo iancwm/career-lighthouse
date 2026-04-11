@@ -250,6 +250,13 @@ def commit_card(
     else:
         raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
 
+    if not changed_fields:
+        # The target entity doesn't exist — return helpful error
+        raise HTTPException(
+            status_code=404,
+            detail=f"Entity '{target_slug}' not found. Create it first via the Employer Facts or Track Builder tab."
+        )
+
     card["status"] = "committed"
     _check_session_completion(session)
     store.save_session(session)
