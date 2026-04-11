@@ -1,0 +1,150 @@
+"use client"
+import { useEffect, useState } from "react"
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+
+interface KnowledgeSession {
+  id: string
+  status: string
+  raw_input: string
+  intent_cards: Array<{ card_id: string; domain: string; summary: string; status: string }>
+  created_by: string
+  created_at: string
+  updated_at: string
+}
+
+interface SessionInboxProps {
+  onSelectSession: (sessionId: string) => void
+}
+
+export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
+  const [sessions, setSessions] = useState<KnowledgeSession[]>([])
+  const [loading, setLoading] = useState(true)
+  const [creating, setCreating] = useState(false)
+  const [rawInput, setRawInput] = useState("")
+  const [error, setError] = useState("")
+  const [notice, setNotice] = useState("")
+
+  async function loadSessions() {
+    try {
+      const res = await fetch(`${API_URL}/api/sessions`)
+      if (!res.ok) throw new Error("load failed")
+      const data: KnowledgeSession[] = await res.json()
+      setSessions(data.filter((s) => s.status !== "completed"))
+    } catch {
+      setError("Could not load sessions.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSessions()
+  }, [])
+
+  async function createSession() {
+    if (!rawInput.trim()) return
+    setCreating(true)
+    setError("")
+    setNotice("")
+    try {
+      const res = await fetch(`${API_URL}/api/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raw_input: rawInput.trim(), counsellor_id: "counsellor" }),
+      })
+      if (!res.ok) throw new Error("create failed")
+      const session: KnowledgeSession = await res.json()
+      setNotice("Session created.")
+      setRawInput("")
+      onSelectSession(session.id)
+    } catch {
+      setError("Could not create session.")
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (loading) return <p className="text-sm text-gray-400">Loading sessions…</p>
+
+  return (
+    <div>
+      {error && (
+        <div className="mb-4 rounded border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      {notice && (
+        <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          {notice}
+        </div>
+      )}
+
+      {/* New Session Form */}
+      <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+        <h3 className="text-sm font-semibold text-gray-800 mb-2">New Publishing Session</h3>
+        <p className="text-sm text-gray-600 mb-3">
+          Paste research notes or observations. The system will extract individual update intents.
+        </p>
+        <textarea
+          value={rawInput}
+          onChange={(e) => setRawInput(e.target.value)}
+          className="w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[110px] mb-3"
+          placeholder="Example: Met with Goldman Sachs — they raised EP requirement from EP3 to EP4. Consulting market feels more competitive this year…"
+        />
+        <button
+          onClick={createSession}
+          disabled={creating || !rawInput.trim()}
+          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+        >
+          {creating ? "Creating…" : "Create Session"}
+        </button>
+      </div>
+
+      {/* Sessions List */}
+      {sessions.length === 0 ? (
+        <p className="text-sm text-gray-400">No active sessions. Create one above.</p>
+      ) : (
+        <div className="space-y-3">
+          {sessions.map((session) => {
+            const pendingCards = session.intent_cards.filter((c) => c.status === "pending").length
+            return (
+              <button
+                key={session.id}
+                onClick={() => onSelectSession(session.id)}
+                className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-gray-300 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">
+                      {session.status === "analyzed" ? "Analyzed" : "In Progress"}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {new Date(session.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
+                        session.status === "analyzed"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {session.status}
+                    </span>
+                    {pendingCards > 0 && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {pendingCards} pending
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}

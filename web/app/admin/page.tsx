@@ -12,6 +12,7 @@ import KnowledgeUpdateTab from "@/components/admin/KnowledgeUpdateTab"
 import EmployerFactsTab from "@/components/admin/EmployerFactsTab"
 import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import CareerTracksTab from "@/components/admin/CareerTracksTab"
+import SessionInbox from "@/components/admin/SessionInbox"
 
 interface KBHealth {
   total_docs: number
@@ -38,11 +39,12 @@ interface KBHealth {
   }[]
 }
 
-type Tab = "knowledge" | "update" | "careers" | "employers" | "tracks"
+type Tab = "knowledge" | "update" | "careers" | "employers" | "tracks" | "sessions"
 
 export default function AdminPage() {
   const [tab, setTab] = useState<Tab>("knowledge")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null)
   const [health, setHealth] = useState<KBHealth | null>(null)
   const [healthError, setHealthError] = useState(false)
   const apiUrl = process.env.NEXT_PUBLIC_API_URL
@@ -86,6 +88,9 @@ export default function AdminPage() {
         </TabButton>
         <TabButton active={tab === "tracks"} onClick={() => setTab("tracks")}>
           Track Builder
+        </TabButton>
+        <TabButton active={tab === "sessions"} onClick={() => setTab("sessions")}>
+          Sessions
         </TabButton>
       </div>
 
@@ -168,6 +173,11 @@ export default function AdminPage() {
       {/* Track Builder tab */}
       {tab === "tracks" && (
         <TrackBuilderTab />
+      )}
+
+      {/* Sessions tab */}
+      {tab === "sessions" && (
+        <SessionInbox onSelectSession={(id) => setSelectedSessionId(id)} />
       )}
     </div>
   )
