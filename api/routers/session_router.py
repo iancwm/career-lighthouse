@@ -161,19 +161,23 @@ def analyze_session(
     existing_tracks = []
     try:
         profiles = profile_store.list_profiles()
-        existing_tracks = [p.model_dump() for p in profiles]
+        # list_profiles returns model objects — convert to dicts
+        existing_tracks = [p if isinstance(p, dict) else p.model_dump() for p in profiles]
     except Exception:
         pass  # Non-fatal — LLM works without track context
 
     existing_employers = []
     try:
         employers = employer_store.list_employers()
-        existing_employers = [e.model_dump() for e in employers]
+        # list_employers returns dicts already
+        existing_employers = [e if isinstance(e, dict) else e.model_dump() for e in employers]
     except Exception:
         pass  # Non-fatal
 
     # Call LLM
     from services.llm import generate_session_intents
+    logger.info("analyze: passing %d tracks and %d employers to LLM",
+        len(existing_tracks), len(existing_employers))
     result = generate_session_intents(
         raw_input=session.raw_input,
         existing_tracks=existing_tracks,
