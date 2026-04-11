@@ -115,11 +115,14 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
                 className="w-full rounded-xl border border-gray-200 px-4 py-3 text-left hover:border-gray-300 transition-colors"
               >
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="min-w-0 flex-1 mr-4">
                     <p className="text-sm font-medium text-gray-800">
                       {session.status === "analyzed" ? "Analyzed" : "In Progress"}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-gray-500 mt-1 truncate">
+                      {session.raw_input.slice(0, 100)}{session.raw_input.length > 100 ? "…" : ""}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">
                       {new Date(session.created_at).toLocaleString()}
                     </p>
                   </div>
