@@ -128,6 +128,7 @@ class IntentCard(BaseModel):
     summary: str
     diff: dict  # structured representation of the proposed change
     raw_input_ref: str # reference back to the originating text chunk
+    status: str = "pending"  # "pending" | "committed" | "discarded"
 
 
 class MultiIntentAnalysisResult(BaseModel):
@@ -228,6 +229,10 @@ class KnowledgeSession(BaseModel):
 class CreateSessionRequest(BaseModel):
     raw_input: str
     counsellor_id: str = "counsellor"
+
+
+class CardCommitRequest(BaseModel):
+    diff: dict | None = None  # Optional override for edited values
 
 
 class CardCommitResponse(BaseModel):

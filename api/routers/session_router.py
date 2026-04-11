@@ -1,12 +1,108 @@
 from fastapi import APIRouter, HTTPException, Depends
-from models import KnowledgeSession, CreateSessionRequest, IntentCard, AlreadyCovered
+from models import KnowledgeSession, CreateSessionRequest, IntentCard, AlreadyCovered, CardCommitRequest
 from services.session_store import SessionStore
 from typing import List
+from pathlib import Path
+import yaml
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sessions")
 
 def get_session_store():
     return SessionStore()
+
+# Allowlists — mirror the ones in kb_router.py
+ALLOWED_CARD_PROFILE_FIELDS = {
+    "ep_sponsorship", "compass_score_typical", "top_employers_smu",
+    "recruiting_timeline", "international_realistic", "entry_paths",
+    "salary_range_2024", "typical_background", "counselor_contact",
+    "notes", "match_description", "match_keywords",
+}
+
+ALLOWED_CARD_EMPLOYER_FIELDS = {
+    "display_name", "tracks", "ep_requirement",
+    "intake_seasons", "application_process", "headcount_estimate",
+    "counselor_contact", "notes",
+}
+
+
+def _apply_field_updates_to_profile(slug: str, diff: dict) -> list[str]:
+    """Apply diff dict to a career profile YAML. Returns list of changed fields."""
+    from services.career_profiles import _default_profiles_dir
+    pdir = _default_profiles_dir()
+    yaml_path = pdir / f"{slug}.yaml"
+    if not yaml_path.exists():
+        logger.warning("Card commit: profile %r not found — skipping", slug)
+        return []
+    with open(yaml_path, encoding="utf-8") as f:
+        profile = yaml.safe_load(f) or {}
+    changed = []
+    for field, value in diff.items():
+        if field == "slug":
+            continue  # skip slug, it's the identifier
+        if field not in ALLOWED_CARD_PROFILE_FIELDS:
+            logger.warning("Card commit: profile field %r not in allowlist — skipping", field)
+            continue
+        profile[field] = value
+        changed.append(field)
+    if changed:
+        tmp = yaml_path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        tmp.replace(yaml_path)
+        # Invalidate profile store cache
+        try:
+            from services.career_profiles import CareerProfileStore
+            CareerProfileStore().invalidate()
+        except Exception:
+            pass
+    return changed
+
+
+def _apply_field_updates_to_employer(slug: str, diff: dict) -> list[str]:
+    """Apply diff dict to an employer YAML. Returns list of changed fields."""
+    from services.employer_store import _default_employers_dir
+    edir = _default_employers_dir()
+    yaml_path = edir / f"{slug}.yaml"
+    if not yaml_path.exists():
+        logger.warning("Card commit: employer %r not found — skipping", slug)
+        return []
+    with open(yaml_path, encoding="utf-8") as f:
+        employer = yaml.safe_load(f) or {}
+    changed = []
+    for field, value in diff.items():
+        if field == "slug":
+            continue
+        if field not in ALLOWED_CARD_EMPLOYER_FIELDS:
+            logger.warning("Card commit: employer field %r not in allowlist — skipping", field)
+            continue
+        employer[field] = value
+        changed.append(field)
+    if changed:
+        from datetime import datetime, timezone
+        employer["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        tmp = yaml_path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            yaml.safe_dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        tmp.replace(yaml_path)
+        # Invalidate employer store cache
+        try:
+            from services.employer_store import EmployerEntityStore
+            EmployerEntityStore().invalidate()
+        except Exception:
+            pass
+    return changed
+
+
+def _check_session_completion(session: KnowledgeSession) -> None:
+    """Transition to 'completed' if all cards are committed/discarded."""
+    if session.status != "analyzed":
+        return
+    all_done = all(c.get("status") in ("committed", "discarded") for c in session.intent_cards)
+    if all_done and len(session.intent_cards) > 0:
+        session.status = "completed"
 
 @router.post("", response_model=KnowledgeSession, status_code=201)
 def create_session(req: CreateSessionRequest, store: SessionStore = Depends(get_session_store)):
@@ -79,4 +175,74 @@ def analyze_session(
         "session_id": session.id,
         "cards": [c.model_dump() for c in cards],
         "already_covered": [a.model_dump() for a in already_covered],
+    }
+
+
+@router.post("/{session_id}/cards/{card_id}/commit")
+def commit_card(
+    session_id: str,
+    card_id: str,
+    req: CardCommitRequest | None = None,
+    store: SessionStore = Depends(get_session_store),
+):
+    """Commit a single card's diff to the appropriate YAML file."""
+    session = store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    card = next((c for c in session.intent_cards if c.get("card_id") == card_id), None)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    if card.get("status") != "pending":
+        raise HTTPException(status_code=409, detail=f"Card already {card.get('status')}")
+
+    # Use edited diff if provided, otherwise use card's stored diff
+    effective_diff = req.diff if req and req.diff else card.get("diff", {})
+
+    # Determine the target slug from the diff
+    target_slug = effective_diff.get("slug", card.get("domain", ""))
+
+    changed_fields = []
+    domain = card.get("domain", "")
+    if domain == "track":
+        changed_fields = _apply_field_updates_to_profile(target_slug, effective_diff)
+    elif domain == "employer":
+        changed_fields = _apply_field_updates_to_employer(target_slug, effective_diff)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
+
+    card["status"] = "committed"
+    _check_session_completion(session)
+    store.save_session(session)
+
+    return {
+        "card_id": card_id,
+        "domain": domain,
+        "status": "committed",
+        "message": f"Updated {len(changed_fields)} field(s) on {domain} '{target_slug}'",
+    }
+
+
+@router.post("/{session_id}/cards/{card_id}/discard")
+def discard_card(session_id: str, card_id: str, store: SessionStore = Depends(get_session_store)):
+    """Discard a single card without writing anything."""
+    session = store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    card = next((c for c in session.intent_cards if c.get("card_id") == card_id), None)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    if card.get("status") != "pending":
+        raise HTTPException(status_code=409, detail=f"Card already {card.get('status')}")
+
+    card["status"] = "discarded"
+    _check_session_completion(session)
+    store.save_session(session)
+
+    return {
+        "card_id": card_id,
+        "status": "discarded",
     }
