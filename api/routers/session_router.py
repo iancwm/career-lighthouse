@@ -22,7 +22,7 @@ ALLOWED_CARD_PROFILE_FIELDS = {
 }
 
 ALLOWED_CARD_EMPLOYER_FIELDS = {
-    "display_name", "tracks", "ep_requirement",
+    "employer_name", "tracks", "ep_requirement",
     "intake_seasons", "application_process", "headcount_estimate",
     "counselor_contact", "notes",
 }
