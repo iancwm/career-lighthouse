@@ -1,0 +1,29 @@
+# Version control
+.git
+.gstack/
+
+# AI tool caches (massive — 13K+ files)
+.gemini/
+.claude/
+.codex/
+.cline/
+
+# Node modules (never needed in Docker builds)
+node_modules/
+
+# Python virtual envs
+.venv/
+venv/
+
+# Build artifacts
+.next/
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

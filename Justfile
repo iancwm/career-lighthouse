@@ -6,9 +6,28 @@ default:
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 
-# Build and start all services
+# Build and start all services (uses Docker layer cache for fast rebuilds)
 up:
     docker compose up --build
+
+# Full clean rebuild — bypasses Docker cache. Use when the build is broken.
+rebuild:
+    docker compose down
+    docker builder prune -f
+    docker compose build --no-cache
+    docker compose up -d
+
+# Stop all services
+down:
+    docker compose down
+
+# Stop services and wipe qdrant_data volume
+clean:
+    docker compose down -v
+
+# Follow logs for all services
+logs:
+    docker compose logs -f
 
 # Explain where knowledge and logs are stored when running via Docker
 where-data:
@@ -22,18 +41,6 @@ where-data:
     @echo "  Employer/Profile edits from the admin UI write back to ./knowledge/"
     @echo "  Document uploads via /api/ingest are embedded and stored in Qdrant"
     @echo "  Student query logs are appended to ./logs/query_log.jsonl"
-
-# Stop all services
-down:
-    docker compose down
-
-# Follow logs for all services
-logs:
-    docker compose logs -f
-
-# Stop services and wipe qdrant_data volume
-clean:
-    docker compose down -v
 
 # ── Local development ─────────────────────────────────────────────────────────
 

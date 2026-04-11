@@ -1,6 +1,6 @@
 services:
   qdrant:
-    image: qdrant/qdrant:latest
+    image: qdrant/qdrant:v1.13.2
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
@@ -18,9 +18,12 @@ services:
       - QUERY_LOG_PATH=/app/logs/query_log.jsonl
       - SENTENCE_TRANSFORMERS_HOME=/app/.cache
     volumes:
-      - ./api:/app
+      # Mount only data directories — the application code and .venv come from
+      # the Docker image itself. This keeps builds idempotent: code changes
+      # trigger a new image layer; data directories are preserved across restarts.
       - ./knowledge:/app/knowledge
       - ./logs:/app/logs
+      - api_data:/app/data
       - transformers_cache:/app/.cache
     depends_on:
       - qdrant
@@ -44,3 +47,4 @@ services:
 volumes:
   qdrant_data:
   transformers_cache:
+  api_data:
