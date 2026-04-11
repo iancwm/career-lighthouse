@@ -1,17 +1,16 @@
 employer_name: McKinsey & Company
 slug: mckinsey
 tracks:
-  - consulting
-ep_requirement: "EP3 or above (COMPASS 30+). McKinsey has historically been more
-  flexible on EP tier than banks, prioritising academic and problem-solving credentials."
+- consulting
+ep_requirement: EP5 required (2027 intake onwards).
 intake_seasons:
-  - "Apr"
-  - "Oct"
-singapore_headcount_estimate: "5-8 business analysts per intake"
-application_process: "Online application, Problem Solving Test (PST), 2 rounds of
-  case interviews. Apply 3-4 months before target start date via mckinsey.com/careers."
-counsellor_contact: "[TODO: Fill in SMU career centre contact for McKinsey track]"
-notes: "SMU Business and Lee Kong Chian alumni placed regularly. Case prep critical —
-  recommend Victor Cheng framework. McKinsey SEA office covers Singapore, Malaysia,
-  Indonesia; regional mobility possible after 2 years."
-last_updated: "2026-04-05"
+- Apr
+- Oct
+singapore_headcount_estimate: 5-8 business analysts per intake
+application_process: Online application, Problem Solving Test (PST), 2 rounds of case
+  interviews. Apply 3-4 months before target start date via mckinsey.com/careers.
+counsellor_contact: '[TODO: Fill in SMU career centre contact for McKinsey track]'
+notes: SMU Business and Lee Kong Chian alumni placed regularly. Case prep critical
+  — recommend Victor Cheng framework. McKinsey SEA office covers Singapore, Malaysia,
+  Indonesia; regional mobility possible after 2 years.
+last_updated: '2026-04-11'
