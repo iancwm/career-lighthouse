@@ -15,6 +15,10 @@ tracks:
   label: Investment Banking
   status: active
   last_published: null
+- slug: non_governmental_organization
+  label: Non Governmental Organization
+  status: active
+  last_published: 20260412-141926
 - slug: public_sector
   label: Public Sector / GLCs
   status: active
