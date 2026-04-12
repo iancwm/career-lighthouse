@@ -198,13 +198,16 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <button onClick={onBack} className="text-sm text-blue-600 hover:text-blue-800 mb-1">
-            ← Back to Sessions
+            ← Back to Session Editor
           </button>
           <h2 className="text-lg font-semibold">
             {isComplete ? "Session Complete" : `Session: ${session.status}`}
           </h2>
           <p className="text-xs text-gray-500">
             Created {new Date(session.created_at).toLocaleString()} by {session.created_by}
+          </p>
+          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+            Review the extracted intents here. If the guidance suggests a new or emerging track, compare the nearest tracks and do your own research before you move anything into Track Builder.
           </p>
         </div>
         {/* Retry analysis button for sessions with zero cards */}

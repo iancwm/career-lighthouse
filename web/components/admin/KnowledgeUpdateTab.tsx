@@ -191,9 +191,9 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-1">Review New Knowledge Before Saving</h2>
+      <h2 className="text-lg font-semibold mb-1">Knowledge Review</h2>
       <p className="text-sm text-gray-500 mb-4 max-w-3xl">
-        Paste a counsellor note or upload a file. We will suggest searchable notes and structured fact updates for you to review before anything is saved.
+        Use this approval gate when a counsellor note or file should become KB changes. Review the diff, edit it if needed, and only save the updates you trust.
       </p>
 
       {state === "success" && (

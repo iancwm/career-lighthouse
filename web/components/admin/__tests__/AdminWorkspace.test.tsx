@@ -67,6 +67,7 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     expect(screen.getByRole("button", { name: /open session/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /session editor/i })).toBeInTheDocument()
 
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("/admin?view=sessions", { scroll: false })
@@ -94,7 +95,7 @@ describe("AdminWorkspace", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("http://test/api/kb/health")
     )
-    expect(screen.getByText(/KB Health/i)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /KB Health/i })).toBeInTheDocument()
   })
 
   it("routes session selection and return-to-inbox through the URL", async () => {
