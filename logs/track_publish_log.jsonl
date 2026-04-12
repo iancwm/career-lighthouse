@@ -8,3 +8,5 @@
 {"ts": "2026-04-12T07:53:41.353012+00:00", "actor": "admin", "action": "publish_track", "slug": "public_sector", "from_version": "previous", "to_version": "20260412-075341"}
 {"ts": "2026-04-12T07:54:59.431359+00:00", "actor": "admin", "action": "publish_track", "slug": "consulting", "from_version": "previous", "to_version": "20260412-075459"}
 {"ts": "2026-04-12T07:55:37.926147+00:00", "actor": "admin", "action": "publish_track", "slug": "investment_banking", "from_version": "previous", "to_version": "20260412-075537"}
+{"ts": "2026-04-12T14:19:26.177722+00:00", "actor": "admin", "action": "publish_track", "slug": "non_governmental_organization", "from_version": "none", "to_version": "20260412-141926"}
+{"ts": "2026-04-12T16:25:49.102713+00:00", "actor": "admin", "action": "publish_track", "slug": "venture_capital", "from_version": "previous", "to_version": "20260412-162549"}

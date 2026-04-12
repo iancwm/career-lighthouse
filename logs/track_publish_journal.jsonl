@@ -18,3 +18,7 @@
 {"ts": "2026-04-12T07:54:59.431616+00:00", "action": "publish_completed", "slug": "consulting", "version": "20260412-075459"}
 {"ts": "2026-04-12T07:55:37.914011+00:00", "action": "publish_started", "slug": "investment_banking", "version": "20260412-075537"}
 {"ts": "2026-04-12T07:55:37.926233+00:00", "action": "publish_completed", "slug": "investment_banking", "version": "20260412-075537"}
+{"ts": "2026-04-12T14:19:26.169946+00:00", "action": "publish_started", "slug": "non_governmental_organization", "version": "20260412-141926", "actor": "admin"}
+{"ts": "2026-04-12T14:19:26.178009+00:00", "action": "publish_completed", "slug": "non_governmental_organization", "version": "20260412-141926", "actor": "admin", "source_refs": [{"type": "note", "label": "counsellor_note"}]}
+{"ts": "2026-04-12T16:25:49.095372+00:00", "action": "publish_started", "slug": "venture_capital", "version": "20260412-162549", "actor": "admin"}
+{"ts": "2026-04-12T16:25:49.103039+00:00", "action": "publish_completed", "slug": "venture_capital", "version": "20260412-162549", "actor": "admin", "source_refs": [{"type": "note", "label": "Helen Goh interview (Golden Equator Capital)"}]}

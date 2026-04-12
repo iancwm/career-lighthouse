@@ -3,15 +3,22 @@ slug: dbs
 tracks:
 - investment_banking
 - tech_product
+- project_management
 ep_requirement: Will sponsor
 intake_seasons:
-- November 2025
+- rolling
 singapore_headcount_estimate: 10 per year
-application_process: Online application, Hirevue, Online Assessment, Assessement Centre
+application_process: Entry via BA or Scrum Master roles (not direct PM). Computing
+  degree or IT-related background required. 3–5 years experience typical. DBS Academy
+  internal PM certification path common.
 counsellor_contact: Atina
 last_updated: '2026-04-12'
-notes: 'DBS is among the top Singapore banks (with UOB and OCBC) expected to grow
-  model risk and credit analytics headcount 15–25% through 2026, driven by MAS model
-  governance guidelines (effective 2023) and Basel III Endgame revalidation. Preferred
-  internship target for credit risk/model risk track alongside UOB and OCBC. Bulk
-  graduate recruitment: June–August.'
+notes: 'Follow-up action (March 2025): Connect Sophia Lim with NUS Computing for guest
+  lecture on PM careers, May 2025. Sophia is mentoring 3 junior PMs at DBS PMO Academy
+  and open to student engagement.'
+headcount_estimate: '15–20 PM/BA roles/year; 70% internal promotion from analyst pool,
+  30% external (consulting: Accenture, Infosys; fintech: Stripe, Grab)'
+counselor_contact: 'Dr. Suresh Kumar. Alumni contact: Sophia Lim (NUS Computing ''18),
+  Senior PM Digital Banking Transformation — available for guest lecture on PM careers
+  (target: May 2025, NUS Computing). Follow-up: Connect with NUS Computing faculty
+  to arrange. Action owner: Dr. Suresh Kumar.'
