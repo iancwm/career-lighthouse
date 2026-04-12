@@ -62,7 +62,7 @@ from services import llm as llm_service
 from config import settings
 from cfg import kb_cfg
 from services.career_profiles import _default_profiles_dir
-from services.track_drafts import TrackDraftStore, get_track_draft_store
+from services.track_drafts import TrackDraftStore, get_track_draft_store, read_publish_journal
 
 router = APIRouter(prefix="/api/kb")
 logger = logging.getLogger(__name__)
@@ -636,6 +636,15 @@ def rollback_track(
         raise HTTPException(status_code=500, detail="Failed to roll back track.")
     profile_store.invalidate()
     return TrackPublishResponse(status="ok", slug=slug, version=version, registry_updated=True)
+
+
+@router.get("/publish-journal")
+def get_publish_journal():
+    """Read the track publish journal (JSONL), newest first.
+
+    Returns raw entries so the frontend can build provenance views.
+    """
+    return read_publish_journal()
 
 
 @router.get("/employers", response_model=list[EmployerDetail])

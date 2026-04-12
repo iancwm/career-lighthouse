@@ -266,6 +266,7 @@ class TrackDraftStore:
                 "action": "publish_started",
                 "slug": slug,
                 "version": version,
+                "actor": actor,
             })
 
             published_path = _profiles_dir() / f"{slug}.yaml"
@@ -340,6 +341,8 @@ class TrackDraftStore:
                 "action": "publish_completed",
                 "slug": slug,
                 "version": version,
+                "actor": actor,
+                "source_refs": [ref.model_dump() for ref in draft.source_refs],
             })
             _atomic_text_write(_tracks_version_path(), datetime.now(timezone.utc).isoformat())
             self.invalidate()
@@ -369,3 +372,24 @@ class TrackDraftStore:
 
 def get_track_draft_store() -> TrackDraftStore:
     return TrackDraftStore()
+
+
+def read_publish_journal() -> list[dict]:
+    """Read all entries from the track publish journal, newest first."""
+    path = _publish_journal_path()
+    if not path.exists():
+        return []
+    entries: list[dict] = []
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    try:
+                        entries.append(json.loads(line))
+                    except json.JSONDecodeError:
+                        pass
+    except Exception as exc:
+        logger.warning("read_publish_journal: failed to read %s: %s", path, exc)
+    entries.reverse()
+    return entries

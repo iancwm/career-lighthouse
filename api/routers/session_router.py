@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
 from models import (
     AlreadyCovered,
     CardCommitRequest,
@@ -11,12 +11,18 @@ from services.session_store import SessionStore
 from services.track_guidance import build_track_guidance
 from typing import List
 from pathlib import Path
+from starlette.requests import Request
 import yaml
 import logging
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sessions")
+
+# Imported from sibling modules
+from config import settings
+from routers.ingest_router import _sanitize_filename
+from services.ingestion import parse_file
 
 def get_session_store():
     return SessionStore()
@@ -150,6 +156,57 @@ def _check_session_completion(session: KnowledgeSession) -> None:
 def list_sessions(store: SessionStore = Depends(get_session_store)):
     """List all sessions, most recently updated first."""
     return store.list_sessions()
+
+
+@router.post("/parse-file")
+async def parse_session_file(
+    request: Request,
+    file: UploadFile = File(...),
+):
+    """Parse an uploaded file (PDF, DOCX, TXT) and return extracted text."""
+    # 1. Check Content-Length against max_upload_bytes
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail="File exceeds maximum upload size (10MB).",
+        )
+
+    # 2. Validate filename
+    try:
+        sanitized_filename = _sanitize_filename(file.filename)
+    except HTTPException:
+        raise
+
+    # 3. Read file content
+    raw_content = await file.read()
+
+    # 4. Check for empty content
+    if not raw_content or len(raw_content) == 0:
+        raise HTTPException(
+            status_code=422,
+            detail="File is empty or could not be read.",
+        )
+
+    # 5. Parse the file
+    try:
+        extracted_text = parse_file(raw_content, sanitized_filename)
+    except Exception:
+        logger.warning("parse_session_file: failed to parse %r", sanitized_filename, exc_info=True)
+        raise HTTPException(
+            status_code=422,
+            detail="Could not extract text from this file. Try pasting the content manually.",
+        )
+
+    # 6. Check that extracted text is non-empty
+    if not extracted_text or not extracted_text.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="File is empty or could not be read.",
+        )
+
+    return {"text": extracted_text, "filename": sanitized_filename}
+
 
 @router.post("", response_model=KnowledgeSession, status_code=201)
 def create_session(req: CreateSessionRequest, store: SessionStore = Depends(get_session_store)):
