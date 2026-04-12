@@ -1,7 +1,8 @@
 slug: drw
 employer_name: DRW
 tracks:
-  - quant_finance
+- quant_finance
+- tech_product
 intake_seasons:
 - Q4 2026
 headcount_estimate: 2 quantitative researchers
@@ -12,3 +13,6 @@ notes: Key skills include mastery of Python and Linux. Advanced degrees in compu
   science or mathematics preferred. Technical interviews emphasise clarity of thinking
   and systems design per alumni feedback.
 last_updated: '2026-04-12'
+ep_requirement: null
+singapore_headcount_estimate: null
+counsellor_contact: null

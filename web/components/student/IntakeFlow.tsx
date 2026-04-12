@@ -63,6 +63,13 @@ export default function IntakeFlow({ onComplete, onBack }: Props) {
 
   useEffect(() => {
     async function loadTracks() {
+      const fallback = [
+        { id: "finance", label: "Finance / Banking" },
+        { id: "consulting", label: "Consulting" },
+        { id: "tech", label: "Tech / Product" },
+        { id: "public_sector", label: "Public Sector / GLCs" },
+        { id: "not_sure", label: "Not sure yet" },
+      ]
       try {
         const res = await fetch(`${API_URL}/api/tracks/active`)
         if (res.ok) {
@@ -72,17 +79,13 @@ export default function IntakeFlow({ onComplete, onBack }: Props) {
             label: t.label
           }))
           options.push({ id: "not_sure", label: "Not sure yet" })
-          setInterests(options)
+          setInterests(options.length > 1 ? options : fallback)
+        } else {
+          setInterests(fallback)
         }
       } catch (err) {
         console.error("Failed to load tracks", err)
-        // Fallback to minimal static list if API is down
-        setInterests([
-          { id: "finance", label: "Finance / Banking" },
-          { id: "consulting", label: "Consulting" },
-          { id: "tech", label: "Tech / Product" },
-          { id: "not_sure", label: "Not sure yet" },
-        ])
+        setInterests(fallback)
       }
     }
     loadTracks()

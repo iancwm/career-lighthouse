@@ -169,8 +169,14 @@ class TestCareerProfileStoreLoading:
 
         mock_emb = MagicMock()
         mock_emb.encode.return_value = np.ones(384, dtype=np.float32)
-        import services.embedder
-        monkeypatch.setattr(services.embedder, "Embedder", lambda: mock_emb)
+        import sys
+        import types
+        import services
+
+        fake_embedder_mod = types.ModuleType("services.embedder")
+        fake_embedder_mod.Embedder = lambda: mock_emb
+        monkeypatch.setitem(sys.modules, "services.embedder", fake_embedder_mod)
+        services.embedder = fake_embedder_mod
 
         from services.career_profiles import CareerProfileStore
         store = CareerProfileStore()
@@ -182,6 +188,8 @@ class TestCareerProfileStoreLoading:
     def test_missing_directory_does_not_crash(self, tmp_path, monkeypatch):
         nonexistent = tmp_path / "does_not_exist"
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(nonexistent))
+        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
+                            _load_empty_profiles)
 
         from services.career_profiles import CareerProfileStore
         store = CareerProfileStore()
@@ -228,10 +236,11 @@ class TestCareerProfileStoreLoading:
         profiles_dir = tmp_path / "profiles"
         profiles_dir.mkdir()
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
+                            _load_empty_profiles)
 
         from services.career_profiles import CareerProfileStore
         store = CareerProfileStore()
-        store._ensure_loaded()
 
         with caplog.at_level(logging.WARNING, logger="services.career_profiles"):
             result = store.get_profile("stale_slug_from_client")
@@ -248,10 +257,11 @@ class TestCareerProfileStoreMatching:
         profiles_dir = tmp_path / "empty"
         profiles_dir.mkdir()
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
+                            _load_empty_profiles)
 
         from services.career_profiles import CareerProfileStore
         store = CareerProfileStore()
-        store._ensure_loaded()
         result = store.match_career_type(np.ones(384, dtype=np.float32))
         assert result is None
 
@@ -303,6 +313,45 @@ class TestCareerProfileStoreMatching:
         result = store.match_career_type(query_vec)
         assert result is None
 
+    def test_top_candidates_returns_ordered_slugs(self, tmp_path, monkeypatch):
+        profiles_dir = tmp_path / "profiles"
+        profiles_dir.mkdir()
+        write_profile(profiles_dir, "quant_finance", {"career_type": "Quant Finance"})
+        write_profile(profiles_dir, "software_engineering", {"career_type": "Software Engineering"})
+
+        quant_vec = np.zeros(384, dtype=np.float32)
+        quant_vec[0] = 1.0
+        tech_vec = np.zeros(384, dtype=np.float32)
+        tech_vec[1] = 1.0
+
+        monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+        mock_emb = MagicMock()
+
+        def _encode(text):
+            text = str(text).lower()
+            if "quant" in text:
+                return quant_vec
+            if "software" in text:
+                return tech_vec
+            return quant_vec
+
+        mock_emb.encode.side_effect = _encode
+        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
+                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+
+        from services.career_profiles import CareerProfileStore
+        store = CareerProfileStore()
+
+        query_vec = np.zeros(384, dtype=np.float32)
+        query_vec[0] = 0.65
+        query_vec[1] = 0.35
+
+        candidates = store.top_candidates(query_vec, limit=2)
+
+        assert [item["slug"] for item in candidates] == ["quant_finance", "software_engineering"]
+        assert candidates[0]["score"] == pytest.approx(0.65, abs=0.001)
+        assert candidates[1]["score"] == pytest.approx(0.35, abs=0.001)
+
 
 # ---------------------------------------------------------------------------
 # Internal helper (test-only) — bypasses Embedder import in _load_profiles
@@ -342,4 +391,11 @@ def _load_with_mock_embedder(store, profiles_dir, mock_emb):
             _log.warning("Career profile %s: YAML parse error — skipping: %s", yaml_path.name, exc)
         except Exception as exc:
             _log.warning("Career profile %s: failed to load — skipping: %s", yaml_path.name, exc)
+    store._loaded = True
+
+
+def _load_empty_profiles(store):
+    store._profiles = {}
+    store._type_embeddings = {}
+    store._keyword_index = {}
     store._loaded = True

@@ -3,16 +3,19 @@ import { vi } from "vitest"
 import TrackBuilderTab from "../TrackBuilderTab"
 
 describe("TrackBuilderTab", () => {
+  const originalFetch = globalThis.fetch
+
   beforeEach(() => {
     process.env.NEXT_PUBLIC_API_URL = "http://test"
   })
 
   afterEach(() => {
     vi.resetAllMocks()
+    globalThis.fetch = originalFetch
   })
 
   it("shows the published reference summary and archived working copy banner", async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+    const fetchMock = async (input: RequestInfo | URL) => {
       const url = String(input)
       if (url.endsWith("/api/kb/draft-tracks")) {
         return {
@@ -78,9 +81,9 @@ describe("TrackBuilderTab", () => {
         }
       }
       throw new Error(`Unexpected fetch: ${url}`)
-    })
+    }
 
-    vi.stubGlobal("fetch", fetchMock)
+    globalThis.fetch = fetchMock as typeof fetch
 
     render(<TrackBuilderTab selectedSlug="data_science" />)
 
@@ -88,8 +91,8 @@ describe("TrackBuilderTab", () => {
       expect(screen.getByText(/archived working copy/i)).toBeInTheDocument()
     )
     expect(screen.getByText(/Published reference summary/i)).toBeInTheDocument()
-    expect(screen.getByText(/Students interested in analytics, Python, and experimentation\./i)).toBeInTheDocument()
-    expect(screen.getByText(/Last published version: 20260412-120000/i)).toBeInTheDocument()
-    expect(screen.getByText(/Internship to return offer/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Students interested in analytics, Python, and experimentation\./i)).toBeInTheDocument()
+    expect(await screen.findByText(/Last published version: 20260412-120000/i)).toBeInTheDocument()
+    expect(await screen.findByText(/Internship to return offer/i)).toBeInTheDocument()
   })
 })

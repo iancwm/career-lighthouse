@@ -4,7 +4,10 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5.0] - 2026-04-12
+
 ### Added
+- **Trust-first track guidance**: session analysis now carries an explicit uncertainty payload with nearest-track clustering, recurrence-aware escalation, and counselor-facing guidance to check definitions and do their own research before creating new taxonomy.
 - **Sessions-first admin workspace**: `/admin` now routes through a URL-driven shell with sessions, Track Builder, Knowledge Update, and employer facts as explicit surfaces instead of a single stateful tab container.
 - **Safe student markdown rendering**: assistant replies now render through a dedicated markdown component with a safe subset of formatting and links that open in a new tab.
 - **Track Builder published reference view**: published tracks now have a dedicated reference detail contract, plus an archived working-copy banner in the editor.

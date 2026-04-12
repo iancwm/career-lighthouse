@@ -122,6 +122,20 @@ class AlreadyCovered(BaseModel):
     reason: str = ""  # why no action is needed
 
 
+class TrackCandidate(BaseModel):
+    slug: str
+    label: str
+    score: float
+
+
+class TrackGuidance(BaseModel):
+    status: str  # "safe_update" | "clustered_uncertainty" | "emerging_taxonomy_signal"
+    recommendation: str
+    nearest_tracks: list[TrackCandidate] = []
+    recurrence_count: int = 0
+    cluster_key: str | None = None
+
+
 class IntentCard(BaseModel):
     card_id: str
     domain: str  # "employer" | "track"
@@ -133,10 +147,18 @@ class IntentCard(BaseModel):
 
 class KBAnalysisResult(BaseModel):
     """Result from LLM analysis of counsellor input (diff-first review)."""
+    interpretation_bullets: list[str] = []
     new_chunks: list[NewChunk] = []
-    profile_updates: dict[str, dict[str, str]] = {}
-    employer_updates: dict[str, dict[str, str]] = {}
+    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
     already_covered: list[AlreadyCovered] = []
+
+
+class SessionAnalysisResponse(BaseModel):
+    session_id: str
+    cards: list[IntentCard]
+    already_covered: list[AlreadyCovered] = []
+    track_guidance: TrackGuidance | None = None
 
 
 class MultiIntentAnalysisResult(BaseModel):
@@ -249,6 +271,7 @@ class KnowledgeSession(BaseModel):
     status: str  # "in-progress" | "analyzed" | "completed"
     raw_input: str
     intent_cards: list[dict] = []
+    track_guidance: TrackGuidance | None = None
     created_by: str = "counsellor"
     created_at: str
     updated_at: str

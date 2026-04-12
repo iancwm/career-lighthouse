@@ -1,6 +1,4 @@
-slug: dsai
-track_name: Data Science and Artificial Intelligence
-status: published
+career_type: Data Science and Artificial Intelligence
 match_description: For students targeting roles that require deep data science, machine
   learning, or AI domain expertise across tech, finance, healthcare, and public sector
   employers in Singapore.
@@ -20,6 +18,13 @@ match_keywords:
 - GovTech
 - smart nation
 - quantitative researcher
+match_cosine: false
+structured:
+  sponsorship_tier: Medium
+  compass_points_typical: ''
+  salary_min_sgd: 7000
+  salary_max_sgd: 14350
+  ep_realistic: true
 ep_sponsorship: Most private sector employers (tech, fintech, banking) pay above the
   Employment Pass threshold. However, some SMU graduates have been placed on S Pass,
   particularly at smaller firms or for junior roles — verify salary offer carefully.
@@ -72,20 +77,3 @@ notes: 'Entry-level openings are scarce — only ~11% of Singapore data science 
   but public sector offers stability and structured progression. Top technical keywords
   in job descriptions: Python, SQL, engineering, analytics, computer science — machine
   learning appears further down than students often expect.'
-source_refs:
-- type: note
-  label: counsellor_note
-- type: note
-  label: counsellor_note_20260404
-- type: file
-  label: gic-recruiting-guide.txt
-- type: file
-  label: smu-alumni-paths.txt
-structured:
-  sponsorship_tier: Medium
-  compass_points_typical: ''
-  salary_min_sgd: 7000
-  salary_max_sgd: 14350
-  ep_realistic: true
-last_updated: '2026-04-12'
-archived_at: '2026-04-12'
