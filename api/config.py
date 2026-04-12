@@ -28,7 +28,7 @@ if SettingsConfigDict is None:
         qdrant_url: str = ""
         data_path: str = "./data/qdrant"
         query_log_path: str = "./logs/query_log.jsonl"
-        max_upload_bytes: int = 10 * 1024 * 1024
+        max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
 
 
 settings = Settings()
