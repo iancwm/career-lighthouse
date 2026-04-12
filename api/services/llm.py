@@ -115,6 +115,9 @@ def analyse_kb_input(
         "          ]\n"
         "        }\n\n"
         "        Rules:\n"
+        "        - FIRST compare the input against the existing KB excerpts provided below.\n"
+        "          Only propose changes for facts that are genuinely new, corrected, or\n"
+        "          contradictory. Do not re-propose information already covered.\n"
         "        - Only propose profile_updates for fields that the input clearly changes or\n"
         "          corrects. Use the exact field names from CURRENT CAREER PROFILE FIELDS.\n"
         "          Do not guess field names not listed there.\n"
@@ -323,6 +326,8 @@ def generate_session_intents(
         "You are a knowledge extraction assistant for a career advisory platform.\n"
         "Given raw counsellor research notes, extract distinct update intents.\n"
         "Each intent targets EXACTLY ONE domain: 'employer' or 'track'.\n"
+        "Prefer concrete field-level changes (e.g. 'update EP requirement to EP4')\n"
+        "over vague summaries (e.g. 'improve employer profile'). Be specific.\n"
         "Return ONLY valid JSON with this structure:\n"
         '{\n'
         '  "cards": [\n'

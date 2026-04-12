@@ -111,7 +111,12 @@ def _normalized_terms(text: str) -> set[str]:
 
 
 def _employer_matches_query(employer: dict, query_text: str) -> bool:
-    """Return True when the query explicitly mentions the employer by name/slug."""
+    """Return True when the query explicitly mentions the employer by name/slug.
+
+    Also matches when query terms appear in the employer's notes or
+    application_process fields — e.g. "NGO" in query matches WWF's notes
+    containing "NGO" even if "WWF" is not mentioned by name.
+    """
     if not query_text or not query_text.strip():
         return False
 
@@ -134,7 +139,25 @@ def _employer_matches_query(employer: dict, query_text: str) -> bool:
         return next(iter(employer_terms)) in query_terms
 
     # For multi-word names, require all salient terms to appear somewhere in the query.
-    return employer_terms.issubset(query_terms)
+    if employer_terms.issubset(query_terms):
+        return True
+
+    # Broadened: also match when query terms appear in notes or application_process.
+    # This catches sector-level queries like "NGO" matching WWF's notes.
+    for field in ("notes", "application_process"):
+        field_text = str(employer.get(field) or "").lower()
+        field_terms = _normalized_terms(field_text)
+        if not field_terms:
+            continue
+        # Require at least 2 query terms to appear in the field text (reduces false positives).
+        matching = query_terms & field_terms
+        if len(matching) >= 2:
+            return True
+        # Single-term match is enough for acronyms.
+        if len(employer_terms) == 1 and next(iter(employer_terms)) in matching:
+            return True
+
+    return False
 
 
 class EmployerEntityStore:
@@ -232,6 +255,7 @@ class EmployerEntityStore:
         self,
         active_career_type: Optional[str] = None,
         query_text: Optional[str] = None,
+        profile_top_employers: Optional[list[str]] = None,
     ) -> str:
         """Build the employer context block for LLM injection.
 
@@ -240,6 +264,12 @@ class EmployerEntityStore:
         when the active track is absent or different. This preserves relevance
         for queries like "Tell me about DBS" without globally injecting every
         employer into general chat.
+
+        If profile_top_employers is provided (from the career profile's
+        top_employers_smu), also inject employers whose name is a case-insensitive
+        substring match. This bridges the gap between career profiles that list
+        employers and employer entities that may not share the exact track tag.
+
         Returns empty string if no employers match (safe to skip injection).
 
         Token budget: ~6 lines per employer × 12 chars/line ≈ 72 tokens per employer.
@@ -256,6 +286,21 @@ class EmployerEntityStore:
                 if active_career_type in _as_list(employer.get("tracks")):
                     selected.append(employer)
                     seen_slugs.add(employer.get("slug", ""))
+
+        # Inject employers listed in the career profile's top_employers_smu.
+        # Case-insensitive substring match catches variants like "WWF" → "WWF Singapore".
+        if profile_top_employers:
+            for employer in employers:
+                slug = employer.get("slug", "")
+                if slug in seen_slugs:
+                    continue
+                emp_name = str(employer.get("employer_name") or "").strip().lower()
+                for top_name in profile_top_employers:
+                    top_lower = top_name.strip().lower()
+                    if top_lower and (top_lower in emp_name or emp_name in top_lower):
+                        selected.append(employer)
+                        seen_slugs.add(slug)
+                        break
 
         if query_text:
             for employer in employers:

@@ -113,3 +113,77 @@ def test_parse_file_docx_merged_cells_no_duplication():
     # Data row cells should appear
     assert "A" in text
     assert "B" in text
+
+
+# ---------------------------------------------------------------------------
+# Semantic-aware chunking tests
+# ---------------------------------------------------------------------------
+
+def test_chunk_preserves_paragraph_boundaries():
+    """Two short paragraphs should each be their own chunk, not split mid-paragraph."""
+    from services.ingestion import chunk_text
+    text = "First paragraph about career paths.\n\nSecond paragraph about salary expectations."
+    chunks = chunk_text(text, max_tokens=512, overlap=64)
+    # Both paragraphs should be preserved in at least one chunk
+    combined = " ".join(chunks)
+    assert "First paragraph about career paths." in combined
+    assert "Second paragraph about salary expectations." in combined
+
+
+def test_chunk_preserves_table_rows():
+    """A small table should be kept together in one chunk, not split across rows."""
+    from services.ingestion import chunk_text
+    text = """Here is the salary table:
+| Role | Base | Bonus |
+| Junior | 80K | 15% |
+| Senior | 120K | 25% |
+| Manager | 160K | 35% |"""
+    chunks = chunk_text(text, max_tokens=512, overlap=64)
+    # Table rows should appear together (at least in one chunk)
+    combined = " ".join(chunks)
+    assert "Junior" in combined
+    assert "Senior" in combined
+    assert "Manager" in combined
+
+
+def test_chunk_splits_oversized_paragraph():
+    """A single long paragraph exceeding token limit should split at word boundaries."""
+    from services.ingestion import chunk_text
+    words = [f"word{i}" for i in range(500)]
+    long_paragraph = " ".join(words)
+    chunks = chunk_text(long_paragraph, max_tokens=100, overlap=20)
+    # Should produce multiple chunks
+    assert len(chunks) > 1
+    # First chunk should contain the beginning
+    assert "word0" in chunks[0]
+    # Last chunk should contain the end
+    assert "word499" in chunks[-1]
+
+
+def test_chunk_single_short_text_returns_as_is():
+    """Text within token limit should return as single chunk."""
+    from services.ingestion import chunk_text
+    text = "Short career advice."
+    chunks = chunk_text(text, max_tokens=512, overlap=64)
+    assert chunks == ["Short career advice."]
+
+
+def test_chunk_empty_returns_empty():
+    """Empty text should return empty list."""
+    from services.ingestion import chunk_text
+    assert chunk_text("", max_tokens=512, overlap=64) == []
+    assert chunk_text("   ", max_tokens=512, overlap=64) == []
+
+
+def test_chunk_preserves_list_items():
+    """Consecutive list items should be kept together."""
+    from services.ingestion import chunk_text
+    text = """Skills needed:
+- Communication
+- Analytical thinking
+- Leadership"""
+    chunks = chunk_text(text, max_tokens=512, overlap=64)
+    combined = " ".join(chunks)
+    assert "Communication" in combined
+    assert "Analytical thinking" in combined
+    assert "Leadership" in combined

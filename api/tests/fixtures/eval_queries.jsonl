@@ -1,0 +1,16 @@
+# api/tests/fixtures/eval_queries.jsonl
+# Eval queries for the AI quality sprint.
+# Each line: {"query": "...", "expected_employer": "...", "expected_track": "...", "should_not_say_no_info": true}
+# - expected_employer: employer name that should appear in the LLM response (optional)
+# - expected_track: career track slug that should be resolved (optional)
+# - should_not_say_no_info: if true, the LLM should NOT say it lacks information
+{"query": "I am a financial analyst that wants to pivot to a more meaningful career. I have been thinking about doing commercial roles at an NGO. What is the compensation I can expect? and what skills do i need?", "expected_employer": "WWF Singapore", "expected_track": "non_governmental_organization", "should_not_say_no_info": true}
+{"query": "What are the EP requirements for DBS?", "expected_employer": "DBS", "should_not_say_no_info": true}
+{"query": "I want to work in tech product. What's the salary range?", "expected_track": "tech_product", "should_not_say_no_info": true}
+{"query": "What does Goldman Sachs look for in candidates?", "expected_employer": "Goldman Sachs", "should_not_say_no_info": true}
+{"query": "I'm interested in quantitative finance. What skills do I need?", "expected_track": "quant_finance", "should_not_say_no_info": true}
+{"query": "Can I get an Employment Pass for consulting roles?", "expected_track": "consulting", "should_not_say_no_info": true}
+{"query": "What is the recruiting timeline for investment banking?", "expected_track": "investment_banking", "should_not_say_no_info": true}
+{"query": "Tell me about McKinsey Singapore", "expected_employer": "McKinsey", "should_not_say_no_info": true}
+{"query": "I'm a software engineer. What career tracks match my background?", "expected_track": "tech_product", "should_not_say_no_info": true}
+{"query": "What is the typical COMPASS score for public sector roles?", "expected_track": "public_sector", "should_not_say_no_info": true}

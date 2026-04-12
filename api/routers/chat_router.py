@@ -132,16 +132,19 @@ def chat(
 
     # Profile injection: load YAML and format as context block (None → no injection)
     career_context: Optional[str] = None
+    profile_top_employers: Optional[list[str]] = None
     if active_career_type:
         profile = profile_store.get_profile(active_career_type)
         if profile:
             career_context = profile_to_context_block(profile)
+            profile_top_employers = profile.get("top_employers_smu") or None
 
-    # Employer injection: include track-matched employers plus any employer the
-    # student explicitly names in the current message.
+    # Employer injection: include track-matched employers, profile top employers,
+    # and any employer the student explicitly names in the current message.
     employer_block = employer_store.to_context_block(
         active_career_type=active_career_type,
         query_text=req.message,
+        profile_top_employers=profile_top_employers,
     )
     employer_context: Optional[str] = employer_block if employer_block else None
 

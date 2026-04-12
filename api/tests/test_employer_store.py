@@ -264,3 +264,132 @@ class TestToContextBlock:
         block = store.to_context_block("investment_banking")
         assert "=== EMPLOYER FACTS" in block
         assert "=== END EMPLOYER FACTS ===" in block
+
+
+# ---------------------------------------------------------------------------
+# EmployerEntityStore.to_context_block() — profile_top_employers injection
+# ---------------------------------------------------------------------------
+
+class TestProfileTopEmployersInjection:
+    def test_exact_case_insensitive_match_injects_employer(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        # WWF not in any employer tracks, but listed in profile's top_employers_smu
+        (employers_dir / "wwf_singapore.yaml").write_text(textwrap.dedent("""\
+            employer_name: WWF Singapore
+            slug: wwf_singapore
+            tracks:
+              - social_impact_nonprofit
+            ep_requirement: "EP sponsored"
+        """), encoding="utf-8")
+        store.invalidate()
+        block = store.to_context_block(
+            active_career_type="non_governmental_organization",
+            profile_top_employers=["WWF Singapore"],
+        )
+        assert "WWF Singapore" in block
+
+    def test_substring_match_injects_employer(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        (employers_dir / "wwf_singapore.yaml").write_text(textwrap.dedent("""\
+            employer_name: WWF Singapore
+            slug: wwf_singapore
+            tracks:
+              - social_impact_nonprofit
+            ep_requirement: "EP sponsored"
+        """), encoding="utf-8")
+        store.invalidate()
+        # "WWF" is a substring of "WWF Singapore" → should match
+        block = store.to_context_block(
+            active_career_type="non_governmental_organization",
+            profile_top_employers=["WWF"],
+        )
+        assert "WWF Singapore" in block
+
+    def test_no_duplicate_when_employer_already_matched_by_track(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        # Goldman matches by track AND by profile_top_employers
+        block = store.to_context_block(
+            active_career_type="investment_banking",
+            profile_top_employers=["Goldman Sachs"],
+        )
+        # Goldman should appear only once
+        assert block.count("Goldman Sachs") == 1
+
+    def test_no_match_when_profile_name_not_found(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block(
+            active_career_type="non_governmental_organization",
+            profile_top_employers=["Nonexistent Org"],
+        )
+        assert block == ""
+
+
+# ---------------------------------------------------------------------------
+# _employer_matches_query — notes/application_process field matching
+# ---------------------------------------------------------------------------
+
+class TestEmployerMatchesQueryNotes:
+    def test_query_matches_employer_notes(self, employers_dir, monkeypatch):
+        (employers_dir / "wwf_singapore.yaml").write_text(textwrap.dedent("""\
+            employer_name: WWF Singapore
+            slug: wwf_singapore
+            tracks:
+              - social_impact_nonprofit
+            ep_requirement: "EP sponsored"
+            notes: "NGO role with compensation 55-70K for partnership officer"
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        # "NGO compensation" matches terms in WWF's notes
+        block = store.to_context_block(
+            active_career_type=None,
+            query_text="What is NGO compensation like?",
+        )
+        assert "WWF Singapore" in block
+
+    def test_query_matches_employer_application_process(self, employers_dir, monkeypatch):
+        (employers_dir / "startup_co.yaml").write_text(textwrap.dedent("""\
+            employer_name: StartupCo
+            slug: startup_co
+            tracks:
+              - tech_product
+            ep_requirement: "EP3"
+            application_process: "Apply via LinkedIn then technical interview"
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block(
+            active_career_type=None,
+            query_text="LinkedIn technical interview process",
+        )
+        assert "StartupCo" in block
+
+    def test_single_query_term_does_not_match_notes(self, employers_dir, monkeypatch):
+        (employers_dir / "general_corp.yaml").write_text(textwrap.dedent("""\
+            employer_name: General Corp
+            slug: general_corp
+            tracks:
+              - consulting
+            ep_requirement: "EP3"
+            notes: "We hire across all sectors including finance and tech roles"
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        # Single term "finance" should NOT match General Corp's notes
+        # (requires ≥2 matching terms for multi-word employers)
+        block = store.to_context_block(
+            active_career_type=None,
+            query_text="finance",
+        )
+        assert "General Corp" not in block

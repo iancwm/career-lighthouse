@@ -88,6 +88,11 @@ and manual-value preservation.
 **Why:** Counsellors encountering the empty state for the first time have no orientation. The surrounding heading "New Publishing Session" helps, but the empty list below it is bare.
 **Depends on:** None. One-liner copy change in `web/components/admin/SessionInbox.tsx`.
 
+### Re-ingest documents with improved chunking
+**What:** Re-upload documents that contain tables or structured data so they get re-chunked with the new semantic-aware strategy.
+**Why:** The new chunking strategy only affects new uploads. Existing Qdrant chunks from old word-boundary splitting remain and may still miss table content.
+**Depends on:** New chunking strategy shipped (this sprint).
+
 ### Replace cosine career type switching with keyword matching
 **What:** Use keyword-based career type detection in `CareerProfileStore.match_career_type()`.
 **Why:** Cosine similarity against short career-type descriptions is unreliable for conversational questions.
