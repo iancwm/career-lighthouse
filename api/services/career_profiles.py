@@ -201,6 +201,7 @@ class CareerProfileStore:
         self._profiles: dict[str, dict] = {}            # slug → profile dict
         self._type_embeddings: dict[str, np.ndarray] = {}  # slug → 384-dim vector (cosine-eligible only)
         self._keyword_index: dict[str, list[str]] = {}  # slug → keyword list (lowercased)
+        self._broken_profiles: dict[str, dict] = {}     # slug → {filename, missing_fields, raw_profile}
         self._load_profiles()
         self._tracks_version_mtime = current_mtime
         self._loaded = True
@@ -234,8 +235,15 @@ class CareerProfileStore:
                     continue
                 missing = _REQUIRED_FIELDS - set(profile.keys())
                 if missing:
-                    logger.warning(
-                        "Career profile %s: missing required fields %s — skipping",
+                    # Track broken profiles for admin visibility — don't just log and forget.
+                    self._broken_profiles[slug] = {
+                        "filename": yaml_path.name,
+                        "missing_fields": sorted(missing),
+                        "raw_profile": profile,
+                    }
+                    logger.error(
+                        "Career profile %s: BROKEN — missing required fields %s. "
+                        "Visible in admin under 'Broken Profiles'.",
                         yaml_path.name, sorted(missing),
                     )
                     continue
@@ -374,6 +382,32 @@ class CareerProfileStore:
                 "has_counselor_contact": bool(counselor and "TODO" not in counselor),
             })
         return result
+
+    def list_broken_profiles(self) -> list[dict]:
+        """Return all profiles that failed validation (for admin visibility).
+
+        Each entry includes the slug, filename, missing fields, and the raw profile data
+        so the admin can display what's broken and offer an auto-complete recovery path.
+        """
+        self._ensure_loaded()
+        return [
+            {
+                "slug": slug,
+                "filename": info["filename"],
+                "missing_fields": info["missing_fields"],
+                "has_career_type": bool(info["raw_profile"].get("career_type")),
+                "existing_fields": list(info["raw_profile"].keys()),
+            }
+            for slug, info in self._broken_profiles.items()
+        ]
+
+    def get_broken_profile(self, slug: str) -> Optional[dict]:
+        """Return the raw profile data for a broken profile (for auto-complete)."""
+        self._ensure_loaded()
+        info = self._broken_profiles.get(slug)
+        if not info:
+            return None
+        return info["raw_profile"]
 
 
 def get_career_profile_store() -> CareerProfileStore:

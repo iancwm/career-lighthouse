@@ -17,6 +17,7 @@ import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
 import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
+import BrokenProfilesTab from "@/components/admin/BrokenProfilesTab"
 import ToolsDrawer, { DrawerSurface } from "@/components/admin/ToolsDrawer"
 import DirectiveBanner from "@/components/admin/DirectiveBanner"
 
@@ -47,20 +48,21 @@ interface KBHealth {
 
 type DrawerView = DrawerSurface | "sessions"
 
-const DRAWER_SURFACES: DrawerSurface[] = ["knowledge", "update", "careers", "employers", "tracks", "resume"]
+const DRAWER_SURFACES: DrawerSurface[] = ["knowledge", "update", "careers", "employers", "tracks", "resume", "broken"]
 
 const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
   { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
   { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
+  { id: "broken", label: "⚠ Broken Profiles", description: "Fix career profiles with missing fields." },
   { id: "careers", label: "Career Tracks", description: "See structured chat metadata." },
   { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts." },
   { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
 ]
 
 function isDrawerView(value: string | null): value is DrawerView {
-  return value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume"
+  return value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume" || value === "broken"
 }
 
 function isDrawerSurface(value: string | null): value is DrawerSurface {
@@ -87,6 +89,11 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
     label: "Review a student resume",
     whatYouDo: "Paste a student resume to generate a prep brief.",
     whatHappens: "The system produces fit assessment, risks, and talking points in markdown.",
+  },
+  broken: {
+    label: "Fix broken career profiles",
+    whatYouDo: "Review profiles with missing required fields and auto-complete them with AI.",
+    whatHappens: "Missing fields are filled by the LLM based on existing profile content. You review before they go live.",
   },
   employers: {
     label: "Maintain employer details",
@@ -347,6 +354,8 @@ export default function AdminWorkspace() {
       )}
 
       {view === "resume" && <ResumeReviewTab />}
+
+      {view === "broken" && <BrokenProfilesTab />}
 
       {view === "careers" && <CareerTracksTab />}
 

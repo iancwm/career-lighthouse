@@ -356,6 +356,112 @@ def career_profiles(
     return profile_store.list_profiles()
 
 
+@router.get("/career-profiles/broken")
+def broken_career_profiles(
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    """List career profiles that failed validation due to missing required fields.
+
+    Returns the slug, filename, list of missing fields, and which fields exist.
+    This endpoint makes broken profiles visible to admins instead of silently skipping them.
+    """
+    return profile_store.list_broken_profiles()
+
+
+@router.post("/career-profiles/{slug}/auto-complete", response_model=dict)
+def auto_complete_profile(
+    slug: str,
+    profile_store: CareerProfileStore = Depends(get_career_profile_store),
+):
+    """Use the LLM to fill in missing required fields for a broken career profile.
+
+    Reads the existing partial profile, passes its content to the LLM with instructions
+    to fill the missing fields, writes the completed profile back to disk, and triggers
+    a store reload so it becomes immediately available.
+
+    Returns the completed profile dict.
+    """
+    from config import settings
+    import anthropic
+
+    broken = profile_store.get_broken_profile(slug)
+    if broken is None:
+        raise HTTPException(status_code=404, detail=f"Broken profile '{slug}' not found")
+
+    # Determine which fields are missing
+    from cfg import career_profiles_cfg
+    required = set(career_profiles_cfg["required_fields"])
+    existing = set(broken.keys())
+    missing = required - existing
+
+    # Build a prompt that asks the LLM to fill the gaps
+    existing_content = "\n".join(
+        f"{k}: {v}" for k, v in broken.items() if v
+    )
+    missing_list = ", ".join(sorted(missing))
+
+    system = (
+        f"You are a career data curator for {model_cfg['school']['name']}.\n"
+        "Given a partial career profile YAML and a list of missing required fields,\n"
+        "fill in the missing fields based on the existing profile content.\n"
+        "Return ONLY a JSON object with the missing field names as keys.\n"
+        "Be specific and realistic — use real-world data where possible.\n"
+        "Do not modify or repeat fields that already exist.\n"
+    )
+
+    user = (
+        f"Existing profile fields:\n{existing_content}\n\n"
+        f"Missing fields to fill: {missing_list}\n\n"
+        f"Return a JSON object with values for each missing field. "
+        f"For list fields (top_employers_smu, entry_paths), return a JSON array. "
+        f"For boolean fields (international_realistic), return true or false. "
+        f"For string fields, return a concise 1-3 sentence value."
+    )
+
+    try:
+        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=model_cfg["llm"]["model"],
+            max_tokens=1024,
+            temperature=0,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        text = response.content[0].text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1]
+            if "```" in text:
+                text = text.rsplit("```", 1)[0]
+        text = text.strip()
+        filled = json.loads(text)
+    except Exception as exc:
+        logger.error("auto_complete_profile: LLM call failed: %s", exc)
+        raise HTTPException(status_code=500, detail=f"Could not auto-complete: {exc}")
+
+    # Merge filled fields into the broken profile
+    for field, value in filled.items():
+        if field in missing:
+            broken[field] = value
+
+    # Write back to disk
+    from services.career_profiles import _default_profiles_dir
+    yaml_path = _default_profiles_dir() / f"{slug}.yaml"
+    try:
+        import yaml as _yaml
+        tmp = yaml_path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            _yaml.safe_dump(broken, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        tmp.replace(yaml_path)
+    except Exception as exc:
+        logger.error("auto_complete_profile: failed to write %s: %s", yaml_path, exc)
+        raise HTTPException(status_code=500, detail=f"Could not save completed profile: {exc}")
+
+    # Invalidate the store so the completed profile is immediately loaded
+    profile_store.invalidate()
+
+    return {"slug": slug, "completed_fields": list(filled.keys()), "profile": broken}
+
+
 @router.get("/tracks", response_model=list[TrackRegistryEntry])
 def list_tracks(
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
