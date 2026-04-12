@@ -247,6 +247,23 @@ class TestCareerProfileStoreLoading:
         assert result is None
         assert any("unknown career type slug" in r.message for r in caplog.records)
 
+    def test_legacy_data_science_slug_resolves_to_dsai_profile(self, tmp_path, monkeypatch):
+        profiles_dir = tmp_path / "profiles"
+        profiles_dir.mkdir()
+        write_profile(profiles_dir, "dsai", {"career_type": "Data Science and Artificial Intelligence"})
+
+        monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+        mock_emb = MagicMock()
+        mock_emb.encode.return_value = np.ones(384, dtype=np.float32)
+        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
+                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+
+        from services.career_profiles import CareerProfileStore
+        store = CareerProfileStore()
+
+        assert store.get_profile("data_science")["career_type"] == "Data Science and Artificial Intelligence"
+        assert store.get_profile("data_science_and_artificial_intelligence")["career_type"] == "Data Science and Artificial Intelligence"
+
 
 # ---------------------------------------------------------------------------
 # CareerProfileStore — cosine matching

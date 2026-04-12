@@ -84,9 +84,9 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
 
       {/* New Session Form */}
       <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-        <h3 className="text-sm font-semibold text-gray-800 mb-2">New Publishing Session</h3>
+        <h3 className="text-sm font-semibold text-gray-800 mb-2">Session Editor</h3>
         <p className="text-sm text-gray-600 mb-3">
-          Paste research notes or observations. The system will extract individual update intents.
+          This is the starting point. Paste counsellor notes here to create a session, then review the extracted intents before touching the reference tabs.
         </p>
         <textarea
           value={rawInput}

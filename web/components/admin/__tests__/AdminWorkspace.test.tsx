@@ -47,7 +47,7 @@ vi.mock("@/components/admin/TrackBuilderTab", () => ({
   }) => (
     <div>
       <p>track-builder:{selectedSlug ?? "none"}</p>
-      <button type="button" onClick={() => onSelectedSlugChange?.("data_science")}>
+      <button type="button" onClick={() => onSelectedSlugChange?.("dsai")}>
         pick track
       </button>
     </div>
@@ -67,6 +67,7 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     expect(screen.getByRole("button", { name: /open session/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /session editor/i })).toBeInTheDocument()
 
     await waitFor(() =>
       expect(replace).toHaveBeenCalledWith("/admin?view=sessions", { scroll: false })
@@ -94,7 +95,7 @@ describe("AdminWorkspace", () => {
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("http://test/api/kb/health")
     )
-    expect(screen.getByText(/KB Health/i)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /KB Health/i })).toBeInTheDocument()
   })
 
   it("routes session selection and return-to-inbox through the URL", async () => {
@@ -121,7 +122,7 @@ describe("AdminWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /pick track/i }))
 
-    expect(push).toHaveBeenCalledWith("/admin?view=tracks&trackSlug=data_science", {
+    expect(push).toHaveBeenCalledWith("/admin?view=tracks&trackSlug=dsai", {
       scroll: false,
     })
   })

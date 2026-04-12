@@ -12,6 +12,7 @@ from models import ChatRequest, ChatResponse, Citation, TrackRegistryEntry
 from services import llm
 from services.career_profiles import (
     CareerProfileStore,
+    canonicalize_career_type_slug,
     get_career_profile_store,
     profile_to_context_block,
     resolve_career_type_from_intake,
@@ -99,9 +100,10 @@ def _resolve_career_type(
 
     active_slug: Optional[str] = None
     if req.active_career_type:
+        req_slug = canonicalize_career_type_slug(req.active_career_type)
         # Validate client-provided slug — get_profile logs WARNING and returns None on miss
-        if profile_store.get_profile(req.active_career_type) is not None:
-            active_slug = req.active_career_type
+        if req_slug and profile_store.get_profile(req_slug) is not None:
+            active_slug = req_slug
 
     # Deterministic keyword matching only runs when no active career type is set.
     if active_slug is None:

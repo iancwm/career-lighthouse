@@ -22,8 +22,8 @@ describe("TrackBuilderTab", () => {
           ok: true,
           json: async () => [
             {
-              slug: "data_science",
-              track_name: "Data Science",
+              slug: "dsai",
+              track_name: "Data Science and Artificial Intelligence",
               status: "published",
               match_description: "Draft working copy",
               match_keywords: ["data science"],
@@ -47,18 +47,18 @@ describe("TrackBuilderTab", () => {
       if (url.endsWith("/api/kb/tracks")) {
         return {
           ok: true,
-          json: async () => [{ slug: "data_science", label: "Data Science", status: "active", last_published: "20260412-120000" }],
+          json: async () => [{ slug: "dsai", label: "Data Science and Artificial Intelligence", status: "active", last_published: "20260412-120000" }],
         }
       }
-      if (url.endsWith("/api/kb/tracks/data_science")) {
+      if (url.endsWith("/api/kb/tracks/dsai")) {
         return {
           ok: true,
           json: async () => ({
-            slug: "data_science",
-            label: "Data Science",
+            slug: "dsai",
+            label: "Data Science and Artificial Intelligence",
             status: "active",
             last_published: "20260412-120000",
-            track_name: "Data Science",
+            track_name: "Data Science and Artificial Intelligence",
             match_description: "Students interested in analytics, Python, and experimentation.",
             match_keywords: ["data science", "analytics"],
             ep_sponsorship: "Common in larger firms.",
@@ -74,7 +74,7 @@ describe("TrackBuilderTab", () => {
           }),
         }
       }
-      if (url.endsWith("/api/kb/tracks/data_science/history")) {
+      if (url.endsWith("/api/kb/tracks/dsai/history")) {
         return {
           ok: true,
           json: async () => [{ version: "20260412-120000", published_at: "20260412-120000", filename: "20260412-120000.yaml" }],
@@ -85,7 +85,7 @@ describe("TrackBuilderTab", () => {
 
     globalThis.fetch = fetchMock as typeof fetch
 
-    render(<TrackBuilderTab selectedSlug="data_science" />)
+    render(<TrackBuilderTab selectedSlug="dsai" />)
 
     await waitFor(() =>
       expect(screen.getByText(/archived working copy/i)).toBeInTheDocument()

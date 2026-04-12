@@ -1,4 +1,6 @@
-career_type: Investment Banking
+slug: investment_banking
+track_name: Investment Banking
+status: published
 match_description: For students targeting investment banking roles in Singapore —
   including IBD, M&A, ECM, and DCM positions at bulge-bracket banks, local banks,
   and boutiques. Covers internship and full-time analyst paths, EP sponsorship outlook,
@@ -28,13 +30,6 @@ match_keywords:
 - Lazard
 - Evercore
 - CIMB
-match_cosine: false
-structured:
-  sponsorship_tier: High
-  compass_points_typical: 45-55
-  salary_min_sgd: 85000
-  salary_max_sgd: 95000
-  ep_realistic: true
 ep_sponsorship: 'High at bulge-bracket banks (Goldman Sachs, Morgan Stanley, JPMorgan,
   Citi, Deutsche Bank, UBS) — these firms have large enough local headcounts and sufficiently
   diverse workforces to absorb international hires without COMPASS pressure. Medium
@@ -104,3 +99,16 @@ notes: 'Key differentiator for international students: BB IBD desks in Singapore
   CFA Level 1: Sitting CFA L1 before graduation signals commitment and is explicitly
   mentioned in DBS IBD JD as a "plus." It does not substitute for deal experience
   but removes a box.'
+source_refs:
+- type: note
+  label: counsellor_note
+- type: note
+  label: published profile investment_banking
+structured:
+  sponsorship_tier: High
+  compass_points_typical: 45-55
+  salary_min_sgd: 85000
+  salary_max_sgd: 95000
+  ep_realistic: true
+last_updated: '2026-04-12'
+archived_at: '2026-04-12'

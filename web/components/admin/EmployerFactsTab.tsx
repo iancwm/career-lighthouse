@@ -388,9 +388,9 @@ export default function EmployerFactsTab() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-1">Employer Fact Library</h2>
+      <h2 className="text-lg font-semibold mb-1">Employer Facts</h2>
       <p className="text-sm text-gray-500 mb-4 max-w-3xl">
-        Keep employer-specific information current here. These facts are used to answer direct student questions about hiring requirements, timelines, and application process.
+        Use this as the single source of truth for employer-specific facts that tend to stay stable across sessions: hiring requirements, intake seasons, application process, and counsellor contacts.
       </p>
 
       <div className="flex gap-0 rounded-xl border border-gray-200 overflow-hidden min-h-[560px]">

@@ -1,4 +1,6 @@
-career_type: Public Sector / GLCs
+slug: public_sector
+track_name: Public Sector / GLCs
+status: published
 match_description: For students targeting Singapore government agencies, statutory
   boards, and GLCs such as GIC, Temasek, MAS, EDB, JTC, HDB, and GovTech — including
   Management Associate programmes, graduate schemes, and direct analyst/officer roles.
@@ -23,13 +25,6 @@ match_keywords:
 - graduate programme government
 - EP sponsorship statutory board
 - international student government Singapore
-match_cosine: false
-structured:
-  sponsorship_tier: High
-  compass_points_typical: 40-50
-  salary_min_sgd: 45600
-  salary_max_sgd: 90000
-  ep_realistic: true
 ep_sponsorship: 'High for statutory boards and GLCs (GIC, Temasek, MAS, EDB, JTC,
   HDB, CPF Board, CAAS, GovTech) — these organisations actively recruit international
   talent and have the headcount scale to absorb EP hires comfortably. COMPASS scores
@@ -116,3 +111,18 @@ notes: 'Key insight for international students: statutory board internships are 
   structured development. Relevant for SMU DSAI or CS students open to public sector.
   The Technology in Finance Immersion Programme (TFIP) may also be relevant for students
   pivoting into tech roles within financial regulators such as MAS.'
+source_refs:
+- type: note
+  label: counsellor_note
+- type: note
+  label: counsellor_note_20260411
+- type: note
+  label: published profile public_sector
+structured:
+  sponsorship_tier: High
+  compass_points_typical: 40-50
+  salary_min_sgd: 45600
+  salary_max_sgd: 90000
+  ep_realistic: true
+last_updated: '2026-04-12'
+archived_at: '2026-04-12'

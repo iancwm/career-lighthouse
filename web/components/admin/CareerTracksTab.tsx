@@ -60,8 +60,10 @@ export default function CareerTracksTab() {
   return (
     <div>
       <div className="mb-4">
-        <h2 className="text-lg font-semibold">Career Tracks</h2>
-        <p className="text-sm text-gray-500">Profile coverage and structured metadata used for chat context injection.</p>
+        <h2 className="text-lg font-semibold">Profile Coverage</h2>
+        <p className="text-sm text-gray-500">
+          Read-only coverage of the structured career profiles that feed chat context. Use this to check whether a profile has the right contact, salary, and EP guidance before you edit it elsewhere.
+        </p>
       </div>
       <div className="overflow-x-auto border border-gray-200 rounded-lg bg-white">
         <table className="min-w-full text-sm">

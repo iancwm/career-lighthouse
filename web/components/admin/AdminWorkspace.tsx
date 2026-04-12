@@ -44,13 +44,48 @@ interface KBHealth {
 
 type AdminView = "knowledge" | "update" | "careers" | "employers" | "tracks" | "sessions"
 
-const VIEW_ORDER: { id: AdminView; label: string; description: string }[] = [
-  { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
-  { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
-  { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
-  { id: "careers", label: "Career Tracks", description: "See structured chat metadata." },
-  { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts." },
-  { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
+const VIEW_ORDER: { id: AdminView; label: string; description: string; group: "workflow" | "reference" }[] = [
+  {
+    id: "sessions",
+    label: "Session Editor",
+    description: "Start here. Create a session, review extracted intents, and only then move to the other tabs.",
+    group: "workflow",
+  },
+  {
+    id: "update",
+    label: "Knowledge Review",
+    description: "Approve profile and employer changes from a session before they touch the knowledge base.",
+    group: "workflow",
+  },
+  {
+    id: "tracks",
+    label: "Track Builder",
+    description: "Use when recurring evidence suggests a distinct new or revised track that needs expert review.",
+    group: "workflow",
+  },
+  {
+    id: "knowledge",
+    label: "Source Documents",
+    description: "Upload, inspect, and delete the documents that feed search and KB health checks.",
+    group: "reference",
+  },
+  {
+    id: "careers",
+    label: "Profile Coverage",
+    description: "Read-only coverage of the structured career profiles that power chat context.",
+    group: "reference",
+  },
+  {
+    id: "employers",
+    label: "Employer Facts",
+    description: "Maintain employer-specific facts, contacts, and timing guidance in one place.",
+    group: "reference",
+  },
+]
+
+const SURFACE_GROUPS: { id: "workflow" | "reference"; label: string }[] = [
+  { id: "workflow", label: "Workflow surfaces" },
+  { id: "reference", label: "Reference surfaces" },
 ]
 
 function isAdminView(value: string | null): value is AdminView {
@@ -162,35 +197,44 @@ export default function AdminWorkspace() {
               Career Lighthouse
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-              Review sessions first, keep the knowledge base tidy, and publish career tracks with a clear working-copy trail.
+              Start in Session Editor. Use the other surfaces only when you need to review the knowledge diff, inspect reference data, or publish a track after the pattern repeats.
             </p>
           </div>
 
           <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">Active surface</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">
+              {view === "sessions" ? "Start here" : "Active surface"}
+            </p>
             <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{currentSurface.label}</p>
             <p className="mt-1 text-sm text-[var(--cl-muted)]">{currentSurface.description}</p>
           </div>
         </div>
 
-        <div className="mt-5 flex flex-wrap gap-2">
-          {VIEW_ORDER.map((item) => {
-            const active = item.id === view
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => navigate({ view: item.id, sessionId: null, trackSlug: null })}
-                className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                  active
-                    ? "border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white"
-                    : "border-[var(--cl-line)] bg-white/70 text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/60 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </button>
-            )
-          })}
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          {SURFACE_GROUPS.map((group) => (
+            <div key={group.id}>
+              <p className="mb-2 text-[11px] uppercase tracking-[0.24em] text-[var(--cl-muted)]">{group.label}</p>
+              <div className="flex flex-wrap gap-2">
+                {VIEW_ORDER.filter((item) => item.group === group.id).map((item) => {
+                  const active = item.id === view
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => navigate({ view: item.id, sessionId: null, trackSlug: null })}
+                      className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                        active
+                          ? "border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white"
+                          : "border-[var(--cl-line)] bg-white/70 text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/60 hover:bg-white"
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </header>
 

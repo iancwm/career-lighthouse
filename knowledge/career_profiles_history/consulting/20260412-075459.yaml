@@ -1,32 +1,9 @@
 career_type: Management Consulting
-match_description: For students targeting management consulting roles at MBB (McKinsey,
-  BCG, Bain), Tier 2 firms (Oliver Wyman, Strategy&, Kearney, Roland Berger), or Big
-  4 advisory arms (Deloitte, EY, PwC, KPMG) in Singapore and the region. Covers case
-  interview preparation, EP sponsorship outlook, and internship-to-offer pathways.
-match_keywords:
-- management consulting
-- McKinsey
-- BCG
-- Bain
-- MBB
-- case interview
-- strategy consulting
-- Oliver Wyman
-- Roland Berger
-- Big 4 advisory
-- Deloitte consulting
-- EY-Parthenon
-- PwC advisory
-- KPMG advisory
-- engagement manager
-- consulting internship
-- consulting analyst
-- EP sponsorship consulting
-- Accenture Strategy
-- Kearney
-- Strategy&
-- Monitor Deloitte
-match_cosine: false
+match_description: 'consulting McKinsey BCG Bain MBB case interview strategy management
+  consultant Oliver Wyman Roland Berger Big 4 advisory Deloitte EY PwC KPMG engagement
+  manager internship analyst EP sponsorship Singapore
+
+  '
 structured:
   sponsorship_tier: High
   compass_points_typical: 50-60
@@ -42,14 +19,18 @@ ep_sponsorship: 'High at MBB (McKinsey, BCG, Bain) and Tier 2 global firms (Oliv
   that skew local. Low at local boutiques (smaller firms operating on thin margins
   may decline EP cost for junior roles). EP sponsorship at MBB for strong SMU candidates
   is generally NOT an issue — confirm during offer stage but treat it as expected
-  rather than uncertain.'
+  rather than uncertain.
+
+  '
 compass_score_typical: '50–60 for consulting analyst/associate roles. MBB starting
   salaries (S$90,000–105,000 at analyst level) anchor the salary criterion at 25–30
   pts. Strong university bonus (10 pts for SMU given its accreditation). Most international
   hires at MBB clear COMPASS comfortably. Big 4 advisory analyst roles at lower salary
   bands (S$55,000–70,000) may score 38–45 — workable but tighter. Role classification
   matters: "Management Consultant" (SSOC 2422) is a standard category with established
-  precedent; generic "Analyst" roles may face more scrutiny.'
+  precedent; generic "Analyst" roles may face more scrutiny.
+
+  '
 top_employers_smu:
 - McKinsey & Company (Singapore office, SEA practice)
 - Boston Consulting Group (BCG Singapore)
@@ -63,12 +44,7 @@ top_employers_smu:
 - PwC Advisory
 - KPMG Advisory
 - Accenture Strategy (distinct from Accenture Technology)
-recruiting_timeline: Applications open March. MBB summer associate internship recruitment
-  typically runs March–May for roles commencing the following summer. Full-time analyst
-  hiring follows a similar cycle, with some off-cycle opportunities. Big 4 advisory
-  recruiting is more rolling but peaks in the same window. Students should begin case
-  interview preparation by August at the latest to be ready for November–January final
-  rounds.
+recruiting_timeline: Applications open March
 international_realistic: true
 entry_paths:
 - Summer associate internship → return offer (primary route; MBB conversion ~60–75%)
@@ -79,15 +55,22 @@ entry_paths:
 salary_range_2024: 'MBB consultant/analyst (Singapore): S$90,000–105,000 base + S$10,000–20,000
   performance bonus. Tier 2 (Oliver Wyman, Strategy&, Kearney): S$75,000–90,000 base.
   Big 4 advisory analyst: S$55,000–70,000 base + variable bonus. Source: SMU career
-  centre salary survey 2024 (approximate — verify with current cohort data).'
+  centre salary survey 2024 (approximate — verify with current cohort data).
+
+  '
 typical_background: 'Consulting hires broadly across all majors — this is deliberate.
   MBB explicitly values diverse academic backgrounds; SMU students from Business,
   Law, Social Sciences, and Information Systems all appear in MBB offers. What matters
   more than major: academic performance (top 20% of class), demonstrated problem-solving
   (case competition wins, research with implications), leadership roles, and case
   interview performance. Quant backgrounds (IS, Applied Math) increasingly valued
-  for data-heavy practices.'
-counselor_contact: ''
+  for data-heavy practices.
+
+  '
+counselor_contact: '[TODO: Fill in SMU career centre contact for consulting track
+  — name, email, any specific consulting-track office hours or pre-MBB prep sessions.]
+
+  '
 notes: 'Case interview preparation is the single largest driver of MBB outcomes —
   more than GPA, more than internships. Students who start prep in August and complete
   50+ cases before November have materially higher offer rates. SMU Consulting Club
@@ -107,4 +90,6 @@ notes: 'Case interview preparation is the single largest driver of MBB outcomes 
   practices (government digital transformation, Smart Nation initiatives). These are
   strong paths for international students — public sector projects often have lower
   EP sensitivity than private sector clients (the consulting firm, not the government
-  agency, sponsors the EP).'
+  agency, sponsors the EP).
+
+  '

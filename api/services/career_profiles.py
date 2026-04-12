@@ -31,6 +31,11 @@ logger = logging.getLogger(__name__)
 
 _CAREER_TYPE_MATCH_THRESHOLD: float = career_profiles_cfg["match_threshold"]
 _REQUIRED_FIELDS: frozenset = frozenset(career_profiles_cfg["required_fields"])
+_LEGACY_CAREER_TYPE_ALIASES: dict[str, str] = {
+    "data_science": "dsai",
+    "data_science_and_artificial_intelligence": "dsai",
+    "data_science_ai": "dsai",
+}
 _INTAKE_INTEREST_MAP: dict[str, str] = {
     "finance": "investment_banking",
     "consulting": "consulting",
@@ -38,9 +43,23 @@ _INTAKE_INTEREST_MAP: dict[str, str] = {
     "public_sector": "public_sector",
     "dsai": "dsai",
     "data_science": "dsai",
+    "data_science_and_artificial_intelligence": "dsai",
     "artificial_intelligence": "dsai",
 }
 _DEFAULT_CAREER_TYPE: str = career_profiles_cfg["default_career_type"]
+
+
+def canonicalize_career_type_slug(slug: Optional[str]) -> Optional[str]:
+    """Return the canonical career type slug for legacy aliases.
+
+    The new framework uses concise slugs like `dsai` and `quant_finance`.
+    Older session payloads and fixtures may still carry aliases such as
+    `data_science` or `data_science_and_artificial_intelligence`.
+    """
+    if not slug:
+        return None
+    key = str(slug).strip().lower().replace(" ", "_").replace("-", "_")
+    return _LEGACY_CAREER_TYPE_ALIASES.get(key, key)
 
 
 def _default_profiles_dir() -> Path:
@@ -67,7 +86,7 @@ def resolve_career_type_from_intake(interest: Optional[str]) -> str:
     if not interest:
         return _DEFAULT_CAREER_TYPE
     key = interest.lower().strip().replace(" ", "_").replace("-", "_")
-    return _INTAKE_INTEREST_MAP.get(key, _DEFAULT_CAREER_TYPE)
+    return canonicalize_career_type_slug(_INTAKE_INTEREST_MAP.get(key, _DEFAULT_CAREER_TYPE)) or _DEFAULT_CAREER_TYPE
 
 
 def profile_to_context_block(profile: dict) -> str:
@@ -231,7 +250,8 @@ class CareerProfileStore:
         if not slug:
             return None
         self._ensure_loaded()
-        profile = self._profiles.get(slug)
+        canonical_slug = canonicalize_career_type_slug(slug)
+        profile = self._profiles.get(canonical_slug or slug)
         if profile is None:
             logger.warning(
                 "CareerProfileStore: unknown career type slug %r — treating as no profile", slug

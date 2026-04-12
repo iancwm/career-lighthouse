@@ -359,7 +359,7 @@ export default function TrackBuilderTab({
     <div>
       <h2 className="text-lg font-semibold mb-1">Track Builder</h2>
       <p className="text-sm text-gray-500 mb-4 max-w-3xl">
-        Turn counsellor research into a draft career track, review the key fields, and publish it when the guidance is ready for students.
+        Use this only when recurring evidence suggests a distinct new or revised track. Draft from research here, compare against the live reference, and publish only after expert review.
       </p>
 
       {error && (
@@ -494,7 +494,7 @@ export default function TrackBuilderTab({
                 onChange={(e) => updateField("slug", e.target.value)}
                 disabled={Boolean(selectedSlug)}
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="data_science"
+                placeholder="dsai"
               />
             </label>
             <label className="text-sm text-gray-700">
