@@ -1,0 +1,83 @@
+career_type: Quantitative Finance
+match_description: For students targeting quantitative research, quant trading, or
+  structuring roles at banks, hedge funds, and proprietary trading firms. Combines
+  rigorous mathematics, statistics, and programming to model and exploit financial
+  markets.
+match_keywords:
+- quantitative research
+- quant trader
+- quant analyst
+- quant finance
+- algorithmic trading
+- systematic trading
+- derivatives pricing
+- financial modelling
+- Python finance
+- stochastic calculus
+- hedge fund
+- prop trading
+match_cosine: false
+structured:
+  sponsorship_tier: High
+  compass_points_typical: likely above threshold; advanced degree candidates strongest
+  salary_min_sgd: 80000
+  salary_max_sgd: 200000
+  ep_realistic: true
+ep_sponsorship: EP sponsorship is generally achievable for quant roles given the specialised
+  skill set demanded; candidates with advanced degrees (Masters or PhD in Computer
+  Science, Mathematics, Statistics, or Physics) are strongly preferred and improve
+  EP eligibility. Salaries at established banks and trading firms typically clear
+  the EP threshold comfortably.
+compass_score_typical: Compass scores are likely competitive given the high salaries
+  typical in this track. Students with advanced STEM degrees and strong Python/Linux
+  skills should fare well; those with only a bachelor's degree should manage expectations
+  and consider further study.
+top_employers_smu:
+- DBS Bank
+- Jane Street
+- Citadel / Citadel Securities
+- Two Sigma
+- Optiver
+- Goldman Sachs (Strats)
+- Morgan Stanley (Quant)
+- Flow Traders
+- Millennium Management
+recruiting_timeline: 'Recruitment timelines vary by firm type. Bulge-bracket bank
+  quant roles often follow structured cycles similar to investment banking (internship
+  applications opening 12–18 months ahead). Proprietary trading and hedge fund firms
+  recruit on a rolling or ad-hoc basis year-round. The process typically involves:
+  (1) HR screening, (2) hiring manager interview, (3) take-home technical test, and
+  (4) live technical interview emphasising clarity of thinking and systems design.'
+international_realistic: true
+entry_paths:
+- 'Quantitative Research Analyst (buy-side: hedge funds, prop trading firms)'
+- 'Quantitative Analyst / Strats (sell-side: investment banks)'
+- Algorithmic / Systematic Trading Researcher
+- Quantitative Developer / Quant Dev (Python, Linux focus)
+- Risk Quantitative Analyst
+- Fintech Data Scientist with quantitative modelling focus
+- Technology in Finance Immersion Programme (TFIP) as an upskilling bridge for finance-tech
+  pivot
+salary_range_2024: Entry-level quant roles in Singapore typically start around S$80,000–S$110,000/yr
+  at banks, with top-tier prop trading firms (e.g., Jane Street, Optiver) offering
+  significantly higher all-in compensation. Mid-level roles can reach S$120,000–S$200,000+/yr.
+  Data science salary benchmarks in banking suggest S$88,000 at entry rising to S$172,000+
+  at senior levels, providing a rough floor reference; pure quant roles at trading
+  firms often exceed these figures.
+typical_background: Advanced degree (Masters or PhD) strongly preferred in Computer
+  Science, Mathematics, Statistics, Physics, or Financial Engineering. Strong undergraduate
+  performers in SMU Quantitative Finance, Mathematics, or Computer Science are competitive
+  for entry roles. Core technical requirements include mastery of Python and Linux;
+  knowledge of stochastic calculus, probability, statistics, and numerical methods
+  is expected. Alumni feedback highlights that live technical interviews focus heavily
+  on clarity of thinking and systems design rather than rote memorisation.
+counselor_contact: ''
+notes: Track built from initial counsellor input on quantitative research interview
+  process (HR round → hiring manager round → take-home test → live technical). Alumni
+  feedback cited as key source on interview style. Salary data inferred from adjacent
+  data science/banking benchmarks in Singapore (2026 counsellor note); quant-specific
+  salary data not yet collected—priority for next update. TFIP flagged as a potential
+  upskilling resource for students pivoting from non-STEM backgrounds. Top employers
+  list includes market inference beyond direct counsellor input—flag for verification.
+  Recommend sourcing alumni contacts at prop trading firms and connecting with SMU
+  QF faculty for employer relationship details.

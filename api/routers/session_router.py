@@ -1,6 +1,14 @@
 from fastapi import APIRouter, HTTPException, Depends
-from models import KnowledgeSession, CreateSessionRequest, IntentCard, AlreadyCovered, CardCommitRequest
+from models import (
+    AlreadyCovered,
+    CardCommitRequest,
+    CreateSessionRequest,
+    IntentCard,
+    KnowledgeSession,
+    SessionAnalysisResponse,
+)
 from services.session_store import SessionStore
+from services.track_guidance import build_track_guidance
 from typing import List
 from pathlib import Path
 import yaml
@@ -12,6 +20,12 @@ router = APIRouter(prefix="/api/sessions")
 
 def get_session_store():
     return SessionStore()
+
+
+def _get_embedder():
+    from dependencies import get_embedder
+
+    return get_embedder()
 
 # Allowlists — mirror the ones in kb_router.py
 ALLOWED_CARD_PROFILE_FIELDS = {
@@ -148,10 +162,11 @@ def get_session(session_id: str, store: SessionStore = Depends(get_session_store
         raise HTTPException(status_code=404, detail="Session not found")
     return session
 
-@router.post("/{session_id}/analyze")
+@router.post("/{session_id}/analyze", response_model=SessionAnalysisResponse)
 def analyze_session(
     session_id: str,
     store: SessionStore = Depends(get_session_store),
+    embedder=Depends(_get_embedder),
 ):
     """Extract intents from session raw_input using LLM."""
     session = store.get_session(session_id)
@@ -191,6 +206,18 @@ def analyze_session(
         existing_employers=existing_employers,
     )
 
+    track_guidance = None
+    try:
+        query_embedding = embedder.encode(session.raw_input)
+        track_guidance = build_track_guidance(
+            raw_input=session.raw_input,
+            query_embedding=query_embedding,
+            profile_store=profile_store,
+            session_id=session.id,
+        )
+    except Exception:
+        logger.warning("analyze: failed to build track guidance", exc_info=True)
+
     # Build IntentCard objects
     cards = []
     for card_data in result.get("cards", []):
@@ -205,14 +232,16 @@ def analyze_session(
 
     # Store on session
     session.intent_cards = [c.model_dump() for c in cards]
+    session.track_guidance = track_guidance
     session.status = "analyzed"
     store.save_session(session)
 
-    return {
-        "session_id": session.id,
-        "cards": [c.model_dump() for c in cards],
-        "already_covered": [a.model_dump() for a in already_covered],
-    }
+    return SessionAnalysisResponse(
+        session_id=session.id,
+        cards=[c.model_dump() for c in cards],
+        already_covered=[a.model_dump() for a in already_covered],
+        track_guidance=track_guidance,
+    )
 
 
 @router.post("/{session_id}/cards/{card_id}/commit")

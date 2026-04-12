@@ -244,19 +244,28 @@ class CareerProfileStore:
         Uses dot product of normalised embeddings (equivalent to cosine similarity
         since Embedder uses normalize_embeddings=True).
         """
+        candidates = self.top_candidates(query_embedding, limit=1)
+        if candidates and candidates[0]["score"] >= _CAREER_TYPE_MATCH_THRESHOLD:
+            return candidates[0]["slug"]
+        return None
+
+    def top_candidates(self, query_embedding: np.ndarray, limit: int = 3) -> list[dict]:
+        """Return the nearest career types, sorted by cosine score descending."""
         self._ensure_loaded()
-        if not self._type_embeddings:
-            return None
-        best_slug = None
-        best_score = 0.0
+        if not self._type_embeddings or limit <= 0:
+            return []
+
+        scored: list[dict] = []
         for slug, type_vec in self._type_embeddings.items():
             score = float(np.dot(query_embedding, type_vec))
-            if score > best_score:
-                best_score = score
-                best_slug = slug
-        if best_score >= _CAREER_TYPE_MATCH_THRESHOLD:
-            return best_slug
-        return None
+            profile = self._profiles.get(slug, {})
+            scored.append({
+                "slug": slug,
+                "label": profile.get("career_type", slug),
+                "score": score,
+            })
+        scored.sort(key=lambda item: item["score"], reverse=True)
+        return scored[:limit]
 
     def match_career_type_keywords(self, message: str) -> Optional[str]:
         """Return a career type slug if the message explicitly mentions a known keyword.

@@ -1,7 +1,30 @@
 import { render, screen, fireEvent } from "@testing-library/react"
+import { vi } from "vitest"
 import IntakeFlow from "../IntakeFlow"
 
 describe("IntakeFlow", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        ({
+          ok: true,
+          json: async () => [
+            { slug: "finance", label: "Finance / Banking" },
+            { slug: "consulting", label: "Consulting" },
+            { slug: "tech", label: "Tech / Product" },
+            { slug: "public_sector", label: "Public Sector / GLCs" },
+          ],
+        }) as Response
+      )
+    )
+    process.env.NEXT_PUBLIC_API_URL = "http://test"
+  })
+
+  afterEach(() => {
+    vi.resetAllMocks()
+  })
+
   it("renders background, region, and interest pill groups", () => {
     render(<IntakeFlow onComplete={() => {}} onBack={() => {}} />)
     expect(screen.getByText("Your background")).toBeInTheDocument()
@@ -9,9 +32,9 @@ describe("IntakeFlow", () => {
     expect(screen.getByText("What you're interested in")).toBeInTheDocument()
   })
 
-  it("renders all interest pills", () => {
+  it("renders all interest pills", async () => {
     render(<IntakeFlow onComplete={() => {}} onBack={() => {}} />)
-    expect(screen.getByText("Finance / Banking")).toBeInTheDocument()
+    expect(await screen.findByText("Finance / Banking")).toBeInTheDocument()
     expect(screen.getByText("Consulting")).toBeInTheDocument()
     expect(screen.getByText("Tech / Product")).toBeInTheDocument()
     expect(screen.getByText("Public Sector / GLCs")).toBeInTheDocument()
@@ -24,29 +47,29 @@ describe("IntakeFlow", () => {
     expect(btn).toBeDisabled()
   })
 
-  it("submit button becomes enabled after selecting interest", () => {
+  it("submit button becomes enabled after selecting interest", async () => {
     render(<IntakeFlow onComplete={() => {}} onBack={() => {}} />)
-    fireEvent.click(screen.getByText("Finance / Banking"))
+    fireEvent.click(await screen.findByText("Finance / Banking"))
     const btn = screen.getByRole("button", { name: /let's go/i })
     expect(btn).not.toBeDisabled()
   })
 
-  it("calls onComplete with selected interest when submitted", () => {
+  it("calls onComplete with selected interest when submitted", async () => {
     const onComplete = vi.fn()
     render(<IntakeFlow onComplete={onComplete} onBack={() => {}} />)
-    fireEvent.click(screen.getByText("Consulting"))
+    fireEvent.click(await screen.findByText("Consulting"))
     fireEvent.click(screen.getByRole("button", { name: /let's go/i }))
     expect(onComplete).toHaveBeenCalledWith(
       expect.objectContaining({ interest: "consulting" })
     )
   })
 
-  it("calls onComplete with background and region when all selected", () => {
+  it("calls onComplete with background and region when all selected", async () => {
     const onComplete = vi.fn()
     render(<IntakeFlow onComplete={onComplete} onBack={() => {}} />)
     fireEvent.click(screen.getByText("Pre-exp Masters"))
     fireEvent.click(screen.getByText("South Asia"))
-    fireEvent.click(screen.getByText("Tech / Product"))
+    fireEvent.click(await screen.findByText("Tech / Product"))
     fireEvent.click(screen.getByRole("button", { name: /let's go/i }))
     expect(onComplete).toHaveBeenCalledWith({
       background: "masters",
@@ -55,11 +78,11 @@ describe("IntakeFlow", () => {
     })
   })
 
-  it("only one pill per group is selected at a time", () => {
+  it("only one pill per group is selected at a time", async () => {
     const onComplete = vi.fn()
     render(<IntakeFlow onComplete={onComplete} onBack={() => {}} />)
     // Click Finance first, then Consulting — final submitted value should be consulting
-    fireEvent.click(screen.getByText("Finance / Banking"))
+    fireEvent.click(await screen.findByText("Finance / Banking"))
     fireEvent.click(screen.getByText("Consulting"))
     fireEvent.click(screen.getByRole("button", { name: /let's go/i }))
     expect(onComplete).toHaveBeenCalledWith(expect.objectContaining({ interest: "consulting" }))

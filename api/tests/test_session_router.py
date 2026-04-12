@@ -2,9 +2,11 @@
 import json
 import sys
 import tempfile
+import types
 from datetime import datetime, timezone
 from unittest.mock import patch, MagicMock
 
+import numpy as np
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -19,6 +21,12 @@ def reset_session_store():
     SessionStore._instance = None
 
 
+def _load_empty_profiles(self):
+    self._profiles = {}
+    self._type_embeddings = {}
+    self._keyword_index = {}
+
+
 @pytest.fixture
 def mock_session_store():
     """Return a mocked SessionStore."""
@@ -30,11 +38,22 @@ def mock_session_store():
 def app(mock_session_store):
     """Build a minimal FastAPI app with only the session router, with mocked store."""
     # Patch SessionStore before loading the module
-    with patch("services.session_store.SessionStore") as MockStore:
+    mock_embedder = MagicMock()
+    mock_embedder.encode.return_value = np.ones(384, dtype=np.float32)
+
+    fake_dependencies = types.ModuleType("dependencies")
+    fake_dependencies.get_embedder = lambda: mock_embedder
+
+    with patch("services.session_store.SessionStore") as MockStore, patch(
+        "services.career_profiles.CareerProfileStore._load_profiles",
+        _load_empty_profiles,
+    ):
         MockStore.return_value = mock_session_store
         MockStore._instance = mock_session_store
 
         import importlib.util
+        original_dependencies = sys.modules.get("dependencies")
+        sys.modules["dependencies"] = fake_dependencies
         spec = importlib.util.spec_from_file_location("session_router", "routers/session_router.py")
         module = importlib.util.module_from_spec(spec)
         sys.modules["session_router"] = module
@@ -44,6 +63,10 @@ def app(mock_session_store):
         app = FastAPI()
         app.include_router(module.router)
         yield app
+        if original_dependencies is None:
+            sys.modules.pop("dependencies", None)
+        else:
+            sys.modules["dependencies"] = original_dependencies
 
 
 def _make_session(**overrides):
@@ -202,10 +225,19 @@ def app_with_session_router():
     # Save original dir and reset singleton
     original_dir = ss_module._SESSIONS_DIR
     SessionStore._instance = None
+    mock_embedder = MagicMock()
+    mock_embedder.encode.return_value = np.ones(384, dtype=np.float32)
+    fake_dependencies = types.ModuleType("dependencies")
+    fake_dependencies.get_embedder = lambda: mock_embedder
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory() as tmpdir, patch(
+        "services.career_profiles.CareerProfileStore._load_profiles",
+        _load_empty_profiles,
+    ):
         tmp_path = ss_module.Path(tmpdir)
         ss_module._SESSIONS_DIR = tmp_path
+        original_dependencies = sys.modules.get("dependencies")
+        sys.modules["dependencies"] = fake_dependencies
 
         # Import session_router directly by file path to avoid routers/__init__.py
         # which pulls in kb_router (has broken imports in this worktree)
@@ -226,6 +258,10 @@ def app_with_session_router():
     SessionStore._instance = None
     ss_module._SESSIONS_DIR = original_dir
     sys.modules.pop("session_router_test", None)
+    if original_dependencies is None:
+        sys.modules.pop("dependencies", None)
+    else:
+        sys.modules["dependencies"] = original_dependencies
 
 
 @patch("services.llm.get_client")

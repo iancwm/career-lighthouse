@@ -2,7 +2,6 @@
 import json
 import logging
 
-import anthropic
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -15,7 +14,9 @@ _prompts = model_cfg["prompts"]
 SCHOOL_NAME = model_cfg["school"]["name"]
 
 
-def get_client() -> anthropic.Anthropic:
+def get_client():
+    import anthropic
+
     global _client
     if _client is None:
         _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)

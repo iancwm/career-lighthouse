@@ -38,12 +38,20 @@ class VectorStore:
         )
 
     def search(self, vector: np.ndarray, top_k: int = 5) -> list[dict]:
-        results = self._client.search(
-            collection_name=self._collection,
-            query_vector=vector.tolist(),
-            limit=top_k,
-            with_payload=True,
-        )
+        if hasattr(self._client, "search"):
+            results = self._client.search(
+                collection_name=self._collection,
+                query_vector=vector.tolist(),
+                limit=top_k,
+                with_payload=True,
+            )
+        else:
+            results = self._client.query_points(
+                collection_name=self._collection,
+                query=vector.tolist(),
+                limit=top_k,
+                with_payload=True,
+            ).points
         return [{"score": r.score, "payload": r.payload} for r in results]
 
     def delete_by_filename(self, filename: str):

@@ -6,7 +6,7 @@ tracks:
 - slug: dsai
   label: Data Science and Artificial Intelligence
   status: active
-  last_published: 20260411-125457
+  last_published: 20260412-065150
 - slug: general_singapore
   label: General Singapore Job Market
   status: active
@@ -19,6 +19,10 @@ tracks:
   label: Public Sector / GLCs
   status: active
   last_published: null
+- slug: quant_finance
+  label: Quantitative Finance
+  status: active
+  last_published: 20260412-065608
 - slug: tech_product
   label: Technology and Product
   status: active

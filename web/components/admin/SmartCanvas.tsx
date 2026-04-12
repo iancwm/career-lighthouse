@@ -17,12 +17,27 @@ interface AlreadyCovered {
   reason: string
 }
 
+interface TrackCandidate {
+  slug: string
+  label: string
+  score: number
+}
+
+interface TrackGuidance {
+  status: "safe_update" | "clustered_uncertainty" | "emerging_taxonomy_signal" | string
+  recommendation: string
+  nearest_tracks: TrackCandidate[]
+  recurrence_count: number
+  cluster_key?: string | null
+}
+
 interface KnowledgeSession {
   id: string
   status: string
   raw_input: string
   intent_cards: IntentCard[]
   already_covered?: AlreadyCovered[]
+  track_guidance?: TrackGuidance | null
   created_by: string
   created_at: string
   updated_at: string
@@ -92,6 +107,8 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
           const firstCard = data.intent_cards[0]
           setSelectedCardId(firstCard.card_id)
           setEditingDiff({ ...firstCard.diff })
+        } else if (data.track_guidance && data.track_guidance.status !== "safe_update") {
+          setNotice(data.track_guidance.recommendation)
         } else if ((data.already_covered?.length ?? 0) > 0) {
           setNotice("No changes needed — your notes confirm existing knowledge.")
         } else {
@@ -173,6 +190,8 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
   const isAnalyzed = session.status === "analyzed"
   const pendingCards = session.intent_cards.filter((c) => c.status === "pending")
   const hasNoCards = session.intent_cards.length === 0
+  const guidance = session.track_guidance
+  const showGuidance = guidance && guidance.status !== "safe_update"
 
   return (
     <div>
@@ -208,6 +227,46 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
       {notice && (
         <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {notice}
+        </div>
+      )}
+
+      {showGuidance && (
+        <div
+          className={`mb-6 rounded-xl border px-4 py-4 text-sm ${
+            guidance.status === "emerging_taxonomy_signal"
+              ? "border-rose-200 bg-rose-50 text-rose-900"
+              : "border-amber-200 bg-amber-50 text-amber-950"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <h3 className="font-semibold">
+              {guidance.status === "emerging_taxonomy_signal"
+                ? "Recurring emerging track"
+                : "Clustered uncertainty"}
+            </h3>
+            <span className="text-xs font-medium uppercase tracking-wide opacity-70">
+              {guidance.status.replace(/_/g, " ")}
+            </span>
+          </div>
+          <p className="mt-2">{guidance.recommendation}</p>
+          {guidance.nearest_tracks.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {guidance.nearest_tracks.map((track) => (
+                <span
+                  key={track.slug}
+                  className="inline-flex items-center gap-2 rounded-full border border-current/20 bg-white/70 px-3 py-1 text-xs"
+                >
+                  <span className="font-medium">{track.label}</span>
+                  <span className="opacity-70">{track.score.toFixed(2)}</span>
+                </span>
+              ))}
+            </div>
+          )}
+          {guidance.recurrence_count > 0 && (
+            <p className="mt-3 text-xs opacity-80">
+              Recurrence count: {guidance.recurrence_count}
+            </p>
+          )}
         </div>
       )}
 
