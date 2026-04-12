@@ -83,10 +83,11 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
       )}
 
       {/* New Session Form */}
-      <div className="mb-6 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+      <div className="mb-6 rounded-xl border border-[#D8D0C4] bg-[#F6F1E8] p-4">
         <h3 className="text-sm font-semibold text-gray-800 mb-2">New Publishing Session</h3>
         <p className="text-sm text-gray-600 mb-3">
-          Paste research notes or observations. The system will extract individual update intents.
+          Paste full counsellor research notes here — the system will extract
+          individual update cards for each employer and track mentioned.
         </p>
         <textarea
           value={rawInput}
@@ -97,7 +98,7 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
         <button
           onClick={createSession}
           disabled={creating || !rawInput.trim()}
-          className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+          className="rounded-xl bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40"
         >
           {creating ? "Creating…" : "Create Session"}
         </button>
@@ -132,7 +133,7 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
                     <span
                       className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                         session.status === "analyzed"
-                          ? "bg-blue-100 text-blue-700"
+                          ? "bg-[#CCEBE8] text-[#0F766E]"
                           : "bg-gray-100 text-gray-600"
                       }`}
                     >

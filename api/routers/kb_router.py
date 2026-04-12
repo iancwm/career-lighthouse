@@ -23,6 +23,7 @@ from typing import Optional
 import numpy as np
 import yaml
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from starlette.requests import Request
 from pydantic import BaseModel
 
 from dependencies import get_embedder, get_vector_store
@@ -61,7 +62,7 @@ from services.vector_store import VectorStore
 from services import llm as llm_service
 from config import settings
 from cfg import kb_cfg
-from services.career_profiles import _default_profiles_dir
+from services.career_profiles import _default_profiles_dir, _derive_structured_fields
 from services.track_drafts import TrackDraftStore, get_track_draft_store
 
 router = APIRouter(prefix="/api/kb")
@@ -850,6 +851,7 @@ def delete_employer(
 
 @router.post("/analyse", response_model=KBAnalysisResult)
 def analyse(
+    request: Request,
     text: str = Form(None),
     source_type: str = Form("note"),
     file: UploadFile = File(None),
@@ -868,6 +870,13 @@ def analyse(
     """
     # --- 1. Extract counsellor input text ---
     if source_type == "file" and file is not None:
+        # Content-Length guard — fires before buffering the body.
+        content_length = request.headers.get("content-length")
+        if content_length and int(content_length) > settings.max_upload_bytes:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024*1024)}MB)."
+            )
         raw_bytes = file.file.read()
         fname = file.filename or "upload.txt"
         try:
@@ -1035,6 +1044,15 @@ def commit_analysis(
             if not changed_fields:
                 logger.info("commit-analysis: profile %r had no valid field updates", slug)
                 continue
+
+            # Sync structured: fields from prose after edits
+            derived = _derive_structured_fields(profile)
+            if derived:
+                existing_structured = profile.get("structured") or {}
+                for key, value in derived.items():
+                    existing_structured.setdefault(key, value)
+                profile["structured"] = existing_structured
+
             # Atomic write: write to temp file then rename
             tmp = yaml_path.with_suffix(".tmp")
             with open(tmp, "w", encoding="utf-8") as f:

@@ -550,6 +550,49 @@ class TestTrackBuilderEndpoints:
         assert data[0]["career_type"] == "Investment Banking"
         assert data[0]["ep_tier"] == "High"
 
+    def test_draft_backwards_compat_missing_salary_and_visa_fields(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        """Old draft YAMLs without salary_levels or visa_pathway_notes should deserialise cleanly."""
+        from models import DraftTrackDetail
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        # Old-style payload (no salary_levels, no visa_pathway_notes)
+        old_payload = sample_draft_payload()
+        client.post("/api/kb/draft-tracks", json=old_payload)
+
+        r = client.get("/api/kb/draft-tracks/data_science")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["slug"] == "data_science"
+        # New fields should be None (not present in old YAML)
+        assert data.get("salary_levels") is None
+        assert data.get("visa_pathway_notes") is None
+
+    def test_publish_draft_round_trip_salary_and_visa(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        """Draft with salary_levels and visa_pathway_notes should publish correctly."""
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        payload = sample_draft_payload()
+        payload["salary_levels"] = [
+            {"stage": "Junior Analyst", "range_sgd": "80–110K", "notes": "Base + 15-20% bonus"},
+            {"stage": "Senior Manager", "range_sgd": "160–200K", "notes": "Base + 30% bonus"},
+        ]
+        payload["visa_pathway_notes"] = "EP → Tech.Pass in 3y → PR eligible after 5y"
+        client.post("/api/kb/draft-tracks", json=payload)
+
+        r = client.post("/api/kb/draft-tracks/data_science/publish")
+        assert r.status_code == 200
+
+        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+            profile = yaml.safe_load(f)
+
+        assert "salary_levels" in profile
+        assert len(profile["salary_levels"]) == 2
+        assert profile["salary_levels"][0]["stage"] == "Junior Analyst"
+        assert profile["salary_levels"][1]["range_sgd"] == "160–200K"
+        assert profile["visa_pathway_notes"] == "EP → Tech.Pass in 3y → PR eligible after 5y"
+
 
 # ---------------------------------------------------------------------------
 # Employer CRUD — helpers
@@ -1021,6 +1064,38 @@ class TestCommitAnalysisProfileUpdates:
         with open(pdir / "investment_banking.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert written["structured"]["sponsorship_tier"] == "High"
+
+    def test_empty_profile_field_map_returns_ok(self, in_memory_qdrant, mock_embedder, tmp_path):
+        """Empty field map for a known profile slug should return 200 with no profiles updated."""
+        from main import app
+        import dependencies
+        from services.vector_store import VectorStore
+        from services.career_profiles import get_career_profile_store
+        from services.employer_store import get_employer_store
+        from unittest.mock import MagicMock
+
+        pdir = make_profiles_dir(tmp_path)
+        os.environ["CAREER_PROFILES_DIR"] = str(pdir)
+
+        store = VectorStore(client=in_memory_qdrant, collection="knowledge")
+        store.ensure_collection(384)
+        app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+        app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+        app.dependency_overrides[get_career_profile_store] = lambda: MagicMock()
+        app.dependency_overrides[get_employer_store] = lambda: MagicMock()
+
+        client = TestClient(app)
+        payload = {
+            "profile_updates": {
+                "investment_banking": {}
+            },
+            "employer_updates": {},
+            "new_chunks": [],
+        }
+
+        r = client.post("/api/kb/commit-analysis", json=payload)
+        assert r.status_code == 200
+        assert r.json()["profiles_updated"] == []
 
     def test_unsafe_employer_slug_skipped(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)

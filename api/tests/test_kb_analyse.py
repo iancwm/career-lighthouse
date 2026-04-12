@@ -129,6 +129,19 @@ class TestAnalyse:
         assert r.status_code == 200
         assert r.json()["already_covered"] == []
 
+    def test_rejects_oversized_file_upload(self, in_memory_qdrant, mock_embedder):
+        """File with Content-Length > 10MB should return 413."""
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        oversized_content = b"x" * (11 * 1024 * 1024)
+        r = client.post(
+            "/api/kb/analyse",
+            data={"source_type": "file"},
+            files={"file": ("large.txt", oversized_content, "text/plain")},
+            headers={"Content-Length": str(len(oversized_content))},
+        )
+        assert r.status_code == 413
+        assert "exceeds maximum upload size" in r.json()["detail"]
+
 
 # ---------------------------------------------------------------------------
 # POST /api/kb/commit-analysis

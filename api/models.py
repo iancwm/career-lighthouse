@@ -204,6 +204,13 @@ class SourceRef(BaseModel):
     label: str
 
 
+class SalaryLevel(BaseModel):
+    """Per-stage salary breakdown extracted from counsellor research."""
+    stage: str        # e.g. "Junior Analyst"
+    range_sgd: str    # e.g. "80–110K"
+    notes: str = ""   # e.g. "Base + 15-20% bonus"
+
+
 class DraftTrackDetail(BaseModel):
     slug: str
     track_name: str
@@ -224,6 +231,12 @@ class DraftTrackDetail(BaseModel):
     structured: dict = {}
     last_updated: str | None = None
     archived_at: str | None = None
+
+    # Optional: per-stage salary breakdown extracted from counsellor research.
+    salary_levels: list[SalaryLevel] | None = None
+
+    # Optional: visa and international pathway notes beyond the ep_sponsorship headline.
+    visa_pathway_notes: str | None = None
 
 
 class TrackRegistryEntry(BaseModel):
@@ -251,6 +264,12 @@ class TrackReferenceDetail(BaseModel):
     typical_background: str = ""
     counselor_contact: str | None = None
     notes: str = ""
+
+    # Optional: per-stage salary breakdown (published).
+    salary_levels: list[SalaryLevel] | None = None
+
+    # Optional: visa/international pathway notes (published).
+    visa_pathway_notes: str | None = None
 
 
 class TrackVersionInfo(BaseModel):

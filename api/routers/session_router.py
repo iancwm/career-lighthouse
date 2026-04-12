@@ -28,6 +28,9 @@ def _get_embedder():
     return get_embedder()
 
 # Allowlists — mirror the ones in kb_router.py
+# Inspected 2026-04-12 (knowledge-capture-hardening): these guards prevent
+# arbitrary YAML key injection from card commit payloads. Fields not in the
+# allowlist are skipped with a warning — same posture as kb_router.py.
 ALLOWED_CARD_PROFILE_FIELDS = {
     "ep_sponsorship", "compass_score_typical", "top_employers_smu",
     "recruiting_timeline", "international_realistic", "entry_paths",

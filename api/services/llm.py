@@ -123,7 +123,9 @@ def analyse_kb_input(
         "          singapore_headcount_estimate, application_process, counsellor_contact, notes.\n"
         "          Do not guess employer slugs or field names not listed there.\n"
         "        - new_chunks: self-contained facts not present in existing excerpts.\n"
-        '          Maximum 3 chunks. Prefer fewer, denser chunks. Leave chunk_id as "".\n'
+        '          Maximum 6 chunks. Prefer dense, self-contained chunks. Leave chunk_id as "".\n'
+        '          If the input is a full counsellor memo covering multiple topics, note that\n'
+        '          Session Editor is the better intake path for memo-level ingestion.\n'
         "        - already_covered: existing KB excerpts substantially overlapping with the\n"
         "          input. Include up to 5.\n"
         "        - career_type: use the slug from CURRENT CAREER PROFILE FIELDS, or null."
@@ -223,7 +225,11 @@ def generate_track_draft(
         '    "salary_min_sgd": 0,\n'
         '    "salary_max_sgd": 0,\n'
         '    "ep_realistic": true\n'
-        "  }\n"
+        "  },\n"
+        '  "salary_levels": [\n'
+        '    {"stage": "<career stage>", "range_sgd": "<SGD range>", "notes": "<bonus/equity context>"}\n'
+        "  ],\n"
+        '  "visa_pathway_notes": "<multi-step visa path if relevant, empty string otherwise>"\n'
         "}\n\n"
         "Rules:\n"
         "- Preserve the provided slug and track_name exactly.\n"
@@ -234,6 +240,8 @@ def generate_track_draft(
         "- top_employers_smu and entry_paths may be empty if the input is too weak, but prefer a useful first draft.\n"
         "- Use source_refs with the provided source_type and source_label.\n"
         "- structured fields should be conservative defaults; use 0 for unknown salary bounds and empty strings when unsure.\n"
+        "- salary_levels: extract per-stage compensation if the input has level-by-level data. Leave as [] if not present.\n"
+        "- visa_pathway_notes: include EP/Tech.Pass/PR timeline and any partnership eligibility conditions if the track has significant international complexity. Empty string if not relevant.\n"
     )
 
     user = (

@@ -3,10 +3,12 @@ import logging
 import re
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
 
 from dependencies import get_embedder, get_vector_store
+from config import settings
 from models import IngestResponse
 from services import health_cache
 from services.career_profiles import get_career_profile_store
@@ -16,7 +18,7 @@ from services.vector_store import VectorStore
 
 router = APIRouter(prefix="/api")
 
-_FILENAME_ALLOWLIST = re.compile(r"^[A-Za-z0-9._\- ]+$")
+_FILENAME_ALLOWLIST = re.compile(r"^[A-Za-z0-9._\-()\[\] ]+$")
 _FILENAME_MAX_LEN = 255
 
 
@@ -37,7 +39,7 @@ def _sanitize_filename(raw: str | None) -> str:
     if any(c < " " for c in name):  # null bytes and control characters
         raise HTTPException(status_code=400, detail="Filename contains invalid characters.")
     if not _FILENAME_ALLOWLIST.match(name):
-        raise HTTPException(status_code=400, detail="Filename contains invalid characters. Use letters, numbers, spaces, dots, hyphens, or underscores.")
+        raise HTTPException(status_code=400, detail="Filename contains invalid characters. Use letters, numbers, spaces, dots, hyphens, underscores, or parentheses.")
     return name
 
 
@@ -84,10 +86,19 @@ def _check_deduplication(
 
 @router.post("/ingest", response_model=IngestResponse)
 async def ingest(
+    request: Request,
     file: UploadFile = File(...),
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
 ):
+    # Content-Length guard — fires before buffering the body.
+    # Absent header is OK (chunked encoding) — browsers and curl send it for files.
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > settings.max_upload_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024*1024)}MB)."
+        )
     content = await file.read()
     filename = _sanitize_filename(file.filename)
 

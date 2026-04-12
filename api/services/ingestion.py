@@ -13,8 +13,33 @@ def parse_file(content: bytes, filename: str) -> str:
     elif filename.lower().endswith(".docx"):
         import io
         from docx import Document
+        from docx.oxml.ns import qn
         doc = Document(io.BytesIO(content))
-        return "\n".join(p.text for p in doc.paragraphs)
+        parts = []
+        for block in doc.element.body:
+            if block.tag == qn('w:p'):
+                # Paragraph — collect run text
+                text = "".join(
+                    run.text for run in block.iter(qn('w:t'))
+                    if run.text
+                )
+                if text.strip():
+                    parts.append(text)
+            elif block.tag == qn('w:tbl'):
+                # Table — format as pipe-delimited rows
+                rows = []
+                for row in block.iter(qn('w:tr')):
+                    cells = []
+                    for cell in row.iter(qn('w:tc')):
+                        cell_text = "".join(
+                            t.text for t in cell.iter(qn('w:t')) if t.text
+                        ).strip()
+                        cells.append(cell_text)
+                    if any(cells):
+                        rows.append(" | ".join(cells))
+                if rows:
+                    parts.append("\n".join(rows))
+        return "\n".join(parts)
     else:
         return content.decode("utf-8", errors="replace")
 
