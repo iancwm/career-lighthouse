@@ -83,6 +83,11 @@ This backlog is ordered by execution priority:
 
 ## Later
 
+### SessionInbox empty state copy
+**What:** "No active sessions. Create one above." — add brief context about what a session is for (multi-entity memo intake that extracts per-entity update cards) and a warmer tone.
+**Why:** Counsellors encountering the empty state for the first time have no orientation. The surrounding heading "New Publishing Session" helps, but the empty list below it is bare.
+**Depends on:** None. One-liner copy change in `web/components/admin/SessionInbox.tsx`.
+
 ### Replace cosine career type switching with keyword matching
 **What:** Use keyword-based career type detection in `CareerProfileStore.match_career_type()`.
 **Why:** Cosine similarity against short career-type descriptions is unreliable for conversational questions.
