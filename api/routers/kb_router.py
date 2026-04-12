@@ -178,6 +178,29 @@ def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
     )
 
 
+def _draft_from_published_profile(slug: str, profile: dict) -> DraftTrackDetail:
+    """Seed a draft track from a published career profile."""
+    return DraftTrackDetail(
+        slug=slug,
+        track_name=str(profile.get("career_type") or slug).strip(),
+        status="draft",
+        match_description=str(profile.get("match_description") or "").strip(),
+        match_keywords=list(profile.get("match_keywords") or []),
+        ep_sponsorship=str(profile.get("ep_sponsorship") or "").strip(),
+        compass_score_typical=str(profile.get("compass_score_typical") or "").strip(),
+        top_employers_smu=list(profile.get("top_employers_smu") or []),
+        recruiting_timeline=str(profile.get("recruiting_timeline") or "").strip(),
+        international_realistic=bool(profile.get("international_realistic", True)),
+        entry_paths=list(profile.get("entry_paths") or []),
+        salary_range_2024=str(profile.get("salary_range_2024") or "").strip(),
+        typical_background=str(profile.get("typical_background") or "").strip(),
+        counselor_contact=profile.get("counselor_contact"),
+        notes=str(profile.get("notes") or "").strip(),
+        source_refs=[SourceRef(type="reference", label=f"published profile {slug}")],
+        structured=profile.get("structured") or {},
+    )
+
+
 def _extract_generation_input(
     text: str | None,
     source_type: str,
@@ -556,7 +579,10 @@ def refresh_draft_track_from_research(
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     existing = draft_store.get_draft(slug)
     if existing is None:
-        raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
+        profile = profile_store.get_profile(slug)
+        if profile is None:
+            raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
+        existing = _draft_from_published_profile(slug, profile)
 
     counsellor_input, source_type, source_label = _extract_generation_input(text, source_type, file)
     retrieved = _retrieve_generation_chunks(counsellor_input, embedder, store)

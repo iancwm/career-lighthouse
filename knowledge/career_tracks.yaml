@@ -2,7 +2,7 @@ tracks:
 - slug: consulting
   label: Management Consulting
   status: active
-  last_published: null
+  last_published: 20260412-075459
 - slug: dsai
   label: Data Science and Artificial Intelligence
   status: active
@@ -14,15 +14,15 @@ tracks:
 - slug: investment_banking
   label: Investment Banking
   status: active
-  last_published: null
+  last_published: 20260412-075537
 - slug: public_sector
   label: Public Sector / GLCs
   status: active
-  last_published: null
+  last_published: 20260412-075341
 - slug: quant_finance
   label: Quantitative Finance
   status: active
-  last_published: 20260412-065608
+  last_published: 20260412-072830
 - slug: tech_product
   label: Technology and Product
   status: active

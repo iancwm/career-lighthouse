@@ -494,7 +494,7 @@ export default function TrackBuilderTab({
                 onChange={(e) => updateField("slug", e.target.value)}
                 disabled={Boolean(selectedSlug)}
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
-                placeholder="data_science"
+                placeholder="dsai"
               />
             </label>
             <label className="text-sm text-gray-700">

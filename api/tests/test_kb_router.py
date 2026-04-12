@@ -66,10 +66,10 @@ def configure_track_paths(monkeypatch, tmp_path):
     }
 
 
-def sample_draft_payload(slug="data_science", note_text="Field notes"):
+def sample_draft_payload(slug="dsai", note_text="Field notes"):
     return {
         "slug": slug,
-        "track_name": "Data Science",
+        "track_name": "Data Science and Artificial Intelligence",
         "match_description": "data science machine learning analytics careers",
         "match_keywords": ["data science", "machine learning"],
         "ep_sponsorship": "High at larger tech firms.",
@@ -351,9 +351,9 @@ class TestTrackBuilderEndpoints:
 
     def test_get_track_reference_returns_published_detail(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
         configure_track_paths(monkeypatch, tmp_path)
-        with open(tmp_path / "career_profiles" / "data_science.yaml", "w", encoding="utf-8") as f:
+        with open(tmp_path / "career_profiles" / "dsai.yaml", "w", encoding="utf-8") as f:
             yaml.safe_dump({
-                "career_type": "Data Science",
+                "career_type": "Data Science and Artificial Intelligence",
                 "match_description": "Students interested in analytics, Python, and experimentation.",
                 "match_keywords": ["data science", "analytics"],
                 "ep_sponsorship": "Common in larger firms.",
@@ -371,12 +371,12 @@ class TestTrackBuilderEndpoints:
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         client.get("/api/kb/tracks")
 
-        r = client.get("/api/kb/tracks/data_science")
+        r = client.get("/api/kb/tracks/dsai")
 
         assert r.status_code == 200
         data = r.json()
-        assert data["slug"] == "data_science"
-        assert data["label"] == "Data Science"
+        assert data["slug"] == "dsai"
+        assert data["label"] == "Data Science and Artificial Intelligence"
         assert data["status"] == "active"
         assert data["last_published"] is None
         assert data["match_description"] == "Students interested in analytics, Python, and experimentation."
@@ -391,11 +391,11 @@ class TestTrackBuilderEndpoints:
 
         assert r.status_code == 201
         data = r.json()
-        assert data["slug"] == "data_science"
+        assert data["slug"] == "dsai"
         assert data["status"] == "ready_for_publish"
-        with open(paths["drafts_dir"] / "data_science.yaml", encoding="utf-8") as f:
+        with open(paths["drafts_dir"] / "dsai.yaml", encoding="utf-8") as f:
             stored = yaml.safe_load(f)
-        assert stored["track_name"] == "Data Science"
+        assert stored["track_name"] == "Data Science and Artificial Intelligence"
         assert stored["match_keywords"] == ["data science", "machine learning"]
 
     def test_publish_draft_writes_profile_registry_and_tracks_version(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
@@ -403,19 +403,19 @@ class TestTrackBuilderEndpoints:
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         client.post("/api/kb/draft-tracks", json=sample_draft_payload())
 
-        r = client.post("/api/kb/draft-tracks/data_science/publish")
+        r = client.post("/api/kb/draft-tracks/dsai/publish")
 
         assert r.status_code == 200
         data = r.json()
         assert data["status"] == "ok"
-        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+        with open(paths["profiles_dir"] / "dsai.yaml", encoding="utf-8") as f:
             profile = yaml.safe_load(f)
-        assert profile["career_type"] == "Data Science"
+        assert profile["career_type"] == "Data Science and Artificial Intelligence"
         assert profile["match_cosine"] is False
         assert profile["match_keywords"] == ["data science", "machine learning"]
         with open(paths["registry_path"], encoding="utf-8") as f:
             registry = yaml.safe_load(f)
-        assert registry["tracks"][0]["slug"] == "data_science"
+        assert registry["tracks"][0]["slug"] == "dsai"
         assert paths["tracks_version_path"].exists()
 
     def test_rollback_restores_previous_published_profile(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
@@ -423,22 +423,22 @@ class TestTrackBuilderEndpoints:
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
         client.post("/api/kb/draft-tracks", json=sample_draft_payload(note_text="First version"))
-        first_publish = client.post("/api/kb/draft-tracks/data_science/publish")
+        first_publish = client.post("/api/kb/draft-tracks/dsai/publish")
         assert first_publish.status_code == 200
 
         updated_payload = sample_draft_payload(note_text="Second version")
         updated_payload["salary_range_2024"] = "S$80K-S$120K"
         updated_payload["top_employers_smu"] = ["Grab", "TikTok"]
-        client.put("/api/kb/draft-tracks/data_science", json=updated_payload)
-        second_publish = client.post("/api/kb/draft-tracks/data_science/publish")
+        client.put("/api/kb/draft-tracks/dsai", json=updated_payload)
+        second_publish = client.post("/api/kb/draft-tracks/dsai/publish")
         assert second_publish.status_code == 200
 
-        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+        with open(paths["profiles_dir"] / "dsai.yaml", encoding="utf-8") as f:
             assert yaml.safe_load(f)["notes"] == "Second version"
 
-        rollback = client.post("/api/kb/tracks/data_science/rollback")
+        rollback = client.post("/api/kb/tracks/dsai/rollback")
         assert rollback.status_code == 200
-        with open(paths["profiles_dir"] / "data_science.yaml", encoding="utf-8") as f:
+        with open(paths["profiles_dir"] / "dsai.yaml", encoding="utf-8") as f:
             restored = yaml.safe_load(f)
         assert restored["notes"] == "First version"
 
@@ -453,16 +453,16 @@ class TestTrackBuilderEndpoints:
 
         with patch("services.llm.generate_track_draft", return_value=generated):
             r = client.post("/api/kb/draft-tracks/generate", data={
-                "slug": "data_science",
-                "track_name": "Data Science",
+                "slug": "dsai",
+                "track_name": "Data Science and Artificial Intelligence",
                 "text": "Create a data science track from these counsellor notes.",
                 "source_type": "note",
             })
 
         assert r.status_code == 201
         data = r.json()
-        assert data["slug"] == "data_science"
-        assert data["track_name"] == "Data Science"
+        assert data["slug"] == "dsai"
+        assert data["track_name"] == "Data Science and Artificial Intelligence"
         assert data["source_refs"][0]["label"] == "counsellor_note"
 
     def test_generate_draft_track_rejects_duplicate_slug(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
@@ -471,8 +471,8 @@ class TestTrackBuilderEndpoints:
         client.post("/api/kb/draft-tracks", json=sample_draft_payload())
 
         r = client.post("/api/kb/draft-tracks/generate", data={
-            "slug": "data_science",
-            "track_name": "Data Science",
+            "slug": "dsai",
+            "track_name": "Data Science and Artificial Intelligence",
             "text": "Try to create it again",
             "source_type": "note",
         })
@@ -486,13 +486,13 @@ class TestTrackBuilderEndpoints:
         seed_chunk(store, "alumni-call.txt", "Data scientists at DBS often come from analytics and experimentation roles.")
 
         refreshed = sample_draft_payload(note_text="Updated from alumni call")
-        refreshed["track_name"] = "Data Science"
+        refreshed["track_name"] = "Data Science and Artificial Intelligence"
         refreshed["top_employers_smu"] = ["DBS", "Grab"]
         refreshed["source_refs"] = [{"type": "file", "label": "alumni-call.txt"}]
 
         with patch("services.llm.generate_track_draft", return_value=refreshed):
             r = client.post(
-                "/api/kb/draft-tracks/data_science/generate-update",
+                "/api/kb/draft-tracks/dsai/generate-update",
                 data={
                     "text": "We learned DBS hires analytics candidates with strong SQL and experimentation exposure.",
                     "source_type": "note",
@@ -506,19 +506,51 @@ class TestTrackBuilderEndpoints:
         assert {"type": "file", "label": "alumni-call.txt"} in data["source_refs"]
         assert {"type": "note", "label": "counsellor_note"} in data["source_refs"]
 
-    def test_refresh_existing_draft_requires_existing_slug(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_refresh_published_profile_bootstraps_public_sector_draft(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
         configure_track_paths(monkeypatch, tmp_path)
-        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        client, store = make_client(in_memory_qdrant, mock_embedder)
+        from main import app
+        from services.career_profiles import get_career_profile_store
 
-        r = client.post(
-            "/api/kb/draft-tracks/data_science/generate-update",
-            data={
-                "text": "Try to update a missing draft",
-                "source_type": "note",
-            },
-        )
+        app.dependency_overrides[get_career_profile_store] = lambda: get_career_profile_store()
+        seed_chunk(store, "public-sector-call.txt", "The counsellor noted MA programmes at MAS and GIC.")
 
-        assert r.status_code == 404
+        published_profile = {
+            "career_type": "Public Sector / GLCs",
+            "ep_sponsorship": "High for statutory boards and GLCs.",
+            "top_employers_smu": ["GIC", "Temasek", "MAS"],
+            "recruiting_timeline": "Applications open August to October.",
+            "international_realistic": True,
+            "entry_paths": ["Management Associate programme"],
+            "salary_range_2024": "S$55,000–85,000",
+            "typical_background": "Broad, with policy, finance, and engineering backgrounds common.",
+            "notes": "Public sector track for statutory boards and GLCs.",
+        }
+        with open(tmp_path / "career_profiles" / "public_sector.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump(published_profile, f, allow_unicode=True, sort_keys=False)
+
+        refreshed = sample_draft_payload(slug="public_sector", note_text="Updated from public sector note")
+        refreshed["track_name"] = "Public Sector / GLCs"
+        refreshed["top_employers_smu"] = ["GIC", "MAS"]
+        refreshed["source_refs"] = [{"type": "file", "label": "public-sector-call.txt"}]
+
+        with patch("services.llm.generate_track_draft", return_value=refreshed) as mock_generate:
+            r = client.post(
+                "/api/kb/draft-tracks/public_sector/generate-update",
+                data={
+                    "text": "A recent alumni conversation suggests GIC and MAS remain the clearest public sector entry points.",
+                    "source_type": "note",
+                },
+            )
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["slug"] == "public_sector"
+        assert data["notes"] == "Updated from public sector note"
+        assert {"type": "file", "label": "public-sector-call.txt"} in data["source_refs"]
+        assert {"type": "note", "label": "counsellor_note"} in data["source_refs"]
+        assert mock_generate.call_args.kwargs["existing_draft"]["slug"] == "public_sector"
+        assert mock_generate.call_args.kwargs["existing_draft"]["track_name"] == "Public Sector / GLCs"
 
     def test_returns_profile_metadata_list(self, in_memory_qdrant, mock_embedder):
         from main import app

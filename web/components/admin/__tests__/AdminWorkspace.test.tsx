@@ -47,7 +47,7 @@ vi.mock("@/components/admin/TrackBuilderTab", () => ({
   }) => (
     <div>
       <p>track-builder:{selectedSlug ?? "none"}</p>
-      <button type="button" onClick={() => onSelectedSlugChange?.("data_science")}>
+      <button type="button" onClick={() => onSelectedSlugChange?.("dsai")}>
         pick track
       </button>
     </div>
@@ -122,7 +122,7 @@ describe("AdminWorkspace", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /pick track/i }))
 
-    expect(push).toHaveBeenCalledWith("/admin?view=tracks&trackSlug=data_science", {
+    expect(push).toHaveBeenCalledWith("/admin?view=tracks&trackSlug=dsai", {
       scroll: false,
     })
   })

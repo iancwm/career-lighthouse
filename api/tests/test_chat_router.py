@@ -280,6 +280,45 @@ def test_stale_active_career_type_from_client_falls_through(in_memory_qdrant, mo
     assert kwargs.get("career_context") is None
 
 
+def test_legacy_active_career_type_alias_normalizes_to_dsai(in_memory_qdrant, mock_embedder):
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    fake_profile = {
+        "career_type": "Data Science and Artificial Intelligence",
+        "ep_sponsorship": "High",
+        "compass_score_typical": "45-60",
+        "top_employers_smu": ["Grab"],
+        "recruiting_timeline": "Sep-Nov",
+        "international_realistic": True,
+        "entry_paths": ["Internship"],
+        "salary_range_2024": "S$80K",
+        "typical_background": "Stats/CS",
+        "notes": "",
+    }
+    mock_ps = _mock_profile_store(get_profile_return=fake_profile, match_return=None)
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+
+    with patch.object(llm_module, "chat_with_context", return_value="ds advice"):
+        client = TestClient(app)
+        r = client.post("/api/chat", json={
+            "message": "I want to move into data science roles",
+            "resume_text": None,
+            "history": [],
+            "active_career_type": "data_science_and_artificial_intelligence",
+        })
+
+    assert r.status_code == 200
+    assert r.json()["active_career_type"] == "dsai"
+
+
 def test_keyword_match_activates_track_when_no_active_type(in_memory_qdrant, mock_embedder):
     from main import app
     import dependencies
@@ -296,7 +335,7 @@ def test_keyword_match_activates_track_when_no_active_type(in_memory_qdrant, moc
         "typical_background": "Stats/CS", "notes": "",
     }
     mock_ps = _mock_profile_store(get_profile_return=fake_profile, match_return=None)
-    mock_ps.match_career_type_keywords.return_value = "data_science"
+    mock_ps.match_career_type_keywords.return_value = "dsai"
 
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
@@ -311,7 +350,7 @@ def test_keyword_match_activates_track_when_no_active_type(in_memory_qdrant, moc
         })
 
     assert r.status_code == 200
-    assert r.json()["active_career_type"] == "data_science"
+    assert r.json()["active_career_type"] == "dsai"
 
 
 def test_active_career_type_blocks_keyword_track_flapping(in_memory_qdrant, mock_embedder):
@@ -330,7 +369,7 @@ def test_active_career_type_blocks_keyword_track_flapping(in_memory_qdrant, mock
         "typical_background": "Any", "notes": "",
     }
     mock_ps = _mock_profile_store(get_profile_return=fake_profile, match_return=None)
-    mock_ps.match_career_type_keywords.return_value = "data_science"
+    mock_ps.match_career_type_keywords.return_value = "dsai"
 
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
