@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import KnowledgeUpload from "@/components/admin/KnowledgeUpload"
 import DocList from "@/components/admin/DocList"
@@ -16,6 +16,8 @@ import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
+import ToolsDrawer, { DrawerSurface } from "@/components/admin/ToolsDrawer"
+import DirectiveBanner from "@/components/admin/DirectiveBanner"
 
 interface KBHealth {
   total_docs: number
@@ -42,9 +44,11 @@ interface KBHealth {
   }[]
 }
 
-type AdminView = "knowledge" | "update" | "careers" | "employers" | "tracks" | "sessions"
+type DrawerView = DrawerSurface | "sessions"
 
-const VIEW_ORDER: { id: AdminView; label: string; description: string }[] = [
+const DRAWER_SURFACES: DrawerSurface[] = ["knowledge", "update", "careers", "employers", "tracks"]
+
+const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
   { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
@@ -53,8 +57,45 @@ const VIEW_ORDER: { id: AdminView; label: string; description: string }[] = [
   { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
 ]
 
-function isAdminView(value: string | null): value is AdminView {
+function isDrawerView(value: string | null): value is DrawerView {
   return value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions"
+}
+
+function isDrawerSurface(value: string | null): value is DrawerSurface {
+  return DRAWER_SURFACES.includes(value as DrawerSurface)
+}
+
+const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; whatHappens: string }> = {
+  sessions: {
+    label: "Review session cards",
+    whatYouDo: "Review and approve/discard individual update cards extracted from your notes.",
+    whatHappens: "Approved cards write to the knowledge base. Discarded cards are ignored.",
+  },
+  knowledge: {
+    label: "Manage uploaded documents",
+    whatYouDo: "Upload files to the knowledge base or review what's already stored.",
+    whatHappens: "Files are chunked, embedded, and indexed for semantic search. Test queries to verify retrieval quality.",
+  },
+  update: {
+    label: "Patch a single fact",
+    whatYouDo: "Paste a short note targeting a specific employer or track.",
+    whatHappens: "The system compares against existing KB and proposes field-level changes for your review.",
+  },
+  employers: {
+    label: "Maintain employer details",
+    whatYouDo: "View, create, edit, or delete employer-specific records.",
+    whatHappens: "Changes are written immediately to the employer YAML files.",
+  },
+  tracks: {
+    label: "Draft and publish tracks",
+    whatYouDo: "Draft a career track from research notes, then publish or rollback.",
+    whatHappens: "Publishing writes the track to the live career profile with versioned history for rollback.",
+  },
+  careers: {
+    label: "View all tracks and provenance",
+    whatYouDo: "Inspect what the system knows about each track, where it came from, and who published it.",
+    whatHappens: "Each row shows source documents, last update date, and publishing counsellor.",
+  },
 }
 
 export default function AdminWorkspace() {
@@ -65,15 +106,17 @@ export default function AdminWorkspace() {
   const viewParam = searchParams.get("view")
   const sessionParam = searchParams.get("sessionId")
   const trackParam = searchParams.get("trackSlug")
-  const view: AdminView = isAdminView(viewParam) ? viewParam : "sessions"
+  const view: DrawerView = isDrawerView(viewParam) ? viewParam : "sessions"
 
   const [refreshKey, setRefreshKey] = useState(0)
   const [health, setHealth] = useState<KBHealth | null>(null)
   const [healthError, setHealthError] = useState(false)
   const [healthLoading, setHealthLoading] = useState(false)
+  const [drawerOpen, setDrawerOpen] = useState(isDrawerSurface(viewParam))
+  const toggleButtonRef = useRef<HTMLButtonElement>(null)
 
   function buildUrl(next: {
-    view?: AdminView | null
+    view?: DrawerView | null
     sessionId?: string | null
     trackSlug?: string | null
   }) {
@@ -108,7 +151,7 @@ export default function AdminWorkspace() {
   }
 
   function navigate(next: {
-    view?: AdminView | null
+    view?: DrawerView | null
     sessionId?: string | null
     trackSlug?: string | null
   }) {
@@ -116,7 +159,7 @@ export default function AdminWorkspace() {
   }
 
   useEffect(() => {
-    if (!isAdminView(viewParam)) {
+    if (!isDrawerView(viewParam)) {
       const fallback = viewParam === null ? "sessions" : view
       if (fallback !== viewParam) {
         router.replace(buildUrl({ view: fallback }), { scroll: false })
@@ -151,6 +194,20 @@ export default function AdminWorkspace() {
   }, [view, refreshKey])
 
   const currentSurface = VIEW_ORDER.find((item) => item.id === view) ?? VIEW_ORDER[0]
+  const activeDrawerSurface: DrawerSurface | null = isDrawerSurface(viewParam) ? viewParam : null
+
+  function toggleDrawer() {
+    if (drawerOpen) {
+      setDrawerOpen(false)
+    } else {
+      setDrawerOpen(true)
+    }
+  }
+
+  function handleDrawerNavigate(surface: DrawerSurface) {
+    setDrawerOpen(false)
+    navigate({ view: surface, sessionId: null, trackSlug: null })
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -166,33 +223,38 @@ export default function AdminWorkspace() {
             </p>
           </div>
 
-          <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">Active surface</p>
-            <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{currentSurface.label}</p>
-            <p className="mt-1 text-sm text-[var(--cl-muted)]">{currentSurface.description}</p>
+          <div className="flex flex-col items-end gap-3">
+            <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">Active surface</p>
+              <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{currentSurface.label}</p>
+              <p className="mt-1 text-sm text-[var(--cl-muted)]">{currentSurface.description}</p>
+            </div>
+            <button
+              ref={toggleButtonRef}
+              type="button"
+              onClick={toggleDrawer}
+              aria-expanded={drawerOpen}
+              className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
+            >
+              {drawerOpen ? "\u2715 Close" : "\u2699 Manage Knowledge"}
+            </button>
           </div>
         </div>
-
-        <div className="mt-5 flex flex-wrap gap-2">
-          {VIEW_ORDER.map((item) => {
-            const active = item.id === view
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => navigate({ view: item.id, sessionId: null, trackSlug: null })}
-                className={`rounded-full border px-4 py-2 text-sm transition-colors ${
-                  active
-                    ? "border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white"
-                    : "border-[var(--cl-line)] bg-white/70 text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/60 hover:bg-white"
-                }`}
-              >
-                {item.label}
-              </button>
-            )
-          })}
-        </div>
       </header>
+
+      <ToolsDrawer
+        open={drawerOpen}
+        activeSurface={activeDrawerSurface}
+        onToggle={toggleDrawer}
+        onNavigate={handleDrawerNavigate}
+        toggleButtonRef={toggleButtonRef}
+      />
+
+      <DirectiveBanner
+        label={DIRECTIVE_BANNERS[view].label}
+        whatYouDo={DIRECTIVE_BANNERS[view].whatYouDo}
+        whatHappens={DIRECTIVE_BANNERS[view].whatHappens}
+      />
 
       {view === "knowledge" && (
         <section className="space-y-6">
