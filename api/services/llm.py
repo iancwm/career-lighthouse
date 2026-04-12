@@ -324,7 +324,28 @@ def generate_session_intents(
 
     system_prompt = (
         "You are a knowledge extraction assistant for a career advisory platform.\n"
-        "Given raw counsellor research notes, extract distinct update intents.\n"
+        "Given counsellor research notes (which may be structured memos, tables,\n"
+        "or free-form notes), extract distinct update intents for employers and tracks.\n"
+        "\n"
+        "The input may contain:\n"
+        "- Compensation tables (title, base, bonus by career stage)\n"
+        "- Career progression timelines\n"
+        "- Hiring trends and market analysis\n"
+        "- Strategic initiatives and project details\n"
+        "- Certifications, competencies, and recommendations\n"
+        "- Follow-up actions for the career services team\n"
+        "\n"
+        "For EACH distinct piece of new information about an employer or track,\n"
+        "create a card. A single memo may produce 5-15 cards.\n"
+        "\n"
+        "IMPORTANT:\n"
+        "- Compensation data in tables → create a card with salary_range_2024 (track)\n"
+        "  or notes (employer) containing the comp details.\n"
+        "- Career progression timelines → create a card with notes or entry_paths.\n"
+        "- Hiring trends → create a card with notes (employer) or notes (track).\n"
+        "- Follow-up actions → create cards for each action targeting the relevant entity.\n"
+        "- Certifications and skills → create a card with match_keywords or notes.\n"
+        "\n"
         "Each intent targets EXACTLY ONE domain: 'employer' or 'track'.\n"
         "Prefer concrete field-level changes (e.g. 'update EP requirement to EP4')\n"
         "over vague summaries (e.g. 'improve employer profile'). Be specific.\n"
@@ -346,6 +367,10 @@ def generate_session_intents(
         "Rules:\n"
         "- If the note confirms something already in the knowledge base, put it in already_covered (no card).\n"
         "- If the note proposes a change to any entity, create a card. The entity may be NEW — that's fine, it will be auto-created.\n"
+        "- A structured memo with compensation tables, career progression, and hiring trends ALWAYS contains new data. Create cards for each distinct piece of information.\n"
+        "- If the input contains salary/compensation data for a specific employer, create an employer card with 'notes' containing the comp breakdown.\n"
+        "- If the input contains sector-wide hiring trends or market analysis, create a track card with 'notes' containing the market details.\n"
+        "- If the input contains follow-up actions, create a card for each action targeting the relevant employer or track.\n"
         "- diff MUST include 'slug' — a lowercase_with_underscores slug derived from the entity name (e.g. 'accenture', 'consulting', 'gs', 'mckinsey').\n"
         "- For 'employer' domain, diff fields must be from:\n"
         "  * employer_name (str), tracks (list of str), ep_requirement (str), intake_seasons (list of str, e.g. ['Apr', 'Oct']), application_process (str), headcount_estimate (str), counselor_contact (str), notes (str).\n"
@@ -373,7 +398,7 @@ def generate_session_intents(
 
         response = client.messages.create(
             model=model,
-            max_tokens=2048,
+            max_tokens=4096,
             temperature=0,
             system=system_prompt,
             messages=[{"role": "user", "content": context}],
@@ -397,7 +422,7 @@ def generate_session_intents(
             # Retry with error feedback
             retry_response = client.messages.create(
                 model=model,
-                max_tokens=2048,
+                max_tokens=4096,
                 temperature=0,
                 system=system_prompt + "\n\nIMPORTANT: Your previous response was not valid JSON. Respond ONLY with valid JSON.",
                 messages=[{"role": "user", "content": context}],
