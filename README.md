@@ -54,10 +54,12 @@ Use `uv lock` after editing `api/pyproject.toml`, then commit both the manifest 
 
 The career office dashboard (`/admin`) includes:
 
-- **Document management** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one
-- **Update Knowledge** — diff-first ingestion: type a note or upload a file, review an AI-generated diff of what would change (new chunks, profile field updates, already-covered content), then confirm before anything is saved
-- **Brief generator** — generate pre-meeting student briefs from the KB
-- **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection
+- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place.
+- **Knowledge Review** — structured review of proposed KB edits before anything is written.
+- **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
+- **Employer Facts** — maintain employer YAMLs and review track coverage for employer context.
+- **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile.
+- **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection.
 
 ## API Endpoints
 
@@ -73,15 +75,21 @@ The career office dashboard (`/admin`) includes:
 | `GET` | `/api/kb/health` | KB health metrics (coverage, match scores, query log) |
 | `POST` | `/api/kb/test-query` | Test a query against the KB with per-chunk scores |
 | `GET` | `/api/kb/career-profiles` | List loaded career profiles with completeness metadata |
+| `GET` | `/api/kb/tracks` | List registered career tracks |
+| `GET` | `/api/kb/tracks/{slug}` | Read the live published reference for a track |
+| `GET` | `/api/kb/tracks/{slug}/history` | List published versions for a track |
+| `POST` | `/api/kb/draft-tracks/{slug}/generate-update` | Refresh a draft track from new counsellor research |
 
 ## Architecture
 
 - **Backend**: FastAPI (Python) — embeddings via sentence-transformers (in-process), vector DB via Qdrant (local volume), LLM via Anthropic Claude
 - **Frontend**: Next.js 14
-- **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code
+- **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code. Legacy slugs are canonicalized on read and write, so old `data_science` payloads migrate to `dsai` automatically.
 - **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)
 - **Data stays local**: only Anthropic Claude API call leaves the deployment (PDPA-compliant)
+
+Track publishing now keeps a live published profile plus an archived working copy. If a counsellor refreshes a track from new research and no draft exists yet, the app bootstraps the draft from the published profile first. That keeps existing tracks editable without forcing a manual recreate step.
 
 ## Where Data Lives
 

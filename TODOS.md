@@ -28,11 +28,6 @@ This backlog is ordered by execution priority:
 **Why:** Session ownership must be enforced, not passed around as an untrusted string.
 **Depends on:** Broader auth/user model.
 
-### Revision history and rollback for structured KB edits
-**What:** Record approved track/employer revisions and allow restoring the previous published version.
-**Why:** Counselors need a clear undo path when a bad AI proposal or human edit lands in the KB.
-**Depends on:** None.
-
 ### Basic multi-user edit protection
 **What:** Add optimistic locking or version checks on structured KB writes so concurrent counselors do not silently overwrite each other.
 **Why:** Last-write-wins breaks trust fast, especially in a small office where two people can edit the same entity in one day.
@@ -115,6 +110,18 @@ This backlog is ordered by execution priority:
 
 ## Done
 
+### ~~Session-first admin workflow and tab guidance~~ ✓ Done (2026-04-12)
+Shipped: `/admin` starts in Session Editor, the surrounding tabs now explain their purpose, and the workflow copy makes it clear when counsellors should use Track Builder versus the review surfaces.
+
+### ~~Safe markdown rendering in student replies~~ ✓ Done (2026-04-12)
+Shipped: assistant messages now render through a safe markdown subset instead of raw HTML.
+
+### ~~Track Builder published reference, history, and bootstrap refresh~~ ✓ Done (2026-04-12)
+Shipped: Track Builder shows the published reference summary, keeps archived working copies separate, and bootstraps a draft from the live published profile when a counsellor refreshes a track that does not yet have a draft file.
+
+### ~~Legacy track slug canonicalization and session migration~~ ✓ Done (2026-04-12)
+Shipped: legacy `data_science` aliases normalize to `dsai` on read and write, and old session payloads are rewritten in place.
+
 ### ~~Sanitize file.filename at ingest boundary~~ ✓ Done (v0.1.2.1)
 `_sanitize_filename()` added to `ingest_router.py`. Allowlist: alphanumeric + `.-_ `. Rejects null bytes, control chars, path separators, shell metacharacters. Returns HTTP 400. 13 parametrized tests cover attack vectors and valid inputs.
 
@@ -126,3 +133,6 @@ Shipped: `EmployerEntityStore` singleton, `GET/POST/PUT/DELETE /api/kb/employers
 
 ### ~~KnowledgeUpdateTab — diff-first KB ingestion (Sprint 3 Feature 1)~~ ✓ Done (v0.1.3.0)
 Shipped: `POST /api/kb/analyse`, `POST /api/kb/commit-analysis`, KnowledgeUpdateTab, admin tab navigation, content-based chunk idempotency, `delete_by_filename` dedup, and input validation on commit payload.
+
+### ~~Track Builder revision history and rollback~~ ✓ Done (2026-04-12)
+Shipped: published track versions are stored under `knowledge/career_profiles_history/`, Track Builder can inspect live published reference data, and rollback restores the previous published version.
