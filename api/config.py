@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     qdrant_url: str = ""          # set to http://host:6333 to use Qdrant server
     data_path: str = "./data/qdrant"  # fallback: embedded client for local dev
     query_log_path: str = "./logs/query_log.jsonl"
-    max_upload_bytes: int = 10 * 1024 * 1024  # 10MB
+    max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
 
 
 if SettingsConfigDict is None:
@@ -28,7 +28,7 @@ if SettingsConfigDict is None:
         qdrant_url: str = ""
         data_path: str = "./data/qdrant"
         query_log_path: str = "./logs/query_log.jsonl"
-        max_upload_bytes: int = 10 * 1024 * 1024  # 10MB
+        max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
 
 
 settings = Settings()

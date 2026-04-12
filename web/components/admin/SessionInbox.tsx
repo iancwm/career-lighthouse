@@ -220,10 +220,11 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
       )}
 
       {/* New Session Form */}
-      <div className="mb-6 rounded-xl border border-line bg-canvas p-4">
-        <h3 className="text-sm font-semibold text-ink mb-2">New Publishing Session</h3>
-        <p className="text-sm text-muted mb-3">
-          Paste your meeting notes or upload a document to get started.
+      <div className="mb-6 rounded-xl border border-[#D8D0C4] bg-[#F6F1E8] p-4">
+        <h3 className="text-sm font-semibold text-gray-800 mb-2">New Publishing Session</h3>
+        <p className="text-sm text-gray-600 mb-3">
+          Paste full counsellor research notes here — the system will extract
+          individual update cards for each employer and track mentioned.
         </p>
 
         {/* 2-column grid: paste + upload */}
@@ -337,7 +338,7 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
         <button
           onClick={createSession}
           disabled={creating || !rawInput.trim()}
-          className="rounded-xl bg-teal-600 px-4 py-2 text-sm font-medium text-white hover:bg-teal-700 disabled:opacity-40 transition-colors"
+          className="rounded-xl bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40"
           style={{ minHeight: "44px" }}
         >
           {creating ? "Creating…" : "Create Session"}
@@ -347,17 +348,17 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
       {/* Sessions List */}
       {sessions.length === 0 ? (
         /* Empty state */
-        <div className="rounded-xl border border-line bg-surface-2 p-8 text-center">
+        <div className="rounded-xl border border-[#D8D0C4] bg-[#F0E7DB] p-8 text-center">
           <p className="text-2xl mb-3">📝</p>
-          <h4 className="text-lg font-semibold text-ink mb-2">No sessions yet</h4>
-          <p className="text-sm text-muted max-w-md mx-auto mb-6">
+          <h4 className="text-lg font-semibold text-[#1F2937] mb-2">No sessions yet</h4>
+          <p className="text-sm text-[#5F6B76] max-w-md mx-auto mb-6">
             Paste your meeting notes or upload a document above to get started.
             The system will extract individual update cards for each employer
             and track mentioned.
           </p>
           <button
             onClick={scrollToTextarea}
-            className="rounded-xl bg-teal-600 px-6 py-2 text-sm font-medium text-white hover:bg-teal-700 transition-colors"
+            className="rounded-xl bg-[#0F766E] px-6 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] transition-colors"
             style={{ minHeight: "44px" }}
           >
             Start a session
@@ -372,18 +373,18 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
                 <button
                   key={session.id}
                   onClick={() => onSelectSession(session.id)}
-                  className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-left hover:border-muted transition-colors"
+                  className="w-full rounded-xl border border-[#D8D0C4] bg-[#FFFDFC] px-4 py-3 text-left hover:border-[#0F766E] transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="min-w-0 flex-1 mr-4">
-                      <p className="text-sm font-medium text-ink">
+                      <p className="text-sm font-medium text-[#1F2937]">
                         {session.status === "analyzed" ? "Analyzed" : "In Progress"}
                       </p>
-                      <p className="text-xs text-muted mt-1 truncate">
+                      <p className="text-xs text-[#5F6B76] mt-1 truncate">
                         {session.raw_input.slice(0, 100)}
                         {session.raw_input.length > 100 ? "…" : ""}
                       </p>
-                      <p className="text-xs text-muted mt-0.5 font-mono">
+                      <p className="text-xs text-[#5F6B76] mt-0.5 font-mono">
                         {new Date(session.created_at).toLocaleString()}
                       </p>
                     </div>
@@ -391,14 +392,14 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
                           session.status === "analyzed"
-                            ? "bg-teal-50 text-teal-700"
-                            : "bg-surface-2 text-muted"
+                            ? "bg-[#CCEBE8] text-[#0F766E]"
+                            : "bg-[#F0E7DB] text-[#5F6B76]"
                         }`}
                       >
                         {session.status}
                       </span>
                       {pendingCards > 0 && (
-                        <p className="text-xs text-muted mt-1">{pendingCards} pending</p>
+                        <p className="text-xs text-[#5F6B76] mt-1">{pendingCards} pending</p>
                       )}
                     </div>
                   </div>
@@ -412,7 +413,7 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
             <div className="mt-4 text-center">
               <button
                 onClick={() => setShowAllSessions(true)}
-                className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-muted hover:text-ink transition-colors"
+                className="rounded-lg border border-[#D8D0C4] bg-[#FFFDFC] px-4 py-2 text-sm font-medium text-[#5F6B76] hover:text-[#1F2937] transition-colors"
                 style={{ minHeight: "44px" }}
               >
                 Show more ({sessions.length - SESSION_PAGE_SIZE} more sessions)

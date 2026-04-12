@@ -322,7 +322,10 @@ export default function AdminWorkspace() {
       )}
 
       {view === "update" && (
-        <KnowledgeUpdateTab onCommitted={() => setRefreshKey((value) => value + 1)} />
+        <KnowledgeUpdateTab
+          onCommitted={() => setRefreshKey((value) => value + 1)}
+          onNavigateToSession={() => navigate({ view: "sessions", sessionId: null })}
+        />
       )}
 
       {view === "careers" && <CareerTracksTab />}
