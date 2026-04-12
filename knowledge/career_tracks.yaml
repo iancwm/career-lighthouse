@@ -31,3 +31,7 @@ tracks:
   label: Technology and Product
   status: active
   last_published: null
+- slug: venture_capital
+  label: Venture Capital
+  status: active
+  last_published: 20260412-162549

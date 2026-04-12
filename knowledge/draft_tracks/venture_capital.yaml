@@ -1,7 +1,10 @@
 slug: venture_capital
 track_name: Venture Capital
-status: draft
-match_description: 'For students interested in venture capital, startup investing, and fund management. Roles span deal sourcing, due diligence, portfolio company support, and LP relations. Suits candidates with finance, MBA, or technology backgrounds and an entrepreneurial mindset.'
+status: published
+match_description: For students interested in venture capital, startup investing,
+  and fund management. Roles span deal sourcing, due diligence, portfolio company
+  support, and LP relations. Suits candidates with finance, MBA, or technology backgrounds
+  and an entrepreneurial mindset.
 match_keywords:
 - venture capital
 - VC
@@ -13,20 +16,28 @@ match_keywords:
 - deal sourcing
 - due diligence
 - AUM
-ep_sponsorship: Not confirmed across sector; Golden Equator Capital EP status not specified.
-compass_score_typical: Not specifically benchmarked. Fund experience and sector expertise valued more than formal scores.
+ep_sponsorship: Not confirmed across sector; Golden Equator Capital EP status not
+  specified.
+compass_score_typical: Not specifically benchmarked. Fund experience and sector expertise
+  valued more than formal scores.
 top_employers_smu:
 - golden_equator_capital
-recruiting_timeline: Year-round hiring; no fixed intake seasons. VC firms hire on deal flow and fund cycle rather than academic calendar.
+recruiting_timeline: Year-round hiring; no fixed intake seasons. VC firms hire on
+  deal flow and fund cycle rather than academic calendar.
 international_realistic: true
 entry_paths:
 - Analyst (direct hire)
 - Associate (post-MBA)
 - VP (experienced hire)
-salary_range_2024: 'Analyst: ~SGD 100K/year. VP and Partner compensation significantly higher, includes carried interest.'
-typical_background: Finance, MBA, or technology backgrounds common. Sector expertise (e.g. blockchain, fintech, deep tech) valued for deal sourcing and due diligence roles.
+salary_range_2024: 'Analyst: ~SGD 100K/year. VP and Partner compensation significantly
+  higher, includes carried interest.'
+typical_background: Finance, MBA, or technology backgrounds common. Sector expertise
+  (e.g. blockchain, fintech, deep tech) valued for deal sourcing and due diligence
+  roles.
 counselor_contact: null
-notes: 'Emerging track in Singapore VC ecosystem. Golden Equator Capital (USD 100M AUM) is a known employer with an MBA alumnus contact (Helen Goh, Partner). Blockchain and fintech-focused VC is an active sub-sector.'
+notes: Emerging track in Singapore VC ecosystem. Golden Equator Capital (USD 100M
+  AUM) is a known employer with an MBA alumnus contact (Helen Goh, Partner). Blockchain
+  and fintech-focused VC is an active sub-sector.
 source_refs:
 - type: note
   label: Helen Goh interview (Golden Equator Capital)
@@ -36,4 +47,7 @@ structured:
   salary_min_sgd: 0
   salary_max_sgd: 0
   ep_realistic: true
-last_updated: null
+last_updated: '2026-04-12'
+archived_at: '2026-04-12'
+salary_levels: null
+visa_pathway_notes: null
