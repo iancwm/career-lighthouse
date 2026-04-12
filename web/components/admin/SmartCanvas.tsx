@@ -153,11 +153,24 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
         return // analyzeSession reloads and sets cards
       }
 
-      // Auto-select first pending card
-      const firstPending = data.intent_cards.find((c) => c.status === "pending")
-      if (firstPending) {
-        setSelectedCardId(firstPending.card_id)
-        setEditingDiff({ ...firstPending.diff })
+      // If the currently selected card is no longer pending, auto-select the next pending one
+      const currentCard = data.intent_cards.find((c) => c.card_id === selectedCardId)
+      if (currentCard && currentCard.status !== "pending") {
+        const nextPending = data.intent_cards.find((c) => c.status === "pending")
+        if (nextPending) {
+          setSelectedCardId(nextPending.card_id)
+          setEditingDiff({ ...nextPending.diff })
+        } else {
+          setSelectedCardId(null)
+          setEditingDiff({})
+        }
+      } else if (!selectedCardId) {
+        // Auto-select first pending card on initial load
+        const firstPending = data.intent_cards.find((c) => c.status === "pending")
+        if (firstPending) {
+          setSelectedCardId(firstPending.card_id)
+          setEditingDiff({ ...firstPending.diff })
+        }
       }
     } catch {
       setError("Could not load session.")
@@ -225,6 +238,11 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
           body: JSON.stringify({ diff: editingDiff }),
         }
       )
+      if (res.status === 409) {
+        // Card already committed/discarded — reload to sync state
+        await loadSession()
+        return
+      }
       if (!res.ok) throw new Error("commit failed")
       setNotice("Card committed.")
       await loadSession()
@@ -245,6 +263,11 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
         `${API_URL}/api/sessions/${session.id}/cards/${selectedCardId}/discard`,
         { method: "POST" }
       )
+      if (res.status === 409) {
+        // Card already committed/discarded — reload to sync state
+        await loadSession()
+        return
+      }
       if (!res.ok) throw new Error("discard failed")
       setNotice("Card discarded.")
       await loadSession()
