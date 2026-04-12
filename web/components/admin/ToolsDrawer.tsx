@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react"
 
-export type DrawerSurface = "knowledge" | "update" | "careers" | "employers" | "tracks"
+export type DrawerSurface = "knowledge" | "update" | "careers" | "employers" | "tracks" | "resume"
 
 interface ToolsDrawerProps {
   open: boolean
@@ -15,6 +15,7 @@ interface ToolsDrawerProps {
 const DRAWER_ITEMS: { id: DrawerSurface; label: string; description: string }[] = [
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
+  { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
   { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts." },
   { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
   { id: "careers", label: "Career Tracks", description: "See structured chat metadata." },

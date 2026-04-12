@@ -169,6 +169,69 @@ export default function MarkdownMessage({ content }: { content: string }) {
       continue
     }
 
+    // GFM table detection: line contains |...|...| pattern
+    const tableMatch = trimmed.match(/^\|(.+)\|$/)
+    if (tableMatch) {
+      flushParagraphBuffer()
+      const tableRows: string[][] = []
+      // Collect all consecutive table rows
+      while (index < lines.length) {
+        const rowLine = lines[index].trim()
+        const rowMatch = rowLine.match(/^\|(.+)\|$/)
+        if (!rowMatch) break
+        const cells = rowMatch[1].split("|").map((c) => c.trim())
+        tableRows.push(cells)
+        index += 1
+      }
+
+      if (tableRows.length >= 2) {
+        // Row 0 = header, Row 1 = separator (---|---), rest = body
+        const headerCells = tableRows[0]
+        const bodyRows = tableRows.slice(2) // skip separator row
+
+        blocks.push(
+          <div key={`table-${index}`} className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr className="bg-[var(--cl-surface-2)]">
+                  {headerCells.map((cell, ci) => (
+                    <th
+                      key={ci}
+                      className="border border-[var(--cl-line)] px-3 py-2 text-left font-semibold text-[var(--cl-ink)]"
+                    >
+                      {parseInline(cell)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, ri) => (
+                  <tr
+                    key={ri}
+                    className={
+                      ri % 2 === 0 ? "bg-[var(--cl-surface)]" : "bg-[var(--cl-surface-2)]"
+                    }
+                  >
+                    {row.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        className="border border-[var(--cl-line)] px-3 py-2 text-[var(--cl-ink)]"
+                      >
+                        {parseInline(cell)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
+      }
+      // Decrement index since the outer loop will increment it
+      index -= 1
+      continue
+    }
+
     paragraphBuffer.push(line)
   }
 

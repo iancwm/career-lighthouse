@@ -16,6 +16,7 @@ import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
+import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
 import ToolsDrawer, { DrawerSurface } from "@/components/admin/ToolsDrawer"
 import DirectiveBanner from "@/components/admin/DirectiveBanner"
 
@@ -46,19 +47,20 @@ interface KBHealth {
 
 type DrawerView = DrawerSurface | "sessions"
 
-const DRAWER_SURFACES: DrawerSurface[] = ["knowledge", "update", "careers", "employers", "tracks"]
+const DRAWER_SURFACES: DrawerSurface[] = ["knowledge", "update", "careers", "employers", "tracks", "resume"]
 
 const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
   { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
+  { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
   { id: "careers", label: "Career Tracks", description: "See structured chat metadata." },
   { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts." },
   { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
 ]
 
 function isDrawerView(value: string | null): value is DrawerView {
-  return value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions"
+  return value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume"
 }
 
 function isDrawerSurface(value: string | null): value is DrawerSurface {
@@ -80,6 +82,11 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
     label: "Patch a single fact",
     whatYouDo: "Paste a short note targeting a specific employer or track.",
     whatHappens: "The system compares against existing KB and proposes field-level changes for your review.",
+  },
+  resume: {
+    label: "Review a student resume",
+    whatYouDo: "Paste a student resume to generate a prep brief.",
+    whatHappens: "The system produces fit assessment, risks, and talking points in markdown.",
   },
   employers: {
     label: "Maintain employer details",
@@ -229,15 +236,26 @@ export default function AdminWorkspace() {
               <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{currentSurface.label}</p>
               <p className="mt-1 text-sm text-[var(--cl-muted)]">{currentSurface.description}</p>
             </div>
-            <button
-              ref={toggleButtonRef}
-              type="button"
-              onClick={toggleDrawer}
-              aria-expanded={drawerOpen}
-              className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
-            >
-              {drawerOpen ? "\u2715 Close" : "\u2699 Manage Knowledge"}
-            </button>
+            <div className="flex items-center gap-2">
+              {view !== "sessions" && (
+                <button
+                  type="button"
+                  onClick={() => navigate({ view: "sessions", sessionId: null, trackSlug: null })}
+                  className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90"
+                >
+                  ← Session Editor
+                </button>
+              )}
+              <button
+                ref={toggleButtonRef}
+                type="button"
+                onClick={toggleDrawer}
+                aria-expanded={drawerOpen}
+                className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
+              >
+                {drawerOpen ? "\u2715 Close" : "\u2699 Manage Knowledge"}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -327,6 +345,8 @@ export default function AdminWorkspace() {
           onNavigateToSession={() => navigate({ view: "sessions", sessionId: null })}
         />
       )}
+
+      {view === "resume" && <ResumeReviewTab />}
 
       {view === "careers" && <CareerTracksTab />}
 

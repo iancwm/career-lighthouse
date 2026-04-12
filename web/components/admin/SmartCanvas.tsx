@@ -48,6 +48,88 @@ interface SmartCanvasProps {
   onBack: () => void
 }
 
+interface CreateTrackFromSessionProps {
+  sessionId: string
+  rawInput: string
+  actionLoading: boolean
+  setActionLoading: (loading: boolean) => void
+  setNotice: (notice: string) => void
+  setError: (error: string) => void
+}
+
+/** Sub-component: generates a draft track from session raw input and navigates to Track Builder. */
+function CreateTrackFromSession({ sessionId, rawInput, actionLoading, setActionLoading, setNotice, setError }: CreateTrackFromSessionProps) {
+  const [creating, setCreating] = useState(false)
+  const [trackName, setTrackName] = useState("")
+  const [draftSlug, setDraftSlug] = useState("")
+
+  async function handleCreate() {
+    if (!trackName.trim()) return
+    setCreating(true)
+    setError("")
+    setNotice("")
+    try {
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          slug: trackName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""),
+          track_name: trackName.trim(),
+          text: rawInput,
+          source_type: "note",
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.detail || "Could not generate draft.")
+      }
+      const data = await res.json()
+      setDraftSlug(data.slug)
+      setNotice(`Draft "${data.track_name}" created. Opening in Track Builder…`)
+      // Navigate to Track Builder with the new draft
+      window.location.href = `/admin?view=tracks&trackSlug=${data.slug}`
+    } catch (err: any) {
+      setError(err.message || "Could not create track.")
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  if (draftSlug) {
+    return (
+      <p className="text-sm text-[#2F6B4F]">
+        Draft created — redirecting to Track Builder…
+      </p>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+      <div className="flex-1">
+        <label className="block text-xs font-medium text-[#5F6B76] mb-1">
+          Track name
+        </label>
+        <input
+          type="text"
+          value={trackName}
+          onChange={(e) => setTrackName(e.target.value)}
+          placeholder="e.g. Fintech Compliance, Quantitative Marketing"
+          className="w-full rounded border border-[#D8D0C4] bg-[#FFFDFC] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+          disabled={creating || actionLoading}
+        />
+      </div>
+      <button
+        onClick={handleCreate}
+        disabled={creating || actionLoading || !trackName.trim()}
+        className="rounded-xl bg-[#0F766E] px-5 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40 transition-colors whitespace-nowrap"
+        style={{ minHeight: "44px" }}
+      >
+        {creating ? "Creating draft…" : "Create draft track"}
+      </button>
+    </div>
+  )
+}
+
 export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
   const [session, setSession] = useState<KnowledgeSession | null>(null)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
@@ -282,6 +364,27 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Create career track from session notes */}
+      {isAnalyzed && !hasNoCards && (
+        <div className="mb-6 rounded-xl border border-[#D8D0C4] bg-[#F6F1E8] p-5">
+          <h3 className="text-sm font-semibold text-[#1F2937] mb-1">
+            Create a career track from these notes
+          </h3>
+          <p className="text-sm text-[#5F6B76] mb-3">
+            AI will draft a new career track from your session notes.
+            You'll review and edit the draft before anything is published.
+          </p>
+          <CreateTrackFromSession
+            sessionId={session.id}
+            rawInput={session.raw_input}
+            actionLoading={actionLoading}
+            setActionLoading={setActionLoading}
+            setNotice={setNotice}
+            setError={setError}
+          />
         </div>
       )}
 
