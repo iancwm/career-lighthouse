@@ -22,7 +22,7 @@ from threading import Lock
 import yaml
 
 from models import DraftTrackDetail, TrackRegistryEntry, TrackVersionInfo
-from services.career_profiles import _default_profiles_dir
+from services.career_profiles import _default_profiles_dir, _derive_structured_fields
 
 logger = logging.getLogger(__name__)
 
@@ -276,18 +276,29 @@ class TrackDraftStore:
                 history_path = _history_dir() / slug / f"{version}.yaml"
                 _atomic_yaml_write(history_path, previous_payload)
 
+            # Build structured block from draft, then derive from prose as fallback
+            base_structured = draft.structured or {
+                "sponsorship_tier": "",
+                "compass_points_typical": "",
+                "salary_min_sgd": None,
+                "salary_max_sgd": None,
+                "ep_realistic": bool(draft.international_realistic),
+            }
+            # Derive structured fields from prose (setdefault preserves manual values)
+            draft_profile = {
+                "salary_range_2024": draft.salary_range_2024,
+                "structured": base_structured,
+            }
+            derived = _derive_structured_fields(draft_profile)
+            for key, value in derived.items():
+                base_structured.setdefault(key, value)
+
             published_payload = {
                 "career_type": draft.track_name.strip(),
                 "match_description": (draft.match_description or f"{draft.track_name} {' '.join(draft.match_keywords)}").strip(),
                 "match_keywords": _normalise_keywords(draft.match_keywords),
                 "match_cosine": False,
-                "structured": draft.structured or {
-                    "sponsorship_tier": "",
-                    "compass_points_typical": "",
-                    "salary_min_sgd": None,
-                    "salary_max_sgd": None,
-                    "ep_realistic": bool(draft.international_realistic),
-                },
+                "structured": base_structured,
                 "ep_sponsorship": draft.ep_sponsorship,
                 "compass_score_typical": draft.compass_score_typical,
                 "top_employers_smu": draft.top_employers_smu,
@@ -298,6 +309,8 @@ class TrackDraftStore:
                 "typical_background": draft.typical_background,
                 "counselor_contact": draft.counselor_contact,
                 "notes": draft.notes,
+                "salary_levels": [s.model_dump() for s in draft.salary_levels] if draft.salary_levels else [],
+                "visa_pathway_notes": draft.visa_pathway_notes or "",
             }
 
             _atomic_yaml_write(published_path, published_payload)

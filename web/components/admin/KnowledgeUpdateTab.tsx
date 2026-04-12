@@ -41,7 +41,7 @@ interface DiffState {
 
 // ── Component ─────────────────────────────────────────────────────────────
 
-export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () => void }) {
+export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }: { onCommitted?: () => void; onNavigateToSession?: () => void }) {
   const [inputMode, setInputMode] = useState<"note" | "file">("note")
   const [noteText, setNoteText] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -196,27 +196,47 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
         Paste a counsellor note or upload a file. We will suggest searchable notes and structured fact updates for you to review before anything is saved.
       </p>
 
+      {/* Intake routing note — permanently visible, DESIGN.md tokens */}
+      <div className="mb-4 rounded-lg bg-[#F6F1E8] border border-[#D8D0C4] px-4 py-3 text-sm text-[#5F6B76]">
+        <span className="font-medium text-[#1F2937]">For full memos:</span>{" "}
+        if your note covers multiple employers or tracks,{" "}
+        {onNavigateToSession ? (
+          <button
+            onClick={onNavigateToSession}
+            // Touch target: inline button cannot be 44px tall without breaking text flow;
+            // compensated with focus ring + padding. Acceptable for desktop-primary admin tool.
+            className="font-medium text-[#0F766E] underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-[#0F766E] focus:ring-offset-1 rounded px-0.5"
+          >
+            use Session Editor
+          </button>
+        ) : (
+          <span className="font-medium text-[#0F766E]">use Session Editor</span>
+        )}{" "}
+        to extract per-entity update cards. Use this tab for targeted fact
+        corrections and employer updates.
+      </div>
+
       {state === "success" && (
         <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
           {successMsg}
         </div>
       )}
 
-      <div className="flex gap-6">
+      <div className="flex flex-col sm:flex-row gap-6">
         {/* Left pane — 40% */}
-        <div className="w-2/5 flex flex-col gap-4">
+        <div className="sm:w-2/5 flex flex-col gap-4">
           {/* Input mode toggle */}
           <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
             <button
               onClick={() => { setInputMode("note"); setSelectedFile(null) }}
-              className={`flex-1 py-2 font-medium transition-colors ${inputMode === "note" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              className={`flex-1 py-2 font-medium transition-colors ${inputMode === "note" ? "bg-[#0F766E] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
               disabled={state === "analysing"}
             >
               Counsellor note
             </button>
             <button
               onClick={() => setInputMode("file")}
-              className={`flex-1 py-2 font-medium transition-colors ${inputMode === "file" ? "bg-blue-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+              className={`flex-1 py-2 font-medium transition-colors ${inputMode === "file" ? "bg-[#0F766E] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
               disabled={state === "analysing"}
             >
               Uploaded file
@@ -226,7 +246,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
           {/* Input area */}
           {inputMode === "note" ? (
             <textarea
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[160px]"
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] min-h-[160px]"
               placeholder="Example: 'Goldman changed their EP sponsorship threshold to 50+ COMPASS for 2026.'"
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
@@ -234,7 +254,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
             />
           ) : (
             <div
-              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 transition-colors"
+              className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-[#0F766E] transition-colors"
               onClick={() => fileInputRef.current?.click()}
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => {
@@ -265,7 +285,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
           <button
             onClick={handleAnalyse}
             disabled={!canAnalyse || state === "analysing"}
-            className="w-full py-3 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            className="w-full py-3 bg-[#0F766E] text-white text-sm font-medium rounded-xl hover:bg-[#0A5C57] disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
           >
             Review proposed changes
           </button>
@@ -277,7 +297,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
               <ul className="space-y-1">
                 {diff.result.interpretation_bullets.map((b, i) => (
                   <li key={i} className="text-xs text-gray-700 flex gap-2">
-                    <span className="text-blue-400 mt-0.5 shrink-0">•</span>
+                    <span className="text-[#0F766E] mt-0.5 shrink-0">•</span>
                     <span>{b}</span>
                   </li>
                 ))}
@@ -296,7 +316,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
 
           {state === "analysing" && (
             <div className="h-full min-h-[240px] flex flex-col items-center justify-center gap-3 rounded-xl border border-gray-200">
-              <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#0F766E] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-500">{statusText}</p>
               <button onClick={resetToIdle} className="text-xs text-gray-400 hover:text-gray-600 underline mt-1">
                 Cancel
@@ -357,7 +377,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                             <p className="text-gray-400 line-through mb-1 leading-relaxed">{change.old}</p>
                           )}
                           <textarea
-                            className="w-full border border-blue-200 bg-blue-50 rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 leading-relaxed"
+                            className="w-full border border-[#D8D0C4] bg-[#F0E7DB] rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] leading-relaxed"
                             rows={3}
                             value={diff.profileEdits[slug]?.[field] ?? change.new}
                             onChange={(e) => {
@@ -396,7 +416,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                             <p className="text-gray-400 line-through mb-1 leading-relaxed">{change.old}</p>
                           )}
                           <textarea
-                            className="w-full border border-blue-200 bg-blue-50 rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 leading-relaxed"
+                            className="w-full border border-[#D8D0C4] bg-[#F0E7DB] rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] leading-relaxed"
                             rows={3}
                             value={diff.employerEdits[slug]?.[field] ?? change.new}
                             onChange={(e) => {
@@ -428,12 +448,12 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                     {diff.result.new_chunks.map((chunk, i) => (
                       <div key={chunk.chunk_id || i} className="rounded-lg border border-gray-200 p-3 text-xs">
                         {chunk.career_type && (
-                          <span className="inline-block mb-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-xs">
+                          <span className="inline-block mb-1 px-2 py-0.5 rounded-full bg-[#CCEBE8] text-[#0F766E] text-xs">
                             {chunk.career_type}
                           </span>
                         )}
                         <textarea
-                          className="w-full border border-gray-200 rounded p-2 text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400 leading-relaxed"
+                          className="w-full border border-gray-200 rounded p-2 text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] leading-relaxed"
                           rows={4}
                           value={diff.chunkEdits[i] ?? chunk.text}
                           onChange={(e) => {
@@ -487,7 +507,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                 <button
                   onClick={handleCommit}
                   disabled={newChunkCount === 0 && profileFieldCount === 0 && employerFieldCount === 0}
-                  className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="px-4 py-2.5 bg-[#0F766E] text-white text-sm font-medium rounded-xl hover:bg-[#0A5C57] disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
                 >
                   Save reviewed changes
                 </button>
@@ -496,7 +516,7 @@ export default function KnowledgeUpdateTab({ onCommitted }: { onCommitted?: () =
                     setDiff(null)
                     setState("idle")
                   }}
-                  className="px-4 py-2.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="px-4 py-2.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
                 >
                   Start over
                 </button>

@@ -19,6 +19,7 @@ Note on the 'structured:' sub-object in YAML files:
 """
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -41,6 +42,33 @@ _INTAKE_INTEREST_MAP: dict[str, str] = {
     "artificial_intelligence": "dsai",
 }
 _DEFAULT_CAREER_TYPE: str = career_profiles_cfg["default_career_type"]
+
+
+def _derive_structured_fields(profile: dict) -> dict:
+    """Extract structured numeric fields from prose without overwriting manual values.
+
+    Uses setdefault so manually set salary_min_sgd/salary_max_sgd are never
+    overwritten by prose parsing. Returns a partial dict of structured fields
+    to merge into the existing structured: block.
+    """
+    structured = dict(profile.get("structured") or {})
+
+    # Parse salary_range_2024: "SGD 80–160K" or "SGD 80K–160K base"
+    salary_prose = str(profile.get("salary_range_2024") or "")
+    match = re.search(r"(\d[\d,]*)\s*[Kk]?\s*[–\-]+\s*(\d[\d,]*)\s*[Kk]?", salary_prose)
+    if match:
+        lo = int(match.group(1).replace(",", ""))
+        hi = int(match.group(2).replace(",", ""))
+        # Normalize K suffix: if values < 1000, multiply by 1000
+        if lo < 10000:
+            lo *= 1000
+        if hi < 10000:
+            hi *= 1000
+        if lo > 0 and hi >= lo:
+            structured.setdefault("salary_min_sgd", lo)
+            structured.setdefault("salary_max_sgd", hi)
+
+    return structured
 
 
 def _default_profiles_dir() -> Path:
@@ -104,8 +132,37 @@ def profile_to_context_block(profile: dict) -> str:
         "",
         f"Salary Range (2024):\n{str(profile.get('salary_range_2024', 'N/A')).strip()}",
         "",
+    ]
+
+    # Inject per-level salary breakdown if available
+    salary_levels = profile.get("salary_levels")
+    if salary_levels:
+        lines.append("Salary Levels:")
+        for level in salary_levels:
+            if isinstance(level, dict):
+                stage = level.get("stage", "Unknown")
+                rng = level.get("range_sgd", "")
+                notes = level.get("notes", "")
+                line = f"  - {stage}: {rng}"
+                if notes:
+                    line += f" ({notes})"
+                lines.append(line)
+        lines.append("")
+
+    lines += [
         f"Typical Background:\n{str(profile.get('typical_background', 'N/A')).strip()}",
         "",
+    ]
+
+    # Inject visa pathway notes if present
+    visa_notes = profile.get("visa_pathway_notes")
+    if visa_notes and str(visa_notes).strip():
+        lines += [
+            f"Visa Pathway Notes:\n{str(visa_notes).strip()}",
+            "",
+        ]
+
+    lines += [
         f"Notes:\n{str(profile.get('notes', 'N/A')).strip()}",
         "=== END CAREER CONTEXT ===",
     ]

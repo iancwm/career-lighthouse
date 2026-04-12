@@ -13,10 +13,10 @@ This backlog is ordered by execution priority:
 **Why:** Next.js middleware alone is not enough defense in depth; direct HTTP calls can bypass it.
 **Depends on:** The broader API auth strategy.
 
-### Validate profile field names in commit-analysis
-**What:** Add an allowlist for writable profile fields in `/api/kb/commit-analysis`.
-**Why:** Claude/client echoes can otherwise write malformed or reserved YAML keys and corrupt profiles.
-**Depends on:** None.
+### ~~Validate profile field names in commit-analysis~~ ✓ Done (2026-04-12)
+Shipped: `ALLOWED_PROFILE_FIELDS` enforcement already existed with skip+warn; test coverage added
+to lock in the guarantee. `session_router.py` inspected — has parallel `ALLOWED_CARD_PROFILE_FIELDS`
+guard. Empty field map returns 200 cleanly.
 
 ### Session Cleanup Script
 **What:** Delete completed sessions older than 30 days.
@@ -51,10 +51,9 @@ This backlog is ordered by execution priority:
 **Context:** Found during adversarial review in Ship 2 (2026-03-23). The Lock in `health_cache.py` already prevents data corruption.
 **Depends on:** None. Self-contained change to `api/services/health_cache.py` and the `kb_health` endpoint.
 
-### File upload size limit — /api/ingest and /api/kb/analyse
-**What:** Add a maximum file size check to upload endpoints.
-**Why:** A large PDF would block a worker thread for minutes.
-**Depends on:** None. Apply to both endpoints in one PR.
+### ~~File upload size limit — /api/ingest and /api/kb/analyse~~ ✓ Done (2026-04-12)
+Shipped: `Content-Length` pre-read guard on both endpoints (413 if > 10MB). Shared
+`settings.max_upload_bytes` in `config.py`. Parametrized tests on both endpoints.
 
 ### Stale chunk deprecation on employer entity update
 **What:** When an employer entity changes, scan for stale Qdrant chunks and surface them for deletion.
@@ -71,10 +70,11 @@ This backlog is ordered by execution priority:
 **Why:** Counsellors can lose several seconds of analysis work if they navigate away.
 **Depends on:** None. Add when the current pre-launch scale no longer makes silent loss acceptable.
 
-### structured: values diverge from prose field edits after profile editor write
-**What:** Keep `structured:` and prose fields in sync after profile edits.
-**Why:** `structured:` is reserved for machine-readable access, and stale values would produce wrong answers once tool-call access uses it.
-**Depends on:** Sprint 3 Profile Editor behavior.
+### ~~structured: values diverge from prose field edits after profile editor write~~ ✓ Done (2026-04-12)
+Shipped: `_derive_structured_fields()` helper extracts numeric values from prose (e.g. salary
+ranges) using `setdefault` to preserve manual entries. Wired into `publish_draft()` and
+`commit_analysis()` so both write paths stay in sync. 4 tests cover parsing, K-suffix, TBD,
+and manual-value preservation.
 
 ### PDPA wording — query digest is not "anonymised aggregates"
 **What:** Replace "anonymised aggregates" with "query aggregates" in docs and UI copy.

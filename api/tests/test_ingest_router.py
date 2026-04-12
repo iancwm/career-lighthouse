@@ -59,8 +59,26 @@ class TestFilenameValidation:
         "my-resume_2024.txt",
         "Career Guide v2.txt",
         "a" * 255,
+        "Career_Services_Meeting_Memo (1).txt",
+        "report [final].txt",
     ])
     def test_accepts_valid_filenames(self, in_memory_qdrant, mock_embedder, filename):
         client = _make_client(in_memory_qdrant, mock_embedder)
         r = client.post("/api/ingest", files={"file": (filename, b"hello world career", "text/plain")})
         assert r.status_code == 200
+
+
+class TestUploadSizeLimit:
+    def test_rejects_oversized_upload_via_ingest(self, in_memory_qdrant, mock_embedder):
+        from unittest.mock import patch
+        client = _make_client(in_memory_qdrant, mock_embedder)
+
+        # Simulate Content-Length header > 10MB
+        oversized_content = b"x" * (11 * 1024 * 1024)
+        r = client.post(
+            "/api/ingest",
+            files={"file": ("large.txt", oversized_content, "text/plain")},
+            headers={"Content-Length": str(len(oversized_content))},
+        )
+        assert r.status_code == 413
+        assert "exceeds maximum upload size" in r.json()["detail"]

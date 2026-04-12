@@ -131,6 +131,72 @@ class TestProfileToContextBlock:
         block = profile_to_context_block(profile)
         assert "Notes:\nN/A" in block
 
+    def test_salary_levels_injected_when_present(self):
+        from services.career_profiles import profile_to_context_block
+        profile = {
+            **MINIMAL_PROFILE,
+            "salary_levels": [
+                {"stage": "Junior Analyst", "range_sgd": "80–110K", "notes": "Base + 15% bonus"},
+                {"stage": "Senior Manager", "range_sgd": "160–200K", "notes": ""},
+            ],
+        }
+        block = profile_to_context_block(profile)
+        assert "Salary Levels:" in block
+        assert "Junior Analyst" in block
+        assert "80–110K" in block
+        assert "Base + 15% bonus" in block
+        assert "Senior Manager" in block
+        assert "160–200K" in block
+
+    def test_visa_pathway_notes_injected_when_present(self):
+        from services.career_profiles import profile_to_context_block
+        profile = {
+            **MINIMAL_PROFILE,
+            "visa_pathway_notes": "EP → Tech.Pass → PR in 5y",
+        }
+        block = profile_to_context_block(profile)
+        assert "Visa Pathway Notes:" in block
+        assert "EP → Tech.Pass → PR in 5y" in block
+
+    def test_salary_and_visa_absent_no_injection(self):
+        from services.career_profiles import profile_to_context_block
+        block = profile_to_context_block(MINIMAL_PROFILE)
+        assert "Salary Levels:" not in block
+        assert "Visa Pathway Notes:" not in block
+
+    def test_derive_structured_fields_parses_salary_range(self):
+        from services.career_profiles import _derive_structured_fields
+        profile = {"salary_range_2024": "SGD 80–160K"}
+        derived = _derive_structured_fields(profile)
+        assert derived["salary_min_sgd"] == 80000
+        assert derived["salary_max_sgd"] == 160000
+
+    def test_derive_structured_fields_with_k_suffix(self):
+        from services.career_profiles import _derive_structured_fields
+        profile = {"salary_range_2024": "SGD 80K–160K base"}
+        derived = _derive_structured_fields(profile)
+        assert derived["salary_min_sgd"] == 80000
+        assert derived["salary_max_sgd"] == 160000
+
+    def test_derive_structured_fields_no_numeric_no_extraction(self):
+        from services.career_profiles import _derive_structured_fields
+        profile = {"salary_range_2024": "TBD", "structured": {"salary_min_sgd": 50000}}
+        derived = _derive_structured_fields(profile)
+        # Should not overwrite manual values
+        assert derived["salary_min_sgd"] == 50000
+
+    def test_derive_structured_fields_setdefault_preserves_manual(self):
+        from services.career_profiles import _derive_structured_fields
+        profile = {
+            "salary_range_2024": "SGD 80–160K",
+            "structured": {"salary_min_sgd": 99999},
+        }
+        derived = _derive_structured_fields(profile)
+        # Manually set value should NOT be overwritten
+        assert derived["salary_min_sgd"] == 99999
+        # But max should still be derived
+        assert derived["salary_max_sgd"] == 160000
+
 
 # ---------------------------------------------------------------------------
 # CareerProfileStore — loading
