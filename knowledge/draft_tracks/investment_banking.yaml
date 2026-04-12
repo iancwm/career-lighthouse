@@ -1,0 +1,114 @@
+slug: investment_banking
+track_name: Investment Banking
+status: published
+match_description: For students targeting investment banking roles in Singapore —
+  including IBD, M&A, ECM, and DCM positions at bulge-bracket banks, local banks,
+  and boutiques. Covers internship and full-time analyst paths, EP sponsorship outlook,
+  and COMPASS considerations.
+match_keywords:
+- investment banking
+- IBD
+- M&A
+- ECM
+- DCM
+- Goldman Sachs
+- JPMorgan
+- Morgan Stanley
+- Citi
+- Deutsche Bank
+- DBS
+- OCBC
+- UOB
+- bulge bracket
+- finance analyst
+- summer analyst
+- internship
+- EP sponsorship
+- COMPASS
+- salary bonus
+- boutique advisory
+- Lazard
+- Evercore
+- CIMB
+ep_sponsorship: 'High at bulge-bracket banks (Goldman Sachs, Morgan Stanley, JPMorgan,
+  Citi, Deutsche Bank, UBS) — these firms have large enough local headcounts and sufficiently
+  diverse workforces to absorb international hires without COMPASS pressure. Medium
+  at mid-market banks (CIMB, Maybank, RHB) and local Singapore banks (DBS, OCBC, UOB):
+  they tend to prioritise Singapore citizens/PRs at analyst entry level due to workforce
+  quota sensitivity and lower headcount buffers. Students who receive DBS/OCBC internship
+  offers should not assume a return offer includes EP sponsorship — confirm explicitly
+  before accepting.'
+compass_score_typical: '45–55 for analyst roles at BBs (S$75K–90K starting salary
+  anchors the salary criterion at roughly 20–25 pts; degree from top university adds
+  10 pts; young workforce at most IBD teams adds a diversity bonus). COMPASS minimum
+  is 40; most BB analysts clear this comfortably. Local bank analyst roles at lower
+  salary bands (S$55K–65K) may score 35–42 — borderline. Note: COMPASS scores the
+  employer''s quota too; even a high individual score can be rejected if the employer
+  has already hired too many from the applicant''s nationality cohort that year.'
+top_employers_smu:
+- Goldman Sachs (Singapore IBD — M&A, ECM, DCM)
+- Morgan Stanley (Singapore coverage and execution)
+- JPMorgan (Corporate & Investment Bank, APAC coverage)
+- Citi (Banking Capital Markets & Advisory)
+- Deutsche Bank (Investment Banking Coverage)
+- DBS (IBD — M&A Advisory, strong SMU pipeline)
+- OCBC (Investment Banking Division)
+- UOB (Investment Banking)
+- CIMB (Corporate Finance, strong for SEA coverage)
+- Lazard (advisory boutique, selective)
+- Evercore (APAC advisory, very selective)
+recruiting_timeline: 'Summer internship (10-week, June–August): applications open
+  October–January; most BBs close by December, DBS/OCBC by January. Full-time analyst
+  (July/August start): applications open November–February alongside internship conversion
+  offers. Off-cycle internships at boutiques and coverage roles year-round — watch
+  firm career portals directly. SMU career centre typically runs an IB networking
+  event in October and a prep workshop series in September; attendance strongly recommended
+  before applications open.'
+international_realistic: true
+entry_paths:
+- Summer analyst internship → return offer (primary route at BBs; ~50–70% conversion
+  rate)
+- Off-cycle internship → conversion (boutiques, coverage banks)
+- Graduate direct hire (rarer at BBs; more common at DBS/OCBC which run structured
+  programmes)
+- Lateral from Big 4 transaction services or consulting (viable after 1–2 years)
+- MBA associate (for career-changers; requires 3–5 years prior experience)
+salary_range_2024: 'BB analyst (Goldman, MS, JPM): S$85,000–95,000 base + S$15,000–25,000
+  signing/stub bonus. Local bank analyst (DBS, OCBC, UOB): S$55,000–70,000 base +
+  variable bonus. Mid-market / boutique analyst: S$60,000–80,000 base. Source: SMU
+  career centre salary survey 2024 (approximate — verify with current cohort data).'
+typical_background: Finance, Accountancy, or Economics degrees dominate (60–70% of
+  hires). Quantitative backgrounds (CS, Engineering, Applied Math) increasingly valued
+  at BBs for structuring and risk roles. Non-finance degrees succeed via strong financial
+  modelling skills (self-built via WSO/CFI courses), demonstrated interest (finance
+  clubs, CFA L1), and early networking. Work experience in Big 4 audit/advisory or
+  equity research strengthens non-finance profiles.
+counselor_contact: ''
+notes: 'Key differentiator for international students: BB IBD desks in Singapore cover
+  SEA/APAC deals — Thai baht bonds, Indonesian IPOs, regional M&A — so regional language
+  skills (Bahasa, Mandarin, Thai) are genuinely valued and should be highlighted explicitly
+  in applications, not buried in an "other skills" section.
+
+  COMPASS alert: Students from India and China face the highest quota pressure at
+  local banks (DBS/OCBC) because those nationalities often already represent a large
+  share of existing hires. This is not discrimination — it is a structural consequence
+  of COMPASS''s diversity ratio requirement. The workaround is to target BBs where
+  the workforce is more internationally distributed and individual scores clear the
+  threshold comfortably.
+
+  CFA Level 1: Sitting CFA L1 before graduation signals commitment and is explicitly
+  mentioned in DBS IBD JD as a "plus." It does not substitute for deal experience
+  but removes a box.'
+source_refs:
+- type: note
+  label: counsellor_note
+- type: note
+  label: published profile investment_banking
+structured:
+  sponsorship_tier: High
+  compass_points_typical: 45-55
+  salary_min_sgd: 85000
+  salary_max_sgd: 95000
+  ep_realistic: true
+last_updated: '2026-04-12'
+archived_at: '2026-04-12'
