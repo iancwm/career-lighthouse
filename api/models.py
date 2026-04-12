@@ -211,6 +211,26 @@ class TrackRegistryEntry(BaseModel):
     last_published: str | None = None
 
 
+class TrackReferenceDetail(BaseModel):
+    slug: str
+    label: str
+    status: str = "active"
+    last_published: str | None = None
+    track_name: str = ""
+    match_description: str = ""
+    match_keywords: list[str] = []
+    ep_sponsorship: str = ""
+    compass_score_typical: str = ""
+    top_employers_smu: list[str] = []
+    recruiting_timeline: str = ""
+    international_realistic: bool = True
+    entry_paths: list[str] = []
+    salary_range_2024: str = ""
+    typical_background: str = ""
+    counselor_contact: str | None = None
+    notes: str = ""
+
+
 class TrackVersionInfo(BaseModel):
     version: str
     published_at: str

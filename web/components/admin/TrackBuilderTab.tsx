@@ -1,8 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-
 interface DraftTrackDetail {
   slug: string
   track_name: string
@@ -21,6 +19,7 @@ interface DraftTrackDetail {
   notes: string
   source_refs: { type: string; label: string }[]
   last_updated: string | null
+  archived_at: string | null
 }
 
 interface TrackRegistryEntry {
@@ -30,10 +29,35 @@ interface TrackRegistryEntry {
   last_published: string | null
 }
 
+interface TrackReferenceDetail {
+  slug: string
+  label: string
+  status: string
+  last_published: string | null
+  track_name: string
+  match_description: string
+  match_keywords: string[]
+  ep_sponsorship: string
+  compass_score_typical: string
+  top_employers_smu: string[]
+  recruiting_timeline: string
+  international_realistic: boolean
+  entry_paths: string[]
+  salary_range_2024: string
+  typical_background: string
+  counselor_contact: string | null
+  notes: string
+}
+
 interface TrackVersionInfo {
   version: string
   published_at: string
   filename: string
+}
+
+interface TrackBuilderTabProps {
+  selectedSlug?: string | null
+  onSelectedSlugChange?: (slug: string | null) => void
 }
 
 const EMPTY_DRAFT: DraftTrackDetail = {
@@ -54,6 +78,7 @@ const EMPTY_DRAFT: DraftTrackDetail = {
   notes: "",
   source_refs: [],
   last_updated: null,
+  archived_at: null,
 }
 
 function parseMultiLine(value: string) {
@@ -70,15 +95,22 @@ function parseCommaList(value: string) {
     .filter(Boolean)
 }
 
-export default function TrackBuilderTab() {
+export default function TrackBuilderTab({
+  selectedSlug: selectedSlugProp,
+  onSelectedSlugChange,
+}: TrackBuilderTabProps = {}) {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
   const [drafts, setDrafts] = useState<DraftTrackDetail[]>([])
   const [tracks, setTracks] = useState<TrackRegistryEntry[]>([])
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null)
+  const [internalSelectedSlug, setInternalSelectedSlug] = useState<string | null>(null)
   const [form, setForm] = useState<DraftTrackDetail>(EMPTY_DRAFT)
   const [sourceMode, setSourceMode] = useState<"note" | "file">("note")
   const [sourceText, setSourceText] = useState("")
   const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [history, setHistory] = useState<TrackVersionInfo[]>([])
+  const [publishedDetail, setPublishedDetail] = useState<TrackReferenceDetail | null>(null)
+  const [publishedLoading, setPublishedLoading] = useState(false)
+  const [publishedError, setPublishedError] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
@@ -86,6 +118,17 @@ export default function TrackBuilderTab() {
   const [rollingBack, setRollingBack] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+  const isControlled = selectedSlugProp !== undefined
+  const selectedSlug = isControlled ? selectedSlugProp : internalSelectedSlug
+
+  function setSelectedSlug(next: string | null) {
+    if (!isControlled) {
+      setInternalSelectedSlug(next)
+    }
+    if (next !== selectedSlugProp) {
+      onSelectedSlugChange?.(next)
+    }
+  }
 
   async function loadAll(preferredSlug?: string | null) {
     setLoading(true)
@@ -102,7 +145,10 @@ export default function TrackBuilderTab() {
       ])
       setDrafts(draftData)
       setTracks(trackData)
-      const nextSlug = preferredSlug ?? selectedSlug ?? draftData[0]?.slug ?? null
+      const nextSlug =
+        preferredSlug === undefined
+          ? selectedSlug ?? draftData[0]?.slug ?? null
+          : preferredSlug
       setSelectedSlug(nextSlug)
       const selected = draftData.find((item) => item.slug === nextSlug)
       setForm(selected ?? EMPTY_DRAFT)
@@ -114,8 +160,41 @@ export default function TrackBuilderTab() {
   }
 
   useEffect(() => {
-    loadAll()
-  }, [])
+    void loadAll(isControlled ? selectedSlugProp : undefined)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isControlled, selectedSlugProp])
+
+  useEffect(() => {
+    if (!selectedSlug) {
+      setPublishedDetail(null)
+      setPublishedError("")
+      return
+    }
+    if (!tracks.some((track) => track.slug === selectedSlug)) {
+      setPublishedDetail(null)
+      return
+    }
+    let cancelled = false
+    setPublishedLoading(true)
+    setPublishedError("")
+    fetch(`${API_URL}/api/kb/tracks/${selectedSlug}`)
+      .then((r) => {
+        if (!r.ok) throw new Error("published track fetch failed")
+        return r.json()
+      })
+      .then((data: TrackReferenceDetail) => {
+        if (!cancelled) setPublishedDetail(data)
+      })
+      .catch(() => {
+        if (!cancelled) setPublishedError("We could not load the published reference summary.")
+      })
+      .finally(() => {
+        if (!cancelled) setPublishedLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedSlug, tracks])
 
   useEffect(() => {
     if (!selectedSlug || !tracks.some((track) => track.slug === selectedSlug)) {
@@ -267,13 +346,14 @@ export default function TrackBuilderTab() {
     setForm(EMPTY_DRAFT)
     setSourceText("")
     setSourceFile(null)
+    setHistory([])
+    setPublishedDetail(null)
+    setPublishedError("")
     setError("")
     setNotice("")
   }
 
-  const selectedPublishedTrack = selectedSlug
-    ? tracks.find((track) => track.slug === selectedSlug) ?? null
-    : null
+  const selectedPublishedTrack = publishedDetail
 
   return (
     <div>
@@ -333,15 +413,28 @@ export default function TrackBuilderTab() {
           )}
 
           <h3 className="text-sm font-semibold text-gray-700 mb-2">Published Tracks</h3>
-          <div className="space-y-2">
-            {tracks.map((track) => (
-              <div key={track.slug} className="rounded-lg border border-gray-200 px-3 py-2">
-                <p className="text-sm font-medium text-gray-800">{track.label}</p>
-                <p className="text-xs text-gray-500">{track.slug}</p>
-              </div>
-            ))}
+            <div className="space-y-2">
+              {tracks.map((track) => (
+                <button
+                  key={track.slug}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSlug(track.slug)
+                    setError("")
+                    setNotice("")
+                  }}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                    selectedSlug === track.slug
+                      ? "border-blue-500 bg-blue-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-gray-800">{track.label}</p>
+                  <p className="text-xs text-gray-500">{track.slug}</p>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
         <div className="rounded-xl border border-gray-200 p-5">
           <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
@@ -572,13 +665,18 @@ export default function TrackBuilderTab() {
                 </button>
               </div>
             </div>
-          {selectedPublishedTrack && (
+          {selectedSlug && (
             <div className="mt-5 rounded-xl border border-gray-200 p-4">
+              {(form.status === "published" || form.archived_at) && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  This is the archived working copy for a published track. The live student-facing version is shown below for reference.
+                </div>
+              )}
               <div className="flex items-start justify-between gap-4 mb-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-gray-800">Published track history</h3>
+                  <h3 className="text-sm font-semibold text-gray-800">Published reference summary</h3>
                   <p className="text-xs text-gray-500 mt-1">
-                    Last published version: {selectedPublishedTrack.last_published || "Unknown"}
+                    Last published version: {selectedPublishedTrack?.last_published || "Unknown"}
                   </p>
                 </div>
                 <button
@@ -589,18 +687,44 @@ export default function TrackBuilderTab() {
                   {rollingBack ? "Rolling back…" : "Rollback published track"}
                 </button>
               </div>
-              {history.length === 0 ? (
-                <p className="text-sm text-gray-400">No published versions recorded yet.</p>
-              ) : (
-                <div className="space-y-2">
-                  {history.map((item) => (
+              {publishedLoading && <p className="text-sm text-gray-400">Loading published reference…</p>}
+              {publishedError && <p className="text-sm text-red-600">{publishedError}</p>}
+              {selectedPublishedTrack && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <p className="text-sm font-medium text-gray-800">{selectedPublishedTrack.track_name}</p>
+                  <p className="mt-1 text-sm text-gray-600">{selectedPublishedTrack.match_description}</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Key paths</p>
+                      <p className="mt-1 text-sm text-gray-700">{selectedPublishedTrack.entry_paths.join(", ") || "n/a"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Typical employers</p>
+                      <p className="mt-1 text-sm text-gray-700">{selectedPublishedTrack.top_employers_smu.join(", ") || "n/a"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Salary range</p>
+                      <p className="mt-1 text-sm text-gray-700">{selectedPublishedTrack.salary_range_2024 || "n/a"}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">Timeline</p>
+                      <p className="mt-1 text-sm text-gray-700">{selectedPublishedTrack.recruiting_timeline || "n/a"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2">
+                {history.length === 0 ? (
+                  <p className="text-sm text-gray-400">No published versions recorded yet.</p>
+                ) : (
+                  history.map((item) => (
                     <div key={item.version} className="rounded-lg border border-gray-200 px-3 py-2">
                       <p className="text-sm font-medium text-gray-800">{item.version}</p>
                       <p className="text-xs text-gray-500">{item.filename}</p>
                     </div>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           )}
         </div>

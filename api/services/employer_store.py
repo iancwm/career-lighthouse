@@ -40,6 +40,20 @@ ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset([
 ])
 
 
+def _as_list(value) -> list:
+    """Normalize legacy scalar/list YAML fields into a list."""
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    if isinstance(value, str):
+        value = value.strip()
+        return [value] if value else []
+    return [value]
+
+
 def _default_employers_dir() -> Path:
     """Resolve the default employers dir across local repo and Docker layouts."""
     candidates = [
@@ -181,6 +195,8 @@ class EmployerEntityStore:
                         "Employer %s: missing employer_name — skipping", yaml_path.name
                     )
                     continue
+                employer["tracks"] = _as_list(employer.get("tracks"))
+                employer["intake_seasons"] = _as_list(employer.get("intake_seasons"))
                 employer["slug"] = slug
                 employer["completeness"] = _compute_completeness(employer)
                 self._employers[slug] = employer
@@ -237,7 +253,7 @@ class EmployerEntityStore:
 
         if active_career_type:
             for employer in employers:
-                if active_career_type in (employer.get("tracks") or []):
+                if active_career_type in _as_list(employer.get("tracks")):
                     selected.append(employer)
                     seen_slugs.add(employer.get("slug", ""))
 

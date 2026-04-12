@@ -9,6 +9,7 @@ beforeEach(() => {
 
 function makeFetchMock(...responses: object[]) {
   let mock = vi.fn()
+  mock = mock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
   for (const resp of responses) {
     mock = mock.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(resp) } as Response)
   }
@@ -17,7 +18,9 @@ function makeFetchMock(...responses: object[]) {
 }
 
 function makeFetchErrorMock(status = 500) {
-  const mock = vi.fn().mockResolvedValueOnce({ ok: false, status } as Response)
+  const mock = vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
+    .mockResolvedValueOnce({ ok: false, status } as Response)
   global.fetch = mock
   return mock
 }
@@ -36,9 +39,9 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.change(screen.getByPlaceholderText(/ask about/i), { target: { value: "What should I do?" } })
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
 
-    const body = JSON.parse(fetchMock.mock.calls[0][1].body)
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body)
     expect(body.intake_context).toEqual({ background: "masters", region: "south_asia", interest: "consulting" })
     expect(body.active_career_type).toBeUndefined()
   })
@@ -64,7 +67,7 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
     await waitFor(() => screen.getByText("Second answer"))
 
-    const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body)
+    const secondCallBody = JSON.parse(fetchMock.mock.calls[2][1].body)
     expect(secondCallBody.active_career_type).toBe("consulting")
   })
 
@@ -89,12 +92,21 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
     await waitFor(() => screen.getByText("Second answer"))
 
-    const secondCallBody = JSON.parse(fetchMock.mock.calls[1][1].body)
+    const secondCallBody = JSON.parse(fetchMock.mock.calls[2][1].body)
     expect(secondCallBody.intake_context).toBeUndefined()
   })
 
   it("shows profile badge when active_career_type is set", async () => {
-    makeFetchMock({ response: "Advice", citations: [], active_career_type: "investment_banking" })
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([{ slug: "investment_banking", label: "Investment Banking" }]),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ response: "Advice", citations: [], active_career_type: "investment_banking" }),
+      } as Response)
+    global.fetch = fetchMock
 
     render(
       <ChatInterface
@@ -119,7 +131,7 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.change(screen.getByPlaceholderText(/ask about/i), { target: { value: "Hello" } })
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
 
-    await waitFor(() => screen.getByText("Advice"))
+    await waitFor(() => screen.getByText(/Advice/i))
     expect(screen.queryByText("Advising on:")).not.toBeInTheDocument()
   })
 
@@ -139,6 +151,7 @@ describe("ChatInterface — Sprint 2 career type state", () => {
   it("re-sends intake_context on retry after a fetch failure", async () => {
     // First call fails; second call succeeds. intake_context must appear in BOTH.
     const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
       .mockResolvedValueOnce({ ok: false, status: 500 } as Response)
       .mockResolvedValueOnce({
         ok: true,
@@ -163,7 +176,25 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
     await waitFor(() => screen.getByText("Retry success"))
 
-    const retryBody = JSON.parse(fetchMock.mock.calls[1][1].body)
+    const retryBody = JSON.parse(fetchMock.mock.calls[2][1].body)
     expect(retryBody.intake_context).toEqual({ background: null, region: null, interest: "consulting" })
+  })
+
+  it("renders markdown assistant responses with safe links", async () => {
+    makeFetchMock({
+      response: "## Title\n\n- one\n- two\n\n[Docs](https://example.com)",
+      citations: [],
+      active_career_type: null,
+    })
+
+    render(<ChatInterface resumeText="" />)
+
+    fireEvent.change(screen.getByPlaceholderText(/ask about/i), { target: { value: "Hello" } })
+    fireEvent.click(screen.getByRole("button", { name: /send/i }))
+
+    await waitFor(() => screen.getByRole("heading", { name: "Title", level: 2 }))
+    const link = screen.getByRole("link", { name: "Docs" })
+    expect(link).toHaveAttribute("href", "https://example.com")
+    expect(link).toHaveAttribute("target", "_blank")
   })
 })

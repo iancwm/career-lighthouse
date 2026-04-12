@@ -349,6 +349,40 @@ class TestTrackBuilderEndpoints:
         }]
         assert paths["registry_path"].exists()
 
+    def test_get_track_reference_returns_published_detail(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        configure_track_paths(monkeypatch, tmp_path)
+        with open(tmp_path / "career_profiles" / "data_science.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump({
+                "career_type": "Data Science",
+                "match_description": "Students interested in analytics, Python, and experimentation.",
+                "match_keywords": ["data science", "analytics"],
+                "ep_sponsorship": "Common in larger firms.",
+                "compass_score_typical": "45-60",
+                "top_employers_smu": ["Grab", "DBS"],
+                "recruiting_timeline": "Internships open in September.",
+                "international_realistic": True,
+                "entry_paths": ["Internship to return offer"],
+                "salary_range_2024": "S$70K-S$110K",
+                "typical_background": "Stats, CS, IS.",
+                "counselor_contact": "Henry",
+                "notes": "Published reference notes.",
+            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+        client.get("/api/kb/tracks")
+
+        r = client.get("/api/kb/tracks/data_science")
+
+        assert r.status_code == 200
+        data = r.json()
+        assert data["slug"] == "data_science"
+        assert data["label"] == "Data Science"
+        assert data["status"] == "active"
+        assert data["last_published"] is None
+        assert data["match_description"] == "Students interested in analytics, Python, and experimentation."
+        assert data["top_employers_smu"] == ["Grab", "DBS"]
+        assert data["entry_paths"] == ["Internship to return offer"]
+
     def test_create_draft_track_persists_yaml(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
@@ -600,6 +634,22 @@ class TestListEmployersEndpoint:
         assert len(data) == 1
         assert data[0]["slug"] == "goldman_sachs"
         assert data[0]["employer_name"] == "Goldman Sachs"
+
+    def test_normalizes_scalar_tracks_in_employer_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        (d / "drw.yaml").write_text(textwrap.dedent("""\
+            employer_name: DRW
+            slug: drw
+            tracks: quant_finance
+            ep_requirement: EP3
+            intake_seasons: Q4 2026
+        """), encoding="utf-8")
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.get("/api/kb/employers")
+        assert r.status_code == 200
+        data = {item["slug"]: item for item in r.json()}
+        assert data["drw"]["tracks"] == ["quant_finance"]
+        assert data["drw"]["intake_seasons"] == ["Q4 2026"]
 
     def test_empty_dir_returns_empty_list(self, in_memory_qdrant, mock_embedder, tmp_path):
         empty = tmp_path / "emp"

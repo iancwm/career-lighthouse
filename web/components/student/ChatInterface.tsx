@@ -2,6 +2,7 @@
 import { useState, useRef, useEffect } from "react"
 import CitationBadge from "./CitationBadge"
 import type { IntakeContext } from "./IntakeFlow"
+import MarkdownMessage from "./MarkdownMessage"
 
 interface Message {
   role: "user" | "assistant"
@@ -134,7 +135,13 @@ export default function ChatInterface({ resumeText, intakeContext }: Props) {
                 m.role === "user" ? "bg-blue-600 text-white" : "bg-white border"
               } rounded-2xl px-4 py-3`}
             >
-              <p className="text-sm whitespace-pre-wrap">{m.content}</p>
+              {m.role === "assistant" ? (
+                <div className="text-sm leading-6">
+                  <MarkdownMessage content={m.content} />
+                </div>
+              ) : (
+                <p className="text-sm whitespace-pre-wrap">{m.content}</p>
+              )}
               {m.citations && m.citations.length > 0 && (
                 <div className="mt-2 pt-2 border-t border-gray-100 flex flex-wrap gap-1">
                   {m.citations.map((c, j) => (

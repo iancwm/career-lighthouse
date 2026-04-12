@@ -109,6 +109,23 @@ class TestListEmployers:
         goldman = next(e for e in store.list_employers() if e["slug"] == "goldman_sachs")
         assert goldman["completeness"] == "green"
 
+    def test_normalizes_scalar_tracks_and_intake_seasons(self, employers_dir, monkeypatch):
+        (employers_dir / "drw.yaml").write_text(textwrap.dedent("""\
+            employer_name: DRW
+            slug: drw
+            tracks: quant_finance
+            ep_requirement: EP3
+            intake_seasons: Q4 2026
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        drw = store.get_employer("drw")
+        assert drw is not None
+        assert drw["tracks"] == ["quant_finance"]
+        assert drw["intake_seasons"] == ["Q4 2026"]
+        assert "DRW" in store.to_context_block("quant_finance")
+
     def test_completeness_amber_when_required_field_missing(self, employers_dir, monkeypatch):
         # mckinsey.yaml has no intake_seasons... wait, it does. Rewrite without ep_requirement.
         (employers_dir / "partial.yaml").write_text(textwrap.dedent("""\

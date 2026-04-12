@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --cl-bg: #f6f1e8;
+    --cl-surface: #fffdfc;
+    --cl-surface-2: #f0e7db;
+    --cl-line: #d8d0c4;
+    --cl-ink: #1f2937;
+    --cl-muted: #5f6b76;
+    --cl-accent: #0f766e;
+    --cl-accent-strong: #115e59;
+    --cl-secondary: #b45309;
+    --cl-success: #2f6b4f;
+    --cl-warning: #a16207;
+    --cl-error: #b42318;
+  }
+
+  html {
+    background: var(--cl-bg);
+  }
+
+  body {
+    color: var(--cl-ink);
+    font-family: "Instrument Sans", sans-serif;
+    background:
+      radial-gradient(circle at top right, rgba(15, 118, 110, 0.08), transparent 26%),
+      radial-gradient(circle at bottom left, rgba(180, 83, 9, 0.10), transparent 24%),
+      var(--cl-bg);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: "Fraunces", serif;
+  }
+
+  .font-mono-display {
+    font-family: "IBM Plex Mono", monospace;
+  }
+}

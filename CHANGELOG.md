@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **Sessions-first admin workspace**: `/admin` now routes through a URL-driven shell with sessions, Track Builder, Knowledge Update, and employer facts as explicit surfaces instead of a single stateful tab container.
+- **Safe student markdown rendering**: assistant replies now render through a dedicated markdown component with a safe subset of formatting and links that open in a new tab.
+- **Track Builder published reference view**: published tracks now have a dedicated reference detail contract, plus an archived working-copy banner in the editor.
+
+### Fixed
+- **Employer YAML normalization**: scalar `tracks` and `intake_seasons` values are now normalized into lists so legacy employer records do not crash the employers endpoint.
+- **Admin back navigation**: route changes now use push navigation so browser back returns cleanly to the inbox instead of falling through history.
+
 ## [0.1.4.0] - 2026-04-05
 
 ### Added

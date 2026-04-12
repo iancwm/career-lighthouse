@@ -41,6 +41,7 @@ from models import (
     ProfileFieldChange,
     TestQueryResult,
     TrackPublishResponse,
+    TrackReferenceDetail,
     TrackRegistryEntry,
     TrackVersionInfo,
     SourceRef,
@@ -51,6 +52,7 @@ from services.employer_store import (
     EmployerEntityStore,
     ALLOWED_EMPLOYER_FIELDS,
     _default_employers_dir,
+    _as_list,
     get_employer_store,
 )
 from services.embedder import Embedder
@@ -367,6 +369,51 @@ def list_tracks(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@router.get("/tracks/{slug}", response_model=TrackReferenceDetail)
+def get_track_reference(
+    slug: str,
+    draft_store: TrackDraftStore = Depends(get_track_draft_store),
+):
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+
+    registry = {item.slug: item for item in draft_store.list_registry()}
+    entry = registry.get(slug)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Track '{slug}' not found.")
+
+    path = _profiles_dir() / f"{slug}.yaml"
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Published track '{slug}' not found.")
+
+    try:
+        with open(path, encoding="utf-8") as f:
+            payload = yaml.safe_load(f) or {}
+    except Exception as exc:
+        logger.error("get_track_reference: failed to read %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to read published track YAML.")
+
+    return TrackReferenceDetail(
+        slug=slug,
+        label=entry.label,
+        status=entry.status,
+        last_published=entry.last_published,
+        track_name=str(payload.get("career_type") or entry.label or slug).strip(),
+        match_description=str(payload.get("match_description") or "").strip(),
+        match_keywords=list(payload.get("match_keywords") or []),
+        ep_sponsorship=str(payload.get("ep_sponsorship") or "").strip(),
+        compass_score_typical=str(payload.get("compass_score_typical") or "").strip(),
+        top_employers_smu=list(payload.get("top_employers_smu") or []),
+        recruiting_timeline=str(payload.get("recruiting_timeline") or "").strip(),
+        international_realistic=bool(payload.get("international_realistic", True)),
+        entry_paths=list(payload.get("entry_paths") or []),
+        salary_range_2024=str(payload.get("salary_range_2024") or "").strip(),
+        typical_background=str(payload.get("typical_background") or "").strip(),
+        counselor_contact=payload.get("counselor_contact"),
+        notes=str(payload.get("notes") or "").strip(),
+    )
+
+
 @router.get("/tracks/{slug}/history", response_model=list[TrackVersionInfo])
 def list_track_history(
     slug: str,
@@ -606,9 +653,9 @@ def list_employers(
         result.append(EmployerDetail(
             slug=emp.get("slug", ""),
             employer_name=emp.get("employer_name", ""),
-            tracks=emp.get("tracks") or [],
+            tracks=_as_list(emp.get("tracks")),
             ep_requirement=emp.get("ep_requirement"),
-            intake_seasons=emp.get("intake_seasons") or [],
+            intake_seasons=_as_list(emp.get("intake_seasons")),
             singapore_headcount_estimate=emp.get("singapore_headcount_estimate"),
             application_process=emp.get("application_process"),
             counsellor_contact=emp.get("counsellor_contact"),
@@ -637,9 +684,9 @@ def get_employer(
     return EmployerDetail(
         slug=emp.get("slug", slug),
         employer_name=emp.get("employer_name", ""),
-        tracks=emp.get("tracks") or [],
+        tracks=_as_list(emp.get("tracks")),
         ep_requirement=emp.get("ep_requirement"),
-        intake_seasons=emp.get("intake_seasons") or [],
+        intake_seasons=_as_list(emp.get("intake_seasons")),
         singapore_headcount_estimate=emp.get("singapore_headcount_estimate"),
         application_process=emp.get("application_process"),
         counsellor_contact=emp.get("counsellor_contact"),
