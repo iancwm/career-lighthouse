@@ -1,10 +1,30 @@
 # api/dependencies.py
 from functools import lru_cache
+from fastapi import Header, HTTPException, status
 from qdrant_client import QdrantClient
 from services.embedder import Embedder
 from services.vector_store import VectorStore
 from config import settings
 from cfg import kb_cfg, model_cfg
+
+
+async def require_admin_key(x_admin_key: str = Header(default="")) -> None:
+    """FastAPI dependency that enforces admin key auth on sensitive endpoints.
+
+    The key is set via the ADMIN_KEY env var. If ADMIN_KEY is empty (development
+    mode), the check is bypassed. Always set ADMIN_KEY in production deployments.
+
+    Usage:
+        router = APIRouter(dependencies=[Depends(require_admin_key)])
+    """
+    if not settings.admin_key:
+        return  # Development mode — no key configured, allow all
+    if x_admin_key != settings.admin_key:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing X-Admin-Key header",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
 
 
 @lru_cache

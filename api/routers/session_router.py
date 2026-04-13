@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
+from dependencies import require_admin_key
 from models import (
     AlreadyCovered,
     CardCommitRequest,
@@ -17,7 +18,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/sessions")
+router = APIRouter(prefix="/api/sessions", dependencies=[Depends(require_admin_key)])
 
 # Imported from sibling modules
 from config import settings

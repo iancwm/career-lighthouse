@@ -26,7 +26,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from starlette.requests import Request
 from pydantic import BaseModel
 
-from dependencies import get_embedder, get_vector_store
+from dependencies import get_embedder, get_vector_store, require_admin_key
 from models import (
     AlreadyCovered,
     DocCoverageItem,
@@ -65,7 +65,7 @@ from cfg import kb_cfg
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields
 from services.track_drafts import TrackDraftStore, get_track_draft_store, read_publish_journal
 
-router = APIRouter(prefix="/api/kb")
+router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
 logger = logging.getLogger(__name__)
 
 _thresholds = kb_cfg["thresholds"]

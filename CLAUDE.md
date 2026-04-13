@@ -1,4 +1,8 @@
 
+## Environment settings
+
+CLAUDE_ENABLE_STREAM_WATCHDOG=false
+
 ## Skill routing
 
 When the user's request matches an available skill, ALWAYS invoke it using the Skill
