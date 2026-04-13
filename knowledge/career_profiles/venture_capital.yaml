@@ -1,19 +1,33 @@
 career_type: Venture Capital
-match_description: For students interested in venture capital, startup investing,
-  and fund management. Roles span deal sourcing, due diligence, portfolio company
-  support, and LP relations. Suits candidates with finance, MBA, or technology backgrounds
-  and an entrepreneurial mindset.
+match_description: Venture Capital involves sourcing, evaluating, and managing equity
+  investments in high-growth startups. SEA VC professionals navigate regional visa
+  complexity, multi-country deal flow, and long-horizon carry-based compensation.
+  MBA is increasingly table-stakes for Associate+ roles. Thesis specialization (climate
+  tech, fintech, SaaS) is valued at senior levels. Long-term wealth is driven by carried
+  interest over 10-year fund cycles, not base salary.
 match_keywords:
 - venture capital
 - VC
 - startup investing
-- blockchain
-- fintech
-- fund management
-- portfolio management
 - deal sourcing
-- due diligence
-- AUM
+- portfolio management
+- climate tech
+- fintech
+- APAC investing
+- carry
+- fund management
+- LP relations
+- board observer
+- Series A
+- Series B
+- Series C
+- fund of funds
+- investment thesis
+- SEA VC
+- Southeast Asia
+- impact investing
+- early stage
+- growth equity
 match_cosine: false
 structured:
   sponsorship_tier: ''
@@ -21,27 +35,61 @@ structured:
   salary_min_sgd: 0
   salary_max_sgd: 0
   ep_realistic: true
-ep_sponsorship: Not confirmed across sector; Golden Equator Capital EP status not
-  specified.
+ep_sponsorship: EP sponsorship available at most mid-tier Singapore VC firms for Analyst/Associate
+  roles. EP is employer-dependent (2-year validity); job change triggers visa loss
+  with brief grace period. Tech.Pass (self-sponsored, 5-year) available once salary
+  exceeds SGD 30K/month — typically at Senior Associate or VP level. Partnership-track
+  roles at regulated VC firms may require Singapore PR or citizenship (regulatory
+  requirement for foreign partnerships). International candidates should research
+  partnership requirements on day 1 and plan PR application by years 3–4 of residency.
 compass_score_typical: Not specifically benchmarked. Fund experience and sector expertise
   valued more than formal scores.
 top_employers_smu:
-- golden_equator_capital
-recruiting_timeline: Year-round hiring; no fixed intake seasons. VC firms hire on
-  deal flow and fund cycle rather than academic calendar.
+- Golden Gate Ventures (GGV)
+- Insignia Ventures
+- Jungle Ventures
+recruiting_timeline: Rolling recruitment; no fixed intake season at most SEA VC firms.
+  Mid-tier firms (GGV, Insignia, Jungle Ventures) hire 2–4 Analysts/Associates annually.
+  MBA candidates well-positioned for Associate roles immediately post-graduation.
+  Senior roles (VP+) filled opportunistically. Fund fundraising cycles (typically
+  every 3–5 years) drive hiring surges — GGV Fund VI (2025–2026) expected to trigger
+  Associate/VP hiring.
 international_realistic: true
 entry_paths:
-- Analyst (direct hire)
-- Associate (post-MBA)
-- VP (experienced hire)
-salary_range_2024: 'Analyst: ~SGD 100K/year. VP and Partner compensation significantly
-  higher, includes carried interest.'
-typical_background: Finance, MBA, or technology backgrounds common. Sector expertise
-  (e.g. blockchain, fintech, deep tech) valued for deal sourcing and due diligence
-  roles.
-counselor_contact: null
-notes: Emerging track in Singapore VC ecosystem. Golden Equator Capital (USD 100M
-  AUM) is a known employer with an MBA alumnus contact (Helen Goh, Partner). Blockchain
-  and fintech-focused VC is an active sub-sector.
+- Pre-MBA Analyst (2–3 years deal sourcing) → MBA (SMU/NUS well-regarded for SEA VC)
+  → Associate (faster path, +60% comp jump, carry unlocked)
+- Pure analyst progression without MBA (slower path to Associate+; carry delayed)
+- Operator/founder experience (2–3 years at startup as founder or early employee)
+  → VC Associate or Senior Associate (accelerates Partner track by 2–3 years; provides
+  deal judgment credibility)
+- Consultant or investment banker → VC Associate (40% of hires at mid-tier firms)
+- Ex-founder → VC (60% of hires at mid-tier firms; most valued background)
+salary_range_2024: 'Singapore VC market (2024): Analyst SGD 75,000–100,000 base +
+  0% carry. Associate SGD 120,000–150,000 base + 0.5% carry. Senior Associate SGD
+  160,000–190,000 base + 0.75% carry. VP SGD 200,000+ base + 1.5%+ carry. Carry is
+  the primary long-term wealth driver over a 10-year fund life. VP-level carry on
+  a mid-tier fund (e.g., USD 400M) estimated at SGD 300K+/year on deployment; 3x fund
+  return scenario yields SGD 5–6M over fund life. Partner-track carry (2–3%) potential
+  SGD 10M+. MBA inflects compensation +60% at Analyst-to-Associate transition and
+  unlocks carry eligibility. Source: Isabella Chen (VP, GGV), March 2025.'
+typical_background: 60% ex-founders or early startup operators; 40% consultants or
+  investment bankers. MBA increasingly table-stakes for Associate+ roles. Thesis specialization
+  (climate tech, fintech, SaaS) valued for senior roles. Generalist path offers broader
+  deal flow; specialist path offers defensible positioning.
+counselor_contact: 'ACTION: Mr. Vikram Nair to invite Isabella Chen (VP Investments,
+  GGV) to speak at MBA orientation, April 2025. Topic: VC careers + international
+  navigation in Singapore. Isabella confirmed interest in mentoring and speaking.
+  Suggested content: visa journey (EP → Tech.Pass → PR), VC compensation and carry
+  structures, SEA VC landscape, MBA value in VC, climate tech investing thesis. Coordinate
+  scheduling via Mr. Vikram Nair.'
+notes: 'COUNSELOR ACTION REQUIRED (Mr. Vikram Nair, March 2025): Create international
+  career guide for MBA students. Content to include: (1) Singapore visa pathway for
+  international professionals (EP → Tech.Pass → PR → Citizenship); (2) VC specialization
+  paths (climate tech, fintech, SaaS vs. generalist); (3) Asia VC landscape overview
+  (SEA mid-tier firms, compensation benchmarks, carry structures); (4) MBA as inflection
+  point for VC compensation and carry eligibility; (5) Multi-country work considerations
+  (India, Vietnam visa complexity). Isabella Chen (GGV) has offered to contribute
+  insights. Target audience: international MBA candidates considering VC or Singapore-based
+  careers.'
 salary_levels: []
 visa_pathway_notes: ''

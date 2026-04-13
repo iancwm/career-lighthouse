@@ -80,7 +80,7 @@ def test_empty_result_on_total_failure(mock_client):
 
     result = generate_session_intents(raw_input, existing_tracks=[], existing_employers=[])
 
-    assert result == {"cards": [], "already_covered": []}
+    assert result == {"cards": [], "already_covered": [], "thought": ""}
 
 
 @patch("services.llm.get_client")
@@ -110,4 +110,4 @@ def test_missing_cards_key_returns_empty(mock_client):
 
     result = generate_session_intents("test", existing_tracks=[], existing_employers=[])
 
-    assert result == {"cards": [], "already_covered": []}
+    assert result == {"cards": [], "already_covered": [], "thought": ""}

@@ -40,9 +40,11 @@ def app(mock_session_store):
     # Patch SessionStore before loading the module
     mock_embedder = MagicMock()
     mock_embedder.encode.return_value = np.ones(384, dtype=np.float32)
+    mock_vector_store = MagicMock()
 
     fake_dependencies = types.ModuleType("dependencies")
     fake_dependencies.get_embedder = lambda: mock_embedder
+    fake_dependencies.get_vector_store = lambda: mock_vector_store
 
     with patch("services.session_store.SessionStore") as MockStore, patch(
         "services.career_profiles.CareerProfileStore._load_profiles",
@@ -54,7 +56,10 @@ def app(mock_session_store):
         import importlib.util
         original_dependencies = sys.modules.get("dependencies")
         sys.modules["dependencies"] = fake_dependencies
-        spec = importlib.util.spec_from_file_location("session_router", "routers/session_router.py")
+        import os
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        router_path = os.path.join(base_dir, "routers/session_router.py")
+        spec = importlib.util.spec_from_file_location("session_router", router_path)
         module = importlib.util.module_from_spec(spec)
         sys.modules["session_router"] = module
         spec.loader.exec_module(module)
@@ -200,7 +205,10 @@ class TestSessionRouterExported:
     def test_session_router_module_exists(self):
         """Direct import of session_router module works."""
         import importlib.util
-        spec = importlib.util.spec_from_file_location("session_router", "routers/session_router.py")
+        import os
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        router_path = os.path.join(base_dir, "routers/session_router.py")
+        spec = importlib.util.spec_from_file_location("session_router", router_path)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         assert module.router is not None
@@ -208,7 +216,9 @@ class TestSessionRouterExported:
 
     def test_session_router_in_all_source(self):
         """__init__.py source code includes session_router in __all__."""
-        init_path = "routers/__init__.py"
+        import os
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        init_path = os.path.join(base_dir, "routers/__init__.py")
         with open(init_path) as f:
             content = f.read()
         assert "session_router" in content
@@ -227,8 +237,10 @@ def app_with_session_router():
     SessionStore._instance = None
     mock_embedder = MagicMock()
     mock_embedder.encode.return_value = np.ones(384, dtype=np.float32)
+    mock_vector_store = MagicMock()
     fake_dependencies = types.ModuleType("dependencies")
     fake_dependencies.get_embedder = lambda: mock_embedder
+    fake_dependencies.get_vector_store = lambda: mock_vector_store
 
     with tempfile.TemporaryDirectory() as tmpdir, patch(
         "services.career_profiles.CareerProfileStore._load_profiles",
@@ -242,13 +254,15 @@ def app_with_session_router():
         # Import session_router directly by file path to avoid routers/__init__.py
         # which pulls in kb_router (has broken imports in this worktree)
         import importlib.util
+        import os
+        base_dir = os.path.dirname(os.path.dirname(__file__))
+        router_path = os.path.join(base_dir, "routers/session_router.py")
         spec = importlib.util.spec_from_file_location(
-            "session_router_test", "routers/session_router.py"
+            "session_router_test", router_path
         )
         session_router_mod = importlib.util.module_from_spec(spec)
         sys.modules["session_router_test"] = session_router_mod
         spec.loader.exec_module(session_router_mod)
-
         app = FastAPI()
         app.include_router(session_router_mod.router)
 

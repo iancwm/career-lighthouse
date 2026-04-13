@@ -159,12 +159,14 @@ class SessionAnalysisResponse(BaseModel):
     cards: list[IntentCard]
     already_covered: list[AlreadyCovered] = []
     track_guidance: TrackGuidance | None = None
+    thought: Optional[str] = None
 
 
 class MultiIntentAnalysisResult(BaseModel):
     session_id: str
     cards: list[IntentCard]
     already_covered: list[AlreadyCovered] = []
+    thought: Optional[str] = None
 
 
 class KBCommitRequest(BaseModel):
@@ -291,6 +293,7 @@ class KnowledgeSession(BaseModel):
     raw_input: str
     intent_cards: list[dict] = []
     track_guidance: TrackGuidance | None = None
+    thought: Optional[str] = None
     created_by: str = "counsellor"
     created_at: str
     updated_at: str

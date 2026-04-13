@@ -1,8 +1,11 @@
 # api/services/llm.py
 import json
 import logging
+import re
+import uuid
 
 from config import settings
+from services.ingestion import chunk_text
 
 logger = logging.getLogger(__name__)
 from cfg import model_cfg
@@ -294,6 +297,43 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
     return response.content[0].text
 
 
+def _merge_intents(results: list[dict]) -> dict:
+    """Merge and deduplicate intent extraction results from multiple chunks."""
+    merged_cards = []
+    merged_already_covered = []
+    thoughts = []
+
+    seen_card_keys = set()  # (domain, slug, summary_key)
+
+    for i, res in enumerate(results):
+        if res.get("thought"):
+            thoughts.append(f"--- Chunk {i+1} ---\n{res['thought']}")
+        
+        for card in res.get("cards", []):
+            # Create a semi-stable key for deduplication
+            domain = card.get("domain", "unknown")
+            slug = card.get("diff", {}).get("slug", "unknown")
+            # use normalized summary prefix for deduplication
+            summary = (card.get("summary") or "")[:30].lower().strip()
+            key = (domain, slug, summary)
+            
+            if key not in seen_card_keys:
+                seen_card_keys.add(key)
+                # Ensure card_id is unique across chunks
+                if i > 0:
+                    card["card_id"] = f"card-{uuid.uuid4().hex[:8]}"
+                merged_cards.append(card)
+        
+        for ac in res.get("already_covered", []):
+            merged_already_covered.append(ac)
+
+    return {
+        "cards": merged_cards,
+        "already_covered": merged_already_covered,
+        "thought": "\n\n".join(thoughts)
+    }
+
+
 def generate_session_intents(
     raw_input: str,
     existing_tracks: list[dict] | None = None,
@@ -301,12 +341,21 @@ def generate_session_intents(
 ) -> dict:
     """Extract distinct update intents from counsellor raw research notes.
 
-    Returns a dict with keys 'cards' (list of IntentCard-shaped dicts) and
-    'already_covered' (list of AlreadyCovered-shaped dicts).
-
-    Calls Claude with a structured prompt and retries once on malformed JSON.
-    On total failure, returns empty result without raising.
+    Supports multi-pass extraction for long documents (>30,000 characters).
+    Requires the LLM to provide a <thought> block before the JSON for observability.
     """
+    # 1. Check for multi-pass need
+    # 30,000 chars is ~8k-10k tokens, well within context but better handled in
+    # chunks for extraction density/reliability.
+    if len(raw_input) > 30000:
+        logger.info("generate_session_intents: Large document detected (%d chars). Using multi-pass.", len(raw_input))
+        chunks = chunk_text(raw_input, max_tokens=15000, overlap=2000)
+        results = []
+        for chunk in chunks:
+            res = generate_session_intents(chunk, existing_tracks, existing_employers)
+            results.append(res)
+        return _merge_intents(results)
+
     tracks_text = ""
     if existing_tracks:
         tracks_text = "\n".join(
@@ -326,6 +375,10 @@ def generate_session_intents(
         "You are a knowledge extraction assistant for a career advisory platform.\n"
         "Extract update intents from counsellor research notes about employers and career tracks.\n"
         "\n"
+        "OBSERVABILITY RULE: Before outputting the JSON, you MUST include a <thought> block.\n"
+        "In this block, briefly analyze the document section by section, identifying key\n"
+        "entities mentioned and the specific changes found. This helps ensure completeness.\n"
+        "\n"
         "CRITICAL RULES:\n"
         "1. If the memo is about a company or organization NOT in the existing employers list,\n"
         "   create employer cards for it. NEW employers are the most important cards.\n"
@@ -335,20 +388,21 @@ def generate_session_intents(
         "4. Compensation tables → always create a card (employer notes or track salary_range_2024).\n"
         "5. Follow-up actions → always create a card for each one.\n"
         "\n"
-        "Example: A memo about 'Golden Gate Ventures' (a VC firm not in existing employers)\n"
-        "and 'Venture Capital' (a track not in existing tracks) should produce cards like:\n"
-        "  - Card 1: domain=employer, slug=golden_gate_ventures, summary='Add GGV employer profile',\n"
-        "    diff={slug: 'golden_gate_ventures', employer_name: 'Golden Gate Ventures',\n"
-        "          tracks: ['venture_capital'], ep_requirement: 'Tech.Pass eligible',\n"
-        "          notes: 'Mid-tier VC, ~USD 1.5B AUM, 34 portfolio companies...'}\n"
-        "  - Card 2: domain=track, slug=venture_capital, summary='Create VC track',\n"
-        "    diff={slug: 'venture_capital', track_name: 'Venture Capital',\n"
-        "          salary_range_2024: 'Analyst SGD 75-100K, Associate SGD 120-150K...',\n"
-        "          notes: 'SEA VC landscape: 12-15 mid-tier firms, 250-300 Series A+ deals/year...'}\n"
+        "Example output format:\n"
+        "<thought>\n"
+        "The memo mentions GGV (new employer) and Stripe (existing). \n"
+        "It also discusses the Venture Capital track in detail...\n"
+        "</thought>\n"
+        "```json\n"
+        "{\n"
+        '  "cards": [...],\n'
+        '  "already_covered": [...]\n'
+        "}\n"
+        "```\n"
         "\n"
         "Each card targets EXACTLY ONE domain: 'employer' or 'track'.\n"
         "Prefer concrete field-level changes over vague summaries. Be specific.\n"
-        "Return ONLY valid JSON with this structure:\n"
+        "Return valid JSON with this structure:\n"
         '{\n'
         '  "cards": [\n'
         '    {\n'
@@ -366,14 +420,10 @@ def generate_session_intents(
         "Rules:\n"
         "- NEW employer mentioned → ALWAYS create an employer card with employer_name, notes, and relevant fields.\n"
         "- NEW career sector mentioned → ALWAYS create a track card with track_name, salary_range_2024, notes, and relevant fields.\n"
-        "- Compensation data in the memo → create a card with the comp breakdown in notes or salary_range_2024.\n"
-        "- Follow-up actions in the memo → create a card for each action.\n"
-        "- Visa/EP information for a specific employer → include in the employer card's notes or ep_requirement.\n"
-        "- diff MUST include 'slug' — a lowercase_with_underscores slug (e.g. 'golden_gate_ventures', 'venture_capital').\n"
+        "- diff MUST include 'slug' — a lowercase_with_underscores slug.\n"
         "- For 'employer' domain, diff fields: employer_name, tracks (list), ep_requirement, intake_seasons (list), application_process, headcount_estimate, counselor_contact, notes.\n"
         "- For 'track' domain, diff fields: track_name, match_description, match_keywords (list), ep_sponsorship, compass_score_typical, top_employers_smu (list), recruiting_timeline, international_realistic, entry_paths (list), salary_range_2024, typical_background, counselor_contact, notes.\n"
-        "- diff should contain only the fields that need updating — not the entire entity.\n"
-        "- raw_input_ref should be a short excerpt (1-2 sentences) from the original note.\n"
+        "- raw_input_ref should be a short excerpt from the original note.\n"
         "- NEVER return empty cards for a structured memo with tables, numbers, or specific company names.\n"
     )
 
@@ -384,55 +434,67 @@ def generate_session_intents(
         "Extract intents as JSON. Remember: if the memo is about companies or sectors NOT listed above, create cards for them."
     )
 
+    def parse_response(text: str) -> dict:
+        thought = ""
+        thought_match = re.search(r"<thought>(.*?)</thought>", text, re.DOTALL)
+        if thought_match:
+            thought = thought_match.group(1).strip()
+        
+        json_text = text
+        if "```json" in text:
+            json_text = text.split("```json")[1].split("```")[0].strip()
+        elif "```" in text:
+            # Fallback for generic code blocks
+            parts = text.split("```")
+            if len(parts) >= 3:
+                json_text = parts[1].strip()
+                if json_text.startswith("json"):
+                    json_text = json_text[4:].strip()
+        else:
+            # Try to find the first { and last }
+            start = text.find("{")
+            end = text.rfind("}")
+            if start != -1 and end != -1:
+                json_text = text[start:end+1]
+
+        try:
+            parsed = json.loads(json_text)
+            if "cards" not in parsed:
+                parsed["cards"] = []
+            if "already_covered" not in parsed:
+                parsed["already_covered"] = []
+            parsed["thought"] = thought
+            return parsed
+        except json.JSONDecodeError:
+            return {"cards": [], "already_covered": [], "thought": thought}
+
     try:
         client = get_client()
         model = _llm["model"]
 
         response = client.messages.create(
             model=model,
-            max_tokens=4096,
+            max_tokens=8192, # Increased for long extraction
             temperature=0,
             system=system_prompt,
             messages=[{"role": "user", "content": context}],
         )
 
         text = response.content[0].text.strip()
-
-        # Strip markdown code fences if Claude wraps the JSON
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1]
-            if "```" in text:
-                text = text.rsplit("```", 1)[0]
-        text = text.strip()
-
-        try:
-            parsed = json.loads(text)
-            if "cards" not in parsed:
-                parsed = {"cards": [], "already_covered": []}
-            return parsed
-        except json.JSONDecodeError:
-            # Retry with error feedback
+        result = parse_response(text)
+        
+        if not result["cards"] and not result["already_covered"]:
+            # Retry once on total failure
             retry_response = client.messages.create(
                 model=model,
-                max_tokens=4096,
+                max_tokens=8192,
                 temperature=0,
-                system=system_prompt + "\n\nIMPORTANT: Your previous response was not valid JSON. Respond ONLY with valid JSON.",
+                system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
                 messages=[{"role": "user", "content": context}],
             )
-            retry_text = retry_response.content[0].text.strip()
-            # Strip markdown code fences on retry too
-            if retry_text.startswith("```"):
-                retry_text = retry_text.split("\n", 1)[1]
-                if "```" in retry_text:
-                    retry_text = retry_text.rsplit("```", 1)[0]
-            retry_text = retry_text.strip()
-            try:
-                parsed = json.loads(retry_text)
-                if "cards" not in parsed:
-                    parsed = {"cards": [], "already_covered": []}
-                return parsed
-            except json.JSONDecodeError:
-                return {"cards": [], "already_covered": []}
+            result = parse_response(retry_response.content[0].text.strip())
+            
+        return result
     except Exception as exc:
         logger.warning("generate_session_intents: LLM call failed: %s", exc)
-        return {"cards": [], "already_covered": []}
+        return {"cards": [], "already_covered": [], "thought": ""}

@@ -266,6 +266,8 @@ def analyze_session(
         existing_employers=existing_employers,
     )
 
+    thought = result.get("thought")
+
     track_guidance = None
     try:
         query_embedding = embedder.encode(session.raw_input)
@@ -293,6 +295,7 @@ def analyze_session(
     # Store on session
     session.intent_cards = [c.model_dump() for c in cards]
     session.track_guidance = track_guidance
+    session.thought = thought
     session.status = "analyzed"
     store.save_session(session)
 
@@ -301,6 +304,7 @@ def analyze_session(
         cards=[c.model_dump() for c in cards],
         already_covered=[a.model_dump() for a in already_covered],
         track_guidance=track_guidance,
+        thought=thought,
     )
 
 
