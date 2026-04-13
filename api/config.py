@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     data_path: str = "./data/qdrant"  # fallback: embedded client for local dev
     query_log_path: str = "./logs/query_log.jsonl"
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
+    # Admin key for protecting /api/kb/* and /api/sessions/* endpoints.
+    # If empty, auth is bypassed (development mode only). Must be set in production.
+    admin_key: str = ""
 
 
 if SettingsConfigDict is None:
@@ -29,6 +32,7 @@ if SettingsConfigDict is None:
         data_path: str = "./data/qdrant"
         query_log_path: str = "./logs/query_log.jsonl"
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
+        admin_key: str = ""
 
 
 settings = Settings()

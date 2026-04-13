@@ -4,6 +4,12 @@ services:
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6333/healthz || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
 
   api:
     build: ./api
@@ -17,6 +23,10 @@ services:
       - EMPLOYERS_DIR=/app/knowledge/employers
       - QUERY_LOG_PATH=/app/logs/query_log.jsonl
       - SENTENCE_TRANSFORMERS_HOME=/app/.cache
+      - WEB_CONCURRENCY=1
+      # Admin key for /api/kb/* and /api/sessions/* endpoints.
+      # Set this to a strong random value in production.
+      - ADMIN_KEY=${ADMIN_KEY:-}
     volumes:
       # Mount only data directories — the application code and .venv come from
       # the Docker image itself. This keeps builds idempotent: code changes
@@ -26,8 +36,19 @@ services:
       - api_data:/app/data
       - transformers_cache:/app/.cache
     depends_on:
-      - qdrant
+      qdrant:
+        condition: service_healthy
     restart: unless-stopped
+    # Resource limits — prevents runaway processes from starving the host.
+    # Adjust based on your instance type. 2 GB RAM is sufficient for
+    # the embedding model + Qdrant embedded client in development.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 2048M
+        reservations:
+          memory: 512M
 
   web:
     build:
@@ -40,9 +61,21 @@ services:
         - NEXT_PUBLIC_API_URL=http://localhost:8000
     ports:
       - "3000:3000"
+    environment:
+      # ADMIN_KEY is a server-side runtime variable for Next.js middleware.
+      # It is NOT baked into the client bundle (no NEXT_PUBLIC_ prefix).
+      - ADMIN_KEY=${ADMIN_KEY:-}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 128M
 
 volumes:
   qdrant_data:
