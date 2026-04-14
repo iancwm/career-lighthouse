@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     # Admin key for protecting /api/kb/* and /api/sessions/* endpoints.
     # If empty, auth is bypassed (development mode only). Must be set in production.
     admin_key: str = ""
+    llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
 
 
 if SettingsConfigDict is None:
@@ -33,6 +34,7 @@ if SettingsConfigDict is None:
         query_log_path: str = "./logs/query_log.jsonl"
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
         admin_key: str = ""
+        llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
 
 
 settings = Settings()
