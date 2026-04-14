@@ -3,10 +3,13 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi.errors import RateLimitExceeded
 
 from config import settings
+from limiter import limiter
 from routers import docs_router, ingest_router, chat_router, brief_router, kb_router, session_router
 
 logger = logging.getLogger(__name__)
@@ -38,6 +41,20 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Career Lighthouse API", lifespan=lifespan)
+app.state.limiter = limiter
+
+
+async def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    retry_after = getattr(exc, "retry_after", 60)
+    response = JSONResponse(
+        status_code=429,
+        content={"error": "rate_limit_exceeded", "retry_after": retry_after},
+    )
+    response.headers["Retry-After"] = str(retry_after)
+    return response
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
@@ -56,5 +73,6 @@ app.include_router(session_router.router)
 
 
 @app.get("/health")
+@limiter.exempt
 def health():
     return {"status": "ok"}

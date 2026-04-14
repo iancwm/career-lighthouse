@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from config import settings
 from dependencies import get_embedder, get_vector_store
@@ -20,6 +20,7 @@ from services.employer_store import EmployerEntityStore, get_employer_store
 from services.embedder import Embedder
 from services.vector_store import VectorStore
 from services.track_drafts import TrackDraftStore
+from limiter import limiter
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
@@ -117,7 +118,9 @@ def _resolve_career_type(
 
 
 @router.post("/chat", response_model=ChatResponse)
+@limiter.limit("10 per minute")
 def chat(
+    request: Request,
     req: ChatRequest,
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
