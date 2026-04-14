@@ -1,5 +1,15 @@
 # Production Readiness Audit
-**Repository:** career-lighthouse  **Version:** 0.1.5.0  **Date:** 2026-04-13
+**Repository:** career-lighthouse  **Version:** 0.1.5.1  **Date:** 2026-04-14
+
+---
+
+## Changelog since v0.1.5.0 (2026-04-13)
+
+| Spec | Change | Status |
+|------|--------|--------|
+| Spec 3 | Session IDOR — bind sessions to `counsellor_id`, verify ownership on every read/write | **FIXED** |
+| Spec 4 | Prompt injection — sanitize document chunks before embedding/storage | **FIXED** |
+| Spec 5 | HTTP security headers — middleware on API + Next.js `headers()` config | **FIXED** |
 
 ---
 
@@ -11,8 +21,8 @@
 |---|------|--------|--------|
 | A01 | Broken Access Control | **FIXED** | `/api/kb/*` and `/api/sessions/*` now require `X-Admin-Key`; `web/middleware.ts` reads from env instead of hardcoded `demo2026` |
 | A02 | Cryptographic Failures | Acceptable | API key in SSM SecureString; no plaintext secrets in logs or env files; YAML uses `safe_load` |
-| A03 | Injection | Good | Filename allowlist (`^[A-Za-z0-9._\-()\[\] ]+$`); slug validation (`_slug_is_safe`); field allowlists on all YAML writes; no SQL used |
-| A04 | Insecure Design | Partial | No RBAC model yet — `counsellor_id` is an untrusted string in session payloads; session ownership not enforced |
+| A03 | Injection | **IMPROVED** | Filename allowlist; slug validation; field allowlists on YAML writes; **new:** `sanitize_for_prompt()` strips angle-bracket directives and jailbreak phrases from all ingested chunks before embedding/storage |
+| A04 | Insecure Design | **IMPROVED** | Sessions now bound to `counsellor_id` at creation; ownership verified on every read/write (HTTP 403 on mismatch, logged); sessions stored in counsellor-scoped directories (`sessions/{id}/{session_id}.json`). Remaining gap: `counsellor_id` is still an untrusted header — no JWT/RBAC yet |
 | A05 | Security Misconfiguration | **FIXED** | Non-root users in both Dockerfiles; CORS scoped to `ALLOWED_ORIGINS`; `WEB_CONCURRENCY=1` explicit |
 | A06 | Vulnerable Components | Acceptable | All major deps current as of 2026-04; no known CVEs in lockfiles; no SBOM or automated audit in CI |
 | A07 | Auth Failures | **FIXED** | Defence-in-depth: FastAPI `Depends(require_admin_key)` + Next.js middleware both enforce `ADMIN_KEY` |
@@ -31,11 +41,11 @@ All public endpoints (`POST /api/chat`, `POST /api/brief`, `POST /api/ingest`) a
 **Request timeout — not enforced at API level**
 LLM calls (`/api/chat`, `/api/brief`, `/api/kb/analyse`) can hang indefinitely if Anthropic is slow. No `timeout` is set on the `anthropic` client. Risk: all Uvicorn workers occupied, service unresponsive. Fix: `anthropic.Anthropic(timeout=30.0)` + FastAPI `BackgroundTasks` for long ops.
 
-**Prompt injection surface**
-Career context and employer facts are interpolated as raw strings into the system prompt. A malicious document uploaded via `/api/ingest` could contain adversarial instructions. Current mitigations: upload size limit (10 MB), chunk size cap (~512 tokens). Additional hardening needed: sanitise angle-brackets and `<|` tokens from chunk text before prompt injection; consider a content moderation pre-pass.
+**Prompt injection surface — FIXED**
+`api/utils/sanitization.py` (`sanitize_for_prompt`) is now applied to every chunk in `ingestion.prepare_document()` before embedding and storage. It removes angle-bracket directives (`<|...|>`, `<...>`) and redacts known jailbreak phrases (`ignore previous instructions`, `system prompt override`, etc.). Remaining gap: career context and employer facts injected into the live chat prompt are not yet sanitized at the call site in `llm.py` — those values come from counsellor-authored YAMLs (lower risk) but should receive the same treatment as a follow-up. Content moderation pre-pass (e.g. Azure Content Safety) not yet added.
 
-**Session fixation / IDOR**
-Session IDs are `uuid4` values stored in `/logs/sessions/{id}.json`. The session API accepts any `session_id` from the caller — no ownership binding to an authenticated user. Any counsellor who guesses or intercepts a UUID can read or commit cards from another counsellor's session. Fix: bind session to `counsellor_id` at creation and verify on every subsequent call.
+**Session fixation / IDOR — FIXED**
+Sessions are now bound to a `counsellor_id` (stored as `created_by` on `KnowledgeSession`) at creation time. All session read/write endpoints (`GET /{id}`, `POST /{id}/analyze`, `POST /{id}/cards/.../commit`, `POST /{id}/cards/.../discard`) verify ownership against the `X-Counsellor-ID` request header and return HTTP 403 on mismatch; all denials are logged. Sessions are stored in counsellor-scoped sub-directories (`sessions/{counsellor_id}/{session_id}.json`) for physical isolation. Legacy flat-file sessions are migrated on first access with `created_by` backfilled to `"unknown"`. Remaining gap: `X-Counsellor-ID` is an untrusted client header — production hardening requires replacing it with JWT-based auth so the counsellor identity is cryptographically verified.
 
 **Concurrent write race — last-write-wins**
 Two counsellors editing the same career profile YAML simultaneously will silently overwrite each other's changes. No ETag, version field, or advisory lock exists. Fix: add a `version: int` field to YAML frontmatter; reject writes where submitted version ≠ stored version (HTTP 409).
@@ -43,8 +53,8 @@ Two counsellors editing the same career profile YAML simultaneously will silentl
 **Hardcoded counsellor_contact placeholders**
 Several career profile YAMLs contain `[TODO: Fill in SMU career centre contact…]`. If `counsellor_contact` is ever injected into prompts, placeholder text leaks into student-facing responses. Fix: gate injection on non-empty, non-placeholder values.
 
-**Missing HTTP security headers**
-FastAPI does not set `X-Content-Type-Options`, `X-Frame-Options`, `Strict-Transport-Security`, or `Content-Security-Policy`. These should be added as middleware or at the ALB/CloudFront layer before public exposure.
+**Missing HTTP security headers — FIXED**
+`api/middleware/security_headers.py` (`SecurityHeadersMiddleware`) is registered in `api/main.py` and adds `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `X-XSS-Protection: 1; mode=block`, and `Content-Security-Policy: default-src 'self'` to every API response. `Strict-Transport-Security` is emitted only when `APP_ENV=prod` to avoid breaking local HTTP development. Equivalent headers are configured in `web/next.config.js` via `async headers()`. Remaining gap: CSP is intentionally restrictive (`default-src 'self'`) and will need loosening if the frontend loads assets from a CDN or external origin.
 
 ---
 
