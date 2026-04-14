@@ -4,6 +4,9 @@ import logging
 import re
 import uuid
 
+import anthropic
+from fastapi import HTTPException
+
 from config import settings
 from services.ingestion import chunk_text
 
@@ -18,12 +21,28 @@ SCHOOL_NAME = model_cfg["school"]["name"]
 
 
 def get_client():
-    import anthropic
-
     global _client
     if _client is None:
-        _client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
+        _client = anthropic.Anthropic(
+            api_key=settings.anthropic_api_key,
+            timeout=settings.llm_timeout_seconds,
+            max_retries=2,
+        )
     return _client
+
+
+def _safe_create(**kwargs):
+    """Call client.messages.create() with timeout/connection error handling.
+
+    Raises HTTP 504 on timeout and HTTP 502 on connection failure so callers
+    receive a structured error response instead of hanging workers.
+    """
+    try:
+        return get_client().messages.create(**kwargs)
+    except anthropic.APITimeoutError:
+        raise HTTPException(status_code=504, detail="LLM service timeout")
+    except anthropic.APIConnectionError:
+        raise HTTPException(status_code=502, detail="LLM service unavailable")
 
 
 def chat_with_context(message: str, resume_text: str | None,
@@ -68,7 +87,7 @@ def chat_with_context(message: str, resume_text: str | None,
         f"Student question: {message}"
     )
 
-    response = get_client().messages.create(
+    response = _safe_create(
         model=_llm["model"],
         max_tokens=_llm["max_tokens"],
         system=_prompts["chat_system"].format(school_name=SCHOOL_NAME) + disambiguation_note,
@@ -150,7 +169,7 @@ def analyse_kb_input(
         f"CURRENT EMPLOYER FACTS (key fields only):\n{employer_summary or '(No employers configured)'}"
     )
 
-    response = get_client().messages.create(
+    response = _safe_create(
         model=_llm["model"],
         max_tokens=2048,
         system=system,
@@ -261,7 +280,7 @@ def generate_track_draft(
         f"SOURCE TYPE: {source_type}\n"
     )
 
-    response = get_client().messages.create(
+    response = _safe_create(
         model=_llm["model"],
         max_tokens=2500,
         system=system,
@@ -287,7 +306,7 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
         for c in chunks
     )
 
-    response = get_client().messages.create(
+    response = _safe_create(
         model=_llm["model"],
         max_tokens=_llm["max_tokens"],
         system=_prompts["brief_system"],
@@ -469,10 +488,9 @@ def generate_session_intents(
             return {"cards": [], "already_covered": [], "thought": thought}
 
     try:
-        client = get_client()
         model = _llm["model"]
 
-        response = client.messages.create(
+        response = _safe_create(
             model=model,
             max_tokens=8192, # Increased for long extraction
             temperature=0,
@@ -482,10 +500,10 @@ def generate_session_intents(
 
         text = response.content[0].text.strip()
         result = parse_response(text)
-        
+
         if not result["cards"] and not result["already_covered"]:
             # Retry once on total failure
-            retry_response = client.messages.create(
+            retry_response = _safe_create(
                 model=model,
                 max_tokens=8192,
                 temperature=0,
@@ -493,8 +511,10 @@ def generate_session_intents(
                 messages=[{"role": "user", "content": context}],
             )
             result = parse_response(retry_response.content[0].text.strip())
-            
+
         return result
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.warning("generate_session_intents: LLM call failed: %s", exc)
         return {"cards": [], "already_covered": [], "thought": ""}
