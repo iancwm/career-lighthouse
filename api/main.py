@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from config import settings
 from limiter import limiter
+from middleware.security_headers import SecurityHeadersMiddleware
 from routers import docs_router, ingest_router, chat_router, brief_router, kb_router, session_router
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# Security headers applied to every response (outermost middleware runs last,
+# so register SecurityHeaders before CORS to ensure headers are set even on
+# CORS-rejected preflight responses).
+app.add_middleware(SecurityHeadersMiddleware)
 
 app.include_router(docs_router.router)
 app.include_router(ingest_router.router)

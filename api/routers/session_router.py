@@ -20,6 +20,39 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sessions", dependencies=[Depends(require_admin_key)])
 
+
+# ---------------------------------------------------------------------------
+# Ownership helpers
+# ---------------------------------------------------------------------------
+
+def _get_counsellor_id(request: Request) -> str | None:
+    """Return the X-Counsellor-ID header value, or None if absent.
+
+    NOTE: This header is currently untrusted — callers must treat it as
+    an advisory identifier only. In production, replace with JWT-based auth
+    so the counsellor identity is cryptographically verified.
+    """
+    return request.headers.get("X-Counsellor-ID")
+
+
+def _check_session_ownership(session: KnowledgeSession, counsellor_id: str | None) -> None:
+    """Raise HTTP 403 if *counsellor_id* is provided and does not match the session owner.
+
+    If *counsellor_id* is None (header absent), the check is skipped so that
+    admin callers without a scoped header retain full access.
+    All 403 attempts are logged for security monitoring.
+    """
+    if counsellor_id is None:
+        return
+    if session.created_by != counsellor_id:
+        logger.warning(
+            "Session access denied: session=%s owner=%r requester=%r",
+            session.id,
+            session.created_by,
+            counsellor_id,
+        )
+        raise HTTPException(status_code=403, detail="Session access denied")
+
 # Imported from sibling modules
 from config import settings
 from routers.ingest_router import _sanitize_filename
@@ -157,9 +190,14 @@ def _check_session_completion(session: KnowledgeSession) -> None:
         session.status = "completed"
 
 @router.get("", response_model=List[KnowledgeSession])
-def list_sessions(store: SessionStore = Depends(get_session_store)):
-    """List all sessions, most recently updated first."""
-    return store.list_sessions()
+def list_sessions(request: Request, store: SessionStore = Depends(get_session_store)):
+    """List sessions, most recently updated first.
+
+    If X-Counsellor-ID header is present, only that counsellor's sessions
+    are returned. Otherwise all sessions are returned (admin mode).
+    """
+    counsellor_id = _get_counsellor_id(request)
+    return store.list_sessions(counsellor_id=counsellor_id)
 
 
 @router.post("/parse-file")
@@ -213,19 +251,27 @@ async def parse_session_file(
 
 
 @router.post("", response_model=KnowledgeSession, status_code=201)
-def create_session(req: CreateSessionRequest, store: SessionStore = Depends(get_session_store)):
-    return store.create_session(req.raw_input, created_by=req.counsellor_id)
+def create_session(
+    req: CreateSessionRequest,
+    request: Request,
+    store: SessionStore = Depends(get_session_store),
+):
+    # Prefer X-Counsellor-ID header; fall back to request body field.
+    counsellor_id = _get_counsellor_id(request) or req.counsellor_id
+    return store.create_session(req.raw_input, created_by=counsellor_id)
 
 @router.get("/{session_id}", response_model=KnowledgeSession)
-def get_session(session_id: str, store: SessionStore = Depends(get_session_store)):
+def get_session(session_id: str, request: Request, store: SessionStore = Depends(get_session_store)):
     session = store.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _check_session_ownership(session, _get_counsellor_id(request))
     return session
 
 @router.post("/{session_id}/analyze", response_model=SessionAnalysisResponse)
 def analyze_session(
     session_id: str,
+    request: Request,
     store: SessionStore = Depends(get_session_store),
     embedder=Depends(_get_embedder),
 ):
@@ -233,6 +279,7 @@ def analyze_session(
     session = store.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _check_session_ownership(session, _get_counsellor_id(request))
 
     # Gather existing knowledge for context
     from services.career_profiles import get_career_profile_store
@@ -313,6 +360,7 @@ def analyze_session(
 def commit_card(
     session_id: str,
     card_id: str,
+    request: Request,
     req: CardCommitRequest | None = None,
     store: SessionStore = Depends(get_session_store),
 ):
@@ -320,6 +368,7 @@ def commit_card(
     session = store.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _check_session_ownership(session, _get_counsellor_id(request))
 
     card = next((c for c in session.intent_cards if c.get("card_id") == card_id), None)
     if not card:
@@ -369,11 +418,12 @@ def commit_card(
 
 
 @router.post("/{session_id}/cards/{card_id}/discard")
-def discard_card(session_id: str, card_id: str, store: SessionStore = Depends(get_session_store)):
+def discard_card(session_id: str, card_id: str, request: Request, store: SessionStore = Depends(get_session_store)):
     """Discard a single card without writing anything."""
     session = store.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    _check_session_ownership(session, _get_counsellor_id(request))
 
     card = next((c for c in session.intent_cards if c.get("card_id") == card_id), None)
     if not card:

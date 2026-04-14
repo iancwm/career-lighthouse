@@ -2,6 +2,8 @@
 import uuid
 from datetime import datetime, timezone
 
+from utils.sanitization import sanitize_for_prompt
+
 
 def parse_file(content: bytes, filename: str) -> str:
     """Extract text from PDF, DOCX, or plain text."""
@@ -182,6 +184,14 @@ def prepare_document(file_content: bytes, filename: str, embedder) -> list[dict]
     """
     text = parse_file(file_content, filename)
     chunks = chunk_text(text)
+    if not chunks:
+        return []
+
+    # Sanitize chunks before embedding/storage to neutralise prompt-injection
+    # payloads that may be present in adversarially crafted documents.
+    chunks = [sanitize_for_prompt(c) for c in chunks]
+    # Drop any chunks that became empty after sanitization
+    chunks = [c for c in chunks if c]
     if not chunks:
         return []
 
