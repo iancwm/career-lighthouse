@@ -1,3 +1,14 @@
+"""Session store — persistent storage for counselor knowledge publishing sessions.
+
+Sessions are JSON files in a configurable directory (SESSIONS_DIR env var).
+SessionStore is a singleton that manages session lifecycle: create, read, update, delete.
+
+Usage:
+    store = SessionStore()
+    session = store.create_session(raw_input="...")
+    store.update_session_status(session_id, "published")
+    sessions = store.list_sessions()
+"""
 import json
 import os
 import re

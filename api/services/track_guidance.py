@@ -16,10 +16,15 @@ from threading import Lock
 
 import numpy as np
 
+from cfg import track_guidance_cfg
 from models import TrackCandidate, TrackGuidance
 from services.career_profiles import CareerProfileStore
 
 logger = logging.getLogger(__name__)
+
+# Load guidance thresholds at module init
+_conf = track_guidance_cfg["confidence"]
+_routing = track_guidance_cfg["routing"]
 
 
 def _default_signals_path() -> Path:
@@ -31,7 +36,12 @@ def _signals_path() -> Path:
 
 
 def _cluster_key(candidates: list[dict]) -> str:
-    slugs = [str(item.get("slug", "")).strip() for item in candidates[:2]]
+    """Form a cluster key from top candidates for recurrence tracking.
+
+    Takes the top N candidates (N from config) and combines their slugs.
+    """
+    limit = _routing["cluster_key_candidates"]
+    slugs = [str(item.get("slug", "")).strip() for item in candidates[:limit]]
     slugs = [slug for slug in slugs if slug]
     if not slugs:
         return ""
@@ -51,6 +61,7 @@ class EmergingTrackSignalStore:
         return cls._instance
 
     def _ensure_loaded(self) -> None:
+        """Reload the signal log if the file has changed."""
         path = _signals_path()
         current_mtime = path.stat().st_mtime if path.exists() else None
         if self._loaded and getattr(self, "_signals_mtime", None) == current_mtime:
@@ -78,9 +89,11 @@ class EmergingTrackSignalStore:
         self._loaded = True
 
     def invalidate(self) -> None:
+        """Mark the store as stale so it reloads on next access."""
         self._loaded = False
 
     def record_signal(self, payload: dict) -> None:
+        """Append a new signal entry to the log and invalidate the cache."""
         path = _signals_path()
         path.parent.mkdir(parents=True, exist_ok=True)
         with self._lock:
@@ -89,6 +102,7 @@ class EmergingTrackSignalStore:
             self.invalidate()
 
     def recurrence_count(self, cluster_key: str) -> int:
+        """Return the number of times this cluster key has been recorded."""
         if not cluster_key:
             return 0
         self._ensure_loaded()
@@ -105,8 +119,16 @@ def build_track_guidance(
     profile_store: CareerProfileStore,
     session_id: str | None = None,
 ) -> TrackGuidance | None:
-    """Build the counselor-facing nearest-track guidance for a session note."""
-    candidates = profile_store.top_candidates(query_embedding, limit=3)
+    """Build the counselor-facing nearest-track guidance for a session note.
+
+    Uses cosine similarity thresholds to classify notes as:
+    - safe_update: high confidence (score >= safe_update_min_score AND gap >= safe_update_min_gap)
+    - emerging_taxonomy_signal: pattern recurring >= emerging_signal_min_recurrence times
+    - clustered_uncertainty: ambiguous between multiple tracks
+
+    Thresholds are configured in track_guidance.yaml.
+    """
+    candidates = profile_store.top_candidates(query_embedding, limit=_routing["top_candidates_limit"])
     if not candidates:
         return None
 
@@ -130,7 +152,10 @@ def build_track_guidance(
     # We only count uncertain notes. Clean, high-confidence updates do not need
     # recurrence tracking because they are already safe to map.
     score_gap = best.score - (second.score if second else 0.0)
-    best_is_confident = best.score >= 0.78 and score_gap >= 0.08
+    best_is_confident = (
+        best.score >= _conf["safe_update_min_score"]
+        and score_gap >= _conf["safe_update_min_gap"]
+    )
 
     if best_is_confident:
         return TrackGuidance(
@@ -152,7 +177,7 @@ def build_track_guidance(
         })
         recurrence_count = store.recurrence_count(cluster_key)
 
-    if recurrence_count >= 2:
+    if recurrence_count >= _conf["emerging_signal_min_recurrence"]:
         status = "emerging_taxonomy_signal"
         recommendation = (
             "This pattern keeps recurring across sessions. Henry review is the right next step "

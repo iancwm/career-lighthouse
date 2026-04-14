@@ -1,4 +1,14 @@
-# api/services/llm.py
+"""LLM service — Claude API integration for career advisory tasks.
+
+This module provides:
+- chat_with_context(): multi-turn conversations with KB context injection
+- analyse_kb_input(): structured analysis of counselor input for KB updates
+- generate_track_draft(): create new career track profiles from research
+- generate_session_intents(): extract structured update intents from notes
+- generate_brief(): pre-meeting advisor brief from resume + KB
+
+All prompts and model parameters are loaded from cfg/ YAML files.
+"""
 import json
 import logging
 import re
@@ -11,12 +21,14 @@ from config import settings
 from services.ingestion import chunk_text
 
 logger = logging.getLogger(__name__)
-from cfg import model_cfg
+from cfg import model_cfg, kb_cfg, prompts_cfg
 
 _client = None
 
 _llm = model_cfg["llm"]
-_prompts = model_cfg["prompts"]
+# Merge model.yaml prompts (chat_system, disambiguation, brief_system)
+# with prompts.yaml prompts (analyse_kb_input, track_draft, session_intents)
+_prompts = {**model_cfg.get("prompts", {}), **prompts_cfg.get("prompts", {})}
 SCHOOL_NAME = model_cfg["school"]["name"]
 
 
@@ -49,6 +61,28 @@ def chat_with_context(message: str, resume_text: str | None,
                       chunks: list[dict], history: list[dict],
                       career_context: str | None = None,
                       employer_context: str | None = None) -> str:
+    """Chat with context injection for multi-turn career advising conversations.
+
+    Injects structured context blocks in a specific order:
+    1. Career profile context (if matched)
+    2. Employer facts (if applicable to the career type)
+    3. KB chunks (retrieved by semantic search)
+    4. Conversation history (most recent N turns)
+
+    Automatically adds a disambiguation prompt if no career type is active,
+    guiding students to clarify their focus area.
+
+    Args:
+        message: student question
+        resume_text: student resume (optional)
+        chunks: KB chunks retrieved by semantic search
+        history: prior conversation turns
+        career_context: formatted career profile block (from profile_to_context_block)
+        employer_context: formatted employer facts
+
+    Returns:
+        LLM response text.
+    """
     kb_text = "\n\n---\n\n".join(
         f"[{c['payload']['source_filename']}]\n{c['payload']['text']}"
         for c in chunks
@@ -104,61 +138,26 @@ def analyse_kb_input(
 ) -> dict:
     """Call Claude to produce a structured KB diff from counsellor input.
 
+    Analyzes new input against existing KB and returns proposed updates to profiles
+    and employers, new chunks, and already-covered information.
+
     Returns the raw parsed JSON dict (caller validates with Pydantic).
     Raises ValueError if Claude returns malformed JSON.
     """
     import json
 
-    system = (
-        f"You are a knowledge base curator for {SCHOOL_NAME}'s career advisory AI.\n"
-        "        You will be given new input text and excerpts from the existing knowledge base.\n"
-        "        Your task: identify what the input adds, changes, or contradicts relative to\n"
-        "        the existing KB. Return ONLY a JSON object matching the schema below.\n"
-        "        Do not add explanatory text outside the JSON.\n\n"
-        "        Output schema:\n"
-        "        {\n"
-        '          "interpretation_bullets": ["<2-5 short bullets — plain English>"],\n'
-        '          "profile_updates": {\n'
-        '            "<career_type_slug>": {\n'
-        '              "<field_name>": { "old": "<current value or null>", "new": "<proposed>" }\n'
-        "            }\n"
-        "          },\n"
-        '          "employer_updates": {\n'
-        '            "<employer_slug>": {\n'
-        '              "<field_name>": { "old": "<current value or null>", "new": "<proposed>" }\n'
-        "            }\n"
-        "          },\n"
-        '          "new_chunks": [\n'
-        '            { "text": "<chunk>", "source_type": "note", "source_label": "counsellor_note",\n'
-        '              "career_type": "<slug or null>", "chunk_id": "" }\n'
-        "          ],\n"
-        '          "already_covered": [\n'
-        '            { "excerpt": "<excerpt>", "source_doc": "<filename>" }\n'
-        "          ]\n"
-        "        }\n\n"
-        "        Rules:\n"
-        "        - FIRST compare the input against the existing KB excerpts provided below.\n"
-        "          Only propose changes for facts that are genuinely new, corrected, or\n"
-        "          contradictory. Do not re-propose information already covered.\n"
-        "        - Only propose profile_updates for fields that the input clearly changes or\n"
-        "          corrects. Use the exact field names from CURRENT CAREER PROFILE FIELDS.\n"
-        "          Do not guess field names not listed there.\n"
-        "        - Only propose employer_updates for employer_slug/field_name pairs that appear\n"
-        "          in CURRENT EMPLOYER FACTS. Allowed fields: ep_requirement, intake_seasons,\n"
-        "          singapore_headcount_estimate, application_process, counsellor_contact, notes.\n"
-        "          Do not guess employer slugs or field names not listed there.\n"
-        "        - new_chunks: self-contained facts not present in existing excerpts.\n"
-        '          Maximum 6 chunks. Prefer dense, self-contained chunks. Leave chunk_id as "".\n'
-        '          If the input is a full counsellor memo covering multiple topics, note that\n'
-        '          Session Editor is the better intake path for memo-level ingestion.\n'
-        "        - already_covered: existing KB excerpts substantially overlapping with the\n"
-        "          input. Include up to 5.\n"
-        "        - career_type: use the slug from CURRENT CAREER PROFILE FIELDS, or null."
+    # Build allowed fields list from config
+    allowed_fields = ", ".join(kb_cfg["employers"]["allowed_update_fields"])
+
+    # Load system prompt from YAML and format with dynamic values
+    system = _prompts["analyse_kb_input"].format(
+        school_name=SCHOOL_NAME,
+        allowed_employer_fields=allowed_fields
     )
 
     formatted_chunks = "\n\n".join(
         f"[{i+1}] (score={c['score']:.3f}) source={c['payload']['source_filename']}\n"
-        f"{c['payload']['text'][:400]}"
+        f"{c['payload']['text'][:_llm['excerpt_preview_chars']]}"
         for i, c in enumerate(retrieved_chunks)
     ) or "(No existing KB content retrieved)"
 
@@ -171,7 +170,7 @@ def analyse_kb_input(
 
     response = _safe_create(
         model=_llm["model"],
-        max_tokens=2048,
+        max_tokens=_llm["max_tokens_kb_analysis"],
         system=system,
         messages=[{"role": "user", "content": user}],
     )
@@ -216,58 +215,13 @@ def generate_track_draft(
 
     excerpts_text = "\n\n".join(
         f"[{i+1}] score={c['score']:.3f} source={c['payload'].get('source_filename', 'unknown')}\n"
-        f"{str(c['payload'].get('text', ''))[:400]}"
+        f"{str(c['payload'].get('text', ''))[:_llm['excerpt_preview_chars']]}"
         for i, c in enumerate(retrieved_chunks)
     ) or "(No related knowledge retrieved)"
     existing_draft_text = json.dumps(existing_draft or {}, indent=2, ensure_ascii=False) or "{}"
 
-    system = (
-        f"You are a career knowledge curator for {SCHOOL_NAME}.\n"
-        "You will be given counsellor research input for a new or underdeveloped career track.\n"
-        "Sometimes you will also receive an existing draft. In that case, treat it as the current best draft and improve it cautiously.\n"
-        "Return ONLY a JSON object matching the schema below. Do not wrap it in markdown.\n\n"
-        "Output schema:\n"
-        "{\n"
-        '  "slug": "<slug>",\n'
-        '  "track_name": "<display name>",\n'
-        '  "status": "draft",\n'
-        '  "match_description": "<1-2 sentence routing description>",\n'
-        '  "match_keywords": ["<keyword>", "<keyword>"],\n'
-        '  "ep_sponsorship": "<guidance>",\n'
-        '  "compass_score_typical": "<guidance>",\n'
-        '  "top_employers_smu": ["<employer>"],\n'
-        '  "recruiting_timeline": "<guidance>",\n'
-        '  "international_realistic": true,\n'
-        '  "entry_paths": ["<path>"],\n'
-        '  "salary_range_2024": "<guidance>",\n'
-        '  "typical_background": "<guidance>",\n'
-        '  "counselor_contact": "",\n'
-        '  "notes": "<counsellor notes>",\n'
-        '  "source_refs": [{"type": "<note|file>", "label": "<source label>"}],\n'
-        '  "structured": {\n'
-        '    "sponsorship_tier": "<High|Medium|Low|>",\n'
-        '    "compass_points_typical": "<range or empty>",\n'
-        '    "salary_min_sgd": 0,\n'
-        '    "salary_max_sgd": 0,\n'
-        '    "ep_realistic": true\n'
-        "  },\n"
-        '  "salary_levels": [\n'
-        '    {"stage": "<career stage>", "range_sgd": "<SGD range>", "notes": "<bonus/equity context>"}\n'
-        "  ],\n"
-        '  "visa_pathway_notes": "<multi-step visa path if relevant, empty string otherwise>"\n'
-        "}\n\n"
-        "Rules:\n"
-        "- Preserve the provided slug and track_name exactly.\n"
-        "- Only include claims supported by the counsellor input or the retrieved excerpts.\n"
-        "- If a fact is unclear, leave it cautious rather than inventing detail.\n"
-        "- If an existing draft is provided, preserve its useful fields unless the new evidence clearly improves or corrects them.\n"
-        "- match_keywords should be concrete phrases students might actually type.\n"
-        "- top_employers_smu and entry_paths may be empty if the input is too weak, but prefer a useful first draft.\n"
-        "- Use source_refs with the provided source_type and source_label.\n"
-        "- structured fields should be conservative defaults; use 0 for unknown salary bounds and empty strings when unsure.\n"
-        "- salary_levels: extract per-stage compensation if the input has level-by-level data. Leave as [] if not present.\n"
-        "- visa_pathway_notes: include EP/Tech.Pass/PR timeline and any partnership eligibility conditions if the track has significant international complexity. Empty string if not relevant.\n"
-    )
+    # Load system prompt from YAML and format with school name
+    system = _prompts["track_draft"].format(school_name=SCHOOL_NAME)
 
     user = (
         f"TARGET TRACK NAME: {track_name}\n"
@@ -282,7 +236,7 @@ def generate_track_draft(
 
     response = _safe_create(
         model=_llm["model"],
-        max_tokens=2500,
+        max_tokens=_llm["max_tokens_track_draft"],
         system=system,
         messages=[{"role": "user", "content": user}],
     )
@@ -301,6 +255,18 @@ def generate_track_draft(
 
 
 def generate_brief(resume_text: str, chunks: list[dict]) -> str:
+    """Generate a pre-meeting brief for a counselor based on resume + KB.
+
+    Produces a structured brief with student's apparent goals, resume gaps,
+    and 3-5 recommended talking points grounded in the knowledge base.
+
+    Args:
+        resume_text: student resume
+        chunks: KB chunks retrieved by semantic search
+
+    Returns:
+        Brief text with actionable talking points.
+    """
     kb_text = "\n\n---\n\n".join(
         f"[{c['payload']['source_filename']}]\n{c['payload']['text']}"
         for c in chunks
@@ -332,10 +298,11 @@ def _merge_intents(results: list[dict]) -> dict:
             # Create a semi-stable key for deduplication
             domain = card.get("domain", "unknown")
             slug = card.get("diff", {}).get("slug", "unknown")
-            # use normalized summary prefix for deduplication
-            summary = (card.get("summary") or "")[:30].lower().strip()
+            # use normalized summary prefix for deduplication (from config)
+            summary_limit = _llm["intent_dedup_summary_chars"]
+            summary = (card.get("summary") or "")[:summary_limit].lower().strip()
             key = (domain, slug, summary)
-            
+
             if key not in seen_card_keys:
                 seen_card_keys.add(key)
                 # Ensure card_id is unique across chunks
@@ -360,15 +327,20 @@ def generate_session_intents(
 ) -> dict:
     """Extract distinct update intents from counsellor raw research notes.
 
-    Supports multi-pass extraction for long documents (>30,000 characters).
+    Supports multi-pass extraction for long documents (threshold from config).
+    Chunks are extracted independently and merged, deduplicating on (domain, slug, summary).
     Requires the LLM to provide a <thought> block before the JSON for observability.
     """
     # 1. Check for multi-pass need
-    # 30,000 chars is ~8k-10k tokens, well within context but better handled in
-    # chunks for extraction density/reliability.
-    if len(raw_input) > 30000:
+    # Large documents are split into chunks for extraction density/reliability.
+    threshold = _llm["multi_pass_threshold_chars"]
+    if len(raw_input) > threshold:
         logger.info("generate_session_intents: Large document detected (%d chars). Using multi-pass.", len(raw_input))
-        chunks = chunk_text(raw_input, max_tokens=15000, overlap=2000)
+        chunks = chunk_text(
+            raw_input,
+            max_tokens=_llm["multi_pass_chunk_tokens"],
+            overlap=_llm["multi_pass_overlap_tokens"]
+        )
         results = []
         for chunk in chunks:
             res = generate_session_intents(chunk, existing_tracks, existing_employers)
@@ -390,61 +362,8 @@ def generate_session_intents(
             for e in existing_employers
         )
 
-    system_prompt = (
-        "You are a knowledge extraction assistant for a career advisory platform.\n"
-        "Extract update intents from counsellor research notes about employers and career tracks.\n"
-        "\n"
-        "OBSERVABILITY RULE: Before outputting the JSON, you MUST include a <thought> block.\n"
-        "In this block, briefly analyze the document section by section, identifying key\n"
-        "entities mentioned and the specific changes found. This helps ensure completeness.\n"
-        "\n"
-        "CRITICAL RULES:\n"
-        "1. If the memo is about a company or organization NOT in the existing employers list,\n"
-        "   create employer cards for it. NEW employers are the most important cards.\n"
-        "2. If the memo is about a career sector NOT in the existing tracks list,\n"
-        "   create track cards for it. NEW tracks are the most important cards.\n"
-        "3. A single structured memo typically produces 5-15 cards. Create them all.\n"
-        "4. Compensation tables → always create a card (employer notes or track salary_range_2024).\n"
-        "5. Follow-up actions → always create a card for each one.\n"
-        "\n"
-        "Example output format:\n"
-        "<thought>\n"
-        "The memo mentions GGV (new employer) and Stripe (existing). \n"
-        "It also discusses the Venture Capital track in detail...\n"
-        "</thought>\n"
-        "```json\n"
-        "{\n"
-        '  "cards": [...],\n'
-        '  "already_covered": [...]\n'
-        "}\n"
-        "```\n"
-        "\n"
-        "Each card targets EXACTLY ONE domain: 'employer' or 'track'.\n"
-        "Prefer concrete field-level changes over vague summaries. Be specific.\n"
-        "Return valid JSON with this structure:\n"
-        '{\n'
-        '  "cards": [\n'
-        '    {\n'
-        '      "card_id": "card-<short-uuid>",\n'
-        '      "domain": "employer" | "track",\n'
-        '      "summary": "One-line summary of the change",\n'
-        '      "diff": {"slug": "entity-slug", "field_name": "proposed_new_value", ...},\n'
-        '      "raw_input_ref": "The original text excerpt that triggered this intent"\n'
-        '    }\n'
-        '  ],\n'
-        '  "already_covered": [\n'
-        '    {"content": "...", "reason": "..."}\n'
-        '  ]\n'
-        '}\n'
-        "Rules:\n"
-        "- NEW employer mentioned → ALWAYS create an employer card with employer_name, notes, and relevant fields.\n"
-        "- NEW career sector mentioned → ALWAYS create a track card with track_name, salary_range_2024, notes, and relevant fields.\n"
-        "- diff MUST include 'slug' — a lowercase_with_underscores slug.\n"
-        "- For 'employer' domain, diff fields: employer_name, tracks (list), ep_requirement, intake_seasons (list), application_process, headcount_estimate, counselor_contact, notes.\n"
-        "- For 'track' domain, diff fields: track_name, match_description, match_keywords (list), ep_sponsorship, compass_score_typical, top_employers_smu (list), recruiting_timeline, international_realistic, entry_paths (list), salary_range_2024, typical_background, counselor_contact, notes.\n"
-        "- raw_input_ref should be a short excerpt from the original note.\n"
-        "- NEVER return empty cards for a structured memo with tables, numbers, or specific company names.\n"
-    )
+    # Load system prompt from YAML
+    system_prompt = _prompts["session_intents"]
 
     context = (
         f"Counsellor raw input:\n{raw_input}\n\n"
@@ -492,7 +411,7 @@ def generate_session_intents(
 
         response = _safe_create(
             model=model,
-            max_tokens=8192, # Increased for long extraction
+            max_tokens=_llm["max_tokens_session_extraction"],
             temperature=0,
             system=system_prompt,
             messages=[{"role": "user", "content": context}],
@@ -505,7 +424,7 @@ def generate_session_intents(
             # Retry once on total failure
             retry_response = _safe_create(
                 model=model,
-                max_tokens=8192,
+                max_tokens=_llm["max_tokens_session_extraction"],
                 temperature=0,
                 system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
                 messages=[{"role": "user", "content": context}],

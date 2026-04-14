@@ -6,6 +6,17 @@ llm:
   model: "claude-sonnet-4-6"
   max_tokens: 2048
   history_window: 10  # number of prior turns included in each LLM call
+  # Per-operation max_tokens overrides (different operations have different token budgets)
+  max_tokens_kb_analysis: 2048       # analyse_kb_input()
+  max_tokens_track_draft: 2500       # generate_track_draft()
+  max_tokens_session_extraction: 8192  # generate_session_intents()
+  # Multi-pass extraction settings for large documents
+  multi_pass_threshold_chars: 30000  # split and extract when input exceeds this
+  multi_pass_chunk_tokens: 15000     # token size per chunk in multi-pass mode
+  multi_pass_overlap_tokens: 2000    # overlap between chunks for continuity
+  # Truncation lengths for KB excerpt previews in structured prompts
+  excerpt_preview_chars: 400         # max chars for KB excerpts in analyse_kb_input, generate_track_draft
+  intent_dedup_summary_chars: 30     # prefix length for deduping intent summaries in _merge_intents()
 
 school:
   name: "SMU (Singapore Management University)"

@@ -1,7 +1,17 @@
-# api/services/ingestion.py
+"""Document ingestion service — text extraction and semantic chunking.
+
+This module provides utilities for:
+- parse_file(): extract text from PDF, DOCX, or plain text files
+- chunk_text(): split text into overlapping chunks respecting semantic boundaries
+- prepare_document() & ingest_document(): higher-level document processing pipelines
+
+Chunking strategy respects paragraph/table/list boundaries and uses a configurable
+tokens-to-words ratio for word-boundary splitting.
+"""
 import uuid
 from datetime import datetime, timezone
 
+from cfg import kb_cfg
 from utils.sanitization import sanitize_for_prompt
 
 
@@ -102,7 +112,7 @@ def _split_at_boundaries(text: str) -> list[str]:
     return blocks
 
 
-def chunk_text(text: str, max_tokens: int = 512, overlap: int = 64) -> list[str]:
+def chunk_text(text: str, max_tokens: int = None, overlap: int = None) -> list[str]:
     """Split text into overlapping chunks, respecting semantic boundaries.
 
     Strategy:
@@ -113,13 +123,27 @@ def chunk_text(text: str, max_tokens: int = 512, overlap: int = 64) -> list[str]
 
     Fallback: if no semantic boundaries exist (single long paragraph),
     splits at word boundaries (original behavior).
+
+    Args:
+        text: input text to chunk
+        max_tokens: target max tokens per chunk (defaults to kb.yaml ingestion.default_chunk_tokens)
+        overlap: overlap tokens between chunks (defaults to kb.yaml ingestion.default_overlap_tokens)
+
+    Returns:
+        List of chunk strings.
     """
+    if max_tokens is None:
+        max_tokens = kb_cfg["ingestion"]["default_chunk_tokens"]
+    if overlap is None:
+        overlap = kb_cfg["ingestion"]["default_overlap_tokens"]
+
     if not text.strip():
         return []
 
     words = text.split()
-    word_limit = int(max_tokens / 1.3)
-    overlap_words = int(overlap / 1.3)
+    tokens_to_words_ratio = kb_cfg["ingestion"]["tokens_to_words_ratio"]
+    word_limit = int(max_tokens / tokens_to_words_ratio)
+    overlap_words = int(overlap / tokens_to_words_ratio)
 
     # If entire text fits in one chunk, return as-is
     if len(words) <= word_limit:

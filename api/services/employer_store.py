@@ -20,28 +20,22 @@ from typing import Optional
 
 import yaml
 
+from cfg import kb_cfg
+
 logger = logging.getLogger(__name__)
 
 # Required fields that must be present for completeness = "green"
-_COMPLETENESS_REQUIRED: frozenset = frozenset([
-    "employer_name",
-    "tracks",
-    "ep_requirement",
-])
+_COMPLETENESS_REQUIRED: frozenset = frozenset(kb_cfg["employers"]["completeness_required"])
 
 # Fields writable via commit-analysis (allowlist prevents hallucinated field writes)
-ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset([
-    "ep_requirement",
-    "intake_seasons",
-    "singapore_headcount_estimate",
-    "application_process",
-    "counsellor_contact",
-    "notes",
-])
+ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset(kb_cfg["employers"]["allowed_update_fields"])
 
 
 def _as_list(value) -> list:
-    """Normalize legacy scalar/list YAML fields into a list."""
+    """Normalize legacy scalar/list YAML fields into a list.
+
+    Handles None, lists, tuples, and strings. Strips whitespace from strings.
+    """
     if value is None:
         return []
     if isinstance(value, list):
@@ -67,7 +61,11 @@ def _default_employers_dir() -> Path:
 
 
 def _compute_completeness(employer: dict) -> str:
-    """Return 'green' if all required fields are non-empty, else 'amber'."""
+    """Assess employer profile completeness.
+
+    Returns 'green' if all required fields (from kb.yaml employers.completeness_required)
+    are non-empty; else 'amber'. Used to flag incomplete profiles in the admin panel.
+    """
     for field in _COMPLETENESS_REQUIRED:
         val = employer.get(field)
         if not val:
@@ -79,8 +77,24 @@ def _compute_completeness(employer: dict) -> str:
     return "green"
 
 
-def employer_to_context_block(employer: dict, max_notes: int = 150, max_process: int = 100) -> str:
-    """Format a single employer dict as a structured context entry for LLM injection."""
+def employer_to_context_block(employer: dict, max_notes: int = None, max_process: int = None) -> str:
+    """Format a single employer dict as a structured context entry for LLM injection.
+
+    Truncates long notes and process fields to fit into context windows.
+
+    Args:
+        employer: employer profile dict
+        max_notes: max chars for notes field (defaults to kb.yaml context_block.max_notes_chars)
+        max_process: max chars for application_process (defaults to kb.yaml context_block.max_process_chars)
+
+    Returns:
+        Formatted text block ready for LLM injection.
+    """
+    if max_notes is None:
+        max_notes = kb_cfg["employers"]["context_block"]["max_notes_chars"]
+    if max_process is None:
+        max_process = kb_cfg["employers"]["context_block"]["max_process_chars"]
+
     name = employer.get("employer_name", "Unknown")
     ep = employer.get("ep_requirement") or "Not specified"
     seasons = ", ".join(employer.get("intake_seasons") or []) or "Not specified"

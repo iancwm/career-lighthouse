@@ -9,3 +9,31 @@ thresholds:
 
 log_window_days: 7        # rolling window for query log metrics
 max_low_conf_queries: 20  # max items returned in low_confidence_queries list
+
+# Employer configuration — field requirements and context block limits
+employers:
+  completeness_required:
+    - employer_name
+    - tracks
+    - ep_requirement
+  allowed_update_fields:
+    - ep_requirement
+    - intake_seasons
+    - singapore_headcount_estimate
+    - application_process
+    - counsellor_contact
+    - notes
+  context_block:
+    max_notes_chars: 150        # max chars for employer notes when injected into LLM context
+    max_process_chars: 100      # max chars for application_process field
+
+# Text chunking and ingestion parameters
+ingestion:
+  default_chunk_tokens: 512     # target tokens per chunk
+  default_overlap_tokens: 64    # overlap between consecutive chunks
+  tokens_to_words_ratio: 1.3    # approximate word-to-token ratio for this model
+
+# Vector store defaults
+vector_store:
+  default_top_k: 5              # default number of nearest-neighbor results returned
+  scroll_limit: 10000           # de facto ceiling on indexed chunks that can be listed

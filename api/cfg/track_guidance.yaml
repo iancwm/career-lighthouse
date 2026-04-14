@@ -1,0 +1,14 @@
+# Track guidance thresholds for counselor note routing.
+# These control when a session note is marked as a "safe update" vs. uncertain vs. emerging signal.
+# Re-validate empirically (scripts/validate_profiles.py) before changing.
+
+confidence:
+  # A note is classified as a "safe_update" when BOTH conditions hold:
+  safe_update_min_score: 0.78       # min cosine score of the best-matching career type
+  safe_update_min_gap: 0.08         # min score gap between top and second-best candidate
+  # Notes below these thresholds are recorded as recurrence signals for pattern detection.
+  emerging_signal_min_recurrence: 2  # number of similar signals before escalating to "emerging_taxonomy_signal"
+
+routing:
+  top_candidates_limit: 3     # number of top career types to retrieve per query embedding
+  cluster_key_candidates: 2   # number of top candidates used to form a cluster key for recurrence tracking
