@@ -1,5 +1,6 @@
 "use client"
 import { useRef, useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
 import MarkdownMessage from "@/components/student/MarkdownMessage"
 
 export default function ResumeReviewTab() {
@@ -8,7 +9,6 @@ export default function ResumeReviewTab() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const apiUrl = "/api/admin"
 
   async function handleGenerate() {
     if (!resume.trim()) return
@@ -16,7 +16,7 @@ export default function ResumeReviewTab() {
     setBrief("")
     setError("")
     try {
-      const res = await fetch(`${apiUrl}/api/brief`, {
+      const res = await adminFetch("/api/brief", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ resume_text: resume }),

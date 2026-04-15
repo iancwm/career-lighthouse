@@ -1,19 +1,19 @@
 "use client"
 import { useEffect, useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
 
 interface Doc { doc_id: string; filename: string; chunk_count: number; uploaded_at: string }
 interface Props { refreshKey: number; onDeleted?: () => void }
 
 export default function DocList({ refreshKey, onDeleted }: Props) {
   const [docs, setDocs] = useState<Doc[]>([])
-  const apiUrl = "/api/admin"
 
   useEffect(() => {
-    fetch(`${apiUrl}/api/docs`).then(r => r.json()).then(setDocs)
+    adminFetch("/api/docs").then(r => r.json()).then(setDocs)
   }, [refreshKey])
 
   async function handleDelete(docId: string) {
-    const res = await fetch(`${apiUrl}/api/docs/${encodeURIComponent(docId)}`, { method: "DELETE" })
+    const res = await adminFetch(`/api/docs/${encodeURIComponent(docId)}`, { method: "DELETE" })
     if (!res.ok) return
     setDocs(docs.filter(d => d.doc_id !== docId))
     onDeleted?.()

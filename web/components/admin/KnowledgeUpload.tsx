@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
 
 interface Props { onUploaded: () => void }
 
@@ -7,7 +8,6 @@ export default function KnowledgeUpload({ onUploaded }: Props) {
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState("")
   const [warnings, setWarnings] = useState<string[]>([])
-  const apiUrl = "/api/admin"
 
   async function uploadFiles(files: File[]) {
     setUploading(true)
@@ -16,7 +16,7 @@ export default function KnowledgeUpload({ onUploaded }: Props) {
     for (const file of files) {
       const form = new FormData()
       form.append("file", file)
-      const res = await fetch(`${apiUrl}/api/ingest`, { method: "POST", body: form })
+      const res = await adminFetch("/api/ingest", { method: "POST", body: form })
       if (!res.ok) {
         setMessage((prev) => prev + `✗ ${file.name}: upload failed (${res.status})\n`)
         continue

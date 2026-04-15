@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
 
 interface ChunkResult {
   source_filename: string
@@ -7,9 +8,7 @@ interface ChunkResult {
   score: number
 }
 
-interface Props {
-  apiUrl?: string
-}
+interface Props {}
 
 function ScoreBadge({ score }: { score: number }) {
   const color =
@@ -25,7 +24,7 @@ function ScoreBadge({ score }: { score: number }) {
   )
 }
 
-export default function TestQueryBox({ apiUrl = "/api/admin" }: Props) {
+export default function TestQueryBox({}: Props) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<ChunkResult[] | null>(null)
   const [loading, setLoading] = useState(false)
@@ -35,7 +34,7 @@ export default function TestQueryBox({ apiUrl = "/api/admin" }: Props) {
     if (!query.trim()) return
     setLoading(true)
     try {
-      const res = await fetch(`${apiUrl}/api/kb/test-query`, {
+      const res = await adminFetch("/api/kb/test-query", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query }),

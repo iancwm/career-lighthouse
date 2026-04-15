@@ -1,17 +1,17 @@
 "use client"
 import { useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
 
 export default function BriefGenerator() {
   const [resume, setResume] = useState("")
   const [brief, setBrief] = useState("")
   const [loading, setLoading] = useState(false)
-  const apiUrl = "/api/admin"
 
   async function handleGenerate() {
     if (!resume.trim()) return
     setLoading(true)
     setBrief("")
-    const res = await fetch(`${apiUrl}/api/brief`, {
+    const res = await adminFetch("/api/brief", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ resume_text: resume }),

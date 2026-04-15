@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { adminFetch } from "@/lib/admin-api"
 import KnowledgeUpload from "@/components/admin/KnowledgeUpload"
 import DocList from "@/components/admin/DocList"
 import BriefGenerator from "@/components/admin/BriefGenerator"
@@ -187,7 +188,7 @@ export default function AdminWorkspace() {
     let cancelled = false
     setHealthLoading(true)
     setHealthError(false)
-    fetch(`${apiUrl}/api/kb/health`)
+    adminFetch("/api/kb/health")
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
         return r.json()
@@ -323,7 +324,7 @@ export default function AdminWorkspace() {
                 />
 
                 <div className="mt-4">
-                  <TestQueryBox apiUrl={apiUrl} />
+                  <TestQueryBox />
                 </div>
 
                 <div className="mt-4 grid gap-4 lg:grid-cols-2">
