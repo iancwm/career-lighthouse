@@ -73,6 +73,9 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Server-side proxy routes inside the web container must reach the API
+      # service on the Docker network, not localhost in the browser.
+      - ADMIN_API_URL=http://api:8000
       # ADMIN_KEY is a server-side runtime variable for Next.js middleware.
       # It is NOT baked into the client bundle (no NEXT_PUBLIC_ prefix).
       - ADMIN_KEY=${ADMIN_KEY:-}
