@@ -3,15 +3,20 @@ set -eu
 
 prepare_dir() {
   mkdir -p "$1"
-  chown -R appuser:appgroup "$1" 2>/dev/null || true
+  # Explicit error reporting: chown failure means the volume is owned by root
+  # and appuser will not be able to write to it.  Surface the error immediately
+  # instead of swallowing it and letting the application fail later.
+  if ! chown -R appuser:appgroup "$1" 2>/dev/null; then
+    echo "WARNING: could not chown $1 to appuser:appgroup — writes may fail" >&2
+  fi
 }
 
 prepare_file_parent() {
   prepare_dir "$(dirname "$1")"
 }
 
-# The named Docker volumes and mounts come in owned by root on first use.
-# Initialize the writable directories, then drop back to appuser.
+# Named Docker volumes and bind mounts arrive owned by root on first use.
+# Initialize every writable directory/file parent, then hand off to appuser.
 prepare_dir "${SESSIONS_DIR:-/app/data/sessions}"
 prepare_dir "${DATA_PATH:-/app/data/qdrant}"
 prepare_dir "${CAREER_PROFILES_DIR:-/app/knowledge/career_profiles}"
@@ -26,4 +31,12 @@ prepare_file_parent "${TRACK_PUBLISH_JOURNAL_PATH:-/app/logs/track_publish_journ
 prepare_file_parent "${TRACK_PUBLISH_LOG_PATH:-/app/logs/track_publish_log.jsonl}"
 prepare_file_parent "${TRACKS_VERSION_PATH:-/app/knowledge/.tracks-version}"
 
-exec runuser -u appuser -- env HOME=/home/appuser UV_CACHE_DIR=/home/appuser/.cache/uv sh -lc 'cd /app && exec /usr/local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 8000'
+# Drop privileges and exec uvicorn directly from the virtual environment.
+# Using the .venv binary is more reliable than `uv run` in production:
+#   - one fewer process in the exec chain
+#   - no dependency on uv being correctly configured at runtime
+#   - avoids `uv run`'s environment-detection overhead
+export HOME=/home/appuser
+export UV_CACHE_DIR=/home/appuser/.cache/uv
+
+exec runuser -u appuser -- /app/.venv/bin/uvicorn main:app --host 0.0.0.0 --port 8000

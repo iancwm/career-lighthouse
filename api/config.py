@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     allowed_origins: str = "http://localhost:3000"
     qdrant_url: str = ""          # set to http://host:6333 to use Qdrant server
+    qdrant_api_key: str = ""      # set to match QDRANT__SERVICE__API_KEY on the qdrant container
     data_path: str = str(default_data_path())  # fallback: embedded client for local dev
     query_log_path: str = str(default_query_log_path())
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
@@ -32,6 +33,7 @@ if SettingsConfigDict is None:
         anthropic_api_key: str = ""
         allowed_origins: str = "http://localhost:3000"
         qdrant_url: str = ""
+        qdrant_api_key: str = ""
         data_path: str = str(default_data_path())
         query_log_path: str = str(default_query_log_path())
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB

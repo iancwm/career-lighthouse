@@ -7,3 +7,7 @@ data/
 *.jsonl
 *.log
 .cache
+# Exclude local secrets — never bake .env files into the image
+.env
+.env.*
+*.env

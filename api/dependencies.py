@@ -33,7 +33,12 @@ def get_qdrant_client() -> QdrantClient:
         # Server mode: Docker Compose sets QDRANT_URL=http://qdrant:6333.
         # Avoids the file-lock conflict that occurs when the embedded client
         # is used with multiple workers or on container restart.
-        return QdrantClient(url=settings.qdrant_url)
+        # api_key=None is equivalent to no auth; Qdrant ignores it when the
+        # server is not configured with an API key.
+        return QdrantClient(
+            url=settings.qdrant_url,
+            api_key=settings.qdrant_api_key or None,
+        )
     # Embedded mode: single-process local dev only (no QDRANT_URL set).
     return QdrantClient(path=settings.data_path)
 

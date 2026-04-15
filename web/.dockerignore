@@ -1,3 +1,6 @@
 node_modules
 .next
-.env.local
+# Exclude all local secret/env files — never bake them into the image
+.env
+.env.*
+*.env

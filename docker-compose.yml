@@ -1,26 +1,56 @@
+networks:
+  # backend: internal network — only api and qdrant are members.
+  # Marking it internal=true means no container on this network can initiate
+  # outbound connections to the internet, limiting the blast radius if either
+  # service is compromised.  The api still reaches the internet via the
+  # 'frontend' network for Anthropic API calls and model downloads.
+  backend:
+    driver: bridge
+    internal: true
+  # frontend: api + web; api needs internet egress for Anthropic API calls.
+  frontend:
+    driver: bridge
+
 services:
   qdrant:
     image: qdrant/qdrant:v1.13.2
     volumes:
       - qdrant_data:/qdrant/storage
     restart: unless-stopped
+    networks:
+      - backend
+    environment:
+      # API key authentication for Qdrant.
+      # Set QDRANT_API_KEY in your .env file to a strong random value.
+      # The api service must pass this key via QDRANT_API_KEY below.
+      - QDRANT__SERVICE__API_KEY=${QDRANT_API_KEY:-}
     healthcheck:
       # The upstream image does not ship wget/curl, so probe the TCP listener
-      # directly with bash's /dev/tcp support instead.
-      test: ["CMD-SHELL", "bash -lc 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
+      # directly.  Using 'bash -c' (not '-lc') avoids sourcing login profile
+      # scripts, which can be slow or absent in minimal images.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/127.0.0.1/6333'"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 20s
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
   api:
     build: ./api
     ports:
       - "8000:8000"
+    networks:
+      - backend
+      - frontend
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
       - QDRANT_URL=http://qdrant:6333
+      # Must match QDRANT__SERVICE__API_KEY set on the qdrant service above.
+      - QDRANT_API_KEY=${QDRANT_API_KEY:-}
       - DATA_PATH=/app/data/qdrant
       - SESSIONS_DIR=/app/data/sessions
       - CAREER_PROFILES_DIR=/app/knowledge/career_profiles
@@ -33,15 +63,17 @@ services:
       - TRACK_PUBLISH_LOG_PATH=/app/logs/track_publish_log.jsonl
       - TRACKS_VERSION_PATH=/app/knowledge/.tracks-version
       - SENTENCE_TRANSFORMERS_HOME=/app/.cache
+      - HF_HOME=/app/.cache/huggingface
       - UV_CACHE_DIR=/home/appuser/.cache/uv
       - WEB_CONCURRENCY=1
       # Admin key for /api/kb/* and /api/sessions/* endpoints.
-      # Set this to a strong random value in production.
+      # MUST be set to a strong random value in production; leaving it empty
+      # disables authentication on admin endpoints.
       - ADMIN_KEY=${ADMIN_KEY:-}
     volumes:
-      # Mount only data directories — the application code and .venv come from
-      # the Docker image itself. This keeps builds idempotent: code changes
-      # trigger a new image layer; data directories are preserved across restarts.
+      # Mount only data directories — application code and .venv come from the
+      # image.  This keeps builds idempotent: code changes trigger a new image
+      # layer; data directories are preserved across restarts.
       - ./knowledge:/app/knowledge
       - ./logs:/app/logs
       - api_data:/app/data
@@ -51,8 +83,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     # Resource limits — prevents runaway processes from starving the host.
-    # Adjust based on your instance type. 2 GB RAM is sufficient for
-    # the embedding model + Qdrant embedded client in development.
+    # Adjust based on your instance type.
     deploy:
       resources:
         limits:
@@ -60,21 +91,34 @@ services:
           memory: 2048M
         reservations:
           memory: 512M
+    cap_drop:
+      - ALL
+    cap_add:
+      # DAC_OVERRIDE: entrypoint.sh runs as root briefly to chown mounted
+      # volumes before dropping to appuser.  Without this cap, chown fails
+      # silently and the app cannot write to freshly mounted volumes.
+      - DAC_OVERRIDE
+      # SETUID / SETGID: required by runuser to switch from root → appuser.
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
 
   web:
     build:
       context: ./web
       args:
-        # NEXT_PUBLIC_* vars are baked into the Next.js build at image build time.
-        # For local demo: http://localhost:8000 (browser calls this from the host machine).
-        # For AWS/Terraform: rebuild the image with the actual ALB URL, or use runtime
-        # config injection (e.g. next.config.js rewrites) — see terraform/ task.
+        # NEXT_PUBLIC_* vars are baked into the Next.js bundle at image build
+        # time.  For AWS/Terraform: rebuild with the actual ALB URL, or use
+        # runtime config injection (next.config.js rewrites).
         - NEXT_PUBLIC_API_URL=http://localhost:8000
     ports:
       - "3000:3000"
+    networks:
+      - frontend
     environment:
-      # Server-side proxy routes inside the web container must reach the API
-      # service on the Docker network, not localhost in the browser.
+      # Server-side proxy routes inside the web container reach the API on the
+      # Docker network, not on localhost in the browser.
       - ADMIN_API_URL=http://api:8000
       # ADMIN_KEY is a server-side runtime variable for Next.js middleware.
       # It is NOT baked into the client bundle (no NEXT_PUBLIC_ prefix).
@@ -90,6 +134,10 @@ services:
           memory: 512M
         reservations:
           memory: 128M
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   qdrant_data:
