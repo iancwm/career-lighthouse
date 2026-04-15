@@ -380,6 +380,7 @@ def test_employer_context_not_injected_without_active_career_type(in_memory_qdra
     mock_employer_store.to_context_block.assert_called_once_with(
         active_career_type=None,
         query_text="What should I explore?",
+        profile_top_employers=None,
     )
     _, kwargs = mock_llm.call_args
     assert kwargs.get("employer_context") is None
@@ -416,6 +417,7 @@ def test_chat_passes_message_to_employer_matching_layer(in_memory_qdrant, mock_e
     mock_employer_store.to_context_block.assert_called_once_with(
         active_career_type=None,
         query_text="What are DBS hiring requirements?",
+        profile_top_employers=None,
     )
     _, kwargs = mock_llm.call_args
     assert kwargs.get("employer_context") is not None

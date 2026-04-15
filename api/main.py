@@ -11,6 +11,8 @@ from slowapi.errors import RateLimitExceeded
 from config import settings
 from limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
+from services.runtime_paths import validate_runtime_storage
+from services.session_store import SessionStorageError
 from routers import docs_router, ingest_router, chat_router, brief_router, kb_router, session_router
 
 logger = logging.getLogger(__name__)
@@ -18,14 +20,9 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create query log directory at startup. Wrapped in try/except — if the
-    # filesystem is read-only or permissions are wrong, the API should still start.
-    # Chat will still work; _log_query silently skips writes on failure.
-    try:
-        log_dir = os.path.dirname(os.path.abspath(settings.query_log_path))
-        os.makedirs(log_dir, exist_ok=True)
-    except OSError as e:
-        logger.warning("Could not create query log directory %r: %s — logging disabled", settings.query_log_path, e)
+    # Validate every writable root up front so deployment wiring failures surface
+    # at startup instead of showing up later as empty admin tables or silent no-ops.
+    validate_runtime_storage()
 
     # Warn if running multiple workers — file writes to query_log are not safe
     # for concurrent multi-worker deployments. Single-worker only for this iteration.
@@ -56,6 +53,16 @@ async def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded)
 
 
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _session_storage_error_handler(request: Request, exc: SessionStorageError) -> JSONResponse:
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc)},
+    )
+
+
+app.add_exception_handler(SessionStorageError, _session_storage_error_handler)
 
 app.add_middleware(
     CORSMiddleware,

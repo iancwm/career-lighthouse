@@ -41,10 +41,10 @@ def app(mock_session_store):
     mock_embedder = MagicMock()
     mock_embedder.encode.return_value = np.ones(384, dtype=np.float32)
     mock_vector_store = MagicMock()
-
     fake_dependencies = types.ModuleType("dependencies")
     fake_dependencies.get_embedder = lambda: mock_embedder
     fake_dependencies.get_vector_store = lambda: mock_vector_store
+    fake_dependencies.require_admin_key = lambda: None
 
     with patch("services.session_store.SessionStore") as MockStore, patch(
         "services.career_profiles.CareerProfileStore._load_profiles",
@@ -241,6 +241,7 @@ def app_with_session_router():
     fake_dependencies = types.ModuleType("dependencies")
     fake_dependencies.get_embedder = lambda: mock_embedder
     fake_dependencies.get_vector_store = lambda: mock_vector_store
+    fake_dependencies.require_admin_key = lambda: None
 
     with tempfile.TemporaryDirectory() as tmpdir, patch(
         "services.career_profiles.CareerProfileStore._load_profiles",

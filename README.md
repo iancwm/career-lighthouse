@@ -12,7 +12,8 @@ cp .env.example .env
 just up
 ```
 
-- Career office: http://localhost:3000/admin?key=demo2026
+- Career office: http://localhost:3000/admin
+- If you set `ADMIN_KEY`, append `?key=...` to the admin URL
 - Student advisor: http://localhost:3000/student
 
 ## Developer Workflow
@@ -96,13 +97,16 @@ Track publishing now keeps a live published profile plus an archived working cop
 When you run `just up`, Docker does not upload knowledge files anywhere. It mounts
 your local repo into the API container:
 
+- `./data/sessions` → `/app/data/sessions`
 - `./knowledge` → `/app/knowledge`
 - `./logs` → `/app/logs`
 
 That means:
 
+- Sessions are stored as JSON under `data/sessions/`
 - Employer YAMLs are loaded from [knowledge/employers](/home/iancwm/git/career-lighthouse/knowledge/employers)
 - Career profile YAMLs are loaded from [knowledge/career_profiles](/home/iancwm/git/career-lighthouse/knowledge/career_profiles)
+- Draft tracks and track history stay under `knowledge/...`
 - Query logs are written to [logs/query_log.jsonl](/home/iancwm/git/career-lighthouse/logs/query_log.jsonl)
 
 Important distinction:

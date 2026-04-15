@@ -7,11 +7,11 @@ terraform {
 provider "aws" { region = var.aws_region }
 
 # ---------------------------------------------------------------------------
-# EFS — Qdrant persistent storage (encrypted)
+# EFS — API writable data (encrypted)
 # ---------------------------------------------------------------------------
-resource "aws_efs_file_system" "qdrant" {
+resource "aws_efs_file_system" "api_data" {
   encrypted = true
-  tags = { Name = "${var.app_name}-qdrant" }
+  tags = { Name = "${var.app_name}-api-data" }
 }
 
 # EFS — Knowledge YAML and logs (encrypted)
@@ -71,10 +71,10 @@ resource "aws_ecs_task_definition" "api" {
   memory                   = "2048"
 
   volume {
-    name = "qdrant-data"
+    name = "api-data"
     efs_volume_configuration {
-      file_system_id = aws_efs_file_system.qdrant.id
-      root_directory = "/qdrant"
+      file_system_id = aws_efs_file_system.api_data.id
+      root_directory = "/api-data"
     }
   }
 
@@ -99,21 +99,29 @@ resource "aws_ecs_task_definition" "api" {
     image = var.ecr_image_api
     portMappings = [{ containerPort = 8000 }]
     environment = [
-      { name = "DATA_PATH",              value = "/data/qdrant" },
       { name = "ALLOWED_ORIGINS",        value = "https://${aws_amplify_app.web.default_domain}" },
-      { name = "QDRANT_URL",             value = "http://localhost:6333" },
+      { name = "QDRANT_URL",             value = var.qdrant_url },
+      { name = "DATA_PATH",              value = "/app/data/qdrant" },
+      { name = "SESSIONS_DIR",           value = "/app/data/sessions" },
       { name = "CAREER_PROFILES_DIR",    value = "/app/knowledge/career_profiles" },
       { name = "EMPLOYERS_DIR",          value = "/app/knowledge/employers" },
+      { name = "DRAFT_TRACKS_DIR",       value = "/app/knowledge/draft_tracks" },
+      { name = "CAREER_TRACKS_REGISTRY_PATH", value = "/app/knowledge/career_tracks.yaml" },
+      { name = "CAREER_PROFILE_HISTORY_DIR", value = "/app/knowledge/career_profiles_history" },
       { name = "QUERY_LOG_PATH",         value = "/app/logs/query_log.jsonl" },
+      { name = "TRACK_PUBLISH_JOURNAL_PATH", value = "/app/logs/track_publish_journal.jsonl" },
+      { name = "TRACK_PUBLISH_LOG_PATH", value = "/app/logs/track_publish_log.jsonl" },
+      { name = "TRACKS_VERSION_PATH",    value = "/app/knowledge/.tracks-version" },
       { name = "WEB_CONCURRENCY",        value = "1" },
       { name = "SENTENCE_TRANSFORMERS_HOME", value = "/app/.cache" },
+      { name = "UV_CACHE_DIR",           value = "/home/appuser/.cache/uv" },
     ]
     secrets = [
       { name = "ANTHROPIC_API_KEY", valueFrom = aws_ssm_parameter.anthropic_key.arn },
       { name = "ADMIN_KEY",         valueFrom = aws_ssm_parameter.admin_key.arn },
     ]
     mountPoints = [
-      { sourceVolume = "qdrant-data",    containerPath = "/data/qdrant",       readOnly = false },
+      { sourceVolume = "api-data",       containerPath = "/app/data",          readOnly = false },
       { sourceVolume = "knowledge-data", containerPath = "/app/knowledge",     readOnly = false },
       { sourceVolume = "logs-data",      containerPath = "/app/logs",          readOnly = false },
     ]

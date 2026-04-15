@@ -107,6 +107,8 @@ def app_with_guidance_router():
 
         fake_dependencies = types.ModuleType("dependencies")
         fake_dependencies.get_embedder = lambda: mock_embedder
+        fake_dependencies.require_admin_key = lambda: None
+        fake_dependencies.require_admin_key = lambda: None
 
         with patch(
             "services.career_profiles.CareerProfileStore._load_profiles",

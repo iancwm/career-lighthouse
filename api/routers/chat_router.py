@@ -57,16 +57,23 @@ def _log_query(message: str, chunks: list[dict],
     switch to aiofiles or run_in_executor.
     """
     try:
-        scores = [c["score"] for c in chunks]
-        doc_matched = chunks[0]["payload"]["source_filename"] if chunks else None
-        top_docs = [c["payload"]["source_filename"] for c in chunks]
+        scores = []
+        for chunk in chunks:
+            try:
+                scores.append(float(chunk["score"]))
+            except (TypeError, ValueError):
+                scores.append(str(chunk["score"]))
+        doc_matched = None
+        if chunks:
+            doc_matched = str(chunks[0]["payload"]["source_filename"])
+        top_docs = [str(c["payload"]["source_filename"]) for c in chunks]
         entry = {
             "ts": datetime.now(timezone.utc).isoformat(),
-            "query_text": message,
+            "query_text": str(message),
             "scores": scores,
             "doc_matched": doc_matched,
             "top_docs": top_docs,
-            "career_type": active_career_type,
+            "career_type": None if active_career_type is None else str(active_career_type),
         }
         with open(settings.query_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")

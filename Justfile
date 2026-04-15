@@ -32,12 +32,17 @@ logs:
 # Explain where knowledge and logs are stored when running via Docker
 where-data:
     @echo "Local Docker storage paths:"
+    @echo "  Sessions:             ./data/sessions/            -> /app/data/sessions/"
     @echo "  Employer YAMLs:       ./knowledge/employers/        -> /app/knowledge/employers/"
     @echo "  Career profile YAMLs: ./knowledge/career_profiles/  -> /app/knowledge/career_profiles/"
+    @echo "  Draft tracks:         ./knowledge/draft_tracks/     -> /app/knowledge/draft_tracks/"
+    @echo "  Track history:        ./knowledge/career_profiles_history/ -> /app/knowledge/career_profiles_history/"
     @echo "  Query log:            ./logs/query_log.jsonl        -> /app/logs/query_log.jsonl"
+    @echo "  Track publish logs:   ./logs/track_publish_*.jsonl   -> /app/logs/"
     @echo "  Uploaded documents:   stored in Qdrant, not as files under ./knowledge/"
     @echo ""
     @echo "What persists where:"
+    @echo "  Sessions and YAML-backed admin edits write back to the mounted data roots"
     @echo "  Employer/Profile edits from the admin UI write back to ./knowledge/"
     @echo "  Document uploads via /api/ingest are embedded and stored in Qdrant"
     @echo "  Student query logs are appended to ./logs/query_log.jsonl"

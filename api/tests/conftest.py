@@ -3,6 +3,7 @@ import os
 import pytest
 from unittest.mock import MagicMock
 import numpy as np
+from limiter import limiter
 
 @pytest.fixture
 def mock_embedder():
@@ -17,6 +18,28 @@ def in_memory_qdrant():
     from qdrant_client import QdrantClient
     client = QdrantClient(":memory:")
     return client
+
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Ensure per-test rate limiting state does not leak across the suite."""
+    limiter.reset()
+    yield
+    limiter.reset()
+
+
+@pytest.fixture(autouse=True)
+def reset_app_overrides():
+    """Keep FastAPI dependency overrides scoped to each test."""
+    try:
+        from main import app
+    except Exception:
+        app = None
+    if app is not None:
+        app.dependency_overrides.clear()
+    yield
+    if app is not None:
+        app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------

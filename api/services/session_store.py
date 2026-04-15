@@ -19,12 +19,24 @@ from threading import Lock
 from typing import Optional
 
 from models import KnowledgeSession
+from services.runtime_paths import default_sessions_dir, ensure_writable_directory
 
-# Storage directory within the API root
-_SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", "/app/data/sessions"))
+# Storage directory within the API root or repo checkout.
+_SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", str(default_sessions_dir())))
 
 # Allow word chars, hyphens, and @-signs; reject everything else
 _SAFE_ID_RE = re.compile(r"[^\w\-@]")
+
+
+class SessionStorageError(RuntimeError):
+    """Raised when session storage cannot be read or written safely."""
+
+
+def _ensure_sessions_root() -> None:
+    try:
+        ensure_writable_directory(_SESSIONS_DIR, "SESSIONS_DIR")
+    except RuntimeError as exc:
+        raise SessionStorageError(str(exc)) from exc
 
 
 def _safe_counsellor_dir(counsellor_id: str) -> str:
@@ -59,7 +71,7 @@ class SessionStore:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                _SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+                _ensure_sessions_root()
             return cls._instance
 
     # ------------------------------------------------------------------
@@ -94,13 +106,27 @@ class SessionStore:
 
     def save_session(self, session: KnowledgeSession) -> None:
         path = self._get_path(session.id, session.created_by)
+        _ensure_sessions_root()
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = path.with_suffix(".tmp")
 
         with self._lock:
-            with open(tmp_path, "w", encoding="utf-8") as f:
-                f.write(session.model_dump_json(indent=2))
-            tmp_path.replace(path)
+            try:
+                with open(tmp_path, "w", encoding="utf-8") as f:
+                    f.write(session.model_dump_json(indent=2))
+                tmp_path.replace(path)
+            except OSError as exc:
+                logger.error(
+                    "Session write failed for %s under %s: %s",
+                    session.id,
+                    _SESSIONS_DIR,
+                    exc,
+                    exc_info=True,
+                )
+                tmp_path.unlink(missing_ok=True)
+                raise SessionStorageError(
+                    f"Unable to write session {session.id} under {_SESSIONS_DIR}: {exc}"
+                ) from exc
 
     def get_session(self, session_id: str) -> Optional[KnowledgeSession]:
         """Look up a session by ID.
@@ -115,6 +141,7 @@ class SessionStore:
         - The file is moved to the scoped directory and the legacy file
           is removed.
         """
+        _ensure_sessions_root()
         # 1. Scan scoped sub-directories
         try:
             for subdir in _SESSIONS_DIR.iterdir():
@@ -124,14 +151,32 @@ class SessionStore:
                 if p.exists():
                     with open(p, encoding="utf-8") as f:
                         return KnowledgeSession.model_validate_json(f.read())
-        except OSError:
-            pass
+        except OSError as exc:
+            logger.error(
+                "Session read failed while scanning %s for %s: %s",
+                _SESSIONS_DIR,
+                session_id,
+                exc,
+                exc_info=True,
+            )
+            raise SessionStorageError(
+                f"Unable to read sessions under {_SESSIONS_DIR}: {exc}"
+            ) from exc
 
         # 2. Fall back to legacy flat path and migrate if found
         legacy = self._legacy_path(session_id)
         if legacy.exists():
-            with open(legacy, encoding="utf-8") as f:
-                session = KnowledgeSession.model_validate_json(f.read())
+            try:
+                with open(legacy, encoding="utf-8") as f:
+                    session = KnowledgeSession.model_validate_json(f.read())
+            except OSError as exc:
+                logger.error(
+                    "Session read failed for legacy path %s: %s",
+                    legacy,
+                    exc,
+                    exc_info=True,
+                )
+                raise SessionStorageError(f"Unable to read legacy session {session_id}: {exc}") from exc
 
             # Backfill sessions with the old default created_by
             if session.created_by in ("counsellor", ""):
@@ -141,8 +186,14 @@ class SessionStore:
             try:
                 self.save_session(session)
                 legacy.unlink(missing_ok=True)
-            except OSError:
-                pass  # Non-fatal — session still readable from legacy path
+            except SessionStorageError:
+                logger.error(
+                    "Session migration failed for %s from legacy path %s",
+                    session_id,
+                    legacy,
+                    exc_info=True,
+                )
+                raise
 
             return session
 
@@ -154,6 +205,7 @@ class SessionStore:
         If *counsellor_id* is given, only sessions owned by that counsellor
         are returned. Otherwise all sessions are returned (admin/legacy mode).
         """
+        _ensure_sessions_root()
         sessions: list[KnowledgeSession] = []
 
         if counsellor_id:
@@ -164,8 +216,13 @@ class SessionStore:
                     try:
                         with open(path, encoding="utf-8") as f:
                             sessions.append(KnowledgeSession.model_validate_json(f.read()))
-                    except (OSError, ValueError):
-                        pass
+                    except (OSError, ValueError) as exc:
+                        logger.warning(
+                            "Skipping unreadable session file %s under %s: %s",
+                            path,
+                            _SESSIONS_DIR,
+                            exc,
+                        )
         else:
             # Admin listing: all scoped sub-directories + legacy flat files
             try:
@@ -175,17 +232,35 @@ class SessionStore:
                             try:
                                 with open(path, encoding="utf-8") as f:
                                     sessions.append(KnowledgeSession.model_validate_json(f.read()))
-                            except (OSError, ValueError):
-                                pass
-            except OSError:
-                pass
+                            except (OSError, ValueError) as exc:
+                                logger.warning(
+                                    "Skipping unreadable session file %s under %s: %s",
+                                    path,
+                                    _SESSIONS_DIR,
+                                    exc,
+                                )
+            except OSError as exc:
+                logger.error(
+                    "Session listing failed while scanning %s: %s",
+                    _SESSIONS_DIR,
+                    exc,
+                    exc_info=True,
+                )
+                raise SessionStorageError(
+                    f"Unable to list sessions under {_SESSIONS_DIR}: {exc}"
+                ) from exc
             # Legacy flat files
             for path in _SESSIONS_DIR.glob("*.json"):
                 try:
                     with open(path, encoding="utf-8") as f:
                         sessions.append(KnowledgeSession.model_validate_json(f.read()))
-                except (OSError, ValueError):
-                    pass
+                except (OSError, ValueError) as exc:
+                    logger.warning(
+                        "Skipping unreadable legacy session file %s under %s: %s",
+                        path,
+                        _SESSIONS_DIR,
+                        exc,
+                    )
 
         sessions.sort(key=lambda s: s.updated_at, reverse=True)
         return sessions
