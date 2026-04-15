@@ -3,10 +3,6 @@ import { vi } from "vitest"
 import SmartCanvas from "../SmartCanvas"
 
 describe("SmartCanvas", () => {
-  beforeEach(() => {
-    process.env.NEXT_PUBLIC_API_URL = "http://test"
-  })
-
   afterEach(() => {
     vi.resetAllMocks()
   })

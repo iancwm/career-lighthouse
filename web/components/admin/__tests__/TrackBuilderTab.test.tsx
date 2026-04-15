@@ -5,10 +5,6 @@ import TrackBuilderTab from "../TrackBuilderTab"
 describe("TrackBuilderTab", () => {
   const originalFetch = globalThis.fetch
 
-  beforeEach(() => {
-    process.env.NEXT_PUBLIC_API_URL = "http://test"
-  })
-
   afterEach(() => {
     vi.resetAllMocks()
     globalThis.fetch = originalFetch

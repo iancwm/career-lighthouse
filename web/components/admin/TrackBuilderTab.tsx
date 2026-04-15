@@ -99,7 +99,7 @@ export default function TrackBuilderTab({
   selectedSlug: selectedSlugProp,
   onSelectedSlugChange,
 }: TrackBuilderTabProps = {}) {
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  const API_URL = "/api/admin"
   const [drafts, setDrafts] = useState<DraftTrackDetail[]>([])
   const [tracks, setTracks] = useState<TrackRegistryEntry[]>([])
   const [internalSelectedSlug, setInternalSelectedSlug] = useState<string | null>(null)

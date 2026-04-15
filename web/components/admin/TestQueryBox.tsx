@@ -8,7 +8,7 @@ interface ChunkResult {
 }
 
 interface Props {
-  apiUrl: string | undefined
+  apiUrl?: string
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -25,7 +25,7 @@ function ScoreBadge({ score }: { score: number }) {
   )
 }
 
-export default function TestQueryBox({ apiUrl }: Props) {
+export default function TestQueryBox({ apiUrl = "/api/admin" }: Props) {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<ChunkResult[] | null>(null)
   const [loading, setLoading] = useState(false)

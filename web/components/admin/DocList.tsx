@@ -6,7 +6,7 @@ interface Props { refreshKey: number; onDeleted?: () => void }
 
 export default function DocList({ refreshKey, onDeleted }: Props) {
   const [docs, setDocs] = useState<Doc[]>([])
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const apiUrl = "/api/admin"
 
   useEffect(() => {
     fetch(`${apiUrl}/api/docs`).then(r => r.json()).then(setDocs)

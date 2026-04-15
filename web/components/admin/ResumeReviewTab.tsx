@@ -8,7 +8,7 @@ export default function ResumeReviewTab() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  const apiUrl = "/api/admin"
 
   async function handleGenerate() {
     if (!resume.trim()) return

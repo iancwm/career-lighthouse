@@ -1,7 +1,7 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from "react"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+const API_URL = "/api/admin"
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10MB
 const ACCEPTED_TYPES = [
   "application/pdf",

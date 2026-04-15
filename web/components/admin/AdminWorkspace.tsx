@@ -113,7 +113,7 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
 }
 
 export default function AdminWorkspace() {
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+  const apiUrl = "/api/admin"
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -184,7 +184,6 @@ export default function AdminWorkspace() {
 
   useEffect(() => {
     if (view !== "knowledge") return
-    if (!apiUrl) return
     let cancelled = false
     setHealthLoading(true)
     setHealthError(false)

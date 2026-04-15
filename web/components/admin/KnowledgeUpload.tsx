@@ -7,7 +7,7 @@ export default function KnowledgeUpload({ onUploaded }: Props) {
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState("")
   const [warnings, setWarnings] = useState<string[]>([])
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const apiUrl = "/api/admin"
 
   async function uploadFiles(files: File[]) {
     setUploading(true)

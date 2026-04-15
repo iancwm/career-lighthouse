@@ -5,7 +5,7 @@ export default function BriefGenerator() {
   const [resume, setResume] = useState("")
   const [brief, setBrief] = useState("")
   const [loading, setLoading] = useState(false)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL
+  const apiUrl = "/api/admin"
 
   async function handleGenerate() {
     if (!resume.trim()) return

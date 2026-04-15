@@ -59,7 +59,6 @@ describe("AdminWorkspace", () => {
     currentQuery = ""
     replace.mockReset()
     push.mockReset()
-    process.env.NEXT_PUBLIC_API_URL = "http://test"
     vi.stubGlobal("fetch", vi.fn())
   })
 
@@ -92,9 +91,9 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("http://test/api/kb/health")
+      expect(fetchMock).toHaveBeenCalledWith("/api/admin/api/kb/health")
     )
-    expect(screen.getByText(/KB Health/i)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /KB Health/i })).toBeInTheDocument()
   })
 
   it("routes session selection and return-to-inbox through the URL", async () => {
