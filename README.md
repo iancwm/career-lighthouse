@@ -85,6 +85,7 @@ The career office dashboard (`/admin`) includes:
 
 - **Backend**: FastAPI (Python) — embeddings via sentence-transformers (in-process), vector DB via Qdrant (local volume), LLM via Anthropic Claude
 - **Frontend**: Next.js 14
+- **Configuration**: All thresholds, prompts, and model settings externalized to YAML files in `api/cfg/` — tunable without code changes
 - **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code. Legacy slugs are canonicalized on read and write, so old `data_science` payloads migrate to `dsai` automatically.
 - **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)

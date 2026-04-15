@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5.1] - 2026-04-14
+
+### Added
+- **Config externalization**: all hardcoded thresholds moved to YAML configs (`model.yaml`, `kb.yaml`, `track_guidance.yaml`, `prompts.yaml`) for easier tuning without code changes.
+- **Structured LLM prompts**: system prompts for `analyse_kb_input`, `generate_track_draft`, `generate_session_intents` externalized to `prompts.yaml`.
+- **Multi-pass extraction support**: large documents (>30k chars) split into chunks for session intent extraction with configurable chunk sizes and overlap.
+- **`generate_brief()` function**: pre-meeting brief generator for counselors, combining resume text with KB chunks for actionable talking points.
+- **Comprehensive docstrings**: added module-level documentation to all services (`ingestion`, `llm`, `session_store`, `track_guidance`, `vector_store`).
+
+### Changed
+- `chunk_text()` now reads default token/overlap values from `kb.yaml` instead of hardcoded parameters.
+- `generate_session_intents()` deduplication summary length configurable via `model.yaml`.
+- Vector store search defaults to `kb.yaml` `vector_store.default_top_k` instead of hardcoded value.
+- Track guidance thresholds (safe update, emerging signals) read from `track_guidance.yaml` instead of hardcoded values.
+
+### Fixed
+- Merge conflict in `ingestion.py` resolved (needs both `kb_cfg` import and `sanitize_for_prompt`).
+
 ## [0.1.5.0] - 2026-04-12
 
 ### Added

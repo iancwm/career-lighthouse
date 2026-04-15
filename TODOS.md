@@ -8,6 +8,17 @@ This backlog is ordered by execution priority:
 
 ## Now
 
+### Rate limiting on public endpoints
+**What:** Add `slowapi` middleware to `POST /api/chat`, `POST /api/brief`, `POST /api/ingest` (token-bucket per IP).
+**Why:** Unbounded endpoints can exhaust Anthropic API quota or spike Fargate costs.
+**Recommended limits:** 10 req/min on `/api/chat`, 5 req/min on `/api/ingest`.
+**Depends on:** None. Self-contained FastAPI middleware addition.
+
+### Request timeout on LLM calls
+**What:** Set `timeout=30.0` on `anthropic.Anthropic()` client; add FastAPI `BackgroundTasks` for long operations.
+**Why:** LLM calls can hang indefinitely if Anthropic is slow, occupying all Uvicorn workers.
+**Depends on:** None.
+
 ### FastAPI auth on KB endpoints
 **What:** Add `Depends()` auth guards to the read and write `/api/kb/*` endpoints.
 **Why:** Next.js middleware alone is not enough defense in depth; direct HTTP calls can bypass it.
@@ -34,6 +45,36 @@ guard. Empty field map returns 200 cleanly.
 **Depends on:** Revision metadata on structured facts.
 
 ## Next
+
+### ADMIN_KEY passed as query param — migrate to header or cookie
+**What:** Replace `?key=...` query param with `Authorization: Bearer` header or session cookie.
+**Why:** Query params appear in ALB access logs and browser history, exposing the admin key.
+**Depends on:** None. Breaking change for API consumers.
+
+### Sanitize chat prompt injections
+**What:** Apply `sanitize_for_prompt()` to career context and employer facts injected into live chat prompts in `llm.py`.
+**Why:** Counsellor-authored YAMLs are lower risk but should receive the same treatment as ingested chunks.
+**Depends on:** None.
+
+### Session card commit idempotency
+**What:** Store `committed: true` on cards and check before writing to prevent duplicate YAML updates on retry.
+**Why:** Browser refresh during commit can apply the same card twice, producing duplicate YAML fields.
+**Depends on:** None.
+
+### Path to multi-instance scaling
+**What:** Replace file-based query log with CloudWatch Logs or SQS; move Qdrant to standalone container; remove `WEB_CONCURRENCY=1`.
+**Why:** Single-worker constraint blocks horizontal scaling; file-based log corrupts with multiple writers.
+**Depends on:** Infrastructure decision (managed Qdrant vs sidecar).
+
+### Consolidate field allowlists
+**What:** Move `ALLOWED_PROFILE_FIELDS` and `ALLOWED_EMPLOYER_FIELDS` to shared constants module.
+**Why:** Currently duplicated in `kb_router.py` and `session_router.py`; adding fields to one but not other causes silent divergence.
+**Depends on:** None.
+
+### Model name env var override
+**What:** Make `model.yaml` model name overridable via env var (e.g., `ANTHROPIC_MODEL`).
+**Why:** When Anthropic deprecates a model, requires YAML edit + redeployment currently.
+**Depends on:** None.
 
 ### list_docs() scroll ceiling — optimize for large KBs
 **What:** Switch `VectorStore.list_docs()` from `scroll(limit=10000)` to per-doc `count()` calls, or add a 60s TTL cache in `kb_router.py`.
@@ -117,6 +158,11 @@ and manual-value preservation.
 **What:** Persist uploaded source files and tie them to revisions for reprocessing and audit.
 **Why:** Raw inputs should remain a durable source of truth, not just an ephemeral upload.
 **Depends on:** Document storage layout decision.
+
+### Missing Terraform resources for production deployment
+**What:** Define ECS Service, ALB HTTPS listener, target groups, EFS backup policy, WAF, auto-scaling, VPC/subnets/SGs.
+**Why:** Current Terraform has task definition but no service to run it, no HTTPS listener, no auto-scaling, no WAF for rate limiting.
+**Depends on:** AWS infrastructure design decisions.
 
 ## Done
 
