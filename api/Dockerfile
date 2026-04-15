@@ -1,16 +1,21 @@
 FROM python:3.11-slim
 
+# Enable BuildKit for cache mount support
+ENV DOCKER_BUILDKIT=1
+
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
 WORKDIR /app
 
-# Install dependencies (no dev extras, frozen lockfile)
-COPY pyproject.toml uv.lock ./
-RUN uv sync --no-dev --frozen
+# Install dependencies with persistent cache across builds
+# Only re-downloads NEW packages; existing cache speeds up rebuilds
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --no-dev --frozen
 
 # Pre-download the embedding model into the image so first boot is fast
-RUN uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+RUN --mount=type=cache,target=/root/.cache/huggingface \
+    uv run python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
 
 COPY . .
 
