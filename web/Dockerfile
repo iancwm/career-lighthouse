@@ -11,6 +11,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
 
 # Run as non-root user
 RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 nextjs
@@ -21,8 +23,8 @@ USER nextjs
 
 EXPOSE 3000
 
-# Health check — wget is available in node:alpine
+# Health check — /student is the public route that returns 200 in production.
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD wget -qO- http://localhost:3000/ > /dev/null || exit 1
+  CMD wget -qO- http://127.0.0.1:3000/student > /dev/null || exit 1
 
 CMD ["node", "server.js"]

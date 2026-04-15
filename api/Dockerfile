@@ -16,7 +16,11 @@ COPY . .
 
 # Run as non-root user to limit blast radius on container escape
 RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN mkdir -p /home/appuser/.cache/uv
 RUN chown -R appuser:appgroup /app
+RUN chown -R appuser:appgroup /home/appuser
+ENV HOME=/home/appuser
+ENV UV_CACHE_DIR=/home/appuser/.cache/uv
 USER appuser
 
 EXPOSE 8000
