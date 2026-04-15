@@ -16,6 +16,52 @@ just up
 - If you set `ADMIN_KEY`, append `?key=...` to the admin URL
 - Student advisor: http://localhost:3000/student
 
+## Admin Key Configuration
+
+The `ADMIN_KEY` protects the admin dashboard and sensitive API endpoints (`/api/kb/*`, `/api/sessions/*`).
+
+### Development (No Auth)
+
+Leave `ADMIN_KEY` empty in `.env` to disable authentication for local development:
+
+```env
+ADMIN_KEY=
+```
+
+### Production (Required)
+
+Generate a strong random key and set it in `.env`:
+
+```bash
+# Generate a secure random key
+ADMIN_KEY=$(openssl rand -hex 32)
+
+# Or using Python
+ADMIN_KEY=$(python3 -c "import secrets; print(secrets.token_hex(32))")
+```
+
+Then add it to your `.env` file:
+
+```env
+ADMIN_KEY=your-generated-key-here
+```
+
+**Important security notes:**
+- The admin key is passed as a **query parameter** (`?key=...`) in the browser — it will appear in server access logs
+- For production, consider migrating to `Authorization: Bearer` headers or session cookies (see TODOS.md)
+- Rotate the key regularly via SSM SecureString in AWS
+- Both the API and Web services must share the same `ADMIN_KEY` value
+
+### Accessing the Admin Dashboard
+
+Once `ADMIN_KEY` is set, access the dashboard with the key as a query parameter:
+
+```
+http://localhost:3000/admin?key=your-admin-key-here
+```
+
+If the key is missing or incorrect, you'll see an "Unauthorized" error.
+
 ## Developer Workflow
 
 Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to list all recipes.
