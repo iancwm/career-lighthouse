@@ -166,6 +166,9 @@ and manual-value preservation.
 
 ## Done
 
+### ~~Config externalization, structured prompts, and briefing utilities~~ ✓ Done (0.1.5.1)
+Shipped: hardcoded thresholds moved into YAML configs (`model.yaml`, `kb.yaml`, `track_guidance.yaml`, `prompts.yaml`), system prompts externalized to `prompts.yaml`, large document session extraction now uses multi-pass chunking, `generate_brief()` ships a counselor brief generator, and service docstrings were added across ingestion, LLM, session store, track guidance, and vector store modules.
+
 ### ~~Session-first admin workflow and tab guidance~~ ✓ Done (2026-04-12)
 Shipped: `/admin` starts in Session Editor, the surrounding tabs now explain their purpose, and the workflow copy makes it clear when counsellors should use Track Builder versus the review surfaces.
 
