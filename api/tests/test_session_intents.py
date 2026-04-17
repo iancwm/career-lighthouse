@@ -111,3 +111,15 @@ def test_missing_cards_key_returns_empty(mock_client):
     result = generate_session_intents("test", existing_tracks=[], existing_employers=[])
 
     assert result == {"cards": [], "already_covered": [], "thought": ""}
+
+
+@patch("services.llm.get_client")
+def test_session_intents_uses_extended_timeout(mock_client):
+    """Session extraction should use a longer timeout than general chat calls."""
+    mock_resp = _make_claude_response(json.dumps({"cards": [], "already_covered": []}))
+    mock_client.return_value.messages.create.return_value = mock_resp
+
+    generate_session_intents("test", existing_tracks=[], existing_employers=[])
+
+    call_kwargs = mock_client.return_value.messages.create.call_args.kwargs
+    assert call_kwargs["timeout"] == 90.0

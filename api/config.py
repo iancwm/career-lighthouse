@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # If empty, auth is bypassed (development mode only). Must be set in production.
     admin_key: str = ""
     llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
+    llm_session_timeout_seconds: float = 90.0  # LLM_SESSION_TIMEOUT_SECONDS env var
 
 
 if SettingsConfigDict is None:
@@ -37,6 +38,7 @@ if SettingsConfigDict is None:
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
         admin_key: str = ""
         llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
+        llm_session_timeout_seconds: float = 90.0  # LLM_SESSION_TIMEOUT_SECONDS env var
 
 
 settings = Settings()

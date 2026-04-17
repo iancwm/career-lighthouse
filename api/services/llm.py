@@ -43,12 +43,14 @@ def get_client():
     return _client
 
 
-def _safe_create(**kwargs):
+def _safe_create(*, timeout_seconds: float | None = None, **kwargs):
     """Call client.messages.create() with timeout/connection error handling.
 
     Raises HTTP 504 on timeout and HTTP 502 on connection failure so callers
     receive a structured error response instead of hanging workers.
     """
+    if timeout_seconds is not None:
+        kwargs["timeout"] = timeout_seconds
     try:
         return get_client().messages.create(**kwargs)
     except anthropic.APITimeoutError:
@@ -415,6 +417,7 @@ def generate_session_intents(
             temperature=0,
             system=system_prompt,
             messages=[{"role": "user", "content": context}],
+            timeout_seconds=settings.llm_session_timeout_seconds,
         )
 
         text = response.content[0].text.strip()
@@ -428,6 +431,7 @@ def generate_session_intents(
                 temperature=0,
                 system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
                 messages=[{"role": "user", "content": context}],
+                timeout_seconds=settings.llm_session_timeout_seconds,
             )
             result = parse_response(retry_response.content[0].text.strip())
 
