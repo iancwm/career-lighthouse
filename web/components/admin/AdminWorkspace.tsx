@@ -17,6 +17,7 @@ import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
+import LLMObservabilityTab from "@/components/admin/LLMObservabilityTab"
 import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
 import BrokenProfilesTab from "@/components/admin/BrokenProfilesTab"
 import ToolsDrawer, { DrawerSurface } from "@/components/admin/ToolsDrawer"
@@ -49,10 +50,11 @@ interface KBHealth {
 
 type DrawerView = DrawerSurface | "sessions"
 
-const DRAWER_SURFACES: DrawerSurface[] = ["knowledge", "update", "careers", "employers", "tracks", "resume", "broken"]
+const DRAWER_SURFACES: DrawerSurface[] = ["observability", "knowledge", "update", "careers", "employers", "tracks", "resume", "broken"]
 
 const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
   { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
+  { id: "observability", label: "LLM Observability", description: "Inspect traces, latency, and Qdrant health." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
   { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
@@ -63,7 +65,7 @@ const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
 ]
 
 function isDrawerView(value: string | null): value is DrawerView {
-  return value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume" || value === "broken"
+  return value === "observability" || value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume" || value === "broken"
 }
 
 function isDrawerSurface(value: string | null): value is DrawerSurface {
@@ -75,6 +77,11 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
     label: "Review session cards",
     whatYouDo: "Review and approve/discard individual update cards extracted from your notes.",
     whatHappens: "Approved cards write to the knowledge base. Discarded cards are ignored.",
+  },
+  observability: {
+    label: "Inspect LLM traces",
+    whatYouDo: "Review structured LLM calls, latency, and Qdrant health before you touch the prompts.",
+    whatHappens: "You can see what the model saw, how long it took, and where retrieval is drifting.",
   },
   knowledge: {
     label: "Manage uploaded documents",
@@ -345,6 +352,8 @@ export default function AdminWorkspace() {
           </div>
         </section>
       )}
+
+      {view === "observability" && <LLMObservabilityTab />}
 
       {view === "update" && (
         <KnowledgeUpdateTab

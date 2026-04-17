@@ -85,6 +85,22 @@ class LowConfidenceQuery(BaseModel):
     doc_matched: Optional[str] = None
 
 
+class LLMTraceEntry(BaseModel):
+    trace_id: str
+    ts: str
+    operation: str
+    status: str
+    model: str
+    timeout_seconds: float | None = None
+    max_tokens: int
+    latency_ms: float
+    input_chars: int
+    output_chars: int = 0
+    input_preview: str = ""
+    output_preview: str = ""
+    error: str | None = None
+
+
 class OverlapPair(BaseModel):
     doc_a: str
     doc_b: str

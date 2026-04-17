@@ -36,6 +36,7 @@ from models import (
     KBCommitRequest,
     KBCommitResponse,
     KBHealthResponse,
+    LLMTraceEntry,
     LowConfidenceQuery,
     NewChunk,
     OverlapPair,
@@ -269,6 +270,29 @@ def _read_query_log(since: datetime) -> list[dict]:
     except Exception:
         logger.warning("Failed to read query log", exc_info=True)
     return entries
+
+
+def _read_llm_trace_log(limit: int = 50) -> list[LLMTraceEntry]:
+    """Read recent LLM trace entries from the JSONL trace log."""
+    entries: list[LLMTraceEntry] = []
+    try:
+        trace_path = getattr(settings, "llm_trace_log_path", "")
+        if not trace_path or not os.path.exists(trace_path):
+            return []
+        with open(trace_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    raw = json.loads(line)
+                    entries.append(LLMTraceEntry(**raw))
+                except Exception:
+                    logger.warning("Skipping malformed LLM trace line: %r", line[:120])
+    except Exception:
+        logger.warning("Failed to read LLM trace log", exc_info=True)
+        return []
+    return entries[-limit:]
 
 
 def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
@@ -1350,3 +1374,15 @@ def kb_health(
         doc_coverage=doc_coverage,
         high_overlap_pairs=high_overlap_pairs,
     )
+
+
+@router.get("/llm-traces", response_model=list[LLMTraceEntry])
+def llm_traces(
+    limit: int = 50,
+):
+    """Return recent structured LLM trace entries for admin debugging."""
+    if limit < 1:
+        raise HTTPException(status_code=422, detail="limit must be at least 1")
+    if limit > 200:
+        limit = 200
+    return _read_llm_trace_log(limit=limit)

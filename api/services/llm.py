@@ -13,6 +13,9 @@ import json
 import logging
 import re
 import uuid
+from datetime import datetime, timezone
+from pathlib import Path
+from time import perf_counter
 
 import anthropic
 from fastapi import HTTPException
@@ -24,6 +27,7 @@ logger = logging.getLogger(__name__)
 from cfg import model_cfg, kb_cfg, prompts_cfg
 
 _client = None
+_TRACE_PREVIEW_CHARS = 500
 
 _llm = model_cfg["llm"]
 # Merge model.yaml prompts (chat_system, disambiguation, brief_system)
@@ -57,6 +61,89 @@ def _safe_create(*, timeout_seconds: float | None = None, **kwargs):
         raise HTTPException(status_code=504, detail="LLM service timeout")
     except anthropic.APIConnectionError:
         raise HTTPException(status_code=502, detail="LLM service unavailable")
+
+
+def _truncate_preview(text: str | None, limit: int = _TRACE_PREVIEW_CHARS) -> str:
+    if not text:
+        return ""
+    clean = text.strip()
+    if len(clean) <= limit:
+        return clean
+    return clean[:limit] + "…"
+
+
+def _append_llm_trace(entry: dict) -> None:
+    path = Path(settings.llm_trace_log_path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    except Exception:
+        logger.warning("Failed to write LLM trace entry — request unaffected", exc_info=True)
+
+
+def _call_with_trace(
+    *,
+    operation: str,
+    model: str,
+    max_tokens: int,
+    system: str,
+    messages: list[dict],
+    timeout_seconds: float | None = None,
+    **kwargs,
+) -> object:
+    start = perf_counter()
+    input_chars = len(system) + sum(len(str(message.get("content", ""))) for message in messages)
+    try:
+        response = _safe_create(
+            model=model,
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+            timeout_seconds=timeout_seconds,
+            **kwargs,
+        )
+    except HTTPException as exc:
+        elapsed_ms = round((perf_counter() - start) * 1000, 1)
+        _append_llm_trace({
+            "trace_id": uuid.uuid4().hex,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "operation": operation,
+            "status": "error",
+            "model": model,
+            "timeout_seconds": timeout_seconds,
+            "max_tokens": max_tokens,
+            "latency_ms": elapsed_ms,
+            "input_chars": input_chars,
+            "output_chars": 0,
+            "input_preview": _truncate_preview(messages[-1].get("content", "")) if messages else "",
+            "output_preview": "",
+            "error": str(exc.detail),
+        })
+        raise
+
+    output_text = ""
+    if getattr(response, "content", None):
+        first = response.content[0]
+        output_text = getattr(first, "text", "") or ""
+
+    elapsed_ms = round((perf_counter() - start) * 1000, 1)
+    _append_llm_trace({
+        "trace_id": uuid.uuid4().hex,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "operation": operation,
+        "status": "ok",
+        "model": model,
+        "timeout_seconds": timeout_seconds,
+        "max_tokens": max_tokens,
+        "latency_ms": elapsed_ms,
+        "input_chars": input_chars,
+        "output_chars": len(output_text),
+        "input_preview": _truncate_preview(messages[-1].get("content", "")) if messages else "",
+        "output_preview": _truncate_preview(output_text),
+        "error": None,
+    })
+    return response
 
 
 def chat_with_context(message: str, resume_text: str | None,
@@ -123,7 +210,8 @@ def chat_with_context(message: str, resume_text: str | None,
         f"Student question: {message}"
     )
 
-    response = _safe_create(
+    response = _call_with_trace(
+        operation="chat_with_context",
         model=_llm["model"],
         max_tokens=_llm["max_tokens"],
         system=_prompts["chat_system"].format(school_name=SCHOOL_NAME) + disambiguation_note,
@@ -170,7 +258,8 @@ def analyse_kb_input(
         f"CURRENT EMPLOYER FACTS (key fields only):\n{employer_summary or '(No employers configured)'}"
     )
 
-    response = _safe_create(
+    response = _call_with_trace(
+        operation="analyse_kb_input",
         model=_llm["model"],
         max_tokens=_llm["max_tokens_kb_analysis"],
         system=system,
@@ -236,7 +325,8 @@ def generate_track_draft(
         f"SOURCE TYPE: {source_type}\n"
     )
 
-    response = _safe_create(
+    response = _call_with_trace(
+        operation="generate_track_draft",
         model=_llm["model"],
         max_tokens=_llm["max_tokens_track_draft"],
         system=system,
@@ -274,7 +364,8 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
         for c in chunks
     )
 
-    response = _safe_create(
+    response = _call_with_trace(
+        operation="generate_brief",
         model=_llm["model"],
         max_tokens=_llm["max_tokens"],
         system=_prompts["brief_system"],
@@ -411,7 +502,8 @@ def generate_session_intents(
     try:
         model = _llm["model"]
 
-        response = _safe_create(
+        response = _call_with_trace(
+            operation="generate_session_intents",
             model=model,
             max_tokens=_llm["max_tokens_session_extraction"],
             temperature=0,
@@ -425,7 +517,8 @@ def generate_session_intents(
 
         if not result["cards"] and not result["already_covered"]:
             # Retry once on total failure
-            retry_response = _safe_create(
+            retry_response = _call_with_trace(
+                operation="generate_session_intents_retry",
                 model=model,
                 max_tokens=_llm["max_tokens_session_extraction"],
                 temperature=0,

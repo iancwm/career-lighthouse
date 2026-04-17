@@ -47,6 +47,10 @@ def default_query_log_path() -> Path:
     return repo_root() / "logs" / "query_log.jsonl"
 
 
+def default_llm_trace_log_path() -> Path:
+    return repo_root() / "logs" / "llm_trace_log.jsonl"
+
+
 def default_publish_journal_path() -> Path:
     return repo_root() / "logs" / "track_publish_journal.jsonl"
 
@@ -79,6 +83,7 @@ def runtime_storage_targets() -> dict[str, tuple[str, Path]]:
         "SENTENCE_TRANSFORMERS_HOME": ("dir", _env_path("SENTENCE_TRANSFORMERS_HOME", default_sentence_transformers_home())),
         "UV_CACHE_DIR": ("dir", _env_path("UV_CACHE_DIR", default_uv_cache_dir())),
         "QUERY_LOG_PATH": ("file", _env_path("QUERY_LOG_PATH", default_query_log_path())),
+        "LLM_TRACE_LOG_PATH": ("file", _env_path("LLM_TRACE_LOG_PATH", default_llm_trace_log_path())),
         "CAREER_TRACKS_REGISTRY_PATH": ("file", _env_path("CAREER_TRACKS_REGISTRY_PATH", default_registry_path())),
         "TRACK_PUBLISH_JOURNAL_PATH": ("file", _env_path("TRACK_PUBLISH_JOURNAL_PATH", default_publish_journal_path())),
         "TRACK_PUBLISH_LOG_PATH": ("file", _env_path("TRACK_PUBLISH_LOG_PATH", default_publish_log_path())),

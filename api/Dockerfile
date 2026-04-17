@@ -42,6 +42,7 @@ ENV TRACK_PUBLISH_JOURNAL_PATH=/app/logs/track_publish_journal.jsonl
 ENV TRACK_PUBLISH_LOG_PATH=/app/logs/track_publish_log.jsonl
 ENV TRACKS_VERSION_PATH=/app/knowledge/.tracks-version
 ENV QUERY_LOG_PATH=/app/logs/query_log.jsonl
+ENV LLM_TRACE_LOG_PATH=/app/logs/llm_trace_log.jsonl
 ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache
 
 RUN chmod 755 /app/entrypoint.sh

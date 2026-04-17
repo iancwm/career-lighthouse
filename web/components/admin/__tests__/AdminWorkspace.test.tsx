@@ -91,9 +91,37 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("/api/admin/api/kb/health")
+      expect(fetchMock).toHaveBeenCalledWith("http://localhost:8000/api/kb/health", {
+        headers: {},
+      })
     )
     expect(screen.getByRole("heading", { name: /KB Health/i })).toBeInTheDocument()
+  })
+
+  it("renders the observability workspace when requested", async () => {
+    currentQuery = "view=observability"
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        total_docs: 0,
+        total_chunks: 0,
+        avg_match_score: null,
+        retrieval_diversity_score: null,
+        low_confidence_queries: [],
+        doc_coverage: [],
+        high_overlap_pairs: [],
+      }),
+    } as Response)
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    } as Response)
+
+    render(<AdminWorkspace />)
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /Trace every call/i })).toBeInTheDocument()
+    )
   })
 
   it("routes session selection and return-to-inbox through the URL", async () => {

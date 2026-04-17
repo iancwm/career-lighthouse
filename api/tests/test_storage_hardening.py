@@ -16,6 +16,7 @@ def test_validate_runtime_storage_creates_configured_paths(tmp_path, monkeypatch
     monkeypatch.setenv("SENTENCE_TRANSFORMERS_HOME", str(tmp_path / ".cache"))
     monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / ".cache" / "uv"))
     monkeypatch.setenv("QUERY_LOG_PATH", str(tmp_path / "logs" / "query_log.jsonl"))
+    monkeypatch.setenv("LLM_TRACE_LOG_PATH", str(tmp_path / "logs" / "llm_trace_log.jsonl"))
     monkeypatch.setenv("CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "knowledge" / "career_tracks.yaml"))
     monkeypatch.setenv("TRACK_PUBLISH_JOURNAL_PATH", str(tmp_path / "logs" / "track_publish_journal.jsonl"))
     monkeypatch.setenv("TRACK_PUBLISH_LOG_PATH", str(tmp_path / "logs" / "track_publish_log.jsonl"))

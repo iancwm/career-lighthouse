@@ -21,6 +21,7 @@ prepare_dir "${CAREER_PROFILE_HISTORY_DIR:-/app/knowledge/career_profiles_histor
 prepare_dir "${SENTENCE_TRANSFORMERS_HOME:-/app/.cache}"
 prepare_dir "${UV_CACHE_DIR:-/home/appuser/.cache/uv}"
 prepare_file_parent "${QUERY_LOG_PATH:-/app/logs/query_log.jsonl}"
+prepare_file_parent "${LLM_TRACE_LOG_PATH:-/app/logs/llm_trace_log.jsonl}"
 prepare_file_parent "${CAREER_TRACKS_REGISTRY_PATH:-/app/knowledge/career_tracks.yaml}"
 prepare_file_parent "${TRACK_PUBLISH_JOURNAL_PATH:-/app/logs/track_publish_journal.jsonl}"
 prepare_file_parent "${TRACK_PUBLISH_LOG_PATH:-/app/logs/track_publish_log.jsonl}"

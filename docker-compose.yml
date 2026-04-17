@@ -29,6 +29,7 @@ services:
       - CAREER_TRACKS_REGISTRY_PATH=/app/knowledge/career_tracks.yaml
       - CAREER_PROFILE_HISTORY_DIR=/app/knowledge/career_profiles_history
       - QUERY_LOG_PATH=/app/logs/query_log.jsonl
+      - LLM_TRACE_LOG_PATH=/app/logs/llm_trace_log.jsonl
       - TRACK_PUBLISH_JOURNAL_PATH=/app/logs/track_publish_journal.jsonl
       - TRACK_PUBLISH_LOG_PATH=/app/logs/track_publish_log.jsonl
       - TRACKS_VERSION_PATH=/app/knowledge/.tracks-version
