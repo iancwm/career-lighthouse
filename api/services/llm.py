@@ -26,7 +26,7 @@ from services.ingestion import chunk_text
 logger = logging.getLogger(__name__)
 from cfg import model_cfg, kb_cfg, prompts_cfg
 
-_client = None
+_clients: dict[int, anthropic.Anthropic] = {}
 _TRACE_PREVIEW_CHARS = 500
 
 _llm = model_cfg["llm"]
@@ -36,18 +36,26 @@ _prompts = {**model_cfg.get("prompts", {}), **prompts_cfg.get("prompts", {})}
 SCHOOL_NAME = model_cfg["school"]["name"]
 
 
-def get_client():
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(
+def _effective_session_multi_pass_setting(setting_name: str, model_key: str) -> int:
+    value = getattr(settings, setting_name, None)
+    if value is not None:
+        return int(value)
+    return int(_llm[model_key])
+
+
+def get_client(max_retries: int = 2):
+    client = _clients.get(max_retries)
+    if client is None:
+        client = anthropic.Anthropic(
             api_key=settings.anthropic_api_key,
             timeout=settings.llm_timeout_seconds,
-            max_retries=2,
+            max_retries=max_retries,
         )
-    return _client
+        _clients[max_retries] = client
+    return client
 
 
-def _safe_create(*, timeout_seconds: float | None = None, **kwargs):
+def _safe_create(*, timeout_seconds: float | None = None, max_retries: int | None = None, **kwargs):
     """Call client.messages.create() with timeout/connection error handling.
 
     Raises HTTP 504 on timeout and HTTP 502 on connection failure so callers
@@ -56,7 +64,8 @@ def _safe_create(*, timeout_seconds: float | None = None, **kwargs):
     if timeout_seconds is not None:
         kwargs["timeout"] = timeout_seconds
     try:
-        return get_client().messages.create(**kwargs)
+        client = get_client() if max_retries is None else get_client(max_retries=max_retries)
+        return client.messages.create(**kwargs)
     except anthropic.APITimeoutError:
         raise HTTPException(status_code=504, detail="LLM service timeout")
     except anthropic.APIConnectionError:
@@ -90,10 +99,30 @@ def _call_with_trace(
     system: str,
     messages: list[dict],
     timeout_seconds: float | None = None,
+    trace_metadata: dict[str, object] | None = None,
     **kwargs,
 ) -> object:
     start = perf_counter()
     input_chars = len(system) + sum(len(str(message.get("content", ""))) for message in messages)
+    trace_id = uuid.uuid4().hex
+    input_preview = _truncate_preview(messages[-1].get("content", "")) if messages else ""
+    metadata = trace_metadata or {}
+    _append_llm_trace({
+        "trace_id": trace_id,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "operation": operation,
+        "status": "started",
+        "model": model,
+        **metadata,
+        "timeout_seconds": timeout_seconds,
+        "max_tokens": max_tokens,
+        "latency_ms": 0.0,
+        "input_chars": input_chars,
+        "output_chars": 0,
+        "input_preview": input_preview,
+        "output_preview": "",
+        "error": None,
+    })
     try:
         response = _safe_create(
             model=model,
@@ -106,17 +135,18 @@ def _call_with_trace(
     except HTTPException as exc:
         elapsed_ms = round((perf_counter() - start) * 1000, 1)
         _append_llm_trace({
-            "trace_id": uuid.uuid4().hex,
+            "trace_id": trace_id,
             "ts": datetime.now(timezone.utc).isoformat(),
             "operation": operation,
             "status": "error",
             "model": model,
+            **metadata,
             "timeout_seconds": timeout_seconds,
             "max_tokens": max_tokens,
             "latency_ms": elapsed_ms,
             "input_chars": input_chars,
             "output_chars": 0,
-            "input_preview": _truncate_preview(messages[-1].get("content", "")) if messages else "",
+            "input_preview": input_preview,
             "output_preview": "",
             "error": str(exc.detail),
         })
@@ -129,17 +159,18 @@ def _call_with_trace(
 
     elapsed_ms = round((perf_counter() - start) * 1000, 1)
     _append_llm_trace({
-        "trace_id": uuid.uuid4().hex,
+        "trace_id": trace_id,
         "ts": datetime.now(timezone.utc).isoformat(),
         "operation": operation,
         "status": "ok",
         "model": model,
+        **metadata,
         "timeout_seconds": timeout_seconds,
         "max_tokens": max_tokens,
         "latency_ms": elapsed_ms,
         "input_chars": input_chars,
         "output_chars": len(output_text),
-        "input_preview": _truncate_preview(messages[-1].get("content", "")) if messages else "",
+        "input_preview": input_preview,
         "output_preview": _truncate_preview(output_text),
         "error": None,
     })
@@ -417,6 +448,8 @@ def generate_session_intents(
     raw_input: str,
     existing_tracks: list[dict] | None = None,
     existing_employers: list[dict] | None = None,
+    session_id: str | None = None,
+    trace_metadata: dict[str, object] | None = None,
 ) -> dict:
     """Extract distinct update intents from counsellor raw research notes.
 
@@ -426,17 +459,43 @@ def generate_session_intents(
     """
     # 1. Check for multi-pass need
     # Large documents are split into chunks for extraction density/reliability.
-    threshold = _llm["multi_pass_threshold_chars"]
+    threshold = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_threshold_chars",
+        "multi_pass_threshold_chars",
+    )
     if len(raw_input) > threshold:
         logger.info("generate_session_intents: Large document detected (%d chars). Using multi-pass.", len(raw_input))
+        chunk_tokens = _effective_session_multi_pass_setting(
+            "llm_session_multi_pass_chunk_tokens",
+            "multi_pass_chunk_tokens",
+        )
+        overlap_tokens = _effective_session_multi_pass_setting(
+            "llm_session_multi_pass_overlap_tokens",
+            "multi_pass_overlap_tokens",
+        )
         chunks = chunk_text(
             raw_input,
-            max_tokens=_llm["multi_pass_chunk_tokens"],
-            overlap=_llm["multi_pass_overlap_tokens"]
+            max_tokens=chunk_tokens,
+            overlap=overlap_tokens
         )
         results = []
-        for chunk in chunks:
-            res = generate_session_intents(chunk, existing_tracks, existing_employers)
+        total_chunks = len(chunks)
+        for index, chunk in enumerate(chunks, start=1):
+            res = generate_session_intents(
+                chunk,
+                existing_tracks,
+                existing_employers,
+                session_id=session_id,
+                trace_metadata={
+                    **(trace_metadata or {}),
+                    "phase": "multi_pass_chunk",
+                    "chunk_index": index,
+                    "chunk_count": total_chunks,
+                    "multi_pass_threshold_chars": threshold,
+                    "multi_pass_chunk_tokens": chunk_tokens,
+                    "multi_pass_overlap_tokens": overlap_tokens,
+                },
+            )
             results.append(res)
         return _merge_intents(results)
 
@@ -501,6 +560,8 @@ def generate_session_intents(
 
     try:
         model = _llm["model"]
+        base_phase = (trace_metadata or {}).get("phase")
+        phase = str(base_phase) if base_phase else "session_analysis"
 
         response = _call_with_trace(
             operation="generate_session_intents",
@@ -510,6 +571,21 @@ def generate_session_intents(
             system=system_prompt,
             messages=[{"role": "user", "content": context}],
             timeout_seconds=settings.llm_session_timeout_seconds,
+            max_retries=0,
+            trace_metadata={
+                **(trace_metadata or {}),
+                "session_id": session_id,
+                "phase": phase,
+                "multi_pass_threshold_chars": threshold,
+                "multi_pass_chunk_tokens": _effective_session_multi_pass_setting(
+                    "llm_session_multi_pass_chunk_tokens",
+                    "multi_pass_chunk_tokens",
+                ),
+                "multi_pass_overlap_tokens": _effective_session_multi_pass_setting(
+                    "llm_session_multi_pass_overlap_tokens",
+                    "multi_pass_overlap_tokens",
+                ),
+            },
         )
 
         text = response.content[0].text.strip()
@@ -525,6 +601,12 @@ def generate_session_intents(
                 system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
                 messages=[{"role": "user", "content": context}],
                 timeout_seconds=settings.llm_session_timeout_seconds,
+                max_retries=0,
+                trace_metadata={
+                    **(trace_metadata or {}),
+                    "session_id": session_id,
+                    "phase": f"{phase}_retry",
+                },
             )
             result = parse_response(retry_response.content[0].text.strip())
 

@@ -10,6 +10,10 @@ default:
 up:
     docker compose up --build
 
+# Start the optional Langfuse observability stack alongside the app.
+langfuse-up:
+    docker compose --profile langfuse up --build
+
 # Full clean rebuild — bypasses Docker cache. Use when the build is broken.
 rebuild:
     docker compose down
@@ -20,6 +24,10 @@ rebuild:
 # Stop all services
 down:
     docker compose down
+
+# Stop the optional Langfuse stack.
+langfuse-down:
+    docker compose --profile langfuse down
 
 # Stop services and wipe qdrant_data volume
 clean:

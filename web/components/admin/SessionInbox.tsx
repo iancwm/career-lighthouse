@@ -15,6 +15,7 @@ interface KnowledgeSession {
   status: string
   raw_input: string
   intent_cards: Array<{ card_id: string; domain: string; summary: string; status: string }>
+  analysis_error?: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -50,8 +51,29 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
   const [parsedFile, setParsedFile] = useState<ParsedFile | null>(null)
   const [uploadError, setUploadError] = useState("")
   const [dragOver, setDragOver] = useState(false)
+  const [actionSessionId, setActionSessionId] = useState<string | null>(null)
+  const [statusPulse, setStatusPulse] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const hasActiveSessions = sessions.some((session) => session.status === "in-progress" || session.status === "analyzing")
+
+  function statusLabel(status: string): string {
+    if (status === "analyzed") return "Analyzed"
+    if (status === "completed") return "Complete"
+    if (status === "analyzing" || status === "in-progress") return `Analyzing${".".repeat(statusPulse)}`
+    if (status === "failed") return "Failed"
+    if (status === "cancelled") return "Cancelled"
+    return "In progress"
+  }
+
+  function statusStyle(status: string): string {
+    if (status === "analyzed" || status === "completed") return "bg-[#CCEBE8] text-[#0F766E]"
+    if (status === "failed") return "bg-rose-100 text-rose-700"
+    if (status === "cancelled") return "bg-slate-100 text-slate-600"
+    if (status === "analyzing") return "bg-amber-100 text-amber-800"
+    return "bg-[#F0E7DB] text-[#5F6B76]"
+  }
 
   async function loadSessions() {
     try {
@@ -71,6 +93,19 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
     const interval = setInterval(loadSessions, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (!hasActiveSessions) {
+      setStatusPulse(0)
+      return
+    }
+
+    const interval = window.setInterval(() => {
+      setStatusPulse((value) => (value + 1) % 4)
+    }, 500)
+
+    return () => window.clearInterval(interval)
+  }, [hasActiveSessions])
 
   async function createSession() {
     if (!rawInput.trim()) return
@@ -92,6 +127,43 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
       setError("Could not create session.")
     } finally {
       setCreating(false)
+    }
+  }
+
+  async function stopSession(sessionId: string) {
+    setActionSessionId(sessionId)
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${sessionId}/cancel`, {
+        method: "POST",
+      })
+      if (res.ok || res.status === 409) {
+        await loadSessions()
+      } else {
+        setError("Could not stop session.")
+      }
+    } catch {
+      setError("Could not stop session.")
+    } finally {
+      setActionSessionId(null)
+    }
+  }
+
+  async function retrySession(sessionId: string) {
+    setActionSessionId(sessionId)
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${sessionId}/analyze`, {
+        method: "POST",
+      })
+      if (res.ok || res.status === 409) {
+        await loadSessions()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setError(err.detail || "Could not retry session.")
+      }
+    } catch {
+      setError("Could not retry session.")
+    } finally {
+      setActionSessionId(null)
     }
   }
 
@@ -369,16 +441,22 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
           <div className="space-y-3">
             {displayedSessions.map((session) => {
               const pendingCards = session.intent_cards.filter((c) => c.status === "pending").length
+              const showStop = session.status === "in-progress" || session.status === "analyzing"
+              const showRetry = session.status === "failed" || session.status === "cancelled"
+              const busy = actionSessionId === session.id
               return (
-                <button
+                <div
                   key={session.id}
-                  onClick={() => onSelectSession(session.id)}
                   className="w-full rounded-xl border border-[#D8D0C4] bg-[#FFFDFC] px-4 py-3 text-left hover:border-[#0F766E] transition-colors"
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1 mr-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <button
+                      type="button"
+                      onClick={() => onSelectSession(session.id)}
+                      className="min-w-0 flex-1 text-left"
+                    >
                       <p className="text-sm font-medium text-[#1F2937]">
-                        {session.status === "analyzed" ? "Analyzed" : "In Progress"}
+                        {statusLabel(session.status)}
                       </p>
                       <p className="text-xs text-[#5F6B76] mt-1 truncate">
                         {session.raw_input.slice(0, 100)}
@@ -387,23 +465,52 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
                       <p className="text-xs text-[#5F6B76] mt-0.5 font-mono">
                         {new Date(session.created_at).toLocaleString()}
                       </p>
-                    </div>
+                      {session.analysis_error && (
+                        <p className="mt-2 text-xs text-amber-900">
+                          {session.analysis_error}
+                        </p>
+                      )}
+                    </button>
                     <div className="text-right">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${
-                          session.status === "analyzed"
-                            ? "bg-[#CCEBE8] text-[#0F766E]"
-                            : "bg-[#F0E7DB] text-[#5F6B76]"
-                        }`}
+                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusStyle(session.status)}`}
                       >
-                        {session.status}
+                        {(session.status === "in-progress" || session.status === "analyzing") && (
+                          <svg className="mr-1 h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        )}
+                        {statusLabel(session.status)}
                       </span>
                       {pendingCards > 0 && (
                         <p className="text-xs text-[#5F6B76] mt-1">{pendingCards} pending</p>
                       )}
+                      <div className="mt-2 flex flex-wrap justify-end gap-2">
+                        {showStop && (
+                          <button
+                            type="button"
+                            onClick={() => stopSession(session.id)}
+                            disabled={busy}
+                            className="rounded-lg border border-amber-300 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-40"
+                          >
+                            {busy ? "Stopping…" : "Stop"}
+                          </button>
+                        )}
+                        {showRetry && (
+                          <button
+                            type="button"
+                            onClick={() => retrySession(session.id)}
+                            disabled={busy}
+                            className="rounded-lg border border-blue-300 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                          >
+                            {busy ? "Retrying…" : "Retry"}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>

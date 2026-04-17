@@ -1,5 +1,6 @@
 """Tests for generate_session_intents() — LLM-based intent extraction."""
 import json
+from types import SimpleNamespace
 from unittest.mock import patch, MagicMock
 from services.llm import generate_session_intents
 
@@ -115,11 +116,106 @@ def test_missing_cards_key_returns_empty(mock_client):
 
 @patch("services.llm.get_client")
 def test_session_intents_uses_extended_timeout(mock_client):
-    """Session extraction should use a longer timeout than general chat calls."""
+    """Session extraction should use a longer timeout and skip client retries."""
     mock_resp = _make_claude_response(json.dumps({"cards": [], "already_covered": []}))
     mock_client.return_value.messages.create.return_value = mock_resp
 
     generate_session_intents("test", existing_tracks=[], existing_employers=[])
 
+    assert mock_client.call_args.kwargs["max_retries"] == 0
     call_kwargs = mock_client.return_value.messages.create.call_args.kwargs
     assert call_kwargs["timeout"] == 90.0
+
+
+@patch("services.llm.get_client")
+def test_session_intents_trace_carries_session_metadata(mock_client, tmp_path):
+    """Session extraction traces should identify the session and phase."""
+    import services.llm as llm_module
+
+    trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        json.dumps({"cards": [], "already_covered": []})
+    )
+    fake_settings = SimpleNamespace(
+        anthropic_api_key="fake",
+        allowed_origins="http://localhost:3000",
+        qdrant_url="",
+        data_path=llm_module.settings.data_path,
+        query_log_path=llm_module.settings.query_log_path,
+        llm_trace_log_path=str(trace_path),
+        max_upload_bytes=llm_module.settings.max_upload_bytes,
+        admin_key="",
+        llm_timeout_seconds=30.0,
+        llm_session_timeout_seconds=90.0,
+    )
+
+    with patch.object(llm_module, "settings", fake_settings):
+        generate_session_intents(
+            "test",
+            existing_tracks=[],
+            existing_employers=[],
+            session_id="session-123",
+        )
+
+    with open(trace_path, encoding="utf-8") as handle:
+        entries = [json.loads(line) for line in handle if line.strip()]
+
+    assert entries[0]["session_id"] == "session-123"
+    assert entries[0]["phase"] == "session_analysis"
+    assert entries[1]["session_id"] == "session-123"
+    assert entries[1]["phase"] == "session_analysis"
+
+
+@patch("services.llm.get_client")
+@patch("services.llm.chunk_text")
+def test_session_intents_multi_pass_trace_metadata(mock_chunk, mock_client, tmp_path):
+    """Multi-pass session extraction should label each chunk in the trace."""
+    import services.llm as llm_module
+
+    trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
+    mock_chunk.return_value = ["a", "b"]
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        json.dumps(
+            {
+                "cards": [{
+                    "card_id": "card-1",
+                    "domain": "track",
+                    "summary": "Chunk output",
+                    "diff": {"slug": "chunk_output"},
+                    "raw_input_ref": "chunk-one",
+                }],
+                "already_covered": [],
+            }
+        )
+    )
+    fake_settings = SimpleNamespace(
+        anthropic_api_key="fake",
+        allowed_origins="http://localhost:3000",
+        qdrant_url="",
+        data_path=llm_module.settings.data_path,
+        query_log_path=llm_module.settings.query_log_path,
+        llm_trace_log_path=str(trace_path),
+        max_upload_bytes=llm_module.settings.max_upload_bytes,
+        admin_key="",
+        llm_timeout_seconds=30.0,
+        llm_session_timeout_seconds=90.0,
+        llm_session_multi_pass_threshold_chars=1,
+        llm_session_multi_pass_chunk_tokens=1,
+        llm_session_multi_pass_overlap_tokens=0,
+    )
+
+    with patch.object(llm_module, "settings", fake_settings):
+        generate_session_intents(
+            "x" * 3,
+            existing_tracks=[],
+            existing_employers=[],
+            session_id="session-456",
+        )
+
+    with open(trace_path, encoding="utf-8") as handle:
+        entries = [json.loads(line) for line in handle if line.strip()]
+
+    phases = {(entry["phase"], entry.get("chunk_index"), entry.get("chunk_count")) for entry in entries}
+    assert ("multi_pass_chunk", 1, 2) in phases
+    assert ("multi_pass_chunk", 2, 2) in phases
+    assert all(entry["multi_pass_threshold_chars"] == 1 for entry in entries)

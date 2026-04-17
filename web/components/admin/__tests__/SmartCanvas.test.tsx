@@ -70,4 +70,33 @@ describe("SmartCanvas", () => {
     expect(screen.getByText("Software Engineering", { selector: "span.font-medium" })).toBeInTheDocument()
     expect(screen.getByText(/Recurrence count: 1/i)).toBeInTheDocument()
   })
+
+  it("shows stop controls while a session is analyzing", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/api/sessions/session-2")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-2",
+            status: "analyzing",
+            raw_input: "Goldman Sachs update",
+            intent_cards: [],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+            analysis_error: null,
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-2" onBack={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Stop analysis/i })).toBeInTheDocument())
+    expect(screen.getByText(/Session: Analyzing/i)).toBeInTheDocument()
+  })
 })

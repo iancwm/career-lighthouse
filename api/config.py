@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     admin_key: str = ""
     llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
     llm_session_timeout_seconds: float = 90.0  # LLM_SESSION_TIMEOUT_SECONDS env var
+    llm_session_multi_pass_threshold_chars: int | None = None  # LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS env var
+    llm_session_multi_pass_chunk_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_CHUNK_TOKENS env var
+    llm_session_multi_pass_overlap_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS env var
 
 
 if SettingsConfigDict is None:
@@ -41,6 +44,9 @@ if SettingsConfigDict is None:
         admin_key: str = ""
         llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
         llm_session_timeout_seconds: float = 90.0  # LLM_SESSION_TIMEOUT_SECONDS env var
+        llm_session_multi_pass_threshold_chars: int | None = None
+        llm_session_multi_pass_chunk_tokens: int | None = None
+        llm_session_multi_pass_overlap_tokens: int | None = None
 
 
 settings = Settings()

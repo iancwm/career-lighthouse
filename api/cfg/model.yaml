@@ -11,7 +11,7 @@ llm:
   max_tokens_track_draft: 2500       # generate_track_draft()
   max_tokens_session_extraction: 8192  # generate_session_intents()
   # Multi-pass extraction settings for large documents
-  multi_pass_threshold_chars: 30000  # split and extract when input exceeds this
+  multi_pass_threshold_chars: 12000  # split and extract when input exceeds this
   multi_pass_chunk_tokens: 15000     # token size per chunk in multi-pass mode
   multi_pass_overlap_tokens: 2000    # overlap between chunks for continuity
   # Truncation lengths for KB excerpt previews in structured prompts

@@ -38,6 +38,7 @@ interface KnowledgeSession {
   intent_cards: IntentCard[]
   already_covered?: AlreadyCovered[]
   track_guidance?: TrackGuidance | null
+  analysis_error?: string | null
   created_by: string
   created_at: string
   updated_at: string
@@ -138,6 +139,7 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+  const [statusDots, setStatusDots] = useState(0)
 
   async function loadSession() {
     setLoading(true)
@@ -218,9 +220,45 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
     }
   }
 
+  async function cancelSession() {
+    if (!session) return
+    setActionLoading(true)
+    setNotice("")
+    setError("")
+    try {
+      const res = await fetch(`${API_URL}/api/sessions/${session.id}/cancel`, {
+        method: "POST",
+      })
+      if (res.status === 409) {
+        await loadSession()
+        return
+      }
+      if (!res.ok) throw new Error("cancel failed")
+      setNotice("Analysis stopped.")
+      await loadSession()
+    } catch {
+      setError("Could not stop analysis.")
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   useEffect(() => {
     loadSession()
   }, [sessionId])
+
+  useEffect(() => {
+    if (!session || (session.status !== "in-progress" && session.status !== "analyzing")) {
+      setStatusDots(0)
+      return
+    }
+
+    const interval = window.setInterval(() => {
+      setStatusDots((value) => (value + 1) % 4)
+    }, 500)
+
+    return () => window.clearInterval(interval)
+  }, [session?.status])
 
   const selectedCard = session?.intent_cards.find((c) => c.card_id === selectedCardId) ?? null
 
@@ -281,11 +319,13 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
   if (loading) {
     return (
       <div className="flex items-center gap-3 text-sm text-gray-500 py-8">
-        <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+        <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
         </svg>
-        {session?.status === "in-progress" ? "Analyzing your notes with AI…" : "Loading session…"}
+        {session?.status === "in-progress" || session?.status === "analyzing"
+          ? `Analyzing${".".repeat(statusDots)}`
+          : "Loading session…"}
       </div>
     )
   }
@@ -293,6 +333,9 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
 
   const isComplete = session.status === "completed"
   const isAnalyzed = session.status === "analyzed"
+  const isInFlight = session.status === "in-progress" || session.status === "analyzing"
+  const canRetry = session.status === "failed" || session.status === "cancelled"
+  const statusText = isInFlight ? `Analyzing${".".repeat(statusDots)}` : session.status
   const pendingCards = session.intent_cards.filter((c) => c.status === "pending")
   const hasNoCards = session.intent_cards.length === 0
   const guidance = session.track_guidance
@@ -305,23 +348,55 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
           <button onClick={onBack} className="text-sm text-blue-600 hover:text-blue-800 mb-1">
             ← Back to Sessions
           </button>
-          <h2 className="text-lg font-semibold">
-            {isComplete ? "Session Complete" : `Session: ${session.status}`}
-          </h2>
+          <div className="flex items-center gap-2">
+            {isInFlight && (
+              <svg className="h-4 w-4 animate-spin text-amber-600" viewBox="0 0 24 24" aria-hidden="true">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            )}
+            <h2 className="text-lg font-semibold">
+              {isComplete ? "Session Complete" : `Session: ${statusText}`}
+            </h2>
+          </div>
           <p className="text-xs text-gray-500">
             Created {new Date(session.created_at).toLocaleString()} by {session.created_by}
           </p>
+          {session.analysis_error && (
+            <p className="mt-2 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {session.analysis_error}
+            </p>
+          )}
         </div>
-        {/* Retry analysis button for sessions with zero cards */}
-        {isAnalyzed && hasNoCards && (
-          <button
-            onClick={analyzeSession}
-            disabled={actionLoading}
-            className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
-          >
-            {actionLoading ? "Analyzing…" : "Re-analyze"}
-          </button>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {isInFlight && (
+            <button
+              onClick={cancelSession}
+              disabled={actionLoading}
+              className="rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-40"
+            >
+              {actionLoading ? "Stopping…" : "Stop analysis"}
+            </button>
+          )}
+          {canRetry && (
+            <button
+              onClick={analyzeSession}
+              disabled={actionLoading}
+              className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+            >
+              {actionLoading ? "Analyzing…" : "Retry analysis"}
+            </button>
+          )}
+          {isAnalyzed && hasNoCards && (
+            <button
+              onClick={analyzeSession}
+              disabled={actionLoading}
+              className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+            >
+              {actionLoading ? "Analyzing…" : "Re-analyze"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

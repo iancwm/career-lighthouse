@@ -91,6 +91,13 @@ class LLMTraceEntry(BaseModel):
     operation: str
     status: str
     model: str
+    session_id: str | None = None
+    phase: str | None = None
+    chunk_index: int | None = None
+    chunk_count: int | None = None
+    multi_pass_threshold_chars: int | None = None
+    multi_pass_chunk_tokens: int | None = None
+    multi_pass_overlap_tokens: int | None = None
     timeout_seconds: float | None = None
     max_tokens: int
     latency_ms: float
@@ -305,11 +312,12 @@ class TrackPublishResponse(BaseModel):
 
 class KnowledgeSession(BaseModel):
     id: str
-    status: str  # "in-progress" | "analyzed" | "completed"
+    status: str  # "in-progress" | "analyzing" | "analyzed" | "completed" | "failed" | "cancelled"
     raw_input: str
     intent_cards: list[dict] = []
     track_guidance: TrackGuidance | None = None
     thought: Optional[str] = None
+    analysis_error: Optional[str] = None
     created_by: str = "counsellor"
     created_at: str
     updated_at: str

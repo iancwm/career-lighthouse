@@ -15,6 +15,7 @@ from pathlib import Path
 from starlette.requests import Request
 import yaml
 import logging
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +190,13 @@ def _check_session_completion(session: KnowledgeSession) -> None:
     if all_done and len(session.intent_cards) > 0:
         session.status = "completed"
 
+
+def _touch_session(session: KnowledgeSession) -> None:
+    """Update session timestamp and persist the current state."""
+    session.updated_at = datetime.now(timezone.utc).isoformat()
+    store = SessionStore()
+    store.save_session(session)
+
 @router.get("", response_model=List[KnowledgeSession])
 def list_sessions(request: Request, store: SessionStore = Depends(get_session_store)):
     """List sessions, most recently updated first.
@@ -281,6 +289,15 @@ def analyze_session(
         raise HTTPException(status_code=404, detail="Session not found")
     _check_session_ownership(session, _get_counsellor_id(request))
 
+    if session.status == "completed":
+        raise HTTPException(status_code=409, detail="Completed sessions cannot be re-analyzed")
+
+    # Mark the run before starting the LLM call so the UI can stop auto-retrying
+    # and operators can see that work is in flight.
+    session.status = "analyzing"
+    session.analysis_error = None
+    _touch_session(session)
+
     # Gather existing knowledge for context
     from services.career_profiles import get_career_profile_store
     from services.employer_store import get_employer_store
@@ -308,11 +325,29 @@ def analyze_session(
     from services.llm import generate_session_intents
     logger.info("analyze: passing %d tracks and %d employers to LLM",
         len(existing_tracks), len(existing_employers))
-    result = generate_session_intents(
-        raw_input=session.raw_input,
-        existing_tracks=existing_tracks,
-        existing_employers=existing_employers,
-    )
+    try:
+        result = generate_session_intents(
+            raw_input=session.raw_input,
+            existing_tracks=existing_tracks,
+            existing_employers=existing_employers,
+            session_id=session.id,
+        )
+    except HTTPException as exc:
+        current = store.get_session(session_id)
+        if current and current.status == "cancelled":
+            raise HTTPException(status_code=409, detail="Session was cancelled.")
+        session.status = "failed"
+        session.analysis_error = str(exc.detail)
+        _touch_session(session)
+        raise
+    except Exception as exc:
+        current = store.get_session(session_id)
+        if current and current.status == "cancelled":
+            raise HTTPException(status_code=409, detail="Session was cancelled.")
+        session.status = "failed"
+        session.analysis_error = str(exc)
+        _touch_session(session)
+        raise HTTPException(status_code=503, detail="Analysis service unavailable")
 
     thought = result.get("thought")
 
@@ -341,11 +376,16 @@ def analyze_session(
         already_covered.append(ac)
 
     # Store on session
+    current = store.get_session(session_id)
+    if current and current.status == "cancelled":
+        raise HTTPException(status_code=409, detail="Session was cancelled.")
+
     session.intent_cards = [c.model_dump() for c in cards]
     session.track_guidance = track_guidance
     session.thought = thought
+    session.analysis_error = None
     session.status = "analyzed"
-    store.save_session(session)
+    _touch_session(session)
 
     return SessionAnalysisResponse(
         session_id=session.id,
@@ -354,6 +394,25 @@ def analyze_session(
         track_guidance=track_guidance,
         thought=thought,
     )
+
+
+@router.post("/{session_id}/cancel")
+def cancel_session(
+    session_id: str,
+    request: Request,
+    store: SessionStore = Depends(get_session_store),
+):
+    """Cancel a session so the UI stops auto-running it."""
+    session = store.get_session(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    _check_session_ownership(session, _get_counsellor_id(request))
+    if session.status == "completed":
+        raise HTTPException(status_code=409, detail="Completed sessions cannot be cancelled")
+    session.status = "cancelled"
+    session.analysis_error = "Cancelled by user"
+    _touch_session(session)
+    return {"session_id": session_id, "status": "cancelled"}
 
 
 @router.post("/{session_id}/cards/{card_id}/commit")

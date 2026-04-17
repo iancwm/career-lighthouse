@@ -34,13 +34,17 @@ def test_generate_brief_writes_structured_trace(mock_client, tmp_path):
 
     assert result == "brief text"
     with open(trace_path, encoding="utf-8") as handle:
-        entry = json.loads(handle.readline())
+        entries = [json.loads(line) for line in handle if line.strip()]
 
-    assert entry["operation"] == "generate_brief"
-    assert entry["status"] == "ok"
-    assert entry["model"] == "claude-sonnet-4-6"
-    assert entry["output_preview"] == "brief text"
-    assert entry["input_chars"] > 0
+    assert len(entries) == 2
+    assert entries[0]["operation"] == "generate_brief"
+    assert entries[0]["status"] == "started"
+    assert entries[1]["operation"] == "generate_brief"
+    assert entries[1]["status"] == "ok"
+    assert entries[0]["trace_id"] == entries[1]["trace_id"]
+    assert entries[1]["model"] == "claude-sonnet-4-6"
+    assert entries[1]["output_preview"] == "brief text"
+    assert entries[1]["input_chars"] > 0
 
 
 def test_llm_traces_endpoint_returns_recent_entries(tmp_path):

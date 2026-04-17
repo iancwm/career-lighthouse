@@ -38,6 +38,13 @@ interface LLMTraceEntry {
   operation: string
   status: string
   model: string
+  session_id?: string | null
+  phase?: string | null
+  chunk_index?: number | null
+  chunk_count?: number | null
+  multi_pass_threshold_chars?: number | null
+  multi_pass_chunk_tokens?: number | null
+  multi_pass_overlap_tokens?: number | null
   timeout_seconds: number | null
   max_tokens: number
   latency_ms: number
@@ -55,6 +62,7 @@ function formatLatency(ms: number): string {
 
 function traceStatusClass(status: string): string {
   if (status === "ok") return "bg-emerald-100 text-emerald-700"
+  if (status === "started") return "bg-sky-100 text-sky-700"
   return "bg-rose-100 text-rose-700"
 }
 
@@ -98,9 +106,19 @@ export default function LLMObservabilityTab() {
   }, [refreshKey])
 
   const summary = useMemo(() => {
-    const failures = traces.filter((trace) => trace.status !== "ok").length
+    const latestByTrace = new Map<string, LLMTraceEntry>()
+    for (const trace of traces) {
+      const current = latestByTrace.get(trace.trace_id)
+      if (!current || new Date(trace.ts).getTime() >= new Date(current.ts).getTime()) {
+        latestByTrace.set(trace.trace_id, trace)
+      }
+    }
+
+    const latestRuns = Array.from(latestByTrace.values())
+    const failures = latestRuns.filter((trace) => trace.status === "error").length
+    const active = latestRuns.filter((trace) => trace.status === "started").length
     const slowest = traces.reduce((max, trace) => Math.max(max, trace.latency_ms), 0)
-    return { failures, slowest }
+    return { failures, active, slowest, total: latestRuns.length }
   }, [traces])
 
   if (loading) {
@@ -136,13 +154,17 @@ export default function LLMObservabilityTab() {
 
         {health && (
           <div className="mt-6">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Trace entries</p>
-                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{traces.length}</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Trace runs</p>
+                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.total}</p>
               </div>
               <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Trace failures</p>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">In flight</p>
+                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.active}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Failed runs</p>
                 <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.failures}</p>
               </div>
               <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
@@ -184,6 +206,7 @@ export default function LLMObservabilityTab() {
           <div>
             <h3 className="font-display text-2xl text-[var(--cl-ink)]">Recent LLM traces</h3>
             <p className="mt-1 text-sm text-[var(--cl-muted)]">Structured local traces from the API. Use these to debug prompt drift, timeouts, and malformed outputs.</p>
+            <p className="mt-1 text-xs text-[var(--cl-muted)]">Each call emits a `started` row immediately and a terminal `ok` or `error` row when it finishes.</p>
           </div>
           <span className="rounded-full bg-[var(--cl-surface-2)] px-3 py-1 text-xs font-medium text-[var(--cl-muted)]">
             newest last
@@ -211,6 +234,25 @@ export default function LLMObservabilityTab() {
                       {new Date(trace.ts).toLocaleString()} · {formatLatency(trace.latency_ms)} · {trace.max_tokens} max tokens
                       {trace.timeout_seconds ? ` · timeout ${trace.timeout_seconds}s` : ""}
                     </p>
+                    {(trace.session_id || trace.phase || trace.chunk_index || trace.chunk_count) && (
+                      <p className="mt-1 text-xs text-[var(--cl-muted)]">
+                        {trace.session_id ? `session ${trace.session_id.slice(0, 8)}` : ""}
+                        {trace.session_id && trace.phase ? " · " : ""}
+                        {trace.phase ?? ""}
+                        {trace.chunk_index && trace.chunk_count ? ` · chunk ${trace.chunk_index}/${trace.chunk_count}` : ""}
+                      </p>
+                    )}
+                    {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens || trace.multi_pass_overlap_tokens) && (
+                      <p className="mt-1 text-xs text-[var(--cl-muted)]">
+                        {trace.multi_pass_threshold_chars ? `threshold ${trace.multi_pass_threshold_chars} chars` : ""}
+                        {trace.multi_pass_threshold_chars && trace.multi_pass_chunk_tokens ? " · " : ""}
+                        {trace.multi_pass_chunk_tokens ? `chunk ${trace.multi_pass_chunk_tokens} tokens` : ""}
+                        {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens) && trace.multi_pass_overlap_tokens ? " · " : ""}
+                        {trace.multi_pass_overlap_tokens !== undefined && trace.multi_pass_overlap_tokens !== null
+                          ? `overlap ${trace.multi_pass_overlap_tokens} tokens`
+                          : ""}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-2 text-right text-xs text-[var(--cl-muted)] lg:min-w-56">
