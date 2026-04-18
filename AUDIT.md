@@ -1,15 +1,14 @@
 # Production Readiness Audit
-**Repository:** career-lighthouse  **Version:** 0.1.5.1  **Date:** 2026-04-14
+**Repository:** career-lighthouse  **Version:** 0.1.5.2  **Date:** 2026-04-18
 
 ---
 
-## Changelog since v0.1.5.0 (2026-04-13)
+## Changelog since v0.1.5.1 (2026-04-14)
 
 | Spec | Change | Status |
 |------|--------|--------|
-| Spec 3 | Session IDOR — bind sessions to `counsellor_id`, verify ownership on every read/write | **FIXED** |
-| Spec 4 | Prompt injection — sanitize document chunks before embedding/storage | **FIXED** |
-| Spec 5 | HTTP security headers — middleware on API + Next.js `headers()` config | **FIXED** |
+| Spec 6 | LLM observability — structured trace logging, live session state, session-scoped Langfuse export, and an admin Trace Explorer | **IMPROVED** |
+| Spec 7 | Session analysis tuning — env-driven timeout and multi-pass chunking thresholds | **IMPROVED** |
 
 ---
 
@@ -27,7 +26,7 @@
 | A06 | Vulnerable Components | Acceptable | All major deps current as of 2026-04; no known CVEs in lockfiles; no SBOM or automated audit in CI |
 | A07 | Auth Failures | **FIXED** | Defence-in-depth: FastAPI `Depends(require_admin_key)` + Next.js middleware both enforce `ADMIN_KEY` |
 | A08 | Software/Data Integrity | Gap | No SBOM; no supply-chain scan (Trivy/Grype) in CI/CD pipeline |
-| A09 | Logging & Monitoring | Gap | Query log functional; no structured JSON logging; no Sentry/APM; no alert thresholds |
+| A09 | Logging & Monitoring | **IMPROVED** | Query log functional; structured LLM lifecycle traces now land in JSONL and Langfuse with `session_id` grouping, live Trace Explorer, and background flushes; no alert thresholds or centralized APM yet |
 | A10 | SSRF | Low risk | No user-supplied URLs processed; Anthropic API calls use hardcoded SDK endpoints |
 
 ### Remaining Threat Vectors
@@ -38,8 +37,8 @@ All public endpoints (`POST /api/chat`, `POST /api/brief`, `POST /api/ingest`) a
 - ALB WAF rate rule as outer layer
 - Recommended limits: 10 req/min on `/api/chat`, 5 req/min on `/api/ingest`
 
-**Request timeout — not enforced at API level**
-LLM calls (`/api/chat`, `/api/brief`, `/api/kb/analyse`) can hang indefinitely if Anthropic is slow. No `timeout` is set on the `anthropic` client. Risk: all Uvicorn workers occupied, service unresponsive. Fix: `anthropic.Anthropic(timeout=30.0)` + FastAPI `BackgroundTasks` for long ops.
+**LLM request timeout — still user-visible**
+LLM calls now use configurable timeouts, and the live UI immediately shows `started`/`error` traces when a request hangs, but session analysis and brief generation can still hit `504 Gateway Timeout` when the note is large or the Anthropic call is slow. The remaining gap is the model call itself, not the tracing path. The observability stack now proves that the request is alive while it is waiting.
 
 **Prompt injection surface — FIXED**
 `api/utils/sanitization.py` (`sanitize_for_prompt`) is now applied to every chunk in `ingestion.prepare_document()` before embedding and storage. It removes angle-bracket directives (`<|...|>`, `<...>`) and redacts known jailbreak phrases (`ignore previous instructions`, `system prompt override`, etc.). Remaining gap: career context and employer facts injected into the live chat prompt are not yet sanitized at the call site in `llm.py` — those values come from counsellor-authored YAMLs (lower risk) but should receive the same treatment as a follow-up. Content moderation pre-pass (e.g. Azure Content Safety) not yet added.
@@ -110,6 +109,19 @@ The Next.js image embeds the API URL at `docker build` time via `ARG`. Changing 
 | `ANTHROPIC_API_KEY` | API | Yes | SSM SecureString | Never log; rotate on compromise |
 | `ADMIN_KEY` | API + Web | Yes | SSM SecureString | Must match on both services; rotate regularly |
 | `ALLOWED_ORIGINS` | API | Yes | ECS env | Comma-separated; must match Amplify domain |
+| `LLM_TIMEOUT_SECONDS` | API | Yes | ECS env | Base timeout for normal chat/brief requests |
+| `LLM_SESSION_TIMEOUT_SECONDS` | API | Yes | ECS env | Higher timeout for session analysis |
+| `LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS` | API | No | ECS env | Cutover for chunked session extraction |
+| `LLM_SESSION_MULTI_PASS_CHUNK_TOKENS` | API | No | ECS env | Session extraction chunk size |
+| `LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS` | API | No | ECS env | Session extraction overlap |
+| `LANGFUSE_PUBLIC_KEY` | API | No | ECS env | Required when exporting traces to Langfuse |
+| `LANGFUSE_SECRET_KEY` | API | No | ECS env | Keep internal-only; grants trace write access |
+| `LANGFUSE_BASE_URL` | API | No | ECS env | Self-hosted Langfuse endpoint |
+| `LANGFUSE_HOST` | API | No | ECS env | Canonical Langfuse SDK endpoint, useful for cloud/self-hosted parity |
+| `LANGFUSE_TIMEOUT_SECONDS` | API | No | ECS env | SDK HTTP timeout for Langfuse export calls |
+| `LANGFUSE_FLUSH_AT` | API | No | ECS env | Batch size before the Langfuse SDK flushes |
+| `LANGFUSE_FLUSH_INTERVAL` | API | No | ECS env | Background flush interval for the Langfuse SDK |
+| `LANGFUSE_TRACING_ENVIRONMENT` | API | No | ECS env | Labels traces by environment |
 | `QDRANT_URL` | API | Yes | ECS env | Set to standalone container URL in ECS |
 | `DATA_PATH` | API | Yes | ECS env | `/data/qdrant` on EFS mount |
 | `CAREER_PROFILES_DIR` | API | Yes | ECS env | `/app/knowledge/career_profiles` on EFS |
@@ -137,12 +149,14 @@ The Next.js image embeds the API URL at `docker build` time via `ARG`. Changing 
 
 - `ANTHROPIC_API_KEY` — in SSM, not in any log line. **Gap:** no rotation policy or expiry alert.
 - `ADMIN_KEY` — in SSM (added this audit). **Gap:** key passed as URL query param (`?key=...`) which appears in ALB access logs and browser history. Consider migrating to a session cookie or HTTP `Authorization` header.
+- `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY` — when enabled, keep them in SSM or ECS secrets, not in repo files. Traces can contain prompt content, so the Langfuse project should stay internal-only.
 - No credentials in Git history (`.env` gitignored; `.env.example` contains no real values).
 - Embedding model baked into Docker image — no runtime download credentials needed.
 
 ### Configuration drift risks
 
 1. **`cfg/model.yaml` model name** — `claude-sonnet-4-6` is hardcoded in YAML. When Anthropic deprecates a model, this requires a YAML edit + redeployment. Consider making it an env var override.
-2. **Field allowlist duplication** — `ALLOWED_PROFILE_FIELDS` and `ALLOWED_EMPLOYER_FIELDS` are defined independently in `kb_router.py` and `session_router.py`. If a field is added to one but not the other, behaviour diverges silently. Consolidate into a shared constants module.
-3. **Qdrant version pinned in Compose but not Terraform** — `docker-compose.yml` pins `qdrant/qdrant:v1.13.2`; Terraform has no equivalent pin for any sidecar or separate Qdrant service.
-4. **Counsellor contact placeholders** — `[TODO: Fill in SMU career centre contact…]` in YAML profiles will leak into LLM prompts if `counsellor_contact` is ever injected. Add a startup warning that flags placeholder values.
+2. **Field allowlist duplication and divergence — CRITICAL** — `ALLOWED_PROFILE_FIELDS` (kb_router) and `ALLOWED_CARD_PROFILE_FIELDS` (session_router) have diverged. `session_router` allows 12 fields (e.g. `entry_paths`, `top_employers_smu`) while `kb_router` only allows 7. Furthermore, the `session_intents` LLM prompt extracts `track_name`, but this is missing from the session router allowlist, leading to silent data loss.
+3. **Missing Sprint 4 Field Support** — New fields (`salary_levels`, `visa_pathway_notes`) are extracted by the LLM but absent from ALL write-path allowlists. They can only be created via Track Builder drafts, not updated via Knowledge Update or Session Editor.
+4. **Qdrant version pinned in Compose but not Terraform** — `docker-compose.yml` pins `qdrant/qdrant:v1.13.2`; Terraform has no equivalent pin for any sidecar or separate Qdrant service.
+5. **Counsellor contact placeholders** — `[TODO: Fill in SMU career centre contact…]` in YAML profiles will leak into LLM prompts if `counselor_contact` is ever injected. Add a startup warning that flags placeholder values.

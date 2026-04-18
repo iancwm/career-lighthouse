@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Langfuse-backed LLM observability**: optional self-hosted Langfuse profile in Docker Compose, lazy API export when `LANGFUSE_*` env vars are set, and shutdown flush so in-flight traces are not lost.
+- **Langfuse session grouping**: `session_id` now propagates through live session analysis, so Langfuse groups traces into session views instead of leaving them as isolated requests.
+- **Trace Explorer**: the admin panel now exposes a session-scoped trace explorer with filters for session, operation, and status.
+- **Configurable session analysis tuning**: session timeout and multi-pass chunking thresholds are now env-driven, so long notes can be tuned without code changes.
+- **Structured LLM lifecycle traces**: trace logging now records `started`, `ok`, and `error` events with session and chunk metadata instead of only failures.
+- **Admin observability workflow**: the admin panel now shows live LLM run state, trace history, and stop/retry controls for session analysis.
+
+### Changed
+- `just` now includes Langfuse helper recipes for bringing the observability stack up, listing its containers, and tailing its logs.
+- Langfuse export now stays off the request path. The API schedules flushes in the background and shuts down cleanly so trace delivery does not become the thing that times out.
+
+### Fixed
+- The live API container now picks up the Langfuse instrumentation helper correctly, so session traces actually appear in the self-hosted Langfuse project after rebuilds.
+
 ## [0.1.5.1] - 2026-04-14
 
 ### Added

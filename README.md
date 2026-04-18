@@ -69,6 +69,10 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | Command | Description |
 |---|---|
 | `just up` | Build and start all services (Docker) |
+| `just langfuse-up` | Start the optional Langfuse stack on `http://localhost:3001` |
+| `just langfuse-ps` | Show the Langfuse profile containers |
+| `just langfuse-logs` | Follow logs for the Langfuse stack |
+| `just langfuse-down` | Stop the optional Langfuse stack |
 | `just where-data` | Show where YAML knowledge, Qdrant data, and logs are stored |
 | `just down` | Stop all services |
 | `just logs` | Follow logs for all services |
@@ -107,6 +111,7 @@ The career office dashboard (`/admin`) includes:
 - **Employer Facts** — maintain employer YAMLs and review track coverage for employer context.
 - **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile.
 - **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection.
+- **LLM Observability** — session and prompt traces, live run state, a dedicated Trace Explorer, and optional Langfuse-backed debugging for model calls.
 
 ## API Endpoints
 
@@ -135,6 +140,8 @@ The career office dashboard (`/admin`) includes:
 - **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code. Legacy slugs are canonicalized on read and write, so old `data_science` payloads migrate to `dsai` automatically.
 - **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)
+- **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, the same trace data is exported to self-hosted Langfuse for richer inspection, and session runs group correctly once `session_id` is propagated. The admin UI has a dedicated Trace Explorer, and in Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path.
+- **Live timeout visibility**: session analysis and brief generation can still hit the Anthropic timeout under long or expensive requests, but the request now shows a `started` trace immediately and a matching `error` trace if the model times out. Wildly better than staring at a blank spinner.
 - **Data stays local**: only Anthropic Claude API call leaves the deployment (PDPA-compliant)
 
 Track publishing now keeps a live published profile plus an archived working copy. If a counsellor refreshes a track from new research and no draft exists yet, the app bootstraps the draft from the published profile first. That keeps existing tracks editable without forcing a manual recreate step.

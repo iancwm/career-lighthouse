@@ -14,9 +14,9 @@ This backlog is ordered by execution priority:
 **Recommended limits:** 10 req/min on `/api/chat`, 5 req/min on `/api/ingest`.
 **Depends on:** None. Self-contained FastAPI middleware addition.
 
-### Request timeout on LLM calls
-**What:** Set `timeout=30.0` on `anthropic.Anthropic()` client; add FastAPI `BackgroundTasks` for long operations.
-**Why:** LLM calls can hang indefinitely if Anthropic is slow, occupying all Uvicorn workers.
+### Session-analysis timeout handling
+**What:** Tune `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` via env vars, and add a better non-blocking execution model when session analysis still exceeds the budget.
+**Why:** The timeout is now configurable, and Langfuse confirms the request stays alive while it waits, but long notes can still hit `504 Gateway Timeout` and occupy the user's session flow until they fail.
 **Depends on:** None.
 
 ### FastAPI auth on KB endpoints
@@ -29,6 +29,11 @@ Shipped: `ALLOWED_PROFILE_FIELDS` enforcement already existed with skip+warn; te
 to lock in the guarantee. `session_router.py` inspected — has parallel `ALLOWED_CARD_PROFILE_FIELDS`
 guard. Empty field map returns 200 cleanly.
 
+### ~~Configurable session analysis tuning~~ ✓ Done (2026-04-18)
+Shipped: `LLM_TIMEOUT_SECONDS`, `LLM_SESSION_TIMEOUT_SECONDS`, `LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS`,
+`LLM_SESSION_MULTI_PASS_CHUNK_TOKENS`, and `LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS` now come from env
+vars, so session extraction can be tuned without code edits.
+
 ### Session Cleanup Script
 **What:** Delete completed sessions older than 30 days.
 **Why:** Prevents `logs/sessions/` from growing forever.
@@ -38,6 +43,16 @@ guard. Empty field map returns 200 cleanly.
 **What:** Replace string `counsellor_id` with real authenticated user context.
 **Why:** Session ownership must be enforced, not passed around as an untrusted string.
 **Depends on:** Broader auth/user model.
+
+### Synchronize and expand profile field allowlists
+**What:** Consolidate `ALLOWED_PROFILE_FIELDS` and `ALLOWED_CARD_PROFILE_FIELDS` into a shared constants module. Add missing Sprint 4 fields (`salary_levels`, `visa_pathway_notes`) and `track_name` to the allowlist.
+**Why:** Current allowlists have diverged between `kb_router` and `session_router`, causing inconsistent behavior and silent data loss for fields like `track_name`. Sprint 4 fields cannot currently be updated after initial draft creation.
+**Depends on:** None.
+
+### Sync structured metadata in Session Card commits
+**What:** Call `_derive_structured_fields(profile)` and merge the result in `session_router.py` `_apply_field_updates_to_profile`, matching the behavior in `kb_router.py`.
+**Why:** Session card commits currently skip the metadata extraction step, leading to drift between prose salary ranges and structured `salary_min_sgd`/`salary_max_sgd` fields.
+**Depends on:** None.
 
 ### Basic multi-user edit protection
 **What:** Add optimistic locking or version checks on structured KB writes so concurrent counselors do not silently overwrite each other.
@@ -116,6 +131,16 @@ Shipped: `_derive_structured_fields()` helper extracts numeric values from prose
 ranges) using `setdefault` to preserve manual entries. Wired into `publish_draft()` and
 `commit_analysis()` so both write paths stay in sync. 4 tests cover parsing, K-suffix, TBD,
 and manual-value preservation.
+
+### ~~Langfuse-backed LLM observability~~ ✓ Done (2026-04-18)
+Shipped: structured `started`/`ok`/`error` trace logging, optional self-hosted Langfuse export when
+`LANGFUSE_*` env vars are present, shutdown flush on API exit, and admin surfacing for recent traces
+and live session state.
+
+### ~~Langfuse session grouping and Trace Explorer~~ ✓ Done (2026-04-18)
+Shipped: `session_id` now propagates through live session analysis, Langfuse groups traces into
+session views, and the admin Trace Explorer filters traces by session, operation, and status. The
+stale API build issue that initially hid traces was fixed during verification.
 
 ### PDPA wording — query digest is not "anonymised aggregates"
 **What:** Replace "anonymised aggregates" with "query aggregates" in docs and UI copy.
