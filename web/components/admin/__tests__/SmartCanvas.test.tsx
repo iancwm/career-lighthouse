@@ -61,7 +61,7 @@ describe("SmartCanvas", () => {
 
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<SmartCanvas sessionId="session-1" onBack={vi.fn()} />)
+    render(<SmartCanvas sessionId="session-1" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
 
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: /Clustered uncertainty/i })).toBeInTheDocument()
@@ -94,7 +94,7 @@ describe("SmartCanvas", () => {
 
     vi.stubGlobal("fetch", fetchMock)
 
-    render(<SmartCanvas sessionId="session-2" onBack={vi.fn()} />)
+    render(<SmartCanvas sessionId="session-2" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Stop analysis/i })).toBeInTheDocument())
     expect(screen.getByText(/Session: Analyzing/i)).toBeInTheDocument()

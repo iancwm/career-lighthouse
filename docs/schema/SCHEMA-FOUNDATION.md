@@ -25,9 +25,9 @@ The underlying issue: **there is no schema.** Each file's structure is ad-hoc. T
 
 You want a **foundation** — a pattern that lets timelines, alumni networks, interview processes, progression paths, and future data types all follow the same structure without rework. The key insight:
 
-**Every data type is a timestamped, sourced fact with metadata.**
+Every data type is a timestamped, sourced fact with metadata, observable via Langfuse traces.
 
-Timeline fact: "Summer analyst applications open March 1"  
+Timeline fact: "Summer analyst applications open March 1" (Trace ID: `0193c...`)
 Alumni fact: "Aditya Mehta (LLM NUS '18) joined Stripe Compliance in 2020, available for mentoring"  
 Interview fact: "Round 3 is live whiteboard, 60 minutes, focus on problem-solving"  
 
@@ -186,6 +186,7 @@ structured:
       type: "timeline_phase|alumni|interview_stage|progression_role|skill_requirement|..."
       timestamp: "ISO-8601"              # when captured
       source: "counselor:email|inferred|student_report|document_url"  # provenance
+      trace_id: "langfuse-trace-id"      # observability link
       confidence: 1-100                  # how sure are we?
 ```
 

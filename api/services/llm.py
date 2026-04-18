@@ -13,6 +13,8 @@ import json
 import logging
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from time import perf_counter
@@ -27,6 +29,11 @@ logger = logging.getLogger(__name__)
 from cfg import model_cfg, kb_cfg, prompts_cfg
 
 _clients: dict[int, anthropic.Anthropic] = {}
+_langfuse_client = None
+_langfuse_client_config: tuple | None = None
+_langfuse_class = None
+propagate_attributes = None
+_langfuse_flush_executor: ThreadPoolExecutor | None = None
 _TRACE_PREVIEW_CHARS = 500
 
 _llm = model_cfg["llm"]
@@ -81,6 +88,138 @@ def _truncate_preview(text: str | None, limit: int = _TRACE_PREVIEW_CHARS) -> st
     return clean[:limit] + "…"
 
 
+def _langfuse_is_enabled() -> bool:
+    return bool(
+        getattr(settings, "langfuse_public_key", "")
+        and getattr(settings, "langfuse_secret_key", "")
+        and (
+            getattr(settings, "langfuse_base_url", "")
+            or getattr(settings, "langfuse_host", "")
+        )
+    )
+
+
+def _load_langfuse_symbols() -> None:
+    global _langfuse_class, propagate_attributes
+    if _langfuse_class is not None and propagate_attributes is not None:
+        return
+    try:
+        from langfuse import Langfuse as _Langfuse, propagate_attributes as _propagate_attributes
+    except ImportError:  # pragma: no cover - optional dependency for local dev/tests
+        return
+    _langfuse_class = _Langfuse
+    propagate_attributes = _propagate_attributes
+
+
+def _langfuse_endpoint() -> str | None:
+    endpoint = getattr(settings, "langfuse_host", "") or getattr(settings, "langfuse_base_url", "")
+    return endpoint or None
+
+
+def _langfuse_client_config_key() -> tuple:
+    return (
+        getattr(settings, "langfuse_public_key", ""),
+        getattr(settings, "langfuse_secret_key", ""),
+        _langfuse_endpoint(),
+        getattr(settings, "langfuse_timeout_seconds", None),
+        getattr(settings, "langfuse_flush_at", None),
+        getattr(settings, "langfuse_flush_interval", None),
+        getattr(settings, "langfuse_tracing_environment", "development"),
+    )
+
+
+def _get_langfuse_client():
+    global _langfuse_client, _langfuse_client_config
+    if not _langfuse_is_enabled():
+        return None
+    _load_langfuse_symbols()
+    if _langfuse_class is None:
+        return None
+    config_key = _langfuse_client_config_key()
+    if _langfuse_client is None or _langfuse_client_config != config_key:
+        try:
+            _langfuse_client = _langfuse_class(
+                public_key=settings.langfuse_public_key,
+                secret_key=settings.langfuse_secret_key,
+                base_url=_langfuse_endpoint(),
+                timeout=getattr(settings, "langfuse_timeout_seconds", 20),
+                tracing_enabled=True,
+                flush_at=getattr(settings, "langfuse_flush_at", 1),
+                flush_interval=getattr(settings, "langfuse_flush_interval", 1.0),
+                environment=getattr(settings, "langfuse_tracing_environment", "development"),
+            )
+            _langfuse_client_config = config_key
+        except Exception:
+            logger.warning("Langfuse client initialization failed; continuing without tracing", exc_info=True)
+            return None
+    return _langfuse_client
+
+
+def _start_langfuse_observation(client, **kwargs):
+    try:
+        return client.start_as_current_observation(**kwargs)
+    except Exception:
+        logger.warning("Langfuse observation startup failed; continuing without tracing", exc_info=True)
+        return nullcontext()
+
+
+def _schedule_langfuse_flush() -> None:
+    if not _langfuse_is_enabled():
+        return
+    global _langfuse_flush_executor
+    if _langfuse_flush_executor is None:
+        _langfuse_flush_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="langfuse-flush")
+    try:
+        _langfuse_flush_executor.submit(flush_langfuse_traces)
+    except Exception:
+        logger.warning("Failed to schedule Langfuse flush", exc_info=True)
+
+
+def _langfuse_input_payload(system: str, messages: list[dict], metadata: dict[str, object], max_tokens: int, timeout_seconds: float | None) -> dict:
+    message_summaries = []
+    for message in messages:
+        content = str(message.get("content", ""))
+        message_summaries.append({
+            "role": message.get("role", "user"),
+            "content_preview": _truncate_preview(content),
+            "content_chars": len(content),
+        })
+    return {
+        "system_preview": _truncate_preview(system),
+        "system_chars": len(system),
+        "messages": message_summaries,
+        "message_count": len(messages),
+        "metadata": metadata,
+        "max_tokens": max_tokens,
+        "timeout_seconds": timeout_seconds,
+    }
+
+
+def _langfuse_trace_metadata(metadata: dict[str, object], trace_id: str) -> dict[str, str]:
+    out: dict[str, str] = {"trace_id": trace_id}
+    for key, value in metadata.items():
+        if value is None:
+            continue
+        out[key] = str(value)
+    return out
+
+
+def _langfuse_usage_details(response: object) -> dict[str, int] | None:
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return None
+    input_tokens = getattr(usage, "input_tokens", None)
+    output_tokens = getattr(usage, "output_tokens", None)
+    if input_tokens is None and output_tokens is None:
+        return None
+    details: dict[str, int] = {}
+    if input_tokens is not None:
+        details["input_tokens"] = int(input_tokens)
+    if output_tokens is not None:
+        details["output_tokens"] = int(output_tokens)
+    return details or None
+
+
 def _append_llm_trace(entry: dict) -> None:
     path = Path(settings.llm_trace_log_path)
     try:
@@ -107,6 +246,16 @@ def _call_with_trace(
     trace_id = uuid.uuid4().hex
     input_preview = _truncate_preview(messages[-1].get("content", "")) if messages else ""
     metadata = trace_metadata or {}
+    langfuse_client = _get_langfuse_client()
+    observation_cm = nullcontext()
+    if langfuse_client is not None:
+        observation_cm = _start_langfuse_observation(
+            langfuse_client,
+            as_type="generation",
+            name=operation,
+            model=model,
+            input=_langfuse_input_payload(system, messages, {**metadata, "trace_id": trace_id}, max_tokens, timeout_seconds),
+        )
     _append_llm_trace({
         "trace_id": trace_id,
         "ts": datetime.now(timezone.utc).isoformat(),
@@ -123,58 +272,137 @@ def _call_with_trace(
         "output_preview": "",
         "error": None,
     })
+    with observation_cm as lf_observation:
+        if lf_observation is not None and propagate_attributes is not None:
+            try:
+                propagate_kwargs: dict[str, object] = {
+                    "trace_name": operation,
+                    "version": getattr(settings, "langfuse_tracing_environment", "development"),
+                }
+                if metadata.get("session_id"):
+                    propagate_kwargs["session_id"] = str(metadata["session_id"])
+                trace_metadata = _langfuse_trace_metadata(metadata, trace_id)
+                if trace_metadata:
+                    propagate_kwargs["metadata"] = trace_metadata
+                attr_cm = propagate_attributes(**propagate_kwargs)
+            except Exception:
+                logger.warning("Langfuse propagation failed; continuing without tracing", exc_info=True)
+                attr_cm = nullcontext()
+        else:
+            attr_cm = nullcontext()
+        with attr_cm:
+            try:
+                response = _safe_create(
+                    model=model,
+                    max_tokens=max_tokens,
+                    system=system,
+                    messages=messages,
+                    timeout_seconds=timeout_seconds,
+                    **kwargs,
+                )
+            except HTTPException as exc:
+                elapsed_ms = round((perf_counter() - start) * 1000, 1)
+                error_message = str(exc.detail)
+                _append_llm_trace({
+                    "trace_id": trace_id,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "operation": operation,
+                    "status": "error",
+                    "model": model,
+                    **metadata,
+                    "timeout_seconds": timeout_seconds,
+                    "max_tokens": max_tokens,
+                    "latency_ms": elapsed_ms,
+                    "input_chars": input_chars,
+                    "output_chars": 0,
+                    "input_preview": input_preview,
+                    "output_preview": "",
+                    "error": error_message,
+                })
+                if lf_observation is not None:
+                    lf_observation.update(
+                        level="ERROR",
+                        status_message=error_message,
+                        metadata=_langfuse_trace_metadata(
+                            {
+                                **metadata,
+                                "timeout_seconds": timeout_seconds,
+                                "max_tokens": max_tokens,
+                                "error": error_message,
+                            },
+                            trace_id,
+                        ),
+                    )
+                _schedule_langfuse_flush()
+                raise
+
+            output_text = ""
+            if getattr(response, "content", None):
+                first = response.content[0]
+                output_text = getattr(first, "text", "") or ""
+
+            elapsed_ms = round((perf_counter() - start) * 1000, 1)
+            usage_details = _langfuse_usage_details(response)
+            _append_llm_trace({
+                "trace_id": trace_id,
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "operation": operation,
+                "status": "ok",
+                "model": model,
+                **metadata,
+                "timeout_seconds": timeout_seconds,
+                "max_tokens": max_tokens,
+                "latency_ms": elapsed_ms,
+                "input_chars": input_chars,
+                "output_chars": len(output_text),
+                "input_preview": input_preview,
+                "output_preview": _truncate_preview(output_text),
+                "error": None,
+            })
+            if lf_observation is not None:
+                lf_observation.update(
+                    output=_truncate_preview(output_text),
+                    usage_details=usage_details,
+                    metadata=_langfuse_trace_metadata(
+                        {
+                            **metadata,
+                            "timeout_seconds": timeout_seconds,
+                            "max_tokens": max_tokens,
+                            "output_chars": len(output_text),
+                        },
+                        trace_id,
+                    ),
+                )
+            _schedule_langfuse_flush()
+            return response
+
+
+def flush_langfuse_traces() -> None:
+    client = _get_langfuse_client()
+    if client is None:
+        return
     try:
-        response = _safe_create(
-            model=model,
-            max_tokens=max_tokens,
-            system=system,
-            messages=messages,
-            timeout_seconds=timeout_seconds,
-            **kwargs,
-        )
-    except HTTPException as exc:
-        elapsed_ms = round((perf_counter() - start) * 1000, 1)
-        _append_llm_trace({
-            "trace_id": trace_id,
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "operation": operation,
-            "status": "error",
-            "model": model,
-            **metadata,
-            "timeout_seconds": timeout_seconds,
-            "max_tokens": max_tokens,
-            "latency_ms": elapsed_ms,
-            "input_chars": input_chars,
-            "output_chars": 0,
-            "input_preview": input_preview,
-            "output_preview": "",
-            "error": str(exc.detail),
-        })
-        raise
+        client.flush()
+    except Exception:
+        logger.warning("Failed to flush Langfuse traces", exc_info=True)
 
-    output_text = ""
-    if getattr(response, "content", None):
-        first = response.content[0]
-        output_text = getattr(first, "text", "") or ""
 
-    elapsed_ms = round((perf_counter() - start) * 1000, 1)
-    _append_llm_trace({
-        "trace_id": trace_id,
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "operation": operation,
-        "status": "ok",
-        "model": model,
-        **metadata,
-        "timeout_seconds": timeout_seconds,
-        "max_tokens": max_tokens,
-        "latency_ms": elapsed_ms,
-        "input_chars": input_chars,
-        "output_chars": len(output_text),
-        "input_preview": input_preview,
-        "output_preview": _truncate_preview(output_text),
-        "error": None,
-    })
-    return response
+def shutdown_langfuse_traces() -> None:
+    global _langfuse_flush_executor
+    if _langfuse_flush_executor is not None:
+        try:
+            _langfuse_flush_executor.shutdown(wait=True, cancel_futures=False)
+        except Exception:
+            logger.warning("Failed to stop Langfuse flush executor", exc_info=True)
+        finally:
+            _langfuse_flush_executor = None
+    client = _get_langfuse_client()
+    if client is None:
+        return
+    try:
+        client.shutdown()
+    except Exception:
+        logger.warning("Failed to shutdown Langfuse traces", exc_info=True)
 
 
 def chat_with_context(message: str, resume_text: str | None,
@@ -463,156 +691,210 @@ def generate_session_intents(
         "llm_session_multi_pass_threshold_chars",
         "multi_pass_threshold_chars",
     )
-    if len(raw_input) > threshold:
-        logger.info("generate_session_intents: Large document detected (%d chars). Using multi-pass.", len(raw_input))
-        chunk_tokens = _effective_session_multi_pass_setting(
-            "llm_session_multi_pass_chunk_tokens",
-            "multi_pass_chunk_tokens",
-        )
-        overlap_tokens = _effective_session_multi_pass_setting(
-            "llm_session_multi_pass_overlap_tokens",
-            "multi_pass_overlap_tokens",
-        )
-        chunks = chunk_text(
-            raw_input,
-            max_tokens=chunk_tokens,
-            overlap=overlap_tokens
-        )
-        results = []
-        total_chunks = len(chunks)
-        for index, chunk in enumerate(chunks, start=1):
-            res = generate_session_intents(
-                chunk,
-                existing_tracks,
-                existing_employers,
-                session_id=session_id,
-                trace_metadata={
-                    **(trace_metadata or {}),
-                    "phase": "multi_pass_chunk",
-                    "chunk_index": index,
-                    "chunk_count": total_chunks,
-                    "multi_pass_threshold_chars": threshold,
-                    "multi_pass_chunk_tokens": chunk_tokens,
-                    "multi_pass_overlap_tokens": overlap_tokens,
-                },
-            )
-            results.append(res)
-        return _merge_intents(results)
-
-    tracks_text = ""
-    if existing_tracks:
-        tracks_text = "\n".join(
-            f"- {t.get('career_type', t.get('slug', 'unknown'))}: {t.get('match_description', '')}"
-            for t in existing_tracks
-        )
-
-    employers_text = ""
-    if existing_employers:
-        employers_text = "\n".join(
-            f"- {e.get('slug', 'unknown')}: tracks={e.get('tracks', [])}, "
-            f"ep={e.get('ep_requirement', 'N/A')}"
-            for e in existing_employers
-        )
-
-    # Load system prompt from YAML
-    system_prompt = _prompts["session_intents"]
-
-    context = (
-        f"Counsellor raw input:\n{raw_input}\n\n"
-        f"Existing career tracks (for reference — create cards for NEW sectors too):\n{tracks_text or '(none)'}\n\n"
-        f"Existing employers (for reference — create cards for NEW companies too):\n{employers_text or '(none)'}\n\n"
-        "Extract intents as JSON. Remember: if the memo is about companies or sectors NOT listed above, create cards for them."
+    chunk_tokens = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_chunk_tokens",
+        "multi_pass_chunk_tokens",
     )
-
-    def parse_response(text: str) -> dict:
-        thought = ""
-        thought_match = re.search(r"<thought>(.*?)</thought>", text, re.DOTALL)
-        if thought_match:
-            thought = thought_match.group(1).strip()
-        
-        json_text = text
-        if "```json" in text:
-            json_text = text.split("```json")[1].split("```")[0].strip()
-        elif "```" in text:
-            # Fallback for generic code blocks
-            parts = text.split("```")
-            if len(parts) >= 3:
-                json_text = parts[1].strip()
-                if json_text.startswith("json"):
-                    json_text = json_text[4:].strip()
-        else:
-            # Try to find the first { and last }
-            start = text.find("{")
-            end = text.rfind("}")
-            if start != -1 and end != -1:
-                json_text = text[start:end+1]
-
-        try:
-            parsed = json.loads(json_text)
-            if "cards" not in parsed:
-                parsed["cards"] = []
-            if "already_covered" not in parsed:
-                parsed["already_covered"] = []
-            parsed["thought"] = thought
-            return parsed
-        except json.JSONDecodeError:
-            return {"cards": [], "already_covered": [], "thought": thought}
-
-    try:
-        model = _llm["model"]
-        base_phase = (trace_metadata or {}).get("phase")
-        phase = str(base_phase) if base_phase else "session_analysis"
-
-        response = _call_with_trace(
-            operation="generate_session_intents",
-            model=model,
-            max_tokens=_llm["max_tokens_session_extraction"],
-            temperature=0,
-            system=system_prompt,
-            messages=[{"role": "user", "content": context}],
-            timeout_seconds=settings.llm_session_timeout_seconds,
-            max_retries=0,
-            trace_metadata={
-                **(trace_metadata or {}),
+    overlap_tokens = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_overlap_tokens",
+        "multi_pass_overlap_tokens",
+    )
+    is_chunk_call = (trace_metadata or {}).get("phase") == "multi_pass_chunk"
+    langfuse_client = _get_langfuse_client()
+    root_span_cm = nullcontext()
+    if langfuse_client is not None and not is_chunk_call:
+        root_span_cm = _start_langfuse_observation(
+            langfuse_client,
+            as_type="span",
+            name="generate_session_intents",
+            input={
+                "raw_input_chars": len(raw_input),
                 "session_id": session_id,
-                "phase": phase,
-                "multi_pass_threshold_chars": threshold,
-                "multi_pass_chunk_tokens": _effective_session_multi_pass_setting(
-                    "llm_session_multi_pass_chunk_tokens",
-                    "multi_pass_chunk_tokens",
-                ),
-                "multi_pass_overlap_tokens": _effective_session_multi_pass_setting(
-                    "llm_session_multi_pass_overlap_tokens",
-                    "multi_pass_overlap_tokens",
-                ),
+                "multi_pass": len(raw_input) > threshold,
+                "threshold_chars": threshold,
+                "chunk_tokens": chunk_tokens,
+                "overlap_tokens": overlap_tokens,
             },
         )
+    propagate_cm = nullcontext()
+    if session_id and langfuse_client is not None and propagate_attributes is not None:
+        try:
+            propagate_cm = propagate_attributes(
+                session_id=session_id,
+                version=getattr(settings, "langfuse_tracing_environment", "development"),
+            )
+        except Exception:
+            logger.warning("Langfuse propagation failed; continuing without tracing", exc_info=True)
+            propagate_cm = nullcontext()
 
-        text = response.content[0].text.strip()
-        result = parse_response(text)
+    with root_span_cm as root_span, propagate_cm:
+        if len(raw_input) > threshold:
+            logger.info("generate_session_intents: Large document detected (%d chars). Using multi-pass.", len(raw_input))
+            chunks = chunk_text(
+                raw_input,
+                max_tokens=chunk_tokens,
+                overlap=overlap_tokens
+            )
+            results = []
+            total_chunks = len(chunks)
+            for index, chunk in enumerate(chunks, start=1):
+                res = generate_session_intents(
+                    chunk,
+                    existing_tracks,
+                    existing_employers,
+                    session_id=session_id,
+                    trace_metadata={
+                        **(trace_metadata or {}),
+                        "phase": "multi_pass_chunk",
+                        "chunk_index": index,
+                        "chunk_count": total_chunks,
+                        "multi_pass_threshold_chars": threshold,
+                        "multi_pass_chunk_tokens": chunk_tokens,
+                        "multi_pass_overlap_tokens": overlap_tokens,
+                    },
+                )
+                results.append(res)
+            merged = _merge_intents(results)
+            if root_span is not None:
+                root_span.update(
+                    output={
+                        "cards": len(merged.get("cards", [])),
+                        "already_covered": len(merged.get("already_covered", [])),
+                        "thought_chars": len(merged.get("thought", "")),
+                        "multi_pass": True,
+                        "chunk_count": total_chunks,
+                    }
+                )
+            return merged
 
-        if not result["cards"] and not result["already_covered"]:
-            # Retry once on total failure
-            retry_response = _call_with_trace(
-                operation="generate_session_intents_retry",
+        tracks_text = ""
+        if existing_tracks:
+            tracks_text = "\n".join(
+                f"- {t.get('career_type', t.get('slug', 'unknown'))}: {t.get('match_description', '')}"
+                for t in existing_tracks
+            )
+
+        employers_text = ""
+        if existing_employers:
+            employers_text = "\n".join(
+                f"- {e.get('slug', 'unknown')}: tracks={e.get('tracks', [])}, "
+                f"ep={e.get('ep_requirement', 'N/A')}"
+                for e in existing_employers
+            )
+
+        # Load system prompt from YAML
+        system_prompt = _prompts["session_intents"]
+
+        context = (
+            f"Counsellor raw input:\n{raw_input}\n\n"
+            f"Existing career tracks (for reference — create cards for NEW sectors too):\n{tracks_text or '(none)'}\n\n"
+            f"Existing employers (for reference — create cards for NEW companies too):\n{employers_text or '(none)'}\n\n"
+            "Extract intents as JSON. Remember: if the memo is about companies or sectors NOT listed above, create cards for them."
+        )
+
+        def parse_response(text: str) -> dict:
+            thought = ""
+            thought_match = re.search(r"<thought>(.*?)</thought>", text, re.DOTALL)
+            if thought_match:
+                thought = thought_match.group(1).strip()
+        
+            json_text = text
+            if "```json" in text:
+                json_text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                # Fallback for generic code blocks
+                parts = text.split("```")
+                if len(parts) >= 3:
+                    json_text = parts[1].strip()
+                    if json_text.startswith("json"):
+                        json_text = json_text[4:].strip()
+            else:
+                # Try to find the first { and last }
+                start = text.find("{")
+                end = text.rfind("}")
+                if start != -1 and end != -1:
+                    json_text = text[start:end+1]
+
+            try:
+                parsed = json.loads(json_text)
+                if "cards" not in parsed:
+                    parsed["cards"] = []
+                if "already_covered" not in parsed:
+                    parsed["already_covered"] = []
+                parsed["thought"] = thought
+                return parsed
+            except json.JSONDecodeError:
+                return {"cards": [], "already_covered": [], "thought": thought}
+
+        try:
+            model = _llm["model"]
+            base_phase = (trace_metadata or {}).get("phase")
+            phase = str(base_phase) if base_phase else "session_analysis"
+
+            response = _call_with_trace(
+                operation="generate_session_intents",
                 model=model,
                 max_tokens=_llm["max_tokens_session_extraction"],
                 temperature=0,
-                system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
+                system=system_prompt,
                 messages=[{"role": "user", "content": context}],
                 timeout_seconds=settings.llm_session_timeout_seconds,
                 max_retries=0,
                 trace_metadata={
                     **(trace_metadata or {}),
                     "session_id": session_id,
-                    "phase": f"{phase}_retry",
+                    "phase": phase,
+                    "multi_pass_threshold_chars": threshold,
+                    "multi_pass_chunk_tokens": chunk_tokens,
+                    "multi_pass_overlap_tokens": overlap_tokens,
                 },
             )
-            result = parse_response(retry_response.content[0].text.strip())
 
-        return result
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.warning("generate_session_intents: LLM call failed: %s", exc)
-        return {"cards": [], "already_covered": [], "thought": ""}
+            text = response.content[0].text.strip()
+            result = parse_response(text)
+
+            if not result["cards"] and not result["already_covered"]:
+                # Retry once on total failure
+                retry_response = _call_with_trace(
+                    operation="generate_session_intents_retry",
+                    model=model,
+                    max_tokens=_llm["max_tokens_session_extraction"],
+                    temperature=0,
+                    system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
+                    messages=[{"role": "user", "content": context}],
+                    timeout_seconds=settings.llm_session_timeout_seconds,
+                    max_retries=0,
+                    trace_metadata={
+                        **(trace_metadata or {}),
+                        "session_id": session_id,
+                        "phase": f"{phase}_retry",
+                    },
+                )
+                result = parse_response(retry_response.content[0].text.strip())
+
+            if root_span is not None:
+                root_span.update(
+                    output={
+                        "cards": len(result.get("cards", [])),
+                        "already_covered": len(result.get("already_covered", [])),
+                        "thought_chars": len(result.get("thought", "")),
+                        "multi_pass": False,
+                    }
+                )
+
+            return result
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("generate_session_intents: LLM call failed: %s", exc)
+            if root_span is not None:
+                root_span.update(
+                    output={
+                        "cards": 0,
+                        "already_covered": 0,
+                        "thought_chars": 0,
+                        "multi_pass": len(raw_input) > threshold,
+                        "error": str(exc),
+                    }
+                )
+            return {"cards": [], "already_covered": [], "thought": ""}

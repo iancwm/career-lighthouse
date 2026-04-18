@@ -14,6 +14,14 @@ up:
 langfuse-up:
     docker compose --profile langfuse up --build
 
+# Show the optional Langfuse stack containers.
+langfuse-ps:
+    docker compose --profile langfuse ps
+
+# Follow logs for the optional Langfuse stack.
+langfuse-logs:
+    docker compose --profile langfuse logs -f
+
 # Full clean rebuild — bypasses Docker cache. Use when the build is broken.
 rebuild:
     docker compose down

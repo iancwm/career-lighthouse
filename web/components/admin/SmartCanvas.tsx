@@ -47,6 +47,7 @@ interface KnowledgeSession {
 interface SmartCanvasProps {
   sessionId: string
   onBack: () => void
+  onOpenTraces: (sessionId: string) => void
 }
 
 interface CreateTrackFromSessionProps {
@@ -131,7 +132,7 @@ function CreateTrackFromSession({ sessionId, rawInput, actionLoading, setActionL
   )
 }
 
-export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
+export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCanvasProps) {
   const [session, setSession] = useState<KnowledgeSession | null>(null)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
   const [editingDiff, setEditingDiff] = useState<Record<string, string>>({})
@@ -369,6 +370,12 @@ export default function SmartCanvas({ sessionId, onBack }: SmartCanvasProps) {
           )}
         </div>
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => onOpenTraces(sessionId)}
+            className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Open trace explorer
+          </button>
           {isInFlight && (
             <button
               onClick={cancelSession}

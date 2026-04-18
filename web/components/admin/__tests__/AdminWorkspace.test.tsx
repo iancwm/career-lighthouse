@@ -24,19 +24,36 @@ vi.mock("@/components/admin/KnowledgeUpdateTab", () => ({ default: () => <div>kn
 vi.mock("@/components/admin/EmployerFactsTab", () => ({ default: () => <div>employer-facts-tab</div> }))
 vi.mock("@/components/admin/CareerTracksTab", () => ({ default: () => <div>career-tracks-tab</div> }))
 vi.mock("@/components/admin/SessionInbox", () => ({
-  default: ({ onSelectSession }: { onSelectSession: (sessionId: string) => void }) => (
-    <button type="button" onClick={() => onSelectSession("session-1")}>
-      open session
-    </button>
+  default: ({
+    onSelectSession,
+    onOpenTraces,
+  }: {
+    onSelectSession: (sessionId: string) => void
+    onOpenTraces: (sessionId: string) => void
+  }) => (
+    <div>
+      <button type="button" onClick={() => onSelectSession("session-1")}>
+        open session
+      </button>
+      <button type="button" onClick={() => onOpenTraces("session-1")}>
+        open traces
+      </button>
+    </div>
   ),
 }))
 vi.mock("@/components/admin/SmartCanvas", () => ({
-  default: ({ onBack }: { onBack: () => void }) => (
-    <button type="button" onClick={onBack}>
-      back to inbox
-    </button>
+  default: ({ onBack, onOpenTraces }: { onBack: () => void; onOpenTraces: (sessionId: string) => void }) => (
+    <div>
+      <button type="button" onClick={onBack}>
+        back to inbox
+      </button>
+      <button type="button" onClick={() => onOpenTraces("session-1")}>
+        view traces
+      </button>
+    </div>
   ),
 }))
+vi.mock("@/components/admin/TraceExplorerTab", () => ({ default: () => <div>trace-explorer-tab</div> }))
 vi.mock("@/components/admin/TrackBuilderTab", () => ({
   default: ({
     selectedSlug,
@@ -124,6 +141,26 @@ describe("AdminWorkspace", () => {
     )
   })
 
+  it("renders the trace explorer when requested", async () => {
+    currentQuery = "view=traces&sessionId=session-1"
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        total_docs: 0,
+        total_chunks: 0,
+        avg_match_score: null,
+        retrieval_diversity_score: null,
+        low_confidence_queries: [],
+        doc_coverage: [],
+        high_overlap_pairs: [],
+      }),
+    } as Response)
+
+    render(<AdminWorkspace />)
+
+    await waitFor(() => expect(screen.getByText("trace-explorer-tab")).toBeInTheDocument())
+  })
+
   it("routes session selection and return-to-inbox through the URL", async () => {
     currentQuery = "view=sessions"
     render(<AdminWorkspace />)
@@ -131,6 +168,12 @@ describe("AdminWorkspace", () => {
     fireEvent.click(screen.getByRole("button", { name: /open session/i }))
 
     expect(push).toHaveBeenCalledWith("/admin?view=sessions&sessionId=session-1", {
+      scroll: false,
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: /open traces/i }))
+
+    expect(push).toHaveBeenCalledWith("/admin?view=traces&sessionId=session-1", {
       scroll: false,
     })
 

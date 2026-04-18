@@ -7,6 +7,7 @@ dependencies = [
     "anthropic==0.34.0",
     "slowapi==0.1.9",
     "fastapi==0.115.0",
+    "langfuse==4.2.0",
     "numpy==2.4.3",
     "pydantic==2.12.5",
     "pydantic-settings==2.5.2",

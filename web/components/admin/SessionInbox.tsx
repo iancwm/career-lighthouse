@@ -29,6 +29,7 @@ interface ParsedFile {
 
 interface SessionInboxProps {
   onSelectSession: (sessionId: string) => void
+  onOpenTraces: (sessionId: string) => void
 }
 
 type UploadState = "idle" | "uploading" | "parsed" | "error"
@@ -39,7 +40,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
+export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionInboxProps) {
   const [sessions, setSessions] = useState<KnowledgeSession[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -487,6 +488,13 @@ export default function SessionInbox({ onSelectSession }: SessionInboxProps) {
                         <p className="text-xs text-[#5F6B76] mt-1">{pendingCards} pending</p>
                       )}
                       <div className="mt-2 flex flex-wrap justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onOpenTraces(session.id)}
+                          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                        >
+                          Traces
+                        </button>
                         {showStop && (
                           <button
                             type="button"

@@ -29,6 +29,14 @@ class Settings(BaseSettings):
     llm_session_multi_pass_threshold_chars: int | None = None  # LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS env var
     llm_session_multi_pass_chunk_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_CHUNK_TOKENS env var
     llm_session_multi_pass_overlap_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS env var
+    langfuse_timeout_seconds: int = 20
+    langfuse_flush_at: int = 1
+    langfuse_flush_interval: float = 1.0
+    langfuse_public_key: str = ""
+    langfuse_secret_key: str = ""
+    langfuse_base_url: str = ""
+    langfuse_host: str = ""
+    langfuse_tracing_environment: str = "development"
 
 
 if SettingsConfigDict is None:
@@ -47,6 +55,14 @@ if SettingsConfigDict is None:
         llm_session_multi_pass_threshold_chars: int | None = None
         llm_session_multi_pass_chunk_tokens: int | None = None
         llm_session_multi_pass_overlap_tokens: int | None = None
+        langfuse_timeout_seconds: int = 20
+        langfuse_flush_at: int = 1
+        langfuse_flush_interval: float = 1.0
+        langfuse_public_key: str = ""
+        langfuse_secret_key: str = ""
+        langfuse_base_url: str = ""
+        langfuse_host: str = ""
+        langfuse_tracing_environment: str = "development"
 
 
 settings = Settings()

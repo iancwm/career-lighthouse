@@ -12,6 +12,7 @@ from config import settings
 from limiter import limiter
 from middleware.security_headers import SecurityHeadersMiddleware
 from services.runtime_paths import validate_runtime_storage
+from services.llm import shutdown_langfuse_traces
 from services.session_store import SessionStorageError
 from routers import docs_router, ingest_router, chat_router, brief_router, kb_router, session_router
 
@@ -36,6 +37,7 @@ async def lifespan(app: FastAPI):
         )
 
     yield
+    shutdown_langfuse_traces()
 
 
 app = FastAPI(title="Career Lighthouse API", lifespan=lifespan)

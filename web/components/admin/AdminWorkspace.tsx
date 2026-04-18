@@ -18,6 +18,7 @@ import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
 import LLMObservabilityTab from "@/components/admin/LLMObservabilityTab"
+import TraceExplorerTab from "@/components/admin/TraceExplorerTab"
 import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
 import BrokenProfilesTab from "@/components/admin/BrokenProfilesTab"
 import ToolsDrawer, { DrawerSurface } from "@/components/admin/ToolsDrawer"
@@ -50,11 +51,12 @@ interface KBHealth {
 
 type DrawerView = DrawerSurface | "sessions"
 
-const DRAWER_SURFACES: DrawerSurface[] = ["observability", "knowledge", "update", "careers", "employers", "tracks", "resume", "broken"]
+const DRAWER_SURFACES: DrawerSurface[] = ["observability", "traces", "knowledge", "update", "careers", "employers", "tracks", "resume", "broken"]
 
 const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
   { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
   { id: "observability", label: "LLM Observability", description: "Inspect traces, latency, and Qdrant health." },
+  { id: "traces", label: "Trace Explorer", description: "Inspect a session's LLM runs and live starts." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
   { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
@@ -65,7 +67,7 @@ const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
 ]
 
 function isDrawerView(value: string | null): value is DrawerView {
-  return value === "observability" || value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume" || value === "broken"
+  return value === "observability" || value === "traces" || value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume" || value === "broken"
 }
 
 function isDrawerSurface(value: string | null): value is DrawerSurface {
@@ -82,6 +84,11 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
     label: "Inspect LLM traces",
     whatYouDo: "Review structured LLM calls, latency, and Qdrant health before you touch the prompts.",
     whatHappens: "You can see what the model saw, how long it took, and where retrieval is drifting.",
+  },
+  traces: {
+    label: "Trace explorer",
+    whatYouDo: "Filter individual LLM traces by session, status, or operation.",
+    whatHappens: "Started rows appear immediately so you can follow an active session while it is still processing.",
   },
   knowledge: {
     label: "Manage uploaded documents",
@@ -161,7 +168,7 @@ export default function AdminWorkspace() {
       else params.delete("trackSlug")
     }
 
-    if (next.view && next.view !== "sessions") {
+    if (next.view && next.view !== "sessions" && next.view !== "traces") {
       params.delete("sessionId")
     }
     if (next.view && next.view !== "tracks") {
@@ -227,7 +234,11 @@ export default function AdminWorkspace() {
 
   function handleDrawerNavigate(surface: DrawerSurface) {
     setDrawerOpen(false)
-    navigate({ view: surface, sessionId: null, trackSlug: null })
+    navigate({
+      view: surface,
+      sessionId: surface === "traces" ? sessionParam : null,
+      trackSlug: null,
+    })
   }
 
   return (
@@ -355,6 +366,8 @@ export default function AdminWorkspace() {
 
       {view === "observability" && <LLMObservabilityTab />}
 
+      {view === "traces" && <TraceExplorerTab initialSessionId={sessionParam} />}
+
       {view === "update" && (
         <KnowledgeUpdateTab
           onCommitted={() => setRefreshKey((value) => value + 1)}
@@ -382,10 +395,12 @@ export default function AdminWorkspace() {
           <SmartCanvas
             sessionId={sessionParam}
             onBack={() => navigate({ view: "sessions", sessionId: null })}
+            onOpenTraces={(id) => navigate({ view: "traces", sessionId: id })}
           />
         ) : (
           <SessionInbox
             onSelectSession={(id) => navigate({ view: "sessions", sessionId: id })}
+            onOpenTraces={(id) => navigate({ view: "traces", sessionId: id })}
           />
         )
       )}

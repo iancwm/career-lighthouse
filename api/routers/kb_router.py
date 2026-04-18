@@ -272,7 +272,12 @@ def _read_query_log(since: datetime) -> list[dict]:
     return entries
 
 
-def _read_llm_trace_log(limit: int = 50) -> list[LLMTraceEntry]:
+def _read_llm_trace_log(
+    limit: int = 50,
+    session_id: str | None = None,
+    operation: str | None = None,
+    status: str | None = None,
+) -> list[LLMTraceEntry]:
     """Read recent LLM trace entries from the JSONL trace log."""
     entries: list[LLMTraceEntry] = []
     try:
@@ -292,6 +297,13 @@ def _read_llm_trace_log(limit: int = 50) -> list[LLMTraceEntry]:
     except Exception:
         logger.warning("Failed to read LLM trace log", exc_info=True)
         return []
+
+    if session_id:
+        entries = [entry for entry in entries if entry.session_id == session_id]
+    if operation:
+        entries = [entry for entry in entries if entry.operation == operation]
+    if status:
+        entries = [entry for entry in entries if entry.status == status]
     return entries[-limit:]
 
 
@@ -1379,10 +1391,13 @@ def kb_health(
 @router.get("/llm-traces", response_model=list[LLMTraceEntry])
 def llm_traces(
     limit: int = 50,
+    session_id: str | None = None,
+    operation: str | None = None,
+    status: str | None = None,
 ):
     """Return recent structured LLM trace entries for admin debugging."""
     if limit < 1:
         raise HTTPException(status_code=422, detail="limit must be at least 1")
     if limit > 200:
         limit = 200
-    return _read_llm_trace_log(limit=limit)
+    return _read_llm_trace_log(limit=limit, session_id=session_id, operation=operation, status=status)

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useCallback } from "react"
 
-export type DrawerSurface = "observability" | "knowledge" | "update" | "careers" | "employers" | "tracks" | "resume" | "broken"
+export type DrawerSurface = "observability" | "traces" | "knowledge" | "update" | "careers" | "employers" | "tracks" | "resume" | "broken"
 
 interface ToolsDrawerProps {
   open: boolean
@@ -14,6 +14,7 @@ interface ToolsDrawerProps {
 
 const DRAWER_ITEMS: { id: DrawerSurface; label: string; description: string }[] = [
   { id: "observability", label: "LLM Observability", description: "Inspect traces, latency, and Qdrant health." },
+  { id: "traces", label: "Trace Explorer", description: "Inspect a session's LLM runs, failures, and live starts." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
   { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
   { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
