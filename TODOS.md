@@ -8,11 +8,10 @@ This backlog is ordered by execution priority:
 
 ## Now
 
-### Rate limiting on public endpoints
-**What:** Add `slowapi` middleware to `POST /api/chat`, `POST /api/brief`, `POST /api/ingest` (token-bucket per IP).
-**Why:** Unbounded endpoints can exhaust Anthropic API quota or spike Fargate costs.
-**Recommended limits:** 10 req/min on `/api/chat`, 5 req/min on `/api/ingest`.
-**Depends on:** None. Self-contained FastAPI middleware addition.
+### ~~Rate limiting on public endpoints~~ ✓ Done (2026-04-18)
+Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/min), `POST /api/ingest`
+(5/min), and `POST /api/brief` (5/min). The `slowapi` infrastructure was already wired in `main.py`;
+per-endpoint decorators now enforce tighter budgets to protect Anthropic API quota and Fargate costs.
 
 ### Session-analysis timeout handling
 **What:** Tune `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` via env vars, and add a better non-blocking execution model when session analysis still exceeds the budget.
@@ -34,25 +33,26 @@ Shipped: `LLM_TIMEOUT_SECONDS`, `LLM_SESSION_TIMEOUT_SECONDS`, `LLM_SESSION_MULT
 `LLM_SESSION_MULTI_PASS_CHUNK_TOKENS`, and `LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS` now come from env
 vars, so session extraction can be tuned without code edits.
 
-### Session Cleanup Script
-**What:** Delete completed sessions older than 30 days.
-**Why:** Prevents `logs/sessions/` from growing forever.
-**Depends on:** None.
+### ~~Session Cleanup Script~~ ✓ Done (2026-04-18)
+Shipped: `scripts/cleanup_sessions.py` deletes `completed` and `cancelled` sessions older than `--days`
+(default 30). Supports `--dry-run`, `--sessions-dir`, and `SESSIONS_DIR` env var. Handles both flat
+and counsellor-scoped (`counsellor_id/session_id.json`) directory layouts.
 
 ### Counsellor RBAC
 **What:** Replace string `counsellor_id` with real authenticated user context.
 **Why:** Session ownership must be enforced, not passed around as an untrusted string.
 **Depends on:** Broader auth/user model.
 
-### Synchronize and expand profile field allowlists
-**What:** Consolidate `ALLOWED_PROFILE_FIELDS` and `ALLOWED_CARD_PROFILE_FIELDS` into a shared constants module. Add missing Sprint 4 fields (`salary_levels`, `visa_pathway_notes`) and `track_name` to the allowlist.
-**Why:** Current allowlists have diverged between `kb_router` and `session_router`, causing inconsistent behavior and silent data loss for fields like `track_name`. Sprint 4 fields cannot currently be updated after initial draft creation.
-**Depends on:** None.
+### ~~Synchronize and expand profile field allowlists~~ ✓ Done (2026-04-18)
+Shipped: `api/constants/profile_fields.py` unifies `ALLOWED_PROFILE_FIELDS` (15 fields, up from 7 in
+`kb_router` and 12 in `session_router`) and `ALLOWED_EMPLOYER_FIELDS` (8 fields) into a single source
+of truth. Added `salary_levels`, `visa_pathway_notes`, and `track_name`. Both routers import from the
+shared module, eliminating silent divergence and Sprint 4 field loss.
 
-### Sync structured metadata in Session Card commits
-**What:** Call `_derive_structured_fields(profile)` and merge the result in `session_router.py` `_apply_field_updates_to_profile`, matching the behavior in `kb_router.py`.
-**Why:** Session card commits currently skip the metadata extraction step, leading to drift between prose salary ranges and structured `salary_min_sgd`/`salary_max_sgd` fields.
-**Depends on:** None.
+### ~~Sync structured metadata in Session Card commits~~ ✓ Done (2026-04-18)
+Shipped: `_derive_structured_fields()` now called in `session_router.py` `_apply_field_updates_to_profile`
+after field updates, matching the existing behavior in `kb_router.py commit_analysis()`. Prose salary
+ranges in session card commits now populate `salary_min_sgd`/`salary_max_sgd` via `setdefault`.
 
 ### Basic multi-user edit protection
 **What:** Add optimistic locking or version checks on structured KB writes so concurrent counselors do not silently overwrite each other.
@@ -81,10 +81,8 @@ vars, so session extraction can be tuned without code edits.
 **Why:** Single-worker constraint blocks horizontal scaling; file-based log corrupts with multiple writers.
 **Depends on:** Infrastructure decision (managed Qdrant vs sidecar).
 
-### Consolidate field allowlists
-**What:** Move `ALLOWED_PROFILE_FIELDS` and `ALLOWED_EMPLOYER_FIELDS` to shared constants module.
-**Why:** Currently duplicated in `kb_router.py` and `session_router.py`; adding fields to one but not other causes silent divergence.
-**Depends on:** None.
+### ~~Consolidate field allowlists~~ ✓ Done (2026-04-18)
+Shipped: covered by "Synchronize and expand profile field allowlists" above — same change, same commit.
 
 ### Model name env var override
 **What:** Make `model.yaml` model name overridable via env var (e.g., `ANTHROPIC_MODEL`).

@@ -57,6 +57,7 @@ from services.employer_store import (
     _as_list,
     get_employer_store,
 )
+from constants.profile_fields import ALLOWED_PROFILE_FIELDS
 from services.embedder import Embedder
 from services.ingestion import chunk_text, parse_file
 from services.vector_store import VectorStore
@@ -76,15 +77,6 @@ _OVERLAP_SCORE_THRESHOLD = _thresholds["overlap_score"]
 _OVERLAP_PCT_THRESHOLD = _thresholds["overlap_pct"]
 _LOG_WINDOW_DAYS = kb_cfg["log_window_days"]
 _MAX_LOW_CONF_QUERIES = kb_cfg["max_low_conf_queries"]
-ALLOWED_PROFILE_FIELDS: frozenset = frozenset([
-    "ep_sponsorship",
-    "compass_score_typical",
-    "recruiting_timeline",
-    "salary_range_2024",
-    "typical_background",
-    "counselor_contact",
-    "notes",
-])
 
 
 class TestQueryRequest(BaseModel):
