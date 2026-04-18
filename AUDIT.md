@@ -7,6 +7,10 @@
 
 | Spec | Change | Status |
 |------|--------|--------|
+| Spec 1 | Per-endpoint rate limiting — `@limiter.limit()` decorators on `POST /api/chat` (10/min), `/api/ingest` and `/api/brief` (5/min) | **FIXED** |
+| Spec 3 | Field allowlist consolidation — `ALLOWED_PROFILE_FIELDS` and `ALLOWED_EMPLOYER_FIELDS` unified in `api/constants/profile_fields.py`; 15 fields (up from 7/12); `salary_levels`, `visa_pathway_notes`, `track_name` added | **FIXED** |
+| Spec 4 | Structured metadata sync — session card commits now call `_derive_structured_fields()`, eliminating prose↔structured field drift | **FIXED** |
+| Spec 5 | Session cleanup script — `scripts/cleanup_sessions.py` for deleting completed/cancelled sessions older than N days | **ADDED** |
 | Spec 6 | LLM observability — structured trace logging, live session state, session-scoped Langfuse export, and an admin Trace Explorer | **IMPROVED** |
 | Spec 7 | Session analysis tuning — env-driven timeout and multi-pass chunking thresholds | **IMPROVED** |
 
@@ -31,11 +35,8 @@
 
 ### Remaining Threat Vectors
 
-**Rate limiting — not implemented**
-All public endpoints (`POST /api/chat`, `POST /api/brief`, `POST /api/ingest`) are unbounded. A single client can exhaust Anthropic API quota or spike Fargate costs. Mitigations to add:
-- FastAPI middleware using `slowapi` (token-bucket per IP)
-- ALB WAF rate rule as outer layer
-- Recommended limits: 10 req/min on `/api/chat`, 5 req/min on `/api/ingest`
+**Rate limiting — FIXED**
+Per-endpoint `@limiter.limit()` decorators now enforce 10 req/min on `POST /api/chat` and 5 req/min on `POST /api/ingest` and `POST /api/brief`. The `slowapi` token-bucket limiter was already wired globally in `main.py`; these decorators add tighter per-endpoint budgets. Remaining gap: no ALB WAF rate rule as an outer layer — add for production hardening.
 
 **LLM request timeout — still user-visible**
 LLM calls now use configurable timeouts, and the live UI immediately shows `started`/`error` traces when a request hangs, but session analysis and brief generation can still hit `504 Gateway Timeout` when the note is large or the Anthropic call is slow. The remaining gap is the model call itself, not the tracing path. The observability stack now proves that the request is alive while it is waiting.
@@ -156,7 +157,7 @@ The Next.js image embeds the API URL at `docker build` time via `ARG`. Changing 
 ### Configuration drift risks
 
 1. **`cfg/model.yaml` model name** — `claude-sonnet-4-6` is hardcoded in YAML. When Anthropic deprecates a model, this requires a YAML edit + redeployment. Consider making it an env var override.
-2. **Field allowlist duplication and divergence — CRITICAL** — `ALLOWED_PROFILE_FIELDS` (kb_router) and `ALLOWED_CARD_PROFILE_FIELDS` (session_router) have diverged. `session_router` allows 12 fields (e.g. `entry_paths`, `top_employers_smu`) while `kb_router` only allows 7. Furthermore, the `session_intents` LLM prompt extracts `track_name`, but this is missing from the session router allowlist, leading to silent data loss.
-3. **Missing Sprint 4 Field Support** — New fields (`salary_levels`, `visa_pathway_notes`) are extracted by the LLM but absent from ALL write-path allowlists. They can only be created via Track Builder drafts, not updated via Knowledge Update or Session Editor.
+2. ~~**Field allowlist duplication and divergence — CRITICAL**~~ — **FIXED (2026-04-18)**: `api/constants/profile_fields.py` now defines a single `ALLOWED_PROFILE_FIELDS` frozenset (15 fields) and `ALLOWED_EMPLOYER_FIELDS` (8 fields). Both `kb_router.py` and `session_router.py` import from this shared module. The 7-vs-12 field divergence and silent `track_name` data loss are eliminated.
+3. ~~**Missing Sprint 4 Field Support**~~ — **FIXED (2026-04-18)**: `salary_levels`, `visa_pathway_notes`, and `track_name` added to the unified allowlist in `api/constants/profile_fields.py`. All three write paths (Knowledge Update, Session Editor, Track Builder) can now update these fields.
 4. **Qdrant version pinned in Compose but not Terraform** — `docker-compose.yml` pins `qdrant/qdrant:v1.13.2`; Terraform has no equivalent pin for any sidecar or separate Qdrant service.
 5. **Counsellor contact placeholders** — `[TODO: Fill in SMU career centre contact…]` in YAML profiles will leak into LLM prompts if `counselor_contact` is ever injected. Add a startup warning that flags placeholder values.

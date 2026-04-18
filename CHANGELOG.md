@@ -5,6 +5,9 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Per-endpoint rate limiting**: explicit `@limiter.limit()` decorators on `POST /api/chat` (10/min), `POST /api/ingest` (5/min), and `POST /api/brief` (5/min) to protect Anthropic API quota and Fargate costs. The `slowapi` infrastructure was already wired in `main.py`; these decorators enforce tighter per-endpoint budgets.
+- **Session cleanup script**: `scripts/cleanup_sessions.py` deletes `completed` and `cancelled` sessions older than `--days` (default 30). Supports `--dry-run`, `--sessions-dir`, and `SESSIONS_DIR` env var. Handles both flat and counsellor-scoped (`counsellor_id/session_id.json`) directory layouts.
+- **Shared field allowlist constants**: `api/constants/profile_fields.py` consolidates `ALLOWED_PROFILE_FIELDS` (15 fields, up from 7 in `kb_router` and 12 in `session_router`) and `ALLOWED_EMPLOYER_FIELDS` (8 fields) into a single source of truth. Added missing fields: `salary_levels`, `visa_pathway_notes`, and `track_name`.
 - **Langfuse-backed LLM observability**: optional self-hosted Langfuse profile in Docker Compose, lazy API export when `LANGFUSE_*` env vars are set, and shutdown flush so in-flight traces are not lost.
 - **Langfuse session grouping**: `session_id` now propagates through live session analysis, so Langfuse groups traces into session views instead of leaving them as isolated requests.
 - **Trace Explorer**: the admin panel now exposes a session-scoped trace explorer with filters for session, operation, and status.
@@ -17,6 +20,7 @@ All notable changes to this project will be documented in this file.
 - Langfuse export now stays off the request path. The API schedules flushes in the background and shuts down cleanly so trace delivery does not become the thing that times out.
 
 ### Fixed
+- **Structured metadata drift in session card commits**: `_derive_structured_fields()` is now called in `session_router.py _apply_field_updates_to_profile`, so session card commits populate `salary_min_sgd`/`salary_max_sgd` from prose salary ranges, matching the behavior already present in `kb_router.py commit_analysis()`.
 - The live API container now picks up the Langfuse instrumentation helper correctly, so session traces actually appear in the self-hosted Langfuse project after rebuilds.
 
 ## [0.1.5.1] - 2026-04-14
