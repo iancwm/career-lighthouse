@@ -101,6 +101,16 @@ def _apply_field_updates_to_profile(slug: str, diff: dict) -> tuple[list[str], b
             continue
         profile[field] = value
         changed.append(field)
+
+    # Sync structured: fields from prose after edits
+    from services.career_profiles import _derive_structured_fields
+    derived = _derive_structured_fields(profile)
+    if derived:
+        existing_structured = profile.get("structured") or {}
+        for key, value in derived.items():
+            existing_structured.setdefault(key, value)
+        profile["structured"] = existing_structured
+
     if changed:
         tmp = yaml_path.with_suffix(".tmp")
         try:
