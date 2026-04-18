@@ -58,6 +58,7 @@ def _check_session_ownership(session: KnowledgeSession, counsellor_id: str | Non
 from config import settings
 from routers.ingest_router import _sanitize_filename
 from services.ingestion import parse_file
+from constants.profile_fields import ALLOWED_PROFILE_FIELDS, ALLOWED_EMPLOYER_FIELDS
 
 def get_session_store():
     return SessionStore()
@@ -67,24 +68,6 @@ def _get_embedder():
     from dependencies import get_embedder
 
     return get_embedder()
-
-# Allowlists — mirror the ones in kb_router.py
-# Inspected 2026-04-12 (knowledge-capture-hardening): these guards prevent
-# arbitrary YAML key injection from card commit payloads. Fields not in the
-# allowlist are skipped with a warning — same posture as kb_router.py.
-ALLOWED_CARD_PROFILE_FIELDS = {
-    "ep_sponsorship", "compass_score_typical", "top_employers_smu",
-    "recruiting_timeline", "international_realistic", "entry_paths",
-    "salary_range_2024", "typical_background", "counselor_contact",
-    "notes", "match_description", "match_keywords",
-}
-
-ALLOWED_CARD_EMPLOYER_FIELDS = {
-    "employer_name", "tracks", "ep_requirement",
-    "intake_seasons", "application_process", "headcount_estimate",
-    "counselor_contact", "notes",
-}
-
 
 def _slug_is_safe(slug: str) -> bool:
     """Reject path traversal and injection in slug values."""
@@ -113,7 +96,7 @@ def _apply_field_updates_to_profile(slug: str, diff: dict) -> tuple[list[str], b
     for field, value in diff.items():
         if field == "slug":
             continue  # skip slug, it's the identifier
-        if field not in ALLOWED_CARD_PROFILE_FIELDS:
+        if field not in ALLOWED_PROFILE_FIELDS:
             logger.warning("Card commit: profile field %r not in allowlist — skipping", field)
             continue
         profile[field] = value
@@ -156,7 +139,7 @@ def _apply_field_updates_to_employer(slug: str, diff: dict) -> tuple[list[str], 
     for field, value in diff.items():
         if field == "slug":
             continue
-        if field not in ALLOWED_CARD_EMPLOYER_FIELDS:
+        if field not in ALLOWED_EMPLOYER_FIELDS:
             logger.warning("Card commit: employer field %r not in allowlist — skipping", field)
             continue
         employer[field] = value
