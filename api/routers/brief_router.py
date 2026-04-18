@@ -1,16 +1,19 @@
 # api/routers/brief_router.py
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from models import BriefRequest, BriefResponse
 from services.embedder import Embedder
 from services.vector_store import VectorStore
 from services import llm
 from dependencies import get_embedder, get_vector_store
+from limiter import limiter
 
 router = APIRouter(prefix="/api")
 
 
 @router.post("/brief", response_model=BriefResponse)
+@limiter.limit("5/minute")
 def brief(
+    request: Request,
     req: BriefRequest,
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),

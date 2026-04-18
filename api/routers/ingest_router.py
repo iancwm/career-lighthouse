@@ -15,6 +15,7 @@ from services.career_profiles import get_career_profile_store
 from services.embedder import Embedder
 from services.ingestion import prepare_document
 from services.vector_store import VectorStore
+from limiter import limiter
 
 router = APIRouter(prefix="/api")
 
@@ -85,6 +86,7 @@ def _check_deduplication(
 
 
 @router.post("/ingest", response_model=IngestResponse)
+@limiter.limit("5/minute")
 async def ingest(
     request: Request,
     file: UploadFile = File(...),
