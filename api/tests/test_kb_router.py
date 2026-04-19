@@ -387,6 +387,53 @@ class TestTrackBuilderEndpoints:
         }]
         assert paths["registry_path"].exists()
 
+    def test_list_tracks_and_drafts_sync_missing_published_profile(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        paths = configure_track_paths(monkeypatch, tmp_path)
+        with open(paths["profiles_dir"] / "fintech_compliance.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump({
+                "career_type": "Fintech Compliance",
+                "match_description": "Regulatory, AML, and compliance roles in fintech.",
+                "match_keywords": ["fintech compliance", "AML", "KYC"],
+                "ep_sponsorship": "Competitive at larger firms.",
+                "compass_score_typical": "45-60",
+                "top_employers_smu": ["DBS", "Stripe"],
+                "recruiting_timeline": "Year-round",
+                "international_realistic": True,
+                "entry_paths": ["AML Analyst", "Compliance Officer"],
+                "salary_range_2024": "SGD 95K-110K",
+                "typical_background": "Law, finance, or regulatory compliance.",
+                "notes": "Existing published profile without a draft copy.",
+            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        with open(paths["registry_path"], "w", encoding="utf-8") as f:
+            yaml.safe_dump({
+                "tracks": [{
+                    "slug": "consulting",
+                    "label": "Management Consulting",
+                    "status": "active",
+                    "last_published": None,
+                }]
+            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        tracks_resp = client.get("/api/kb/tracks")
+        assert tracks_resp.status_code == 200
+        track_slugs = [item["slug"] for item in tracks_resp.json()]
+        assert "fintech_compliance" in track_slugs
+
+        with open(paths["registry_path"], encoding="utf-8") as f:
+            registry = yaml.safe_load(f)
+        assert any(item["slug"] == "fintech_compliance" for item in registry["tracks"])
+
+        drafts_resp = client.get("/api/kb/draft-tracks")
+        assert drafts_resp.status_code == 200
+        draft_slugs = [item["slug"] for item in drafts_resp.json()]
+        assert "fintech_compliance" in draft_slugs
+
+        seeded = next(item for item in drafts_resp.json() if item["slug"] == "fintech_compliance")
+        assert seeded["status"] == "ready_for_publish"
+        assert (paths["drafts_dir"] / "fintech_compliance.yaml").exists()
+
     def test_get_track_reference_returns_published_detail(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
         configure_track_paths(monkeypatch, tmp_path)
         with open(tmp_path / "career_profiles" / "data_science.yaml", "w", encoding="utf-8") as f:

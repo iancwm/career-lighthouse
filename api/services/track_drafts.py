@@ -21,7 +21,7 @@ from threading import Lock
 
 import yaml
 
-from models import DraftTrackDetail, TrackRegistryEntry, TrackVersionInfo
+from models import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields
 
 logger = logging.getLogger(__name__)
@@ -153,6 +153,71 @@ def _registry_payload(entries: list[TrackRegistryEntry]) -> dict:
     }
 
 
+def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
+    required_text = [
+        detail.track_name,
+        detail.ep_sponsorship,
+        detail.recruiting_timeline,
+        detail.salary_range_2024,
+        detail.typical_background,
+    ]
+    return (
+        all(str(value).strip() for value in required_text)
+        and len(detail.top_employers_smu) > 0
+        and len(detail.entry_paths) > 0
+        and len(detail.match_keywords) > 0
+    )
+
+
+def _draft_from_profile(slug: str, profile: dict) -> DraftTrackDetail | None:
+    """Build a draft-track copy from a valid published profile."""
+    try:
+        detail = DraftTrackDetail(
+            slug=slug,
+            track_name=str(profile.get("career_type") or slug).strip(),
+            status="draft",
+            match_description=str(profile.get("match_description") or "").strip(),
+            match_keywords=list(profile.get("match_keywords") or []),
+            ep_sponsorship=str(profile.get("ep_sponsorship") or "").strip(),
+            compass_score_typical=str(profile.get("compass_score_typical") or "").strip(),
+            top_employers_smu=list(profile.get("top_employers_smu") or []),
+            recruiting_timeline=str(profile.get("recruiting_timeline") or "").strip(),
+            international_realistic=bool(profile.get("international_realistic", True)),
+            entry_paths=list(profile.get("entry_paths") or []),
+            salary_range_2024=str(profile.get("salary_range_2024") or "").strip(),
+            typical_background=str(profile.get("typical_background") or "").strip(),
+            counselor_contact=profile.get("counselor_contact"),
+            notes=str(profile.get("notes") or "").strip(),
+            source_refs=[SourceRef(type="seeded", label=f"published profile:{slug}")],
+            structured=dict(profile.get("structured") or {}),
+            last_updated=str(profile.get("last_updated") or _today()),
+            archived_at=None,
+            salary_levels=profile.get("salary_levels") or None,
+            visa_pathway_notes=profile.get("visa_pathway_notes") or None,
+        )
+    except Exception as exc:
+        logger.warning("TrackDraftStore: failed to seed draft for %s: %s", slug, exc)
+        return None
+    detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
+    return detail
+
+
+def _valid_published_profiles() -> list[tuple[str, dict]]:
+    """Return valid published profile payloads keyed by slug."""
+    from services.career_profiles import get_career_profile_store
+
+    profile_store = get_career_profile_store()
+    result: list[tuple[str, dict]] = []
+    for item in profile_store.list_profiles():
+        slug = str(item.get("slug") or "").strip()
+        if not slug:
+            continue
+        profile = profile_store.get_profile(slug)
+        if isinstance(profile, dict):
+            result.append((slug, profile))
+    return result
+
+
 class TrackDraftStore:
     """Singleton for draft tracks and registry-backed publish helpers."""
 
@@ -168,19 +233,33 @@ class TrackDraftStore:
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
-        self._drafts: dict[str, dict] = {}
-        drafts_dir = _drafts_dir()
-        if drafts_dir.exists():
-            for yaml_path in sorted(drafts_dir.glob("*.yaml")):
-                try:
-                    with open(yaml_path, encoding="utf-8") as f:
-                        payload = yaml.safe_load(f) or {}
-                    if isinstance(payload, dict):
-                        payload.setdefault("slug", yaml_path.stem)
-                        self._drafts[yaml_path.stem] = payload
-                except Exception as exc:
-                    logger.warning("TrackDraftStore: failed to load %s: %s", yaml_path.name, exc)
-        self._loaded = True
+        with self._lock:
+            if self._loaded:
+                return
+            self._drafts = {}
+            drafts_dir = _drafts_dir()
+            drafts_dir.mkdir(parents=True, exist_ok=True)
+
+            for slug, profile in _valid_published_profiles():
+                draft_path = drafts_dir / f"{slug}.yaml"
+                if draft_path.exists():
+                    continue
+                detail = _draft_from_profile(slug, profile)
+                if detail is None:
+                    continue
+                _atomic_yaml_write(draft_path, detail.model_dump())
+
+            if drafts_dir.exists():
+                for yaml_path in sorted(drafts_dir.glob("*.yaml")):
+                    try:
+                        with open(yaml_path, encoding="utf-8") as f:
+                            payload = yaml.safe_load(f) or {}
+                        if isinstance(payload, dict):
+                            payload.setdefault("slug", yaml_path.stem)
+                            self._drafts[yaml_path.stem] = payload
+                    except Exception as exc:
+                        logger.warning("TrackDraftStore: failed to load %s: %s", yaml_path.name, exc)
+            self._loaded = True
 
     def invalidate(self) -> None:
         self._loaded = False
@@ -214,19 +293,16 @@ class TrackDraftStore:
         if path.exists():
             return self.list_registry()
 
-        entries: list[TrackRegistryEntry] = []
-        for yaml_path in sorted(_profiles_dir().glob("*.yaml")):
-            slug = yaml_path.stem
-            if not _slug_is_safe(slug):
-                raise ValueError(f"Invalid existing profile slug: {slug}")
-            with open(yaml_path, encoding="utf-8") as f:
-                payload = yaml.safe_load(f) or {}
-            entries.append(TrackRegistryEntry(
+        entries = [
+            TrackRegistryEntry(
                 slug=slug,
-                label=str(payload.get("career_type") or slug).strip(),
+                label=str(profile.get("career_type") or slug).strip(),
                 status="active",
                 last_published=None,
-            ))
+            )
+            for slug, profile in _valid_published_profiles()
+        ]
+        entries.sort(key=lambda item: item.slug)
         _atomic_yaml_write(path, _registry_payload(entries))
         return entries
 
@@ -238,6 +314,21 @@ class TrackDraftStore:
             payload = yaml.safe_load(f) or {}
         items = payload.get("tracks") or []
         result = [TrackRegistryEntry(**item) for item in items if isinstance(item, dict)]
+        seen = {item.slug for item in result}
+        updated = False
+        for slug, profile in _valid_published_profiles():
+            if slug in seen:
+                continue
+            result.append(TrackRegistryEntry(
+                slug=slug,
+                label=str(profile.get("career_type") or slug).strip(),
+                status="active",
+                last_published=None,
+            ))
+            updated = True
+        if updated:
+            result.sort(key=lambda item: item.slug)
+            _atomic_yaml_write(path, _registry_payload(result))
         result.sort(key=lambda item: item.slug)
         return result
 
