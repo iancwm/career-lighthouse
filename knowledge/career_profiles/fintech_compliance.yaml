@@ -53,10 +53,15 @@ typical_background: LLM in International Law, Financial Crime, or Regulatory Law
   regulated entity is baseline. CCEP, CFCS, or FCA certifications increasingly valued.
   Basic SQL and familiarity with SIEM/e-discovery tools differentiating.
 counselor_contact: Dr. Patricia Lim
-notes: 'LLM graduates often faster to impact in compliance than JD holders. Recommended
-  pathway: (1) LLM with regulatory/AML electives, (2) first role at major bank for
-  rigor-building, (3) move to fintech for faster growth. CCEP credential growing in
-  importance — equivalent to CFA for this track. Career ceiling: Head of Compliance
-  (6–8 years), then lateral to General Counsel, Chief Risk Officer, or regulatory
-  body (MAS/CSA). Regulatory relationship-building is a key soft skill. Alumni mentor:
-  Aditya Mehta (Stripe, LLM NUS ''18).'
+notes: MAS Recognized Market Operator (RMO) framework is the emerging regulatory pathway
+  for crypto exchanges operating in Singapore (e.g., Crypto.com). Regulatory clarity
+  under RMO is a key factor in firm stability and career security in crypto compliance
+  roles. Crypto.com's MAS RMO status was cited as a survival factor through the 2022
+  crash. Compliance hires (~20% of crypto sector talent) are sourced from banking
+  and legal backgrounds. Regulatory gray zones (firms without MAS licensing) carry
+  significant career risk — advise students to vet platform regulatory standing before
+  joining. Singapore Payments Card Association framework updates and LSE data reporting
+  are active compliance workstreams at crypto firms.
+structured:
+  salary_min_sgd: 95000
+  salary_max_sgd: 110000
