@@ -39,10 +39,15 @@ def test_generate_brief_writes_structured_trace(mock_client, tmp_path):
     assert entries[0]["status"] == "started"
     assert entries[1]["operation"] == "generate_brief"
     assert entries[1]["status"] == "ok"
+    assert entries[1]["feature"] == "generate_brief"
     assert entries[0]["trace_id"] == entries[1]["trace_id"]
     assert entries[1]["model"] == "claude-sonnet-4-6"
     assert entries[1]["output_preview"] == "brief text"
     assert entries[1]["input_chars"] > 0
+    assert entries[1]["input_chars_pre_trim"] > 0
+    assert entries[1]["input_chars_sent"] >= entries[1]["input_chars_pre_trim"]
+    assert entries[1]["kb_chunks_retrieved"] == 0
+    assert entries[1]["kb_chunks_sent"] == 0
 
 
 def test_llm_traces_endpoint_returns_recent_entries(tmp_path):
@@ -57,10 +62,15 @@ def test_llm_traces_endpoint_returns_recent_entries(tmp_path):
             "operation": "chat_with_context",
             "status": "ok",
             "model": "claude-sonnet-4-6",
+            "feature": "chat_with_context",
             "timeout_seconds": 30.0,
             "max_tokens": 2048,
             "latency_ms": 1234.5,
             "input_chars": 512,
+            "input_chars_pre_trim": 640,
+            "input_chars_sent": 512,
+            "kb_chunks_retrieved": 4,
+            "kb_chunks_sent": 2,
             "output_chars": 128,
             "input_preview": "hello",
             "output_preview": "answer",
@@ -72,10 +82,13 @@ def test_llm_traces_endpoint_returns_recent_entries(tmp_path):
             "operation": "generate_brief",
             "status": "error",
             "model": "claude-sonnet-4-6",
+            "feature": "generate_brief",
             "timeout_seconds": 30.0,
             "max_tokens": 2048,
             "latency_ms": 3210.0,
             "input_chars": 256,
+            "input_chars_pre_trim": 256,
+            "input_chars_sent": 256,
             "output_chars": 0,
             "input_preview": "resume",
             "output_preview": "",
@@ -89,6 +102,9 @@ def test_llm_traces_endpoint_returns_recent_entries(tmp_path):
     assert len(data) == 1
     assert data[0].trace_id == "trace-2"
     assert data[0].status == "error"
+    assert data[0].feature == "generate_brief"
+    assert data[0].input_chars_pre_trim == 256
+    assert data[0].input_chars_sent == 256
 
 
 def test_llm_traces_endpoint_filters_by_session_and_status(tmp_path):

@@ -91,6 +91,7 @@ class LLMTraceEntry(BaseModel):
     operation: str
     status: str
     model: str
+    feature: str | None = None
     session_id: str | None = None
     phase: str | None = None
     chunk_index: int | None = None
@@ -98,6 +99,13 @@ class LLMTraceEntry(BaseModel):
     multi_pass_threshold_chars: int | None = None
     multi_pass_chunk_tokens: int | None = None
     multi_pass_overlap_tokens: int | None = None
+    input_chars_pre_trim: int | None = None
+    input_chars_sent: int | None = None
+    kb_chunks_retrieved: int | None = None
+    kb_chunks_sent: int | None = None
+    parse_attempt: int | None = None
+    repair_attempt: int | None = None
+    partial_result: bool | None = None
     timeout_seconds: float | None = None
     max_tokens: int
     latency_ms: float
@@ -141,8 +149,10 @@ class NewChunk(BaseModel):
 
 
 class AlreadyCovered(BaseModel):
-    content: str  # the text that is already covered
+    content: str | None = None  # session-intent wording
     reason: str = ""  # why no action is needed
+    excerpt: str | None = None  # KB-analysis wording
+    source_doc: str | None = None  # KB-analysis wording
 
 
 class TrackCandidate(BaseModel):

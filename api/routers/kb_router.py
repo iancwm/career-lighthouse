@@ -412,7 +412,7 @@ def auto_complete_profile(
     Returns the completed profile dict.
     """
     from config import settings
-    import anthropic
+    from cfg import career_profiles_cfg
 
     broken = profile_store.get_broken_profile(slug)
     if broken is None:
@@ -425,13 +425,13 @@ def auto_complete_profile(
     missing = required - existing
 
     # Build a prompt that asks the LLM to fill the gaps
-    existing_content = "\n".join(
-        f"{k}: {v}" for k, v in broken.items() if v
-    )
+    profile_budget = getattr(settings, "llm_auto_complete_max_profile_chars", None) or 6000
+    existing_content = "\n".join(f"{k}: {v}" for k, v in broken.items() if v)
+    existing_content = existing_content[:profile_budget]
     missing_list = ", ".join(sorted(missing))
 
     system = (
-        f"You are a career data curator for {model_cfg['school']['name']}.\n"
+        f"You are a career data curator for {llm_service.SCHOOL_NAME}.\n"
         "Given a partial career profile YAML and a list of missing required fields,\n"
         "fill in the missing fields based on the existing profile content.\n"
         "Return ONLY a JSON object with the missing field names as keys.\n"
@@ -449,21 +449,29 @@ def auto_complete_profile(
     )
 
     try:
-        client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(
-            model=model_cfg["llm"]["model"],
+        filled = llm_service.call_structured_json(
+            operation="auto_complete_profile",
+            model=llm_service._llm["model"],
             max_tokens=1024,
-            temperature=0,
             system=system,
-            messages=[{"role": "user", "content": user}],
+            user=user,
+            schema_name="auto_complete_profile",
+            schema_hint=(
+                f"JSON object with only the missing fields: {missing_list}. "
+                "List fields may be arrays, boolean fields booleans, string fields short prose."
+            ),
+            trace_metadata={
+                "feature": "auto_complete_profile",
+                "slug": slug,
+                "missing_count": len(missing),
+                "input_chars_pre_trim": len(existing_content),
+            },
         )
-        text = response.content[0].text.strip()
-        if text.startswith("```"):
-            text = text.split("\n", 1)[1]
-            if "```" in text:
-                text = text.rsplit("```", 1)[0]
-        text = text.strip()
-        filled = json.loads(text)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        logger.error("auto_complete_profile: LLM call failed: %s", exc)
+        raise HTTPException(status_code=422, detail=f"Could not auto-complete: {exc}")
     except Exception as exc:
         logger.error("auto_complete_profile: LLM call failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Could not auto-complete: {exc}")

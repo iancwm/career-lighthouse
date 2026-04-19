@@ -7,13 +7,33 @@ llm:
   max_tokens: 2048
   history_window: 10  # number of prior turns included in each LLM call
   # Per-operation max_tokens overrides (different operations have different token budgets)
-  max_tokens_kb_analysis: 2048       # analyse_kb_input()
-  max_tokens_track_draft: 2500       # generate_track_draft()
-  max_tokens_session_extraction: 16384  # generate_session_intents()
+  max_tokens_kb_analysis: 1536       # analyse_kb_input()
+  max_tokens_track_draft: 2048       # generate_track_draft()
+  max_tokens_session_extraction: 4096  # generate_session_intents()
   # Multi-pass extraction settings for large documents
   multi_pass_threshold_chars: 12000  # split and extract when input exceeds this
-  multi_pass_chunk_tokens: 15000     # token size per chunk in multi-pass mode
-  multi_pass_overlap_tokens: 2000    # overlap between chunks for continuity
+  multi_pass_chunk_tokens: 9000      # token size per chunk in multi-pass mode
+  multi_pass_overlap_tokens: 1200    # overlap between chunks for continuity
+  # Shared hardening budgets
+  json_repair_enabled: true
+  staged_extraction_enabled: true
+  max_chunks_per_prompt: 8
+  max_chunk_chars_for_prompt: 4000
+  chat_max_context_chars: 12000
+  chat_max_resume_chars: 5000
+  chat_max_chunks: 5
+  chat_excerpt_preview_chars: 240
+  brief_max_context_chars: 10000
+  brief_max_resume_chars: 4500
+  brief_max_chunks: 6
+  brief_excerpt_preview_chars: 240
+  analysis_max_input_chars: 12000
+  analysis_max_chunks: 6
+  analysis_excerpt_preview_chars: 320
+  track_draft_max_input_chars: 12000
+  track_draft_max_chunks: 6
+  track_draft_excerpt_preview_chars: 320
+  auto_complete_max_profile_chars: 6000
   # Truncation lengths for KB excerpt previews in structured prompts
   excerpt_preview_chars: 400         # max chars for KB excerpts in analyse_kb_input, generate_track_draft
   intent_dedup_summary_chars: 30     # prefix length for deduping intent summaries in _merge_intents()

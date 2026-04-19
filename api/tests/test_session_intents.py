@@ -56,7 +56,7 @@ def test_already_covered_returned(mock_client):
 
 @patch("services.llm.get_client")
 def test_malformed_json_retries_once(mock_client):
-    """If Claude returns bad JSON, we retry with error feedback."""
+    """If Claude returns bad JSON, we repair the model output instead of replaying the full prompt."""
     raw_input = "Update McKinsey."
 
     bad_msg = MagicMock()
@@ -75,7 +75,7 @@ def test_malformed_json_retries_once(mock_client):
 
 @patch("services.llm.get_client")
 def test_session_intents_use_json_only_prompt(mock_client):
-    """Both session-intent passes should use the JSON-only prompt."""
+    """The repair pass should use a dedicated JSON-repair prompt, not the original system prompt."""
     raw_input = "Update McKinsey."
 
     bad_msg = MagicMock()
@@ -89,10 +89,11 @@ def test_session_intents_use_json_only_prompt(mock_client):
     generate_session_intents(raw_input, existing_tracks=[], existing_employers=[])
 
     first_call_system = mock_client.return_value.messages.create.call_args_list[0].kwargs["system"]
-    retry_call_system = mock_client.return_value.messages.create.call_args_list[1].kwargs["system"]
+    repair_call_system = mock_client.return_value.messages.create.call_args_list[1].kwargs["system"]
 
     assert "Return valid JSON with this structure" in first_call_system
-    assert first_call_system == retry_call_system
+    assert repair_call_system != first_call_system
+    assert "You repair malformed JSON" in repair_call_system
 
 
 @patch("services.llm.get_client")
@@ -260,3 +261,7 @@ def test_session_intents_multi_pass_trace_metadata(mock_chunk, mock_client, tmp_
     assert ("multi_pass_chunk", 1, 2) in phases
     assert ("multi_pass_chunk", 2, 2) in phases
     assert all(entry["multi_pass_threshold_chars"] == 1 for entry in entries)
+    assert all(entry["feature"] == "generate_session_intents" for entry in entries)
+    assert all(entry["input_chars_pre_trim"] == 3 for entry in entries)
+    assert all(entry["parse_attempt"] == 1 for entry in entries)
+    assert all(entry["repair_attempt"] == 0 for entry in entries)

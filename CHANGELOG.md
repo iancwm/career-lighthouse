@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5.2] - 2026-04-19
+
+### Added
+- **LLM hardening sweep**: shared JSON repair, staged extraction, tighter prompt budgets, and richer LLM trace metadata now cover chat, brief, KB analysis, track drafting, session intent extraction, and profile auto-complete.
+- **Trace diagnostics**: LLM trace rows now record feature, pre-trim and sent input sizes, KB chunk counts, parse attempts, repair attempts, and partial-result flags so admin traces can explain where a call got expensive or failed.
+- **Budget tightening**: session extraction and chunked extraction defaults are now materially smaller, which keeps multi-pass prompts bounded instead of letting a single note balloon into a long call.
+
 ### Added
 - **Per-endpoint rate limiting**: explicit `@limiter.limit()` decorators on `POST /api/chat` (10/min), `POST /api/ingest` (5/min), and `POST /api/brief` (5/min) to protect Anthropic API quota and Fargate costs. The `slowapi` infrastructure was already wired in `main.py`; these decorators enforce tighter per-endpoint budgets.
 - **Session cleanup script**: `scripts/cleanup_sessions.py` deletes `completed` and `cancelled` sessions older than `--days` (default 30). Supports `--dry-run`, `--sessions-dir`, and `SESSIONS_DIR` env var. Handles both flat and counsellor-scoped (`counsellor_id/session_id.json`) directory layouts.

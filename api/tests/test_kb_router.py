@@ -317,6 +317,44 @@ class TestCareerProfilesEndpoint:
         assert r.status_code == 200
         assert r.json() == []
 
+    def test_auto_complete_profile_uses_shared_llm_gateway(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+        from main import app
+        from services.career_profiles import get_career_profile_store
+        from unittest.mock import MagicMock
+        import services.llm as llm_module
+
+        monkeypatch.setenv("CAREER_PROFILES_DIR", str(tmp_path / "career_profiles"))
+        (tmp_path / "career_profiles").mkdir(parents=True, exist_ok=True)
+
+        mock_profile_store = MagicMock()
+        mock_profile_store.get_broken_profile.return_value = {"career_type": "Test Track"}
+        mock_profile_store.invalidate.return_value = None
+        app.dependency_overrides[get_career_profile_store] = lambda: mock_profile_store
+
+        filled = {
+            "ep_sponsorship": "High",
+            "top_employers_smu": ["Grab", "DBS"],
+            "entry_paths": ["Internship"],
+            "international_realistic": True,
+        }
+
+        try:
+            with patch.object(llm_module, "call_structured_json", return_value=filled) as mock_call:
+                client, _ = make_client(in_memory_qdrant, mock_embedder)
+                resp = client.post("/api/kb/career-profiles/test_track/auto-complete")
+
+            assert resp.status_code == 200
+            assert mock_call.call_count == 1
+            assert mock_profile_store.invalidate.called
+            stored_path = tmp_path / "career_profiles" / "test_track.yaml"
+            assert stored_path.exists()
+            with open(stored_path, encoding="utf-8") as handle:
+                stored = yaml.safe_load(handle)
+            assert stored["ep_sponsorship"] == "High"
+            assert stored["top_employers_smu"] == ["Grab", "DBS"]
+        finally:
+            app.dependency_overrides.pop(get_career_profile_store, None)
+
 
 # ---------------------------------------------------------------------------
 # Track Builder endpoints

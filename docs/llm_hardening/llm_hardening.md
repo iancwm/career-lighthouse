@@ -27,7 +27,7 @@ There is already a shared `_call_with_trace()` / `_safe_create()` path in `api/s
 
 ### 3) Prompt budgets are too loose for some operations
 
-`generate_session_intents()` is configured with `max_tokens_session_extraction: 8192`, `multi_pass_chunk_tokens: 15000`, and `multi_pass_overlap_tokens: 2000`. That is large and can still create long-running calls, especially when each chunk prompt also includes track/employer context and verbose chain-of-thought-like output. 
+`generate_session_intents()` is configured with `max_tokens_session_extraction: 4096`, `multi_pass_chunk_tokens: 9000`, and `multi_pass_overlap_tokens: 1200`. That is still bounded but materially smaller than the earlier defaults, and it keeps each chunk prompt within a tighter envelope even when track/employer context is present.
 
 ### 4) JSON extraction is fragile
 
@@ -246,8 +246,8 @@ The current config budgets are aggressive, especially for session extraction. Tu
 * Standard JSON extraction timeout: 20–30s
 * Large multi-pass per chunk timeout: 25–35s
 * Remove or reduce any 90s single-call dependency
-* Reduce `max_tokens_session_extraction` from 8192 to something materially smaller unless proven necessary
-* Reduce `multi_pass_chunk_tokens` so each per-chunk request is predictably bounded
+* Keep `max_tokens_session_extraction` at the tightened default unless traces show a need to raise it
+* Keep `multi_pass_chunk_tokens` predictably bounded so each per-chunk request stays short
 * Reduce overlap to the minimum needed for continuity
 
 ### Acceptance criteria
