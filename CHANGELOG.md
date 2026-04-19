@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **Track Builder self-healing sync**: the draft store now backfills missing draft files from valid published profiles and keeps the track registry aligned, so tracks that were added through another workflow still appear in Track Builder.
+
+### Fixed
+- **Session-intent payload validation**: intent cards are now validated with Pydantic before analyze/commit writes, which rejects list values in scalar fields and surfaces bad card payloads as fast 422s instead of letting them reach YAML writes.
+
 ## [0.1.5.2] - 2026-04-19
 
 ### Added

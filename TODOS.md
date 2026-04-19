@@ -204,6 +204,9 @@ Shipped: assistant messages now render through a safe markdown subset instead of
 ### ~~Track Builder published reference, history, and bootstrap refresh~~ ✓ Done (2026-04-12)
 Shipped: Track Builder shows the published reference summary, keeps archived working copies separate, and bootstraps a draft from the live published profile when a counsellor refreshes a track that does not yet have a draft file.
 
+### ~~Track Builder registry backfill and draft self-healing~~ ✓ Done (2026-04-20)
+Shipped: the draft store now seeds missing draft files from valid published profiles and backfills the track registry from published profiles on load, so tracks added through another workflow still appear in Track Builder.
+
 ### ~~Legacy track slug canonicalization and session migration~~ ✓ Done (2026-04-12)
 Shipped: legacy `data_science` aliases normalize to `dsai` on read and write, and old session payloads are rewritten in place.
 

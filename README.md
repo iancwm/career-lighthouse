@@ -105,11 +105,11 @@ Use `uv lock` after editing `api/pyproject.toml`, then commit both the manifest 
 
 The career office dashboard (`/admin`) includes:
 
-- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Session extraction now emits flat JSON-only intent cards, so follow-up actions stay editable instead of coming back as nested objects.
+- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Session extraction now emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so scalar fields stay scalar and bad payloads fail fast instead of leaking into YAML writes.
 - **Knowledge Review** — structured review of proposed KB edits before anything is written.
 - **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
 - **Employer Facts** — maintain employer YAMLs and review track coverage for employer context.
-- **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile.
+- **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile. If a published track exists but the draft copy is missing, the builder now seeds the draft and registry automatically so the track stays editable instead of disappearing from the editor.
 - **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection.
 - **LLM Observability** — session and prompt traces, live run state, a dedicated Trace Explorer, and optional Langfuse-backed debugging for model calls.
 
@@ -144,7 +144,7 @@ The career office dashboard (`/admin`) includes:
 - **Live timeout visibility**: session analysis and brief generation can still hit the Anthropic timeout under long or expensive requests, but the request now shows a `started` trace immediately and a matching `error` trace if the model times out. Wildly better than staring at a blank spinner.
 - **Data stays local**: only Anthropic Claude API call leaves the deployment (PDPA-compliant)
 
-Track publishing now keeps a live published profile plus an archived working copy. If a counsellor refreshes a track from new research and no draft exists yet, the app bootstraps the draft from the published profile first. That keeps existing tracks editable without forcing a manual recreate step.
+Track publishing now keeps a live published profile plus an archived working copy. If a counsellor refreshes a track from new research and no draft exists yet, the app bootstraps the draft from the published profile first, and it backfills the track registry if the published track was added through another workflow. That keeps existing tracks editable without forcing a manual recreate step or a manual registry fix.
 
 ## Where Data Lives
 
@@ -160,7 +160,7 @@ That means:
 - Sessions are stored as JSON under `data/sessions/`
 - Employer YAMLs are loaded from [knowledge/employers](/home/iancwm/git/career-lighthouse/knowledge/employers)
 - Career profile YAMLs are loaded from [knowledge/career_profiles](/home/iancwm/git/career-lighthouse/knowledge/career_profiles)
-- Draft tracks and track history stay under `knowledge/...`
+- Draft tracks and track history stay under `knowledge/...`, and missing draft copies are seeded from valid published profiles on first access so the Track Builder stays in sync with the published catalog
 - Query logs are written to [logs/query_log.jsonl](/home/iancwm/git/career-lighthouse/logs/query_log.jsonl)
 
 Important distinction:
