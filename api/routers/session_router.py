@@ -1,4 +1,5 @@
 from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
+from pydantic import ValidationError
 from dependencies import require_admin_key
 from models import (
     AlreadyCovered,
@@ -7,6 +8,7 @@ from models import (
     IntentCard,
     KnowledgeSession,
     SessionAnalysisResponse,
+    validate_intent_card_diff,
 )
 from services.session_store import SessionStore
 from services.track_guidance import build_track_guidance
@@ -356,9 +358,15 @@ def analyze_session(
 
     # Build IntentCard objects
     cards = []
-    for card_data in result.get("cards", []):
-        card = IntentCard(**card_data)
-        cards.append(card)
+    try:
+        for card_data in result.get("cards", []):
+            card = IntentCard(**card_data)
+            cards.append(card)
+    except (ValidationError, ValueError, TypeError) as exc:
+        session.status = "failed"
+        session.analysis_error = f"Invalid intent card payload: {exc}"
+        _touch_session(session)
+        raise HTTPException(status_code=422, detail="Invalid intent card payload from analysis service")
 
     # Build AlreadyCovered objects
     already_covered = []
@@ -425,13 +433,22 @@ def commit_card(
     if card.get("status") != "pending":
         raise HTTPException(status_code=409, detail=f"Card already {card.get('status')}")
 
+    domain = card.get("domain", "")
+    if domain not in ("track", "employer"):
+        raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
+
     # Use edited diff if provided, otherwise use card's stored diff
     effective_diff = req.diff if req and req.diff else card.get("diff", {})
+
+    # Require slug in diff to identify the target entity
+    try:
+        effective_diff = validate_intent_card_diff(domain, effective_diff)
+    except (ValidationError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid {domain} card diff: {exc}")
 
     # Strip empty values to avoid writing blank fields
     effective_diff = {k: v for k, v in effective_diff.items() if v}
 
-    # Require slug in diff to identify the target entity
     target_slug = effective_diff.get("slug")
     if not target_slug:
         raise HTTPException(status_code=400, detail="Card diff is missing 'slug' field — cannot determine target entity")
@@ -441,13 +458,10 @@ def commit_card(
 
     changed_fields: list[str] = []
     is_new = False
-    domain = card.get("domain", "")
     if domain == "track":
         changed_fields, is_new = _apply_field_updates_to_profile(target_slug, effective_diff)
     elif domain == "employer":
         changed_fields, is_new = _apply_field_updates_to_employer(target_slug, effective_diff)
-    else:
-        raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
 
     card["status"] = "committed"
     _check_session_completion(session)

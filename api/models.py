@@ -1,6 +1,14 @@
 # api/models.py
-from pydantic import BaseModel
-from typing import Optional
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, field_validator
+
+
+def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
+    validator = getattr(model_cls, "model_validate", None)
+    if callable(validator):
+        return validator(data)
+    return model_cls.parse_obj(data)
 
 
 class ChatMessage(BaseModel):
@@ -169,13 +177,63 @@ class TrackGuidance(BaseModel):
     cluster_key: str | None = None
 
 
+class EmployerCardDiff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    employer_name: str | None = None
+    tracks: list[str] | None = None
+    ep_requirement: str | None = None
+    intake_seasons: list[str] | None = None
+    application_process: str | None = None
+    headcount_estimate: str | None = None
+    counselor_contact: str | None = None
+    notes: str | None = None
+
+
+class TrackCardDiff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    track_name: str | None = None
+    match_description: str | None = None
+    match_keywords: list[str] | None = None
+    ep_sponsorship: str | None = None
+    compass_score_typical: str | None = None
+    top_employers_smu: list[str] | None = None
+    recruiting_timeline: str | None = None
+    international_realistic: bool | None = None
+    entry_paths: list[str] | None = None
+    salary_range_2024: str | None = None
+    typical_background: str | None = None
+    counselor_contact: str | None = None
+    notes: str | None = None
+
+
+def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
+    """Validate a session-intent diff against the domain-specific schema."""
+    if domain == "employer":
+        validated = _model_validate(EmployerCardDiff, diff)
+    elif domain == "track":
+        validated = _model_validate(TrackCardDiff, diff)
+    else:
+        raise ValueError(f"Unknown intent card domain: {domain!r}")
+    return validated.model_dump(exclude_none=True)
+
+
 class IntentCard(BaseModel):
     card_id: str
-    domain: str  # "employer" | "track"
+    domain: Literal["employer", "track"]
     summary: str
-    diff: dict  # structured representation of the proposed change
-    raw_input_ref: str # reference back to the originating text chunk
-    status: str = "pending"  # "pending" | "committed" | "discarded"
+    diff: dict[str, Any]  # structured representation of the proposed change
+    raw_input_ref: str  # reference back to the originating text chunk
+    status: Literal["pending", "committed", "discarded"] = "pending"
+
+    @field_validator("diff", mode="before")
+    @classmethod
+    def _validate_diff(cls, value: Any, info):
+        domain = info.data.get("domain")
+        return validate_intent_card_diff(domain, value)
 
 
 class KBAnalysisResult(BaseModel):

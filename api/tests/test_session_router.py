@@ -196,6 +196,30 @@ class TestAnalyzeSession:
         assert mock_generate.call_args.kwargs["session_id"] == "abc-123"
 
     @patch("services.llm.generate_session_intents")
+    def test_analyze_rejects_list_in_scalar_card_field(self, mock_generate, app, mock_session_store):
+        mock_generate.return_value = {
+            "cards": [{
+                "card_id": "card-bad",
+                "domain": "employer",
+                "summary": "Update Goldman EP",
+                "diff": {"slug": "goldman-sachs", "ep_requirement": ["EP4"]},
+                "raw_input_ref": "Goldman raised EP",
+            }],
+            "already_covered": [],
+        }
+        session = _make_session(id="abc-123", status="in-progress")
+        mock_session_store.get_session.return_value = session
+        mock_session_store.save_session.side_effect = lambda current: None
+
+        client = TestClient(app)
+        resp = client.post("/api/sessions/abc-123/analyze")
+
+        assert resp.status_code == 422
+        assert mock_session_store.save_session.called
+        assert session.status == "failed"
+        assert "Invalid intent card payload" in session.analysis_error
+
+    @patch("services.llm.generate_session_intents")
     def test_analyze_marks_analyzing_then_analyzed(self, mock_generate, app, mock_session_store):
         mock_generate.return_value = {
             "cards": [],
@@ -270,6 +294,31 @@ class TestModelsExist:
         resp = CardDiscardResponse(card_id="c1")
         assert resp.card_id == "c1"
         assert resp.status == "discarded"
+
+    def test_intent_card_accepts_list_fields(self):
+        from models import IntentCard
+
+        card = IntentCard(
+            card_id="c1",
+            domain="track",
+            summary="ok",
+            diff={"slug": "consulting", "entry_paths": ["analyst", "associate"]},
+            raw_input_ref="x",
+        )
+        assert card.diff["entry_paths"] == ["analyst", "associate"]
+
+    def test_intent_card_rejects_list_in_scalar_field(self):
+        from models import IntentCard
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            IntentCard(
+                card_id="c2",
+                domain="employer",
+                summary="bad",
+                diff={"slug": "goldman-sachs", "ep_requirement": ["EP4"]},
+                raw_input_ref="x",
+            )
 
 
 class TestSessionRouterExported:
@@ -556,3 +605,34 @@ def test_commit_completed_session_returns_409(mock_client, app_with_session_rout
 
     resp = client.post("/api/sessions/test-completed-session/cards/card-1/commit")
     assert resp.status_code == 409
+
+
+@patch("services.llm.get_client")
+def test_commit_rejects_list_in_scalar_override(mock_client, app_with_session_router):
+    client = TestClient(app_with_session_router)
+
+    resp = client.post("/api/sessions", json={"raw_input": "Goldman raised EP to EP4"})
+    assert resp.status_code == 201
+    session_id = resp.json()["id"]
+
+    mock_msg = MagicMock()
+    mock_msg.content = [MagicMock(text=json.dumps({
+        "cards": [{
+            "card_id": "card-abc",
+            "domain": "employer",
+            "summary": "Update Goldman EP",
+            "diff": {"slug": "goldman-sachs", "employer_name": "Goldman Sachs", "ep_requirement": "EP4"},
+            "raw_input_ref": "Goldman raised EP",
+        }],
+        "already_covered": [],
+    }))]
+    mock_client.return_value.messages.create.return_value = mock_msg
+
+    resp = client.post(f"/api/sessions/{session_id}/analyze")
+    assert resp.status_code == 200
+
+    resp = client.post(
+        f"/api/sessions/{session_id}/cards/card-abc/commit",
+        json={"diff": {"slug": "goldman-sachs", "ep_requirement": ["EP4"]}},
+    )
+    assert resp.status_code == 422
