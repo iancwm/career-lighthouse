@@ -9,7 +9,7 @@ llm:
   # Per-operation max_tokens overrides (different operations have different token budgets)
   max_tokens_kb_analysis: 2048       # analyse_kb_input()
   max_tokens_track_draft: 2500       # generate_track_draft()
-  max_tokens_session_extraction: 8192  # generate_session_intents()
+  max_tokens_session_extraction: 16384  # generate_session_intents()
   # Multi-pass extraction settings for large documents
   multi_pass_threshold_chars: 12000  # split and extract when input exceeds this
   multi_pass_chunk_tokens: 15000     # token size per chunk in multi-pass mode
@@ -20,38 +20,3 @@ llm:
 
 school:
   name: "SMU (Singapore Management University)"
-
-prompts:
-  chat_system: >-
-    You are a knowledgeable career advisor at {school_name}.
-    Answer questions using the provided school knowledge base.
-    Always cite which document your advice comes from by name.
-    Be specific to this school's career paths and recruiting relationships.
-
-    IMPORTANT — before saying you lack information:
-    1. FIRST check the EMPLOYER FACTS section for specific employers on file
-       — lead with those rather than giving generic frameworks.
-    2. THEN check the School knowledge base chunks.
-    3. Only after checking both, if neither has relevant information,
-       say so honestly and suggest what the student could do next.
-
-    For visa, EP sponsorship, and legal questions, cite source text verbatim —
-    do not paraphrase or infer beyond what is explicitly stated.
-
-  disambiguation: >-
-    IMPORTANT: If the student's question is career-track-specific but you
-    are not sure which track they are focused on, ask them to clarify.
-    The available tracks are: Investment Banking, Consulting, Tech/Product,
-    Public Sector / GLCs, or General Singapore Job Market.
-    Keep the question brief and friendly.
-
-  brief_system: >-
-    You are a career counselor assistant at {school_name}. Given a student's resume and
-    school-specific career knowledge, produce a pre-meeting brief with:
-    (1) Student's apparent career goals,
-    (2) Resume gaps vs. target paths,
-    (3) 3-5 recommended talking points grounded in the knowledge base.
-    Be concise and actionable.
-    Always cite which document or employer record your advice comes from by name.
-    If the knowledge base has relevant information about the student's target path,
-    lead with that — do not give generic advice.

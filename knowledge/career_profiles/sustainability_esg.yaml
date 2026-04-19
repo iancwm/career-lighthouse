@@ -1,0 +1,28 @@
+entry_paths: MSc Sustainability → NGO/certification (~70% of graduates); corporate
+  ESG (~20%); consulting (~10%). Big 4 consulting highest barrier (MBA + internship
+  path preferred).
+salary_range_2024:
+  ngo_nonprofit_analyst:
+    range_sgd: 60000–80000
+    bonus: Minimal (3–8%)
+    equity: None
+    notes: Non-profit/NGO sustainability analyst roles. Mission-driven; 25–35% below
+      fintech/banking equivalent.
+  certification_body_analyst:
+    range_sgd: 70000–95000
+    bonus: Performance-based
+    equity: None
+    notes: B Labs, ISO, LRQA, DNV. Niche but growing segment.
+  big4_esg_consulting:
+    range_sgd: 80000–120000
+    bonus: Standard consulting bonus
+    equity: None
+    notes: Deloitte, EY, KPMG sustainability practices. Senior roles SGD 110–140K.
+  corporate_esg_multinational:
+    range_sgd: 100000–150000
+    bonus: Corporate bonus structure
+    equity: RSUs at some firms
+    notes: Unilever, IKEA, DBS corporate ESG teams. Highest comp in sector.
+structured:
+  salary_min_sgd: 60000
+  salary_max_sgd: 80000

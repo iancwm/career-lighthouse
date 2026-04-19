@@ -74,6 +74,49 @@ def test_malformed_json_retries_once(mock_client):
 
 
 @patch("services.llm.get_client")
+def test_session_intents_use_json_only_prompt(mock_client):
+    """Both session-intent passes should use the JSON-only prompt."""
+    raw_input = "Update McKinsey."
+
+    bad_msg = MagicMock()
+    bad_msg.content = [MagicMock(text="<thought>oops</thought>")]
+
+    good_msg = MagicMock()
+    good_msg.content = [MagicMock(text=json.dumps({"cards": FAKE_CARDS, "already_covered": []}))]
+
+    mock_client.return_value.messages.create.side_effect = [bad_msg, good_msg]
+
+    generate_session_intents(raw_input, existing_tracks=[], existing_employers=[])
+
+    first_call_system = mock_client.return_value.messages.create.call_args_list[0].kwargs["system"]
+    retry_call_system = mock_client.return_value.messages.create.call_args_list[1].kwargs["system"]
+
+    assert "<thought>" not in first_call_system
+    assert "<thought>" not in retry_call_system
+    assert "Return ONLY valid JSON" in first_call_system or "Return ONLY the JSON object" in first_call_system
+    assert "Return ONLY valid JSON" in retry_call_system or "Return ONLY the JSON object" in retry_call_system
+
+
+@patch("services.llm.get_client")
+def test_session_intents_prompt_forbids_nested_diff_objects(mock_client):
+    """Session extraction prompts should require flat diff objects for UI/commit safety."""
+    raw_input = "Update McKinsey."
+
+    mock_resp = _make_claude_response(json.dumps({"cards": [], "already_covered": []}))
+    mock_client.return_value.messages.create.return_value = mock_resp
+
+    generate_session_intents(raw_input, existing_tracks=[], existing_employers=[])
+
+    first_call_system = mock_client.return_value.messages.create.call_args_list[0].kwargs["system"]
+    retry_call_system = mock_client.return_value.messages.create.call_args_list[1].kwargs["system"]
+
+    assert "diff MUST be a flat object" in first_call_system
+    assert "diff MUST be a flat object" in retry_call_system
+    assert "Never emit nested objects or arrays of objects" in first_call_system
+    assert "Never emit nested objects or arrays of objects" in retry_call_system
+
+
+@patch("services.llm.get_client")
 def test_empty_result_on_total_failure(mock_client):
     """If both attempts fail, return empty result (no exception)."""
     raw_input = "test"

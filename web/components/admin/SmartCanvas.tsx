@@ -7,7 +7,7 @@ interface IntentCard {
   card_id: string
   domain: string
   summary: string
-  diff: Record<string, string>
+  diff: Record<string, unknown>
   raw_input_ref: string
   status: string
 }
@@ -57,6 +57,16 @@ interface CreateTrackFromSessionProps {
   setActionLoading: (loading: boolean) => void
   setNotice: (notice: string) => void
   setError: (error: string) => void
+}
+
+function formatDiffValue(value: unknown): string {
+  if (typeof value === "string") return value
+  if (value == null) return ""
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
 }
 
 /** Sub-component: generates a draft track from session raw input and navigates to Track Builder. */
@@ -135,7 +145,7 @@ function CreateTrackFromSession({ sessionId, rawInput, actionLoading, setActionL
 export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCanvasProps) {
   const [session, setSession] = useState<KnowledgeSession | null>(null)
   const [selectedCardId, setSelectedCardId] = useState<string | null>(null)
-  const [editingDiff, setEditingDiff] = useState<Record<string, string>>({})
+  const [editingDiff, setEditingDiff] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState("")
@@ -580,7 +590,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                 <label key={key} className="block text-sm text-gray-700 mb-4">
                   {key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
                   <textarea
-                    value={value}
+                    value={formatDiffValue(value)}
                     onChange={(e) =>
                       setEditingDiff((prev) => ({ ...prev, [key]: e.target.value }))
                     }

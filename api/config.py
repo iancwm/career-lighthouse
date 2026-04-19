@@ -24,12 +24,12 @@ class Settings(BaseSettings):
     # Admin key for protecting /api/kb/* and /api/sessions/* endpoints.
     # If empty, auth is bypassed (development mode only). Must be set in production.
     admin_key: str = ""
-    llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
-    llm_session_timeout_seconds: float = 90.0  # LLM_SESSION_TIMEOUT_SECONDS env var
+    llm_timeout_seconds: float = 60.0  # LLM_TIMEOUT_SECONDS env var
+    llm_session_timeout_seconds: float = 180.0  # LLM_SESSION_TIMEOUT_SECONDS env var
     llm_session_multi_pass_threshold_chars: int | None = None  # LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS env var
     llm_session_multi_pass_chunk_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_CHUNK_TOKENS env var
     llm_session_multi_pass_overlap_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS env var
-    langfuse_timeout_seconds: int = 20
+    langfuse_timeout_seconds: int = 30
     langfuse_flush_at: int = 1
     langfuse_flush_interval: float = 1.0
     langfuse_public_key: str = ""
@@ -50,12 +50,12 @@ if SettingsConfigDict is None:
         llm_trace_log_path: str = str(default_llm_trace_log_path())
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
         admin_key: str = ""
-        llm_timeout_seconds: float = 30.0  # LLM_TIMEOUT_SECONDS env var
-        llm_session_timeout_seconds: float = 90.0  # LLM_SESSION_TIMEOUT_SECONDS env var
+        llm_timeout_seconds: float = 60.0  # LLM_TIMEOUT_SECONDS env var
+        llm_session_timeout_seconds: float = 180.0  # LLM_SESSION_TIMEOUT_SECONDS env var
         llm_session_multi_pass_threshold_chars: int | None = None
         llm_session_multi_pass_chunk_tokens: int | None = None
         llm_session_multi_pass_overlap_tokens: int | None = None
-        langfuse_timeout_seconds: int = 20
+        langfuse_timeout_seconds: int = 30
         langfuse_flush_at: int = 1
         langfuse_flush_interval: float = 1.0
         langfuse_public_key: str = ""

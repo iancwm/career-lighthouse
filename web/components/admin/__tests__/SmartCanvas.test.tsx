@@ -99,4 +99,55 @@ describe("SmartCanvas", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /Stop analysis/i })).toBeInTheDocument())
     expect(screen.getByText(/Session: Analyzing/i)).toBeInTheDocument()
   })
+
+  it("renders nested follow-up data as readable json", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/api/sessions/session-3")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-3",
+            status: "analyzed",
+            raw_input: "Follow-up actions from B Labs memo",
+            intent_cards: [
+              {
+                card_id: "card-1",
+                domain: "employer",
+                summary: "Record follow-up actions for B Labs",
+                diff: {
+                  slug: "b_labs_singapore",
+                  follow_up_actions: [
+                    {
+                      action: "Review EP evidence",
+                      description: "Check whether the Singapore EP evidence is ready",
+                      owner: "counsellor",
+                      status: "open",
+                      target_date: "2026-05-01",
+                    },
+                  ],
+                },
+                raw_input_ref: "Follow up with B Labs",
+                status: "pending",
+              },
+            ],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-3" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getAllByRole("textbox").length).toBeGreaterThanOrEqual(2))
+
+    const followUpField = screen.getByDisplayValue(/Review EP evidence/) as HTMLTextAreaElement
+    expect(followUpField.value).toContain('"action": "Review EP evidence"')
+    expect(followUpField.value).not.toContain("[object Object]")
+  })
 })

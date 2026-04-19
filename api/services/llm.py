@@ -37,9 +37,7 @@ _langfuse_flush_executor: ThreadPoolExecutor | None = None
 _TRACE_PREVIEW_CHARS = 500
 
 _llm = model_cfg["llm"]
-# Merge model.yaml prompts (chat_system, disambiguation, brief_system)
-# with prompts.yaml prompts (analyse_kb_input, track_draft, session_intents)
-_prompts = {**model_cfg.get("prompts", {}), **prompts_cfg.get("prompts", {})}
+_prompts = prompts_cfg.get("prompts", {})
 SCHOOL_NAME = model_cfg["school"]["name"]
 
 
@@ -627,7 +625,7 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
         operation="generate_brief",
         model=_llm["model"],
         max_tokens=_llm["max_tokens"],
-        system=_prompts["brief_system"],
+        system=_prompts["brief_system"].format(school_name=SCHOOL_NAME),
         messages=[{"role": "user", "content":
             f"Resume:\n{resume_text}\n\nKnowledge base:\n{kb_text}"}],
     )
@@ -784,6 +782,7 @@ def generate_session_intents(
 
         # Load system prompt from YAML
         system_prompt = _prompts["session_intents"]
+        json_only_session_prompt = _prompts.get("session_intents_retry") or system_prompt
 
         context = (
             f"Counsellor raw input:\n{raw_input}\n\n"
@@ -836,7 +835,7 @@ def generate_session_intents(
                 model=model,
                 max_tokens=_llm["max_tokens_session_extraction"],
                 temperature=0,
-                system=system_prompt,
+                system=json_only_session_prompt,
                 messages=[{"role": "user", "content": context}],
                 timeout_seconds=settings.llm_session_timeout_seconds,
                 max_retries=0,
@@ -860,7 +859,7 @@ def generate_session_intents(
                     model=model,
                     max_tokens=_llm["max_tokens_session_extraction"],
                     temperature=0,
-                    system=system_prompt + "\n\nIMPORTANT: Your previous response was missing JSON or malformed. Respond with <thought> and JSON.",
+                    system=json_only_session_prompt,
                     messages=[{"role": "user", "content": context}],
                     timeout_seconds=settings.llm_session_timeout_seconds,
                     max_retries=0,

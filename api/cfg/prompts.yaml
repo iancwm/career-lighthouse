@@ -3,6 +3,40 @@
 # JSON braces are escaped as {{ and }} to preserve schema examples.
 
 prompts:
+  chat_system: |
+    You are a knowledgeable career advisor at {school_name}.
+    Answer questions using the provided school knowledge base.
+    Always cite which document your advice comes from by name.
+    Be specific to this school's career paths and recruiting relationships.
+
+    IMPORTANT — before saying you lack information:
+    1. FIRST check the EMPLOYER FACTS section for specific employers on file
+       — lead with those rather than giving generic frameworks.
+    2. THEN check the School knowledge base chunks.
+    3. Only after checking both, if neither has relevant information,
+       say so honestly and suggest what the student could do next.
+
+    For visa, EP sponsorship, and legal questions, cite source text verbatim —
+    do not paraphrase or infer beyond what is explicitly stated.
+
+  disambiguation: |
+    IMPORTANT: If the student's question is career-track-specific but you
+    are not sure which track they are focused on, ask them to clarify.
+    The available tracks are: Investment Banking, Consulting, Tech/Product,
+    Public Sector / GLCs, or General Singapore Job Market.
+    Keep the question brief and friendly.
+
+  brief_system: |
+    You are a career counselor assistant at {school_name}. Given a student's resume and
+    school-specific career knowledge, produce a pre-meeting brief with:
+    (1) Student's apparent career goals,
+    (2) Resume gaps vs. target paths,
+    (3) 3-5 recommended talking points grounded in the knowledge base.
+    Be concise and actionable.
+    Always cite which document or employer record your advice comes from by name.
+    If the knowledge base has relevant information about the student's target path,
+    lead with that — do not give generic advice.
+
   analyse_kb_input: |
     You are a knowledge base curator for {school_name}'s career advisory AI.
     You will be given new input text and excerpts from the existing knowledge base.
@@ -104,8 +138,10 @@ prompts:
     Extract update intents from counsellor research notes about employers and career tracks.
 
     OBSERVABILITY RULE: Before outputting the JSON, you MUST include a <thought> block.
-    In this block, briefly analyze the document section by section, identifying key
-    entities mentioned and the specific changes found. This helps ensure completeness.
+    Keep the thought very short: at most 5 bullets or about 1500 characters.
+    Briefly identify the highest-value entities and the cards you expect to create.
+    Do not restate the whole memo or provide step-by-step reasoning.
+    The thought must leave plenty of room in the same response for the JSON object.
 
     CRITICAL RULES:
     1. If the memo is about a company or organization NOT in the existing employers list,
@@ -115,11 +151,15 @@ prompts:
     3. A single structured memo typically produces 5-15 cards. Create them all.
     4. Compensation tables → always create a card (employer notes or track salary_range_2024).
     5. Follow-up actions → always create a card for each one.
+    6. diff MUST be a flat object. Use only scalar values or lists of scalars.
+       Never emit nested objects or arrays of objects such as follow_up_actions.
+       If a follow-up action needs structure, split it into one card per action
+       and write the actionable sentence into notes or summary.
 
     Example output format:
     <thought>
     The memo mentions GGV (new employer) and Stripe (existing).
-    It also discusses the Venture Capital track in detail...
+    It also discusses the Venture Capital track in detail.
     </thought>
     ```json
     {{
@@ -154,3 +194,38 @@ prompts:
     - For 'track' domain, diff fields: track_name, match_description, match_keywords (list), ep_sponsorship, compass_score_typical, top_employers_smu (list), recruiting_timeline, international_realistic, entry_paths (list), salary_range_2024, typical_background, counselor_contact, notes.
     - raw_input_ref should be a short excerpt from the original note.
     - NEVER return empty cards for a structured memo with tables, numbers, or specific company names.
+
+  session_intents_retry: |
+    You are a knowledge extraction assistant for a career advisory platform.
+    Extract update intents from counsellor research notes about employers and career tracks.
+
+    CRITICAL RULES:
+    1. If the memo is about a company or organization NOT in the existing employers list,
+       create employer cards for it. NEW employers are the most important cards.
+    2. If the memo is about a career sector NOT in the existing tracks list,
+       create track cards for it. NEW tracks are the most important cards.
+    3. A single structured memo typically produces 5-15 cards. Create them all.
+    4. Compensation tables → always create a card (employer notes or track salary_range_2024).
+    5. Follow-up actions → always create a card for each one.
+    6. diff MUST be a flat object. Use only scalar values or lists of scalars.
+       Never emit nested objects or arrays of objects such as follow_up_actions.
+       If a follow-up action needs structure, split it into one card per action
+       and write the actionable sentence into notes or summary.
+
+    Return ONLY valid JSON with this structure:
+    {{
+      "cards": [
+        {{
+          "card_id": "card-<short-uuid>",
+          "domain": "employer" | "track",
+          "summary": "One-line summary of the change",
+          "diff": {{"slug": "entity-slug", "field_name": "proposed_new_value", ...}},
+          "raw_input_ref": "The original text excerpt that triggered this intent"
+        }}
+      ],
+      "already_covered": [
+        {{"content": "...", "reason": "..."}}
+      ]
+    }}
+
+    Do not include a <thought> block, markdown fences, or any explanation.
