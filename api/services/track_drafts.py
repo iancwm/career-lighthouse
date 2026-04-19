@@ -104,6 +104,8 @@ def _append_jsonl(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "a", encoding="utf-8") as f:
         f.write(json.dumps(payload) + "\n")
+        f.flush()
+        os.fsync(f.fileno())
 
 
 def _atomic_yaml_write(path: Path, payload: dict) -> None:
@@ -394,14 +396,15 @@ def read_publish_journal() -> list[dict]:
         return []
     entries: list[dict] = []
     try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        entries.append(json.loads(line))
-                    except json.JSONDecodeError:
-                        pass
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            if line:
+                try:
+                    entries.append(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
     except Exception as exc:
         logger.warning("read_publish_journal: failed to read %s: %s", path, exc)
     entries.reverse()

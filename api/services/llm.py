@@ -11,6 +11,7 @@ All prompts and model parameters are loaded from cfg/ YAML files.
 """
 import json
 import logging
+import os
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -223,6 +224,8 @@ def _append_llm_trace(entry: dict) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
     except Exception:
         logger.warning("Failed to write LLM trace entry — request unaffected", exc_info=True)
 

@@ -243,22 +243,23 @@ def _read_query_log(since: datetime) -> list[dict]:
         if not os.path.exists(settings.query_log_path):
             return []
         with open(settings.query_log_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    entry = json.loads(line)
-                    ts_str = entry["ts"]
-                    ts = datetime.fromisoformat(ts_str)
-                    if ts.tzinfo is None:
-                        ts = ts.replace(tzinfo=timezone.utc)
-                    if ts >= since:
-                        entries.append(entry)
-                except (json.JSONDecodeError, KeyError, ValueError):
-                    logger.warning(
-                        "Skipping malformed query log line: %r", line[:120]
-                    )
+            lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                ts_str = entry["ts"]
+                ts = datetime.fromisoformat(ts_str)
+                if ts.tzinfo is None:
+                    ts = ts.replace(tzinfo=timezone.utc)
+                if ts >= since:
+                    entries.append(entry)
+            except (json.JSONDecodeError, KeyError, ValueError):
+                logger.warning(
+                    "Skipping malformed query log line: %r", line[:120]
+                )
     except Exception:
         logger.warning("Failed to read query log", exc_info=True)
     return entries
@@ -277,15 +278,16 @@ def _read_llm_trace_log(
         if not trace_path or not os.path.exists(trace_path):
             return []
         with open(trace_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    raw = json.loads(line)
-                    entries.append(LLMTraceEntry(**raw))
-                except Exception:
-                    logger.warning("Skipping malformed LLM trace line: %r", line[:120])
+            lines = f.readlines()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                raw = json.loads(line)
+                entries.append(LLMTraceEntry(**raw))
+            except Exception:
+                logger.warning("Skipping malformed LLM trace line: %r", line[:120])
     except Exception:
         logger.warning("Failed to read LLM trace log", exc_info=True)
         return []

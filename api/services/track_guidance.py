@@ -69,20 +69,21 @@ class EmergingTrackSignalStore:
 
         counts: dict[str, int] = {}
         if path.exists():
-            with open(path, encoding="utf-8") as f:
-                for line in f:
-                    raw = line.strip()
-                    if not raw:
-                        continue
-                    try:
-                        entry = json.loads(raw)
-                    except json.JSONDecodeError:
-                        logger.warning("EmergingTrackSignalStore: skipping malformed log line")
-                        continue
-                    key = str(entry.get("cluster_key", "")).strip()
-                    if not key:
-                        continue
-                    counts[key] = counts.get(key, 0) + 1
+            with open(path, "r", encoding="utf-8") as f:
+                lines = f.readlines()
+            for line in lines:
+                raw = line.strip()
+                if not raw:
+                    continue
+                try:
+                    entry = json.loads(raw)
+                except json.JSONDecodeError:
+                    logger.warning("EmergingTrackSignalStore: skipping malformed log line")
+                    continue
+                key = str(entry.get("cluster_key", "")).strip()
+                if not key:
+                    continue
+                counts[key] = counts.get(key, 0) + 1
 
         self._counts = counts
         self._signals_mtime = current_mtime
@@ -99,6 +100,8 @@ class EmergingTrackSignalStore:
         with self._lock:
             with open(path, "a", encoding="utf-8") as f:
                 f.write(json.dumps(payload) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
             self.invalidate()
 
     def recurrence_count(self, cluster_key: str) -> int:

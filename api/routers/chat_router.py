@@ -1,6 +1,7 @@
 # api/routers/chat_router.py
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -77,6 +78,8 @@ def _log_query(message: str, chunks: list[dict],
         }
         with open(settings.query_log_path, "a", encoding="utf-8") as f:
             f.write(json.dumps(entry) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
     except Exception:
         logger.warning("Failed to write query log entry — chat unaffected", exc_info=True)
 
