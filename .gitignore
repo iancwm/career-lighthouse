@@ -11,3 +11,4 @@ venv/
 /data/
 .gstack/
 .codex
+logs/
