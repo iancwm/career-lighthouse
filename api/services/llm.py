@@ -11,7 +11,6 @@ All prompts and model parameters are loaded from cfg/ YAML files.
 """
 import json
 import logging
-import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -636,14 +635,10 @@ def _merge_intents(results: list[dict]) -> dict:
     """Merge and deduplicate intent extraction results from multiple chunks."""
     merged_cards = []
     merged_already_covered = []
-    thoughts = []
 
     seen_card_keys = set()  # (domain, slug, summary_key)
 
     for i, res in enumerate(results):
-        if res.get("thought"):
-            thoughts.append(f"--- Chunk {i+1} ---\n{res['thought']}")
-        
         for card in res.get("cards", []):
             # Create a semi-stable key for deduplication
             domain = card.get("domain", "unknown")
@@ -666,7 +661,6 @@ def _merge_intents(results: list[dict]) -> dict:
     return {
         "cards": merged_cards,
         "already_covered": merged_already_covered,
-        "thought": "\n\n".join(thoughts)
     }
 
 
@@ -681,7 +675,6 @@ def generate_session_intents(
 
     Supports multi-pass extraction for long documents (threshold from config).
     Chunks are extracted independently and merged, deduplicating on (domain, slug, summary).
-    Requires the LLM to provide a <thought> block before the JSON for observability.
     """
     # 1. Check for multi-pass need
     # Large documents are split into chunks for extraction density/reliability.
@@ -758,7 +751,6 @@ def generate_session_intents(
                     output={
                         "cards": len(merged.get("cards", [])),
                         "already_covered": len(merged.get("already_covered", [])),
-                        "thought_chars": len(merged.get("thought", "")),
                         "multi_pass": True,
                         "chunk_count": total_chunks,
                     }
@@ -780,10 +772,6 @@ def generate_session_intents(
                 for e in existing_employers
             )
 
-        # Load system prompt from YAML
-        system_prompt = _prompts["session_intents"]
-        json_only_session_prompt = _prompts.get("session_intents_retry") or system_prompt
-
         context = (
             f"Counsellor raw input:\n{raw_input}\n\n"
             f"Existing career tracks (for reference — create cards for NEW sectors too):\n{tracks_text or '(none)'}\n\n"
@@ -792,11 +780,6 @@ def generate_session_intents(
         )
 
         def parse_response(text: str) -> dict:
-            thought = ""
-            thought_match = re.search(r"<thought>(.*?)</thought>", text, re.DOTALL)
-            if thought_match:
-                thought = thought_match.group(1).strip()
-        
             json_text = text
             if "```json" in text:
                 json_text = text.split("```json")[1].split("```")[0].strip()
@@ -820,10 +803,9 @@ def generate_session_intents(
                     parsed["cards"] = []
                 if "already_covered" not in parsed:
                     parsed["already_covered"] = []
-                parsed["thought"] = thought
                 return parsed
             except json.JSONDecodeError:
-                return {"cards": [], "already_covered": [], "thought": thought}
+                return {"cards": [], "already_covered": []}
 
         try:
             model = _llm["model"]
@@ -835,7 +817,7 @@ def generate_session_intents(
                 model=model,
                 max_tokens=_llm["max_tokens_session_extraction"],
                 temperature=0,
-                system=json_only_session_prompt,
+                system=_prompts["session_intents"],
                 messages=[{"role": "user", "content": context}],
                 timeout_seconds=settings.llm_session_timeout_seconds,
                 max_retries=0,
@@ -859,7 +841,7 @@ def generate_session_intents(
                     model=model,
                     max_tokens=_llm["max_tokens_session_extraction"],
                     temperature=0,
-                    system=json_only_session_prompt,
+                    system=_prompts["session_intents"],
                     messages=[{"role": "user", "content": context}],
                     timeout_seconds=settings.llm_session_timeout_seconds,
                     max_retries=0,
@@ -876,7 +858,6 @@ def generate_session_intents(
                     output={
                         "cards": len(result.get("cards", [])),
                         "already_covered": len(result.get("already_covered", [])),
-                        "thought_chars": len(result.get("thought", "")),
                         "multi_pass": False,
                     }
                 )
@@ -891,9 +872,8 @@ def generate_session_intents(
                     output={
                         "cards": 0,
                         "already_covered": 0,
-                        "thought_chars": 0,
                         "multi_pass": len(raw_input) > threshold,
                         "error": str(exc),
                     }
                 )
-            return {"cards": [], "already_covered": [], "thought": ""}
+            return {"cards": [], "already_covered": []}

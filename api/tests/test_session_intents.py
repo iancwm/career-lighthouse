@@ -79,7 +79,7 @@ def test_session_intents_use_json_only_prompt(mock_client):
     raw_input = "Update McKinsey."
 
     bad_msg = MagicMock()
-    bad_msg.content = [MagicMock(text="<thought>oops</thought>")]
+    bad_msg.content = [MagicMock(text="not json at all")]
 
     good_msg = MagicMock()
     good_msg.content = [MagicMock(text=json.dumps({"cards": FAKE_CARDS, "already_covered": []}))]
@@ -91,10 +91,8 @@ def test_session_intents_use_json_only_prompt(mock_client):
     first_call_system = mock_client.return_value.messages.create.call_args_list[0].kwargs["system"]
     retry_call_system = mock_client.return_value.messages.create.call_args_list[1].kwargs["system"]
 
-    assert "<thought>" not in first_call_system
-    assert "<thought>" not in retry_call_system
-    assert "Return ONLY valid JSON" in first_call_system or "Return ONLY the JSON object" in first_call_system
-    assert "Return ONLY valid JSON" in retry_call_system or "Return ONLY the JSON object" in retry_call_system
+    assert "Return valid JSON with this structure" in first_call_system
+    assert first_call_system == retry_call_system
 
 
 @patch("services.llm.get_client")
@@ -124,7 +122,7 @@ def test_empty_result_on_total_failure(mock_client):
 
     result = generate_session_intents(raw_input, existing_tracks=[], existing_employers=[])
 
-    assert result == {"cards": [], "already_covered": [], "thought": ""}
+    assert result == {"cards": [], "already_covered": []}
 
 
 @patch("services.llm.get_client")
@@ -154,7 +152,7 @@ def test_missing_cards_key_returns_empty(mock_client):
 
     result = generate_session_intents("test", existing_tracks=[], existing_employers=[])
 
-    assert result == {"cards": [], "already_covered": [], "thought": ""}
+    assert result == {"cards": [], "already_covered": []}
 
 
 @patch("services.llm.get_client")
@@ -167,7 +165,7 @@ def test_session_intents_uses_extended_timeout(mock_client):
 
     assert mock_client.call_args.kwargs["max_retries"] == 0
     call_kwargs = mock_client.return_value.messages.create.call_args.kwargs
-    assert call_kwargs["timeout"] == 90.0
+    assert call_kwargs["timeout"] == 180.0
 
 
 @patch("services.llm.get_client")

@@ -105,7 +105,7 @@ Use `uv lock` after editing `api/pyproject.toml`, then commit both the manifest 
 
 The career office dashboard (`/admin`) includes:
 
-- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place.
+- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Session extraction now emits flat JSON-only intent cards, so follow-up actions stay editable instead of coming back as nested objects.
 - **Knowledge Review** — structured review of proposed KB edits before anything is written.
 - **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
 - **Employer Facts** — maintain employer YAMLs and review track coverage for employer context.
@@ -140,7 +140,7 @@ The career office dashboard (`/admin`) includes:
 - **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code. Legacy slugs are canonicalized on read and write, so old `data_science` payloads migrate to `dsai` automatically.
 - **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)
-- **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, the same trace data is exported to self-hosted Langfuse for richer inspection, and session runs group correctly once `session_id` is propagated. The admin UI has a dedicated Trace Explorer, and in Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path.
+- **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, the same trace data is exported to self-hosted Langfuse for richer inspection, and session runs group correctly once `session_id` is propagated. The admin UI has a dedicated Trace Explorer, and in Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path. Session intents are now JSON-only, with the old `<thought>` response plumbing removed from the backend contract.
 - **Live timeout visibility**: session analysis and brief generation can still hit the Anthropic timeout under long or expensive requests, but the request now shows a `started` trace immediately and a matching `error` trace if the model times out. Wildly better than staring at a blank spinner.
 - **Data stays local**: only Anthropic Claude API call leaves the deployment (PDPA-compliant)
 

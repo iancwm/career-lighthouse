@@ -1,5 +1,5 @@
 # Production Readiness Audit
-**Repository:** career-lighthouse  **Version:** 0.1.5.2  **Date:** 2026-04-18
+**Repository:** career-lighthouse  **Version:** 0.1.5.2  **Date:** 2026-04-19
 
 ---
 
@@ -13,6 +13,7 @@
 | Spec 5 | Session cleanup script — `scripts/cleanup_sessions.py` for deleting completed/cancelled sessions older than N days | **ADDED** |
 | Spec 6 | LLM observability — structured trace logging, live session state, session-scoped Langfuse export, and an admin Trace Explorer | **IMPROVED** |
 | Spec 7 | Session analysis tuning — env-driven timeout and multi-pass chunking thresholds | **IMPROVED** |
+| Spec 8 | Session-intent cleanup — JSON-only extraction, retired `<thought>` plumbing, and removed dead `thought` fields from session models/router/tests | **FIXED** |
 
 ---
 

@@ -342,8 +342,6 @@ def analyze_session(
         _touch_session(session)
         raise HTTPException(status_code=503, detail="Analysis service unavailable")
 
-    thought = result.get("thought")
-
     track_guidance = None
     try:
         query_embedding = embedder.encode(session.raw_input)
@@ -375,7 +373,6 @@ def analyze_session(
 
     session.intent_cards = [c.model_dump() for c in cards]
     session.track_guidance = track_guidance
-    session.thought = thought
     session.analysis_error = None
     session.status = "analyzed"
     _touch_session(session)
@@ -385,7 +382,6 @@ def analyze_session(
         cards=[c.model_dump() for c in cards],
         already_covered=[a.model_dump() for a in already_covered],
         track_guidance=track_guidance,
-        thought=thought,
     )
 
 
@@ -452,10 +448,6 @@ def commit_card(
         changed_fields, is_new = _apply_field_updates_to_employer(target_slug, effective_diff)
     else:
         raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
-
-    # Build message — differentiate create vs update
-    action = "Created new" if is_new else "Updated"
-    msg = f"{action} {domain} '{target_slug}' ({len(changed_fields)} field(s))"
 
     card["status"] = "committed"
     _check_session_completion(session)

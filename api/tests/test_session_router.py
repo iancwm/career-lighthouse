@@ -158,7 +158,6 @@ class TestAnalyzeSession:
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
-            "thought": "",
         }
         mock_session_store.get_session.return_value = _make_session(id="abc-123", status="analyzed")
         saved_statuses = []
@@ -186,7 +185,6 @@ class TestAnalyzeSession:
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
-            "thought": "",
         }
         mock_session_store.get_session.return_value = _make_session(id="abc-123", status="in-progress")
         mock_session_store.save_session.side_effect = lambda current: None
@@ -202,7 +200,6 @@ class TestAnalyzeSession:
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
-            "thought": "",
         }
         session = _make_session(id="abc-123", status="in-progress")
         mock_session_store.get_session.return_value = session
@@ -221,7 +218,6 @@ class TestAnalyzeSession:
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
-            "thought": "",
         }
         session = _make_session(id="abc-123", status="cancelled")
         mock_session_store.get_session.return_value = session

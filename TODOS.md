@@ -189,6 +189,9 @@ stale API build issue that initially hid traces was fixed during verification.
 
 ## Done
 
+### ~~Session-intent thought plumbing cleanup~~ ✓ Done (2026-04-19)
+Shipped: session analysis now uses a JSON-only prompt, the retired `<thought>` block is no longer parsed or stored, and dead `thought` fields were removed from the session models, router, and hardening tests.
+
 ### ~~Config externalization, structured prompts, and briefing utilities~~ ✓ Done (0.1.5.1)
 Shipped: hardcoded thresholds moved into YAML configs (`model.yaml`, `kb.yaml`, `track_guidance.yaml`, `prompts.yaml`), system prompts externalized to `prompts.yaml`, large document session extraction now uses multi-pass chunking, `generate_brief()` ships a counselor brief generator, and service docstrings were added across ingestion, LLM, session store, track guidance, and vector store modules.
 
