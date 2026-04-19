@@ -68,11 +68,11 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 
 | Command | Description |
 |---|---|
-| `just up` | Build and start all services (Docker) |
-| `just langfuse-up` | Start the optional Langfuse stack on `http://localhost:3001` |
+| `just up` | Build and start all services, including Langfuse (Docker) |
+| `just langfuse-up` | Start the Langfuse stack on `http://localhost:3001` |
 | `just langfuse-ps` | Show the Langfuse profile containers |
 | `just langfuse-logs` | Follow logs for the Langfuse stack |
-| `just langfuse-down` | Stop the optional Langfuse stack |
+| `just langfuse-down` | Stop the Langfuse stack |
 | `just where-data` | Show where YAML knowledge, Qdrant data, and logs are stored |
 | `just down` | Stop all services |
 | `just logs` | Follow logs for all services |

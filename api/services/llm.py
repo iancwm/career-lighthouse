@@ -340,35 +340,55 @@ def _repair_json_output(
     if not _json_repair_enabled():
         raise ValueError(f"{schema_name} JSON repair is disabled")
 
-    repair_system = (
-        f"You repair malformed JSON for {schema_name}.\n"
-        "Return ONLY valid JSON. Do not add markdown or explanation.\n"
-        f"Schema hint: {schema_hint}\n"
-        "Fix the JSON below and preserve the original meaning as closely as possible."
-    )
-    repair_user = f"Malformed JSON:\n{raw_text}"
-    response = _call_with_trace(
-        operation=f"{operation}_json_repair",
-        model=model,
-        max_tokens=max_tokens,
-        system=repair_system,
-        messages=[{"role": "user", "content": repair_user}],
-        timeout_seconds=timeout_seconds,
-        trace_metadata={
-            **(trace_metadata or {}),
-            "phase": "json_repair",
-            "schema_name": schema_name,
-            "parse_attempt": 2,
-            "repair_attempt": 1,
-            "input_chars_pre_trim": len(raw_text),
-        },
-        max_retries=max_retries,
-    )
-    repaired_text = _response_text(response)
-    repaired = _parse_json_payload(repaired_text)
-    if not isinstance(repaired, dict):
-        raise ValueError(f"{schema_name} repair did not return a JSON object")
-    return repaired
+    repair_source = raw_text
+    parse_error_text: str | None = None
+    last_error: Exception | None = None
+
+    for repair_attempt in (1, 2):
+        repair_system = (
+            f"You repair malformed JSON for {schema_name}.\n"
+            "Return ONLY valid JSON. Do not add markdown or explanation.\n"
+            f"Schema hint: {schema_hint}\n"
+            "Fix the JSON below and preserve the original meaning as closely as possible."
+        )
+        if parse_error_text:
+            repair_system += f"\nThe previous JSON parse attempt failed with: {parse_error_text}"
+
+        repair_user = f"Malformed JSON:\n{repair_source}"
+        response = _call_with_trace(
+            operation=f"{operation}_json_repair",
+            model=model,
+            max_tokens=max_tokens,
+            system=repair_system,
+            messages=[{"role": "user", "content": repair_user}],
+            timeout_seconds=timeout_seconds,
+            trace_metadata={
+                **(trace_metadata or {}),
+                "phase": "json_repair",
+                "schema_name": schema_name,
+                "parse_attempt": 2,
+                "repair_attempt": repair_attempt,
+                "input_chars_pre_trim": len(repair_source),
+            },
+            max_retries=max_retries,
+        )
+        repaired_text = _response_text(response)
+        try:
+            repaired = _parse_json_payload(repaired_text)
+        except Exception as exc:
+            last_error = exc
+            parse_error_text = str(exc)
+            repair_source = repaired_text
+            continue
+
+        if isinstance(repaired, dict):
+            return repaired
+
+        last_error = ValueError(f"{schema_name} repair did not return a JSON object")
+        parse_error_text = str(last_error)
+        repair_source = _json_dumps_safe(repaired)
+
+    raise ValueError(f"{schema_name} repair did not return a valid JSON object") from last_error
 
 
 def _validate_or_repair(

@@ -19,6 +19,7 @@ import numpy as np
 from cfg import track_guidance_cfg
 from models import TrackCandidate, TrackGuidance
 from services.career_profiles import CareerProfileStore
+from services.runtime_paths import default_emerging_track_signals_path
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ _routing = track_guidance_cfg["routing"]
 
 
 def _default_signals_path() -> Path:
-    return Path(__file__).resolve().parent.parent.parent / "logs" / "emerging_track_signals.jsonl"
+    return default_emerging_track_signals_path()
 
 
 def _signals_path() -> Path:

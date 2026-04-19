@@ -6,19 +6,19 @@ default:
 
 # ── Docker ───────────────────────────────────────────────────────────────────
 
-# Build and start all services (uses Docker layer cache for fast rebuilds)
+# Build and start all services, including Langfuse (uses Docker layer cache for fast rebuilds)
 up:
-    docker compose up --build
+    docker compose --profile langfuse up --build
 
-# Start the optional Langfuse observability stack alongside the app.
+# Start just the Langfuse observability stack alongside the app.
 langfuse-up:
     docker compose --profile langfuse up --build
 
-# Show the optional Langfuse stack containers.
+# Show the Langfuse stack containers.
 langfuse-ps:
     docker compose --profile langfuse ps
 
-# Follow logs for the optional Langfuse stack.
+# Follow logs for the Langfuse stack.
 langfuse-logs:
     docker compose --profile langfuse logs -f
 
@@ -31,7 +31,8 @@ rebuild:
 
 # Stop all services
 down:
-    docker compose down
+    docker compose down --remove-orphans
+    docker compose --profile langfuse down --remove-orphans
 
 # Stop the optional Langfuse stack.
 langfuse-down:

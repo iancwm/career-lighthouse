@@ -109,3 +109,42 @@ def test_build_track_guidance_records_recurrence(tmp_path, monkeypatch):
     assert second.status == "emerging_taxonomy_signal"
     assert second.recurrence_count == 2
     assert second.cluster_key == first.cluster_key
+
+
+def test_signals_path_defaults_to_runtime_paths_default(monkeypatch):
+    monkeypatch.delenv("EMERGING_TRACK_SIGNALS_PATH", raising=False)
+
+    from services.runtime_paths import default_emerging_track_signals_path
+    from services.track_guidance import _signals_path
+
+    assert _signals_path() == default_emerging_track_signals_path()
+
+
+def test_validate_runtime_storage_includes_emerging_signal_log(tmp_path, monkeypatch):
+    from services.runtime_paths import validate_runtime_storage
+
+    monkeypatch.setenv("SESSIONS_DIR", str(tmp_path / "sessions"))
+    monkeypatch.setenv("DATA_PATH", str(tmp_path / "data" / "qdrant"))
+    monkeypatch.setenv("CAREER_PROFILES_DIR", str(tmp_path / "knowledge" / "career_profiles"))
+    monkeypatch.setenv("EMPLOYERS_DIR", str(tmp_path / "knowledge" / "employers"))
+    monkeypatch.setenv("DRAFT_TRACKS_DIR", str(tmp_path / "knowledge" / "draft_tracks"))
+    monkeypatch.setenv("CAREER_PROFILE_HISTORY_DIR", str(tmp_path / "knowledge" / "career_profiles_history"))
+    monkeypatch.setenv("SENTENCE_TRANSFORMERS_HOME", str(tmp_path / ".cache"))
+    monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / ".cache" / "uv"))
+    monkeypatch.setenv("QUERY_LOG_PATH", str(tmp_path / "logs" / "query_log.jsonl"))
+    monkeypatch.setenv("LLM_TRACE_LOG_PATH", str(tmp_path / "logs" / "llm_trace_log.jsonl"))
+    monkeypatch.setenv("CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "knowledge" / "career_tracks.yaml"))
+    monkeypatch.setenv("TRACK_PUBLISH_JOURNAL_PATH", str(tmp_path / "logs" / "track_publish_journal.jsonl"))
+    monkeypatch.setenv("TRACK_PUBLISH_LOG_PATH", str(tmp_path / "logs" / "track_publish_log.jsonl"))
+    monkeypatch.setenv("TRACKS_VERSION_PATH", str(tmp_path / "knowledge" / ".tracks-version"))
+
+    blocked_parent = tmp_path / "blocked"
+    blocked_parent.mkdir()
+    blocked_parent.chmod(0o500)
+    monkeypatch.setenv("EMERGING_TRACK_SIGNALS_PATH", str(blocked_parent / "emerging_track_signals.jsonl"))
+
+    try:
+        with pytest.raises(RuntimeError, match="EMERGING_TRACK_SIGNALS_PATH"):
+            validate_runtime_storage()
+    finally:
+        blocked_parent.chmod(0o700)

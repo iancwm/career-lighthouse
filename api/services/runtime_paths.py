@@ -59,6 +59,10 @@ def default_publish_log_path() -> Path:
     return repo_root() / "logs" / "track_publish_log.jsonl"
 
 
+def default_emerging_track_signals_path() -> Path:
+    return repo_root() / "logs" / "emerging_track_signals.jsonl"
+
+
 def default_tracks_version_path() -> Path:
     return repo_root() / "knowledge" / ".tracks-version"
 
@@ -84,6 +88,10 @@ def runtime_storage_targets() -> dict[str, tuple[str, Path]]:
         "UV_CACHE_DIR": ("dir", _env_path("UV_CACHE_DIR", default_uv_cache_dir())),
         "QUERY_LOG_PATH": ("file", _env_path("QUERY_LOG_PATH", default_query_log_path())),
         "LLM_TRACE_LOG_PATH": ("file", _env_path("LLM_TRACE_LOG_PATH", default_llm_trace_log_path())),
+        "EMERGING_TRACK_SIGNALS_PATH": (
+            "file",
+            _env_path("EMERGING_TRACK_SIGNALS_PATH", default_emerging_track_signals_path()),
+        ),
         "CAREER_TRACKS_REGISTRY_PATH": ("file", _env_path("CAREER_TRACKS_REGISTRY_PATH", default_registry_path())),
         "TRACK_PUBLISH_JOURNAL_PATH": ("file", _env_path("TRACK_PUBLISH_JOURNAL_PATH", default_publish_journal_path())),
         "TRACK_PUBLISH_LOG_PATH": ("file", _env_path("TRACK_PUBLISH_LOG_PATH", default_publish_log_path())),
