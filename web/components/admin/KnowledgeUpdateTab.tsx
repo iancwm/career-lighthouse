@@ -88,7 +88,7 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/kb/analyse`, { method: "POST", body: form, signal: controller.signal })
+      const res = await fetch(`/api/kb/analyse`, { method: "POST", body: form, signal: controller.signal })
       if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
       if (!res.ok) {
         setState("error_analyse")
@@ -152,7 +152,7 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
     }))
 
     try {
-      const res = await fetch(`${API_URL}/api/kb/commit-analysis`, {
+      const res = await fetch(`/api/kb/commit-analysis`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ profile_updates: profileUpdates, employer_updates: employerUpdates, new_chunks: newChunks }),

@@ -81,7 +81,7 @@ export default function CareerTracksTab() {
 
   useEffect(() => {
     setListState("loading")
-    fetch(`${API_URL}/api/kb/career-profiles`)
+    fetch(`/api/kb/career-profiles`)
       .then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
         return r.json()
@@ -96,11 +96,11 @@ export default function CareerTracksTab() {
   useEffect(() => {
     setProvState("loading")
     Promise.all([
-      fetch(`${API_URL}/api/kb/draft-tracks`).then((r) => {
+      fetch(`/api/kb/draft-tracks`).then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
         return r.json() as Promise<DraftTrackDetail[]>
       }),
-      fetch(`${API_URL}/api/kb/publish-journal`).then((r) => {
+      fetch(`/api/kb/publish-journal`).then((r) => {
         if (!r.ok) throw new Error(`${r.status}`)
         return r.json() as Promise<JournalEntry[]>
       }),

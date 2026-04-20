@@ -221,7 +221,7 @@ export default function EmployerFactsTab() {
 
   function fetchEmployers() {
     setListState("loading")
-    fetch(`${API_URL}/api/kb/employers`)
+    fetch(`/api/kb/employers`)
       .then((r) => { if (!r.ok) throw new Error(`${r.status}`); return r.json() })
       .then((data: EmployerDetail[]) => {
         setEmployers(data)
@@ -231,7 +231,7 @@ export default function EmployerFactsTab() {
   }
 
   function fetchProfiles() {
-    fetch(`${API_URL}/api/kb/career-profiles`)
+    fetch(`/api/kb/career-profiles`)
       .then((r) => r.ok ? r.json() : [])
       .then((data: CareerProfile[]) => setProfiles(data))
       .catch(() => setProfiles([]))
@@ -309,7 +309,7 @@ export default function EmployerFactsTab() {
     setExtractedFacts([])
 
     try {
-      const r = await fetch(`${API_URL}/api/kb/employers/${selected.slug}/extract-facts`, {
+      const r = await fetch(`/api/kb/employers/${selected.slug}/extract-facts`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
@@ -374,7 +374,7 @@ export default function EmployerFactsTab() {
         last_updated: null,
         completeness: "amber",
       }
-      const r = await fetch(`${API_URL}/api/kb/employers`, {
+      const r = await fetch(`/api/kb/employers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -411,7 +411,7 @@ export default function EmployerFactsTab() {
         completeness: "amber",
         structured: facts.length > 0 ? { facts: facts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) } : {},
       }
-      const r = await fetch(`${API_URL}/api/kb/employers/${selected.slug}`, {
+      const r = await fetch(`/api/kb/employers/${selected.slug}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -437,7 +437,7 @@ export default function EmployerFactsTab() {
 
   async function handleDelete(slug: string) {
     try {
-      const r = await fetch(`${API_URL}/api/kb/employers/${slug}`, { method: "DELETE" })
+      const r = await fetch(`/api/kb/employers/${slug}`, { method: "DELETE" })
       if (!r.ok && r.status !== 204) {
         setDeleteConfirmSlug(null)
         return
