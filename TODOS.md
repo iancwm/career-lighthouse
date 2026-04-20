@@ -8,6 +8,21 @@ This backlog is ordered by execution priority:
 
 ## Now
 
+### Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)
+**What:** Finish the fact-entry form in EmployerFactsTab — add manual entry for timeline_phase, alumni, interview_stage, compensation facts; wire LLM extraction prompt; add review + commit workflow.
+**Why:** The schema foundation is designed but Phase 2 UI is the execution gate. Counselors cannot enter facts without this form.
+**Depends on:** EmployerFactsTab scaffold exists; need to add fact type selector, field editors per type, and extraction trigger.
+
+### Structured Facts Phase 3: Build `/api/kb/facts` query endpoint
+**What:** Add `GET /api/kb/facts?type=alumni&school=NUS` and `/api/kb/facts/grouped` endpoints to filter facts by type, employer, confidence, and source.
+**Why:** Phase 3 (student query surface) depends on fact retrieval; counselor dashboard depends on fact filtering.
+**Depends on:** Facts are being written to career profile and employer YAMLs; endpoint just needs to read and serialize them.
+
+### Structured Facts Phase 1 Validation: Stripe pilot + LLM extraction test
+**What:** (1) Write 3–5 sample facts manually for Stripe employer + fintech_compliance track (timeline, alumni, interview stages). (2) Test LLM extraction prompt on a real counselor note; measure accuracy.
+**Why:** Confirms the schema is viable before building batch tooling. Spec assignment, lines 523–536.
+**Depends on:** Phase 2 UI or manual YAML writes.
+
 ### ~~Rate limiting on public endpoints~~ ✓ Done (2026-04-18)
 Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/min), `POST /api/ingest`
 (5/min), and `POST /api/brief` (5/min). The `slowapi` infrastructure was already wired in `main.py`;

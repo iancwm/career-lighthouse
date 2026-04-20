@@ -1,9 +1,21 @@
 "use client"
 import { useEffect, useRef, useState } from "react"
+import FactCard from "./forms/FactCard"
+import FactEditor from "./forms/FactEditor"
 
 const API_URL = "/api/admin"
 
 // ── Types ─────────────────────────────────────────────────────────────────
+
+interface Fact {
+  slug: string
+  type: string
+  data: Record<string, unknown>
+  confidence: number
+  source: string
+  timestamp: string
+  deleted?: boolean
+}
 
 interface EmployerDetail {
   slug: string
@@ -28,6 +40,7 @@ interface CareerProfile {
 type SaveState = "idle" | "saving" | "success" | "error"
 type ListState = "loading" | "loaded" | "error"
 type Mode = "view" | "create"
+type TabType = "details" | "facts"
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -188,6 +201,9 @@ export default function EmployerFactsTab() {
   const [profiles, setProfiles] = useState<CareerProfile[]>([])
   const [deleteConfirmSlug, setDeleteConfirmSlug] = useState<string | null>(null)
   const [unsavedConfirm, setUnsavedConfirm] = useState<EmployerDetail | null>(null)
+  const [activeTab, setActiveTab] = useState<TabType>("details")
+  const [facts, setFacts] = useState<Fact[]>([])
+  const [showFactEditor, setShowFactEditor] = useState(false)
   const saveBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDirty = useRef(false)
 
@@ -230,8 +246,13 @@ export default function EmployerFactsTab() {
     setMode("view")
     setSaveState("idle")
     setSaveBanner("")
+    setActiveTab("details")
     isDirty.current = false
     setUnsavedConfirm(null)
+    setShowFactEditor(false)
+    // Load facts from structured data
+    const structuredFacts = (emp.structured?.facts as Fact[]) || []
+    setFacts(structuredFacts.filter((f) => !f.deleted))
   }
 
   function startCreate() {
@@ -254,7 +275,21 @@ export default function EmployerFactsTab() {
     setMode("create")
     setSaveState("idle")
     setSaveBanner("")
+    setActiveTab("details")
     isDirty.current = false
+    setFacts([])
+    setShowFactEditor(false)
+  }
+
+  function handleAddFact(newFact: Fact) {
+    setFacts((prev) => [...prev, newFact])
+    setShowFactEditor(false)
+    isDirty.current = true
+  }
+
+  function handleDeleteFact(slug: string) {
+    setFacts((prev) => prev.filter((f) => f.slug !== slug))
+    isDirty.current = true
   }
 
   function updateField(field: keyof EmployerDetail, value: unknown) {
@@ -288,8 +323,9 @@ export default function EmployerFactsTab() {
         intake_seasons: form.intake_seasons || [],
         singapore_headcount_estimate: form.singapore_headcount_estimate || null,
         application_process: form.application_process || null,
-        counsellor_contact: form.counsellor_contact || null,
+        counsellour_contact: form.counsellor_contact || null,
         notes: form.notes || null,
+        structured: facts.length > 0 ? { facts: facts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) } : {},
         last_updated: null,
         completeness: "amber",
       }
@@ -328,6 +364,7 @@ export default function EmployerFactsTab() {
         ...form,
         slug: selected.slug,
         completeness: "amber",
+        structured: facts.length > 0 ? { facts: facts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) } : {},
       }
       const r = await fetch(`${API_URL}/api/kb/employers/${selected.slug}`, {
         method: "PUT",
@@ -542,10 +579,38 @@ export default function EmployerFactsTab() {
           {/* Form (view / create) */}
           {(selected || mode === "create") && (
             <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Tab selector */}
+              <div className="flex border-b border-gray-200 px-4 pt-3">
+                <button
+                  onClick={() => setActiveTab("details")}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+                    activeTab === "details"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-600 hover:text-gray-700"
+                  }`}
+                >
+                  Details
+                </button>
+                <button
+                  onClick={() => setActiveTab("facts")}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors border-b-2 ${
+                    activeTab === "facts"
+                      ? "border-blue-600 text-blue-600"
+                      : "border-transparent text-gray-600 hover:text-gray-700"
+                  }`}
+                >
+                  Facts {facts.length > 0 && <span className="inline-block ml-1 px-1.5 py-0 rounded-full bg-blue-100 text-blue-700 text-xs">{facts.length}</span>}
+                </button>
+              </div>
+
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 <h3 className="text-sm font-semibold text-gray-700">
                   {mode === "create" ? "New employer record" : selected?.employer_name}
                 </h3>
+
+                {/* Details Tab */}
+                {activeTab === "details" && (
+                <div className="space-y-4">
 
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">Employer name</label>
@@ -657,6 +722,53 @@ export default function EmployerFactsTab() {
 
                 {selected?.last_updated && mode !== "create" && (
                   <p className="text-xs text-gray-400">Last updated: {selected.last_updated}</p>
+                )}
+                </div>
+                )}
+
+                {/* Facts Tab */}
+                {activeTab === "facts" && (
+                <div className="space-y-4">
+                  {/* Facts list */}
+                  {facts.length === 0 && !showFactEditor && (
+                    <div className="text-center py-8">
+                      <p className="text-sm text-gray-500 mb-4">No structured facts yet.</p>
+                    </div>
+                  )}
+
+                  {facts.length > 0 && (
+                    <div className="space-y-2.5">
+                      <p className="text-xs font-medium text-gray-600 mb-3">Captured facts ({facts.length})</p>
+                      {facts.map((fact) => (
+                        <FactCard
+                          key={fact.slug}
+                          fact={fact}
+                          onDelete={handleDeleteFact}
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  {/* New fact editor or button */}
+                  {!showFactEditor && (
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => setShowFactEditor(true)}
+                        className="flex-1 py-2.5 rounded-lg border border-blue-300 text-blue-600 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                      >
+                        + New fact
+                      </button>
+                    </div>
+                  )}
+
+                  {showFactEditor && (
+                    <FactEditor
+                      onAdd={handleAddFact}
+                      onCancel={() => setShowFactEditor(false)}
+                      existingSlugs={facts.map((f) => f.slug)}
+                    />
+                  )}
+                </div>
                 )}
               </div>
 

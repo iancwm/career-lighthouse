@@ -3,6 +3,36 @@
 
 ---
 
+## Schema Foundation Status (2026-04-20 Assessment)
+
+**Phase Status:** Design approved (Phase 1) → Early Phase 2 implementation in progress
+
+**Done:**
+- Schema design and field triage finalized (SCHEMA-FOUNDATION.md, docs/schema/*)
+- Fact-shell model infrastructure (slug, type, timestamp, source, confidence) in api/models.py
+- LLM hardening for extraction (Langfuse tracing, JSON repair, Pydantic validation)
+- Career profile `structured:` sections populated with P0 fields (15+ tracks)
+- Employer YAML reads/writes preserve `structured:` blocks in kb_router
+
+**In Progress:**
+- Phase 2: EmployerFactsTab UI scaffold exists (684 lines) but fact-entry form incomplete
+- Need: fact type selector, field editors per type (timeline_phase, alumni, interview_stage, compensation), extraction trigger
+
+**Blocked:**
+- Phase 3 student query surface (`/api/kb/facts` endpoint) — pending fact-entry UI completion
+- Phase 1 validation (Stripe pilot + LLM extraction test) — pending Phase 2 UI or manual YAML writes
+
+**Next Actions:**
+1. Complete EmployerFactsTab fact-entry form (P0: timeline_phase, alumni, interview_stage)
+2. Add `/api/kb/facts` query endpoint (list, filter by type/employer/confidence/source)
+3. Write 3–5 sample facts for Stripe + fintech_compliance track (manual YAML)
+4. Test LLM extraction on real counselor note; measure accuracy
+5. Move to `/plan-eng-review` for Phase 2–3 architecture once Phase 1 validation passes
+
+---
+
+---
+
 ## Changelog since v0.1.5.2 (2026-04-19)
 
 | Spec | Change | Status |
