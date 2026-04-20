@@ -62,6 +62,7 @@ from services.embedder import Embedder
 from services.ingestion import chunk_text, parse_file
 from services.vector_store import VectorStore
 from services import llm as llm_service
+from services.llm import extract_facts_from_prose
 from config import settings
 from cfg import kb_cfg
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields
@@ -1393,8 +1394,6 @@ async def extract_facts_from_employer_notes(
         raise HTTPException(status_code=400, detail="Employer has no notes to extract from.")
 
     try:
-        from api.services.llm import extract_facts_from_prose
-
         facts = await extract_facts_from_prose(notes, emp.get("employer_name", slug))
         return {
             "facts": facts,
