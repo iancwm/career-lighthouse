@@ -368,7 +368,7 @@ export default function EmployerFactsTab() {
         intake_seasons: form.intake_seasons || [],
         singapore_headcount_estimate: form.singapore_headcount_estimate || null,
         application_process: form.application_process || null,
-        counsellour_contact: form.counsellor_contact || null,
+        counsellor_contact: form.counsellor_contact || null,
         notes: form.notes || null,
         structured: facts.length > 0 ? { facts: facts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) } : {},
         last_updated: null,
