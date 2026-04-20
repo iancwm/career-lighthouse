@@ -1496,7 +1496,14 @@ Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
             facts_raw = json.loads(response_text)
         except json.JSONDecodeError:
             # Attempt repair
-            facts_raw = _repair_json_output(response_text, "facts extraction", {})
+            facts_raw = _repair_json_output(
+                raw_text=response_text,
+                schema_name="Fact",
+                schema_hint="JSON array of fact objects with slug, type, timestamp, source, confidence, data fields",
+                operation="extract_facts_from_prose",
+                model=_llm["model"],
+                max_tokens=2000,
+            )
             if not isinstance(facts_raw, list):
                 facts_raw = []
 
