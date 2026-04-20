@@ -1368,6 +1368,44 @@ def delete_employer(
     logger.info("delete_employer: disabled %r (renamed to .yaml.disabled)", slug)
 
 
+@router.post("/employers/{slug}/extract-facts")
+async def extract_facts_from_employer_notes(
+    slug: str,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Extract structured facts from employer notes using LLM.
+
+    Reads the employer's notes field and extracts timeline, alumni, interview,
+    compensation, and skill requirement facts. Returns facts as JSON for counsellor review.
+
+    Auth note: protected by Next.js middleware only.
+    TODO: Add Depends() auth guard — see TODOS.md.
+    """
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+
+    emp = employer_store.get(slug)
+    if not emp:
+        raise HTTPException(status_code=404, detail=f"Employer '{slug}' not found.")
+
+    notes = emp.get("notes", "")
+    if not notes or not notes.strip():
+        raise HTTPException(status_code=400, detail="Employer has no notes to extract from.")
+
+    try:
+        from api.services.llm import extract_facts_from_prose
+
+        facts = await extract_facts_from_prose(notes, emp.get("employer_name", slug))
+        return {
+            "facts": facts,
+            "total": len(facts),
+            "source": "employer_notes",
+        }
+    except Exception as exc:
+        logger.error("extract_facts_from_employer_notes: failed for %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(exc)}")
+
+
 @router.post("/analyse", response_model=KBAnalysisResult)
 def analyse(
     request: Request,

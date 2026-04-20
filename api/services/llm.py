@@ -1424,3 +1424,104 @@ def generate_session_intents(
                     }
                 )
             return {"cards": [], "already_covered": []}
+
+
+async def extract_facts_from_prose(notes: str, employer_name: str = "employer") -> list[dict]:
+    """Extract structured facts (timeline, alumni, interview, etc.) from prose notes.
+
+    Uses Claude to parse employer notes and extract timeline_phase, alumni,
+    interview_stage, compensation, and skill_requirement facts.
+
+    Args:
+        notes: Raw counselor notes about an employer
+        employer_name: Employer name for context
+
+    Returns:
+        List of Fact dicts with slug, type, data, confidence, source, timestamp
+    """
+    if not notes or not notes.strip():
+        return []
+
+    client = _client()
+    prompt = f"""You are extracting structured facts about an employer from counselor notes.
+
+Notes:
+{notes}
+
+Employer: {employer_name}
+
+Extract ALL facts matching these types:
+1. timeline_phase — when do applications open/close for which roles?
+2. alumni — any student names, schools, years, companies mentioned?
+3. interview_stage — steps in the process, format, duration?
+4. compensation — salary ranges, equity, benefits?
+5. skill_requirement — what background/skills do they look for?
+
+For each fact:
+- Use lowercase slug naming: "employer-type-keyfield" (e.g., "stripe-aditya-mehta")
+- Set confidence: 100 if directly stated, 80 if strongly inferred, 50 if guessed
+- timestamp: today's date in ISO format
+- source: "inferred" (always, for LLM extraction)
+
+Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
+
+[
+  {{
+    "slug": "stripe-internship-summer",
+    "type": "timeline_phase",
+    "phase_name": "Summer internship application",
+    "value": "June 1 – August 31",
+    "role_type": "summer_internship",
+    "duration_days": 92,
+    "source": "inferred",
+    "confidence": 85,
+    "timestamp": "2026-04-20T00:00:00Z"
+  }},
+  ...
+]"""
+
+    try:
+        msg = client.messages.create(
+            model=_llm["model"],
+            max_tokens=2000,
+            system="You are a fact extraction service for employer intelligence. Extract structured facts from notes. Return ONLY valid JSON.",
+            messages=[{"role": "user", "content": prompt}],
+            timeout=settings.llm_timeout_seconds,
+        )
+
+        response_text = msg.content[0].text if msg.content else "[]"
+
+        # Try to parse as JSON, repair if needed
+        try:
+            facts_raw = json.loads(response_text)
+        except json.JSONDecodeError:
+            # Attempt repair
+            facts_raw = _repair_json_output(response_text, "facts extraction", {})
+            if not isinstance(facts_raw, list):
+                facts_raw = []
+
+        # Validate each fact against Fact model
+        from models import Fact
+        validated_facts = []
+        for f in facts_raw:
+            try:
+                fact_obj = Fact(
+                    slug=f.get("slug", ""),
+                    type=f.get("type", ""),
+                    timestamp=f.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    source="inferred",
+                    confidence=f.get("confidence", 75),
+                    data=f,
+                    deleted=False,
+                )
+                validated_facts.append(fact_obj.model_dump())
+            except ValidationError as e:
+                logger.warning("extract_facts_from_prose: invalid fact, skipping: %s", e)
+                continue
+
+        logger.info("extract_facts_from_prose: extracted %d facts from %s", len(validated_facts), employer_name)
+        return validated_facts
+
+    except Exception as exc:
+        logger.error("extract_facts_from_prose: failed for %s: %s", employer_name, exc)
+        raise HTTPException(status_code=500, detail=f"Fact extraction failed: {str(exc)}")

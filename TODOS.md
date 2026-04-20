@@ -8,10 +8,13 @@ This backlog is ordered by execution priority:
 
 ## Now
 
-### Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)
-**What:** Finish the fact-entry form in EmployerFactsTab — add manual entry for timeline_phase, alumni, interview_stage, compensation facts; wire LLM extraction prompt; add review + commit workflow.
-**Why:** The schema foundation is designed but Phase 2 UI is the execution gate. Counselors cannot enter facts without this form.
-**Depends on:** EmployerFactsTab scaffold exists; need to add fact type selector, field editors per type, and extraction trigger.
+### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
+Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
+
+### Structured Facts Phase 2: LLM extraction and accuracy testing
+**What:** Test extraction end-to-end on real Stripe notes; refine extraction prompt if accuracy < 80%; write 3–5 sample facts via UI (manual + extraction).
+**Why:** Phase 2 UI complete; now need to validate extraction quality before moving to Phase 3 query endpoints.
+**Depends on:** ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose — all implemented; need end-to-end test.
 
 ### Structured Facts Phase 3: Build `/api/kb/facts` query endpoint
 **What:** Add `GET /api/kb/facts?type=alumni&school=NUS` and `/api/kb/facts/grouped` endpoints to filter facts by type, employer, confidence, and source.

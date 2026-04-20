@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react"
 import FactCard from "./forms/FactCard"
 import FactEditor from "./forms/FactEditor"
+import ExtractedFactsModal from "./modals/ExtractedFactsModal"
 
 const API_URL = "/api/admin"
 
@@ -204,6 +205,10 @@ export default function EmployerFactsTab() {
   const [activeTab, setActiveTab] = useState<TabType>("details")
   const [facts, setFacts] = useState<Fact[]>([])
   const [showFactEditor, setShowFactEditor] = useState(false)
+  const [showExtractModal, setShowExtractModal] = useState(false)
+  const [extractedFacts, setExtractedFacts] = useState<Fact[]>([])
+  const [extractLoading, setExtractLoading] = useState(false)
+  const [extractError, setExtractError] = useState("")
   const saveBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDirty = useRef(false)
 
@@ -289,6 +294,46 @@ export default function EmployerFactsTab() {
 
   function handleDeleteFact(slug: string) {
     setFacts((prev) => prev.filter((f) => f.slug !== slug))
+    isDirty.current = true
+  }
+
+  async function handleExtractFacts() {
+    if (!selected) return
+    if (!form.notes?.trim()) {
+      setExtractError("Add counsellor notes first to extract facts.")
+      return
+    }
+
+    setExtractLoading(true)
+    setExtractError("")
+    setExtractedFacts([])
+
+    try {
+      const r = await fetch(`${API_URL}/api/kb/employers/${selected.slug}/extract-facts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      })
+
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}))
+        throw new Error(err.detail || "Extraction failed")
+      }
+
+      const data = await r.json()
+      setExtractedFacts(data.facts || [])
+      setShowExtractModal(true)
+    } catch (err) {
+      setExtractError(err instanceof Error ? err.message : "Extraction failed")
+    } finally {
+      setExtractLoading(false)
+    }
+  }
+
+  function handleAddExtractedFacts(factsToAdd: Fact[]) {
+    setFacts((prev) => [...prev, ...factsToAdd])
+    setShowExtractModal(false)
+    setExtractedFacts([])
     isDirty.current = true
   }
 
@@ -749,7 +794,7 @@ export default function EmployerFactsTab() {
                     </div>
                   )}
 
-                  {/* New fact editor or button */}
+                  {/* Action buttons */}
                   {!showFactEditor && (
                     <div className="flex gap-2 pt-2">
                       <button
@@ -757,6 +802,21 @@ export default function EmployerFactsTab() {
                         className="flex-1 py-2.5 rounded-lg border border-blue-300 text-blue-600 text-sm font-medium hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
                       >
                         + New fact
+                      </button>
+                      <button
+                        onClick={handleExtractFacts}
+                        disabled={extractLoading || !form.notes?.trim()}
+                        className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        title={!form.notes?.trim() ? "Add notes first" : ""}
+                      >
+                        {extractLoading ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <span className="w-3 h-3 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
+                            Extracting...
+                          </span>
+                        ) : (
+                          "🔍 Extract from notes"
+                        )}
                       </button>
                     </div>
                   )}
@@ -768,9 +828,28 @@ export default function EmployerFactsTab() {
                       existingSlugs={facts.map((f) => f.slug)}
                     />
                   )}
+
+                  {/* Extraction error banner */}
+                  {extractError && (
+                    <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+                      {extractError}
+                    </div>
+                  )}
                 </div>
                 )}
               </div>
+
+              {/* Extract modal */}
+              {showExtractModal && (
+                <ExtractedFactsModal
+                  extracted={extractedFacts}
+                  existing={facts}
+                  onAdd={handleAddExtractedFacts}
+                  onClose={() => setShowExtractModal(false)}
+                  isLoading={extractLoading}
+                  error={extractError}
+                />
+              )}
 
               {/* Sticky Save button */}
               <div className="border-t border-gray-100 px-4 py-3 bg-white">
