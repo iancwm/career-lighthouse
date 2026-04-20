@@ -16,19 +16,18 @@
 
 **In Progress:**
 - Phase 2: EmployerFactsTab fact-entry form COMPLETE (Details/Facts tabs, FactEditor, FactCard, manual entry UI)
-- Phase 2: LLM extraction infrastructure COMPLETE (ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose)
-- Need: testing on real employer notes, accuracy validation, potential prompt refinement
+- Phase 2: LLM extraction COMPLETE and working (ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose — three blocking bugs resolved 2026-04-20/21)
+- Need: accuracy validation on real counselor notes; refine prompt if < 80%
 
-**Blocked:**
-- Phase 3 student query surface (`/api/kb/facts` endpoint) — pending fact-entry UI completion
-- Phase 1 validation (Stripe pilot + LLM extraction test) — pending Phase 2 UI or manual YAML writes
+**Unblocked (previously blocked):**
+- Phase 1 validation (Stripe pilot + LLM extraction test) — extraction endpoint now functional
+- Phase 3 student query surface (`/api/kb/facts` endpoint) — ready to start once accuracy validated
 
 **Next Actions:**
-1. Test extraction end-to-end on Stripe notes; refine prompt if accuracy < 80%
-2. Write 3–5 sample facts for Stripe via UI (manual entry + extraction test)
+1. Test extraction on real Stripe/DBS notes; measure accuracy against ground truth
+2. Write 3–5 sample facts for Stripe via UI (manual + extraction)
 3. Add `/api/kb/facts` query endpoint (list, filter by type/employer/confidence/source)
-4. Move to Phase 1 validation: commit sample facts, run extraction test, measure accuracy
-5. Move to `/plan-eng-review` for Phase 3 architecture once Phase 1 validation passes
+4. Move to `/plan-eng-review` for Phase 3 architecture once Phase 1 validation passes
 
 ---
 

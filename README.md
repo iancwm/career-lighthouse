@@ -131,6 +131,7 @@ The career office dashboard (`/admin`) includes:
 | `GET` | `/api/kb/tracks/{slug}` | Read the live published reference for a track |
 | `GET` | `/api/kb/tracks/{slug}/history` | List published versions for a track |
 | `POST` | `/api/kb/draft-tracks/{slug}/generate-update` | Refresh a draft track from new counsellor research |
+| `POST` | `/api/kb/employers/{slug}/extract-facts` | Extract structured facts from employer notes using LLM |
 
 ## Architecture
 

@@ -11,10 +11,10 @@ This backlog is ordered by execution priority:
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
 
-### Structured Facts Phase 2: LLM extraction and accuracy testing
+### Structured Facts Phase 2: LLM extraction accuracy testing
 **What:** Test extraction end-to-end on real Stripe notes; refine extraction prompt if accuracy < 80%; write 3–5 sample facts via UI (manual + extraction).
-**Why:** Phase 2 UI complete; now need to validate extraction quality before moving to Phase 3 query endpoints.
-**Depends on:** ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose — all implemented; need end-to-end test.
+**Why:** Extraction endpoint is now fully functional (three bugs fixed 2026-04-20/21: wrong method name, JSON array parsing, repair function signature). Accuracy testing is the remaining gate before Phase 3.
+**Depends on:** ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose — all implemented and working as of 2026-04-21.
 
 ### Structured Facts Phase 3: Build `/api/kb/facts` query endpoint
 **What:** Add `GET /api/kb/facts?type=alumni&school=NUS` and `/api/kb/facts/grouped` endpoints to filter facts by type, employer, confidence, and source.
@@ -24,7 +24,7 @@ Shipped: FactEditor component with type-specific field schemas for all 5 fact ty
 ### Structured Facts Phase 1 Validation: Stripe pilot + LLM extraction test
 **What:** (1) Write 3–5 sample facts manually for Stripe employer + fintech_compliance track (timeline, alumni, interview stages). (2) Test LLM extraction prompt on a real counselor note; measure accuracy.
 **Why:** Confirms the schema is viable before building batch tooling. Spec assignment, lines 523–536.
-**Depends on:** Phase 2 UI or manual YAML writes.
+**Depends on:** Phase 2 UI complete; extraction endpoint now working (unblocked as of 2026-04-21).
 
 ### ~~Rate limiting on public endpoints~~ ✓ Done (2026-04-18)
 Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/min), `POST /api/ingest`

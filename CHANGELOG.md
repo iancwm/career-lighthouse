@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- **8 new employer profiles**: A&O Shearman, Freshfields Bruckhaus Deringer, OCBC, Revolut Singapore, Stripe Singapore, UOB, Wise Singapore added; DBS and Crypto.com updated with extracted facts. Fintech compliance career track extended with richer salary data, LLM/JD guidance, match keywords, and career trajectory notes.
+- **Legal Ops career profile**: new `legal_ops.yaml` covering legal operations roles in corporate, fintech, and in-house legal teams.
+
+### Fixed
+- **LLM fact extraction — JSON array parsing**: `_extract_json_block` now preserves the outermost `[...]` when Claude returns a JSON array. Previously, any array response was silently reduced to invalid JSON by incorrectly preferring the inner `{...}` boundaries.
+- **LLM fact extraction — repair path**: `_repair_json_output` now returns JSON arrays in addition to objects, so the extraction repair loop works correctly when Claude repairs a list of facts.
+
 ## [0.1.5.3] - 2026-04-20
 
 ### Added
