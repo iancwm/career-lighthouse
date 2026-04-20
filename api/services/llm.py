@@ -335,7 +335,7 @@ def _repair_json_output(
     max_tokens: int = 512,
     timeout_seconds: float | None = None,
     trace_metadata: dict[str, object] | None = None,
-    max_retries: int | None = 0,
+    max_retries: int | None = 2,
 ) -> dict:
     if not _json_repair_enabled():
         raise ValueError(f"{schema_name} JSON repair is disabled")
@@ -403,7 +403,7 @@ def _validate_or_repair(
     max_tokens: int = 512,
     timeout_seconds: float | None = None,
     trace_metadata: dict[str, object] | None = None,
-    max_retries: int | None = 0,
+    max_retries: int | None = 2,
 ) -> Any:
     if validator is None:
         return parsed
@@ -439,8 +439,8 @@ def call_structured_json(
     timeout_seconds: float | None = None,
     trace_metadata: dict[str, object] | None = None,
     validator: type[BaseModel] | None = None,
-    max_repair_tokens: int = 512,
-    max_retries: int | None = 0,
+    max_repair_tokens: int = 8192,
+    max_retries: int | None = 2,
 ) -> Any:
     response = _call_with_trace(
         operation=operation,

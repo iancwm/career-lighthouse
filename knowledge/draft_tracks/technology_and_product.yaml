@@ -1,0 +1,56 @@
+slug: technology_and_product
+track_name: Product Management / Business Analysis / Project Management
+status: draft
+match_description: ''
+match_keywords: []
+ep_sponsorship: Most large banks and tech firms in Singapore (DBS, OCBC, UOB, Grab,
+  Shopee) sponsor Employment Passes for strong candidates, particularly those with
+  specialised PM or BA skills. SMU graduates on student passes typically convert to
+  EP upon full-time offer; MNC tech firms and regional banks are most reliable sponsors.
+  Boutique consultancies and early-stage startups may have limited EP quota.
+compass_score_typical: ''
+top_employers_smu:
+- DBS Bank
+- OCBC Bank
+- UOB
+- Grab
+- Sea (Shopee / SeaMoney)
+- Accenture
+- McKinsey & Company
+- Google Singapore
+- Mastercard Asia Pacific
+- Standard Chartered Bank
+recruiting_timeline: Internship recruitment opens August–October for the following
+  summer (May–August). Full-time recruiting for BA and associate PM roles peaks September–November,
+  with offers typically extended by December–January. DBS, OCBC, and UOB run structured
+  graduate programmes with fixed annual intakes; tech firms (Grab, Shopee, Sea) recruit
+  on a rolling basis year-round.
+international_realistic: false
+entry_paths:
+- Software Engineer → Product Manager
+- Business Analyst → Project Manager → Product Manager (via PM rotation)
+- Consulting → Product Strategy → PM
+salary_range_2024: 'PM/BA roles at large banks (DBS benchmark): BA SGD 70–85K + 10–15%
+  bonus; PM SGD 95–130K + 15–20% bonus; Senior PM SGD 130–170K + 20–25% bonus; Program
+  Manager/PMO SGD 150–190K + 25–30% bonus. Source: DBS alumni Sophia Lim, March 2025.'
+typical_background: Most entrants hold degrees in Information Systems, Business, or
+  Computer Science, with strong internship experience in BA, consulting, or software
+  QA roles. SMU IS graduates are particularly well-represented due to the blend of
+  technical and business curriculum. Candidates with agile certifications (CSPO, PMI-ACP),
+  design thinking exposure, and data analytics skills (SQL, Tableau) are preferred
+  by top employers.
+counselor_contact: null
+notes: 'Alumni insight (Sophia Lim, DBS, March 2025): Senior PMs with UAT + user research
+  exposure are well-positioned to transition into Product Management. Sophia worked
+  with DBS product team on mobile payment redesign (NPS 68); considering PM rotation
+  in 2026. Design thinking skills (Stanford Online Design for Change; IDEO immersion)
+  cited as key bridge competency. Transition timeline: typically 5–7 years PM experience
+  before credible product strategy pivot.'
+source_refs:
+- type: seeded
+  label: published profile:technology_and_product
+structured: {}
+last_updated: '2026-04-20'
+archived_at: null
+salary_levels: null
+visa_pathway_notes: null

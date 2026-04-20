@@ -15,6 +15,7 @@ interface EmployerDetail {
   application_process: string | null
   counsellor_contact: string | null
   notes: string | null
+  structured?: Record<string, unknown>
   last_updated: string | null
   completeness: "green" | "amber"
 }

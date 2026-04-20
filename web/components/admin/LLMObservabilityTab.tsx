@@ -133,7 +133,7 @@ export default function LLMObservabilityTab() {
             <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">LLM observability</p>
             <h2 className="mt-2 font-display text-3xl leading-tight text-[var(--cl-ink)]">Trace every call</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-              This view shows the local JSONL trace log, KB health, and Qdrant retrieval signals. It is the first step toward a Langfuse-backed workflow.
+              This view shows Langfuse-backed trace data, KB health, and Qdrant retrieval signals, with a JSONL fallback only when Langfuse is unavailable.
             </p>
           </div>
 
@@ -205,7 +205,7 @@ export default function LLMObservabilityTab() {
         <div className="mb-4 flex items-center justify-between gap-3">
           <div>
             <h3 className="font-display text-2xl text-[var(--cl-ink)]">Recent LLM traces</h3>
-            <p className="mt-1 text-sm text-[var(--cl-muted)]">Structured local traces from the API. Use these to debug prompt drift, timeouts, and malformed outputs.</p>
+            <p className="mt-1 text-sm text-[var(--cl-muted)]">Structured trace entries from Langfuse first, with a local fallback for offline development. Use these to debug prompt drift, timeouts, and malformed outputs.</p>
             <p className="mt-1 text-xs text-[var(--cl-muted)]">Each call emits a `started` row immediately and a terminal `ok` or `error` row when it finishes.</p>
           </div>
           <span className="rounded-full bg-[var(--cl-surface-2)] px-3 py-1 text-xs font-medium text-[var(--cl-muted)]">

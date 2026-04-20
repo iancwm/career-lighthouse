@@ -81,7 +81,7 @@ qdrant:
 
 # Run the API dev server locally with hot-reload (requires: just qdrant in another terminal)
 dev-api:
-    cd api && QDRANT_URL=http://localhost:6333 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
+    cd api && SESSIONS_DIR=../data/sessions QDRANT_URL=http://localhost:6333 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 # Run the Next.js dev server
 dev-web:

@@ -3,12 +3,24 @@ tracks:
   label: Management Consulting
   status: active
   last_published: null
+- slug: crypto_bd
+  label: Industry Specialist / Business Development
+  status: active
+  last_published: null
 - slug: dsai
   label: Data Science and Artificial Intelligence
   status: active
   last_published: 20260412-065150
+- slug: fintech_compliance
+  label: Fintech Compliance
+  status: active
+  last_published: null
 - slug: general_singapore
   label: General Singapore Job Market
+  status: active
+  last_published: null
+- slug: government_economics
+  label: Public Sector / Government Economics
   status: active
   last_published: null
 - slug: investment_banking
@@ -19,16 +31,40 @@ tracks:
   label: Non Governmental Organization
   status: active
   last_published: 20260412-141926
+- slug: project_management
+  label: Technology Project & Program Management
+  status: active
+  last_published: null
 - slug: public_sector
   label: Public Sector / GLCs
+  status: active
+  last_published: null
+- slug: public_sector_glcs
+  label: Public Sector / Government Economics
   status: active
   last_published: null
 - slug: quant_finance
   label: Quantitative Finance
   status: active
   last_published: 20260412-065608
+- slug: quantitative_finance
+  label: Quantitative Finance & Economic Research
+  status: active
+  last_published: null
+- slug: social_impact_nonprofit
+  label: Social Impact & Non-Profit
+  status: active
+  last_published: null
+- slug: sustainability_esg
+  label: Sustainability & ESG
+  status: active
+  last_published: null
 - slug: tech_product
   label: Technology and Product
+  status: active
+  last_published: null
+- slug: technology_and_product
+  label: Product Management / Business Analysis / Project Management
   status: active
   last_published: null
 - slug: venture_capital

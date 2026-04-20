@@ -1,0 +1,253 @@
+# ============================================
+# SINGAPORE-SPECIFIC FINANCE RECRUITING SCHEMA
+# Optimized for MOM, MAS, EDB, and APAC context
+# ============================================
+
+candidate_profile:
+  candidate_id: string
+  name: string
+  nationality: string
+  singapore_residency_status: enum[citizen, pr, ep_holder, techpass_holder, spass_holder, dependent_pass, student_pass, ltvp, other]
+  university: string
+  graduation_year: integer
+  local_university_flag: boolean  # NUS/NTU/SMU/SIT/SUTD flag for local hiring preferences
+  gpa: float
+  major: string
+  dbs_academy_or_skillsfuture: boolean  # Local upskilling pathway indicator
+  certifications:
+    - name: string  # e.g., "CMFAS", "IBF Standards", "Scrum Master (SG-ICPM)"
+      issuing_body: enum[IBF, MAS, ICPM, PMI, Scrum Alliance, Others]
+      status: enum[pursuing, passed, expired, suspended]
+      date_achieved: date
+      skillsfuture_credit_eligible: boolean  # Critical for local upskilling ROI
+  languages:
+    - language: string
+      proficiency: enum[native, fluent, professional, basic]
+      business_relevance_sg: boolean  # e.g., Mandarin for China-facing roles
+
+career_trajectory:
+  current_role:
+    title: string
+    firm: string
+    firm_hq_location: enum[singapore, regional_hq_sg, global_hq_elsewhere]  # Critical for decision-making authority
+    group: string
+    start_date: date
+    location: string  # e.g., "Singapore (regional coverage: MY, ID, TH)"
+    employment_type: enum[full-time, contract, secondment, advisory]
+    mas_regulated_role: boolean  # Triggers CMFAS/fit-and-proper requirements
+  prior_experience:
+    - title: string
+      firm: string
+      location: string
+      duration_months: integer
+      key_responsibilities: [string]
+      singapore_specific_exposure:
+        mas_projects: boolean
+        edb_grant_projects: boolean  # e.g., "worked on EDB-funded fintech initiative"
+        cross_border_apac: [string]  # e.g., ["Malaysia", "Indonesia", "India"]
+  target_roles:
+    - title: string
+      seniority: enum[analyst, associate, vp, principal, director, md]
+      sector_focus: [string]
+      firm_type: enum[bulge_bracket, elite_boutique, local_bank, mas_statutory_board, vc_pe_sg, family_office_sg, fintech_sg, govtech]
+      location_preference: enum[singapore_only, singapore_regional, apac_flexible, global]
+      mas_licensing_required: boolean  # e.g., "Capital Markets Services license"
+
+compensation_benchmarks:
+  # All figures in SGD, annualized unless noted
+  base_salary_sgd:
+    analyst_fresh: integer
+    analyst_junior: integer
+    associate: integer
+    vp: integer
+    director_plus: integer
+  bonus_structure:
+    target_pct_of_base: integer
+    range_low_pct: integer
+    range_high_pct: integer
+    guaranteed: boolean
+    aws_months: integer  # Annual Wage Supplement (common in SG)
+    performance_bonus_timing: enum[jan, feb, mar, apr, other]  # SG bonus season norms
+  cpf_contributions:  # Critical for total comp calculation
+    employee_contribution_pct: integer  # Typically 20% for citizens/PRs <55
+    employer_contribution_pct: integer  # Typically 17% for citizens/PRs
+    foreigner_eligible: boolean  # EP holders not eligible for CPF
+  equity_components:
+    - type: enum[rsu, option, carry, phantom, espp]
+      estimated_value_sgd: integer
+      vesting_schedule: string
+      singapore_tax_treatment: enum[employment_income, capital_gain, deferred]  # Critical for net comp
+  total_comp_ranges:
+    - level: string
+      low: integer
+      mid: integer
+      high: integer
+      source: string  # e.g., "alumni report", "momentum survey", "ibf salary guide"
+      last_updated: date
+      includes_cpf: boolean  # Clarify if CPF counted in "total comp"
+
+singapore_visa_immigration_profile:  # SINGAPORE-SPECIFIC: Central to GGV call
+  current_visa_type: enum[
+    Employment Pass, 
+    Tech.Pass, 
+    S Pass, 
+    ONE Pass, 
+    EntrePass, 
+    Dependent Pass, 
+    Long Term Visit Pass, 
+    Student Pass, 
+    Permanent Resident, 
+    Singapore Citizen
+  ]
+  visa_status: enum[active, pending_application, pending_renewal, expired, rejected, appeal_in_progress]
+  mom_application_details:
+    application_date: date
+    approval_date: date
+    processing_time_weeks: integer  # MOM benchmarks: EP=3w, Tech.Pass=6w, PR=4-6mo
+    application_cost_sgd: integer  # Employer-borne costs
+    salary_threshold_met: boolean  # EP: SGD 5K+ (2025), Tech.Pass: SGD 30K+
+    complementarity_assessment_framework_score: string  # COMPASS framework for EP (2023+)
+  visa_validity:
+    issued_date: date
+    expiry_date: date
+    renewal_eligibility: boolean
+    renewal_frequency: enum[1_year, 2_year, 5_year, indefinite]
+  visa_constraints: [string]  # e.g., "employer-tied", "job change triggers 1-month grace period", "cannot freelance"
+  pr_citizenship_pathway:
+    pr_application_date: date
+    pr_approval_date: date
+    pr_renewal_date: date
+    citizenship_eligible_date: date  # Typically 2 years after PR approval
+    dual_citizenship_status: enum[allowed, not_allowed, under_review]  # Singapore restricts dual citizenship
+    pr_citizenship_motivation: [string]  # e.g., "partnership eligibility", "family stability", "tax optimization"
+  regulatory_role_requirements: [string]  # e.g., "PR required for VC partnership in regulated sectors", "CMFAS certification mandatory"
+
+singapore_regulatory_compliance:  # MAS/IMDA/EDB context
+  mas_licensing:
+    license_type: enum[Capital Markets Services, Financial Adviser, Bank, Insurance, Payment Services, Exempt]
+    license_holder: enum[individual, firm, both]
+    fit_and_proper_status: enum[approved, pending, not_required]
+    cmfas_modules_passed: [string]  # e.g., "M5", "M6", "M9", "HI"
+  mas_regulatory_projects:
+    - project_name: string
+      regulatory_framework: enum[MAS TRM Guidelines, MAS FEAT Principles, MAS AML/CFT, MAS Cyber Hygiene]
+      role: string
+      completion_date: date
+  edb_grant_involvement: boolean  # Worked on EDB-funded initiatives (valuable for govtech/fintech roles)
+  smart_nation_project_exposure: boolean  # Government digital transformation experience
+  pdpa_compliance_experience: boolean  # Singapore data protection law experience
+
+apac_regional_mobility:  # Singapore as APAC hub context
+  regional_coverage: [string]  # e.g., ["Malaysia", "Indonesia", "Thailand", "India", "Vietnam"]
+  cross_border_work_authorization:
+    - country: string
+      visa_type_required: string  # e.g., "India: Business Visa (6-12 weeks processing)"
+      typical_processing_time_weeks: integer
+      employer_sponsorship_required: boolean
+  travel_frequency_apac: enum[none, quarterly, monthly, bi-weekly, weekly]
+  regional_compensation_adjustments:
+    - country: string
+      allowance_pct: integer  # e.g., "India travel: +15% hardship allowance"
+      currency: string
+  cultural_competency:
+    - market: string
+      language_proficiency: enum[none, basic, professional, fluent]
+      business_etiquette_familiarity: enum[low, medium, high]
+
+singapore_firm_context:  # Local firm nuances
+  firm_type_detail: enum[
+    local_bank_dbs_ocbc_uob,
+    mas_statutory_board,
+    edb_linked_entity,
+    sg_vc_pe_ggv_insignia_jungle,
+    family_office_sg,
+    fintech_sg_grab_stripe_wise,
+    govtech_sg,
+    mnc_regional_hq
+  ]
+  assets_under_management_sgd: integer  # For VC/PE/family offices
+  government_grant_recipient: boolean  # EDB, NRF, IMDA grants
+  mas_supervision_level: enum[direct, indirect, exempt]  # Regulatory burden indicator
+  local_hiring_quotas:
+    singaporean_pr_ratio_target: float  # e.g., "70% Singaporeans/PRs" for certain licenses
+    complementarity_assessment_framework_impact: string  # How COMPASS affects hiring
+
+skills_and_competencies:
+  technical_skills:
+    financial_modeling: enum[none, basic, intermediate, advanced, expert]
+    valuation_methods: [enum[DCF, Comps, Precedents, LBO, SOTP]]
+    accounting_standards: enum[SG-FRS, IFRS, US-GAAP]  # Singapore Financial Reporting Standards
+    software_proficiency:
+      - tool: string
+        level: enum[familiar, proficient, expert]
+        singapore_adoption_rate: enum[low, medium, high]  # e.g., "Bloomberg: high in SG finance"
+  regulatory_knowledge:
+    mas_frameworks: [enum[TRM, FEAT, AML/CFT, Cyber Hygiene, Outsourcing]]
+    pdpa_compliance: enum[none, basic, intermediate, advanced]
+    sgx_listing_rules: boolean  # For capital markets roles
+  apac_market_knowledge:
+    - market: string
+      familiarity: enum[none, basic, working, expert]
+      deal_experience: boolean
+  local_network_strength:
+    singapore_alumni_connections: integer  # NUS/NTU/SMU network size
+    industry_association_membership: [enum[IBF, SIFMA, SVCA, SGFinTech, ICPM]]
+
+preferences_and_constraints:
+  geographic_flexibility:
+    primary_market: string  # Typically "Singapore"
+    willing_to_relocate_regionally: boolean
+    willing_to_relocate_globally: boolean
+    visa_sponsorship_needed: boolean
+    cpf_eligibility_impact: boolean  # CPF affects net comp for citizens/PRs
+  work_style_preferences:
+    travel_tolerance_apac: enum[none, low, moderate, high]
+    hours_expectation: string  # e.g., "80+ hrs/week acceptable" (common in SG finance)
+    remote_hybrid_preference: enum[onsite, hybrid, remote]
+    singapore_office_culture_fit: enum[traditional_hierarchical, modern_flat, startup_agile]
+  career_motivations:
+    primary_driver: enum[compensation, learning, prestige, work_life_balance, impact, exit_options, singapore_pr_pathway]
+    deal_vs_relationship_focus: enum[deal_oriented, client_oriented, balanced]
+  non_negotiables: [string]  # e.g., "must maintain PR status", "no Sunday work (cultural/religious)"
+
+network_and_relationships:
+  key_contacts:
+    - name: string  # First name + last initial for privacy
+      firm: string
+      title: string
+      location: string
+      relationship_strength: enum[cold, warm, strong, champion]
+      last_contact_date: date
+      preferred_contact_method: string
+      singapore_alumni_network: enum[NUS, NTU, SMU, SIT, SUTD, other, none]
+  recruiter_relationships:
+    - firm: string
+      contact: string
+      specialization: string  # e.g., "MAS-regulated roles", "VC/PE Singapore"
+      engagement_frequency: enum[quarterly, biannual, annual, ad-hoc]
+      mom_licensed_recruiter: boolean  # MOM-licensed employment agencies only
+
+action_items_and_follow_up:
+  - task: string
+    priority: enum[low, medium, high, urgent]
+    due_date: date
+    assigned_to: enum[candidate, counselor, career_services, external_recruiter, mom_edb_contact]
+    status: enum[pending, in_progress, completed, blocked]
+    dependencies: [string]
+    skillsfuture_grant_applicable: boolean  # Can SkillsFuture credits fund this action?
+  resources_provided:
+    - type: enum[resume_template, technical_guide, interview_prep, salary_data, intro_email, mom_visa_guide, mas_cmfas_prep]
+      description: string
+      delivery_method: enum[email, portal, attachment, link]
+      date_sent: date
+      skillsfuture_claimable: boolean
+
+meta_tracking:
+  conversation_date: date
+  conversation_type: enum[initial_consult, follow_up, mock_interview, offer_negotiation, exit_interview, visa_consult]
+  counselor_notes_summary: string
+  data_confidence: enum[low, medium, high]
+  last_updated: timestamp
+  next_touchpoint_date: date
+  consent_for_sharing: boolean
+  singapore_pdpa_compliant: boolean  # Explicit flag for Singapore data protection law

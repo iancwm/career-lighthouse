@@ -330,6 +330,78 @@ No schema migration. Type-specific fields are loose (YAML accepts any key). Quer
 
 ---
 
+## Field Triage For Career Profiles
+
+The Singapore reference docs are intentionally broader than the career-profile surface. For `api/cfg/career_profiles.yaml` and `knowledge/career_profiles/*.yaml`, keep the first-pass contract small and stable.
+
+### P0
+
+Must have for every profile:
+
+`career_type`, `match_description`, `match_keywords`, `ep_sponsorship`, `top_employers_smu`, `recruiting_timeline`, `international_realistic`, `entry_paths`, `salary_range_2024`, `typical_background`
+
+Structured mirrors that make the profile queryable:
+
+`structured.sponsorship_tier`, `structured.ep_realistic`, `structured.salary_min_sgd`, `structured.salary_max_sgd`, `structured.compass_points_typical`
+
+Provenance shell for any future fact block:
+
+`structured.slug`, `structured.type`, `structured.timestamp`, `structured.source`, `structured.confidence`, `structured.trace_id`
+
+### P1
+
+Good to have in most careers, but not required for a usable profile:
+
+`counselor_contact`, `notes`, `salary_levels`, `visa_pathway_notes`
+
+### P2
+
+Good to have, but only in certain careers where the extra detail clearly pays off:
+
+`structured.cpf_contributions`, `structured.equity_components`, `structured.mas_licensing`, `structured.cmfas_modules_passed`, `structured.fit_and_proper_status`, `structured.apac_regional_mobility`, `structured.regional_coverage`, `structured.cultural_competency`, `structured.local_hiring_quotas`, `structured.regional_compensation_adjustments`, `structured.industry_association_membership`
+
+### P3
+
+More trouble than worth inside a career profile:
+
+`candidate_profile`, `career_trajectory`, `preferences_and_constraints`, `network_and_relationships`, `action_items_and_follow_up`, `meta_tracking`, full visa history, full prompt-template registries, full privacy-classification registries, and any person-level workflow object that drags PDPA-sensitive detail into a track file
+
+---
+
+## Work Done So Far
+
+The schema foundation is no longer theoretical. The repo already has several adjacent pieces in place:
+
+`structured:` already exists in career-profile YAMLs such as `fintech_compliance`, `general_singapore`, `quant_finance`, and `sustainability_esg`.
+
+Track models now include typed enrichments like `salary_levels` and `visa_pathway_notes` in [api/models.py](/home/iancwm/git/career-lighthouse/api/models.py).
+
+LLM calls now carry structured trace metadata, JSON repair, and Pydantic validation in [api/services/llm.py](/home/iancwm/git/career-lighthouse/api/services/llm.py).
+
+Career-profile and session write paths sync structured fields from prose after edits in [api/routers/kb_router.py](/home/iancwm/git/career-lighthouse/api/routers/kb_router.py) and [api/routers/session_router.py](/home/iancwm/git/career-lighthouse/api/routers/session_router.py).
+
+Employer context injection already treats employer facts as authoritative structured data in [api/services/employer_store.py](/home/iancwm/git/career-lighthouse/api/services/employer_store.py), and the employer API now preserves `structured` on read via [api/routers/kb_router.py](/home/iancwm/git/career-lighthouse/api/routers/kb_router.py).
+
+The hardening work also improved ingest safety and extraction reliability: DOCX table parsing, upload size guards, filename allowlisting, and more conservative prompt budgets.
+
+The main conclusion from the parallel work is that we should unify around the existing `structured:` pattern, not invent a second schema for employers or a full Singapore-specific record model.
+
+---
+
+## Employer Contract
+
+Employer YAML should use the same lightweight fact shell as career profiles:
+
+`structured.facts[]` with `slug`, `type`, `timestamp`, `source`, `confidence`, and optional `trace_id`
+
+Keep the top-level employer fields focused on the current admin surface:
+
+`slug`, `employer_name`, `tracks`, `ep_requirement`, `intake_seasons`, `singapore_headcount_estimate`, `application_process`, `counsellor_contact`, `notes`, `structured`, `last_updated`
+
+The employer API should preserve this block on read and write so counselors can see the facts they captured without parsing prose.
+
+---
+
 ## Open Questions
 
 1. **Storage:** Should `structured:` live in the YAML files themselves, or in a separate `facts.json` database? 
@@ -347,6 +419,58 @@ No schema migration. Type-specific fields are loose (YAML accepts any key). Quer
 4. **Confidence semantics:** Is confidence "how sure are we this is true?" or "how complete is this fact?"
    - Current design assumes former (1-100 = certainty)
    - Might need separate "completeness" field (e.g., interview process is 80% complete)
+
+**Current direction for phase 1:** keep `structured:` in YAML, use stable slugs for dedupe, rely on git history for versioning, and treat confidence as certainty.
+
+---
+
+## Sample Stripe Facts
+
+These are reduced-format pilot facts for [knowledge/employers/stripe.yaml](/home/iancwm/git/career-lighthouse/knowledge/employers/stripe.yaml).
+
+```yaml
+structured:
+  facts:
+    - slug: "stripe-apac-compliance-pipeline"
+      type: "timeline_phase"
+      phase_name: "Internship pipeline"
+      status: "being developed"
+      target_groups: ["NUS law students", "SMU law students"]
+      timestamp: "2026-04-20"
+      source: "knowledge/employers/stripe.yaml"
+      confidence: 72
+
+    - slug: "stripe-alumni-aditya-mehta"
+      type: "alumni"
+      name: "Aditya Mehta"
+      degree: "LLM"
+      school: "NUS"
+      graduation_year: 2018
+      current_company: "Stripe Singapore"
+      current_title: "Head of Compliance Program APAC"
+      joined_year: 2020
+      available_for_mentoring: true
+      timestamp: "2026-04-20"
+      source: "knowledge/employers/stripe.yaml"
+      confidence: 95
+
+    - slug: "stripe-compliance-skill-signal"
+      type: "skill_requirement"
+      focus: ["AML/KYC", "financial crime", "legal operations", "risk management"]
+      preferred_background: ["bank compliance", "ex-MAS regulators", "law firms"]
+      timestamp: "2026-04-20"
+      source: "knowledge/employers/stripe.yaml"
+      confidence: 90
+
+    - slug: "stripe-equity-differentiator"
+      type: "compensation_signal"
+      signal: "equity is a key differentiator vs banks"
+      timestamp: "2026-04-20"
+      source: "knowledge/employers/stripe.yaml"
+      confidence: 85
+```
+
+These facts are intentionally narrow. The point of the pilot is to verify that the shell works before we decide whether to add a separate facts store.
 
 ---
 
@@ -400,9 +524,9 @@ No schema migration. Type-specific fields are loose (YAML accepts any key). Quer
 
 **Before we design the full implementation:**
 
-1. **Pick a real use case** — Choose one career track (e.g., consulting, quant finance) and one employer (e.g., McKinsey, Stripe) where you'll manually capture facts in the new structured format. This is the proof that the schema actually works for counselors.
+1. **Pick a real use case** — Choose one career track and one employer where you'll manually capture facts in the reduced structured format. This is the proof that the schema actually works for counselors.
 
-2. **Resolve the open questions** — For storage and deduplication, sketch out which approach feels right for this project. Write down why (Git-trackable? Queryable? Team size?)
+2. **Resolve the open questions** — Confirm the phase-1 direction for storage, deduplication, versioning, and confidence semantics. The doc now has a strong default, so this should be a short sanity check rather than a redesign.
 
 3. **Write 3-5 sample facts** in the Recommended Approach format above. Use real data from your existing YAML files. See if the structure feels natural or if it breaks down.
 
@@ -414,10 +538,10 @@ These four steps will tell you whether the design is viable before we build the 
 
 ## Next Steps
 
-1. **Choose your pilot employer + track** (1 hour)
-2. **Write sample facts by hand** (2 hours) 
-3. **Resolve open questions** via inline discussion (30 min)
-4. **Test LLM extraction** (1 hour)
-5. **Decision:** Is this schema viable, or iterate? (15 min)
+1. **Lock the minimal profile contract** from the P0 list above.
+2. **Write 3-5 sample facts by hand** for one track and one employer.
+3. **Test one LLM extraction pass** against real counselor notes.
+4. **Decide whether P1 adds value** or whether it can wait.
+5. **If viable, move to `/plan-eng-review`** for implementation architecture and migration planning.
 
-If viable → move to `/plan-eng-review` to lock in implementation architecture, data model, and migration path.
+If viable, move to `/plan-eng-review` to lock in implementation architecture, data model, and migration path.

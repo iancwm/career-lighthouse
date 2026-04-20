@@ -124,7 +124,7 @@ export default function TraceExplorerTab({ initialSessionId = null }: TraceExplo
             <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Trace explorer</p>
             <h2 className="mt-2 font-display text-3xl leading-tight text-[var(--cl-ink)]">Session-scoped LLM debugging</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-              Filter traces by session, operation, or status. Started rows appear immediately, so you can watch active runs before they fail or finish.
+              Filter Langfuse-backed traces by session, operation, or status. Started rows appear immediately, so you can watch active runs before they fail or finish.
             </p>
           </div>
 

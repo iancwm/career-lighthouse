@@ -1,0 +1,56 @@
+slug: quantitative_finance
+track_name: Quantitative Finance & Economic Research
+status: draft
+match_description: ''
+match_keywords: []
+ep_sponsorship: Strong EP sponsorship prospects across all listed employers; MAS roles
+  are Singapore citizen/PR preferred but select EP candidates for specialist quant
+  positions. Private sector firms like Jane Street and DRW actively sponsor EP for
+  exceptional quantitative talent.
+compass_score_typical: ''
+top_employers_smu:
+- jane_street
+- drw
+- wintermute
+- goldman_sachs
+- monetary_authority_of_singapore
+recruiting_timeline: Private quant firms (Jane Street, DRW, Wintermute) recruit aggressively
+  in September–November for summer internships and full-time roles, with offers often
+  extended by December. MAS recruitment is year-round via the MAS Careers portal with
+  structured intake cycles in Q1 and Q3. Goldman Sachs follows standard investment
+  bank timelines with summer analyst applications opening in July–August.
+international_realistic: true
+entry_paths:
+- Direct hire as Junior Economist or Research Analyst at MAS after MSc Financial Economics
+- Quantitative Researcher or Trader role at proprietary trading firms (Jane Street,
+  DRW, Wintermute) via campus recruiting
+- Strats or Quantitative Analyst role at Goldman Sachs Securities Division
+- PhD pathway for senior MAS Economist or academic research roles
+- Internship-to-return-offer conversion at MAS Economic Policy Group or private quant
+  firms
+salary_range_2024: '{''mas_economist_entry'': ''SGD 60,000–80,000 per annum'', ''goldman_sachs_strats_entry'':
+  ''SGD 90,000–120,000 per annum'', ''prop_trading_quant_researcher'': ''SGD 120,000–200,000+
+  per annum (base), with significant performance bonuses at Jane Street, DRW, and
+  Wintermute''}'
+typical_background: MSc Financial Economics, MSc Quantitative Finance, or BSc (Hons)
+  Economics/Mathematics with strong econometrics and programming skills. Competitive
+  candidates typically demonstrate proficiency in Python, R, and Stata, with coursework
+  or research experience in time-series econometrics, stochastic calculus, or macroeconomic
+  modelling. Prior internships in economic research, quantitative trading, or financial
+  analysis significantly strengthen candidacy.
+counselor_contact: null
+notes: 'MAS Economist role requires strong quant skills: VAR (vector autoregression),
+  DSGE (dynamic stochastic general equilibrium), nowcasting techniques, R + Python
+  + Stata proficiency. Central bank quant roles differ from private sector quant finance:
+  policy-focused (not trading/alpha-generation), lower comp, higher prestige in public
+  policy sphere. MSc Financial Economics graduates with strong econometrics background
+  are competitive for both MAS and private quant roles — counsellors should help students
+  distinguish between these two quant pathways early.'
+source_refs:
+- type: seeded
+  label: published profile:quantitative_finance
+structured: {}
+last_updated: '2026-04-20'
+archived_at: null
+salary_levels: null
+visa_pathway_notes: null

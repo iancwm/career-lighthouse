@@ -186,7 +186,7 @@ class EmployerCardDiff(BaseModel):
     ep_requirement: str | None = None
     intake_seasons: list[str] | None = None
     application_process: str | None = None
-    headcount_estimate: str | None = None
+    headcount_estimate: str | int | None = None
     counselor_contact: str | None = None
     notes: str | None = None
 
@@ -202,7 +202,7 @@ class TrackCardDiff(BaseModel):
     compass_score_typical: str | None = None
     top_employers_smu: list[str] | None = None
     recruiting_timeline: str | None = None
-    international_realistic: bool | None = None
+    international_realistic: bool | str | None = None
     entry_paths: list[str] | None = None
     salary_range_2024: str | None = None
     typical_background: str | None = None
@@ -284,6 +284,7 @@ class EmployerDetail(BaseModel):
     application_process: str | None = None
     counsellor_contact: str | None = None
     notes: str | None = None
+    structured: dict[str, Any] = {}
     last_updated: str | None = None
     completeness: str = "amber"  # computed by server: "green" | "amber"
 

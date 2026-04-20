@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -170,6 +171,86 @@ def test_llm_traces_endpoint_filters_by_session_and_status(tmp_path):
     assert data[0].trace_id == "trace-2"
     assert data[0].session_id == "session-a"
     assert data[0].status == "ok"
+
+
+def test_llm_traces_endpoint_reads_langfuse_sessions():
+    from routers.kb_router import _read_llm_trace_log
+    import routers.kb_router as kb_router
+
+    started_at = datetime(2026, 4, 20, 3, 34, 26, tzinfo=timezone.utc)
+    finished_at = datetime(2026, 4, 20, 3, 35, 52, tzinfo=timezone.utc)
+
+    observation = SimpleNamespace(
+        trace_id="trace-123",
+        name="generate_session_intents_json_repair",
+        input={
+            "raw_input_chars": 7111,
+            "input_chars_pre_trim": 7111,
+            "session_id": "session-123",
+            "multi_pass": False,
+            "threshold_chars": 12000,
+            "chunk_tokens": 15000,
+            "overlap_tokens": 2000,
+        },
+        output={
+            "cards": 0,
+            "already_covered": 0,
+            "multi_pass": False,
+            "error": "SessionAnalysisResult repair did not return a valid JSON object",
+        },
+        session_id="session-123",
+        metadata={
+            "trace_id": "trace-123",
+            "feature": "generate_session_intents",
+            "session_id": "session-123",
+            "phase": "json_repair",
+            "parse_attempt": 2,
+            "repair_attempt": 2,
+            "input_chars_pre_trim": 7111,
+            "input_chars_sent": 2505,
+            "max_tokens": 512,
+            "timeout_seconds": 180,
+        },
+        start_time=started_at,
+        end_time=finished_at,
+        model="claude-sonnet-4-6",
+        level="DEFAULT",
+    )
+
+    fake_trace = SimpleNamespace(
+        id="trace-123",
+        observations=[observation],
+    )
+
+    fake_session = SimpleNamespace(
+        id="session-123",
+        traces=[fake_trace],
+    )
+
+    class FakeSessionsApi:
+        def list(self, limit=None):
+            return SimpleNamespace(data=[SimpleNamespace(id="session-123")])
+
+        def get(self, session_id):
+            assert session_id == "session-123"
+            return fake_session
+
+    class FakeLangfuseClient:
+        def __init__(self):
+            self.api = SimpleNamespace(sessions=FakeSessionsApi())
+
+    fake_langfuse = FakeLangfuseClient()
+
+    with patch.object(kb_router.llm_service, "_get_langfuse_client", return_value=fake_langfuse):
+        data = _read_llm_trace_log(limit=10)
+
+    assert len(data) == 2
+    assert data[0].status == "started"
+    assert data[1].status == "error"
+    assert data[1].trace_id == "trace-123"
+    assert data[1].session_id == "session-123"
+    assert data[1].operation == "generate_session_intents_json_repair"
+    assert data[1].error == "SessionAnalysisResult repair did not return a valid JSON object"
 
 
 @patch("services.llm.get_client")

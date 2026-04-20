@@ -1,0 +1,180 @@
+# ============================================
+# SINGAPORE FIELD DEFINITIONS & VALIDATION
+# MOM, MAS, EDB, CPF, COMPASS-aware
+# ============================================
+
+field_registry:
+  candidate_profile.singapore_residency_status:
+    data_type: enum
+    allowed_values: [citizen, pr, ep_holder, techpass_holder, spass_holder, dependent_pass, student_pass, ltvp, other]
+    required: true
+    description: "Singapore immigration status per MOM taxonomy"
+    extraction_hint: "Listen for 'EP', 'PR application', 'Tech.Pass', 'citizen', 'dependent pass'"
+    mom_reference_url: "https://www.mom.gov.sg/passes-and-permits"
+    
+  singapore_visa_immigration_profile.current_visa_type:
+    data_type: enum
+    allowed_values: [Employment Pass, Tech.Pass, S Pass, ONE Pass, EntrePass, Dependent Pass, Long Term Visit Pass, Student Pass, Permanent Resident, Singapore Citizen]
+    version: "2025.1-MOM"
+    description: "Current work pass per MOM classification"
+    extraction_hint: "Map colloquial terms: 'work visa' → Employment Pass, 'tech talent pass' → Tech.Pass"
+    changelog: "Added ONE Pass (2023), updated COMPASS requirements (2024)"
+
+  singapore_visa_immigration_profile.mom_application_details.complementarity_assessment_framework_score:
+    data_type: string
+    required_if: "singapore_visa_immigration_profile.current_visa_type == 'Employment Pass'"
+    allowed_values: [A, B, C, not_applicable]
+    description: "COMPASS framework score for EP applications (2023+)"
+    extraction_hint: "Look for 'COMPASS', 'C1/C2 points', 'diversity score', 'support for local employment'"
+    mom_compass_url: "https://www.mom.gov.sg/compass"
+
+  compensation_benchmarks.cpf_contributions:
+    data_type: object
+    required: true
+    description: "CPF contribution structure (Singapore-specific)"
+    fields:
+      employee_contribution_pct: {data_type: integer, range: [0, 20], default: 20}
+      employer_contribution_pct: {data_type: integer, range: [0, 17], default: 17}
+      foreigner_eligible: {data_type: boolean, default: false}
+    extraction_hint: "CPF only applies to Singapore Citizens and PRs; EP holders not eligible"
+    cpf_board_url: "https://www.cpf.gov.sg"
+
+  singapore_regulatory_compliance.mas_licensing.cmfas_modules_passed:
+    data_type: array
+    allowed_values: [M1, M2, M3, M4, M5, M6, M7, M8, M9, M9A, M9B, HI, FMRP, BCP]
+    description: "CMFAS modules required for MAS-regulated roles"
+    extraction_hint: "Listen for 'M5 for securities', 'M6 for futures', 'HI for insurance'"
+    ibf_cmfas_url: "https://www.ibf.org.sg/certifications/cmfas"
+
+  apac_regional_mobility.cross_border_work_authorization:
+    data_type: array
+    description: "Visa requirements for regional travel from Singapore base"
+    extraction_hint: "Map country-specific requirements: 'India business visa 6-12 weeks', 'Malaysia no visa for SG citizens'"
+    regional_reference: "ASEAN business travel guidelines + individual country MOM equivalents"
+
+  singapore_firm_context.local_hiring_quotas:
+    data_type: object
+    description: "Singaporean/PR hiring requirements for regulated firms"
+    fields:
+      singaporean_pr_ratio_target: {data_type: float, range: [0.0, 1.0]}
+      complementarity_assessment_framework_impact: {data_type: string}
+    extraction_hint: "MAS-regulated firms often have 70%+ Singaporean/PR targets; COMPASS affects EP approvals"
+
+field_dependencies:
+  singapore_visa_immigration_profile:
+    required_if: "candidate_profile.nationality != 'Singapore Citizen'"
+    hide_if: "candidate_profile.singapore_residency_status == 'citizen'"
+    
+  singapore_regulatory_compliance.mas_licensing:
+    required_if: "career_trajectory.current_role.mas_regulated_role == true"
+    
+  compensation_benchmarks.cpf_contributions:
+    required_if: "candidate_profile.singapore_residency_status in [citizen, pr]"
+    hide_if: "candidate_profile.singapore_residency_status in [ep_holder, techpass_holder, spass_holder, other]"
+    
+  apac_regional_mobility:
+    required_if: "career_trajectory.current_role.location contains 'regional' OR career_trajectory.current_role.location contains 'APAC'"
+
+field_privacy_classification:
+  candidate_profile.name: PII
+  candidate_profile.nationality: PII
+  singapore_visa_immigration_profile: SENSITIVE  # Immigration status is sensitive under PDPA
+  compensation_benchmarks: CONFIDENTIAL
+  singapore_regulatory_compliance.mas_licensing.fit_and_proper_status: SENSITIVE
+  network_and_relationships.key_contacts: PII
+  apac_regional_mobility.cross_border_work_authorization: CONFIDENTIAL
+
+field_confidence_tracking:
+  enable_per_field_scoring: true
+  confidence_scale: {low: 0.0-0.59, medium: 0.60-0.84, high: 0.85-1.0}
+  auto_flag_for_human_review_if:
+    confidence_below: 0.7
+    field_in: [
+      singapore_visa_immigration_profile.mom_application_details.complementarity_assessment_framework_score,
+      compensation_benchmarks.cpf_contributions,
+      singapore_regulatory_compliance.mas_licensing.cmfas_modules_passed
+    ]
+  singapore_specific_confidence_signals:
+    mom_website_reference: +0.2  # Candidate cites mom.gov.sg
+    mas_guideline_mention: +0.2  # Reference to MAS TRM/FEAT
+    cpf_board_mention: +0.1  # Reference to cpf.gov.sg
+    outdated_visa_info: -0.3  # e.g., references pre-2023 EP rules
+
+vocabulary_versioning:
+  singapore_visa_immigration_profile.current_visa_type:
+    current_version: "2025.1-MOM"
+    allowed_values: [Employment Pass, Tech.Pass, S Pass, ONE Pass, EntrePass, Dependent Pass, Long Term Visit Pass, Student Pass, Permanent Resident, Singapore Citizen]
+    last_updated: "2025-03-01"
+    changelog_url: "https://internal/wiki/sg-visa-enum-updates"
+    mom_update_frequency: "Quarterly"
+    
+  singapore_regulatory_compliance.mas_licensing.cmfas_modules_passed:
+    current_version: "2025.1-IBF"
+    allowed_values: [M1, M2, M3, M4, M5, M6, M7, M8, M9, M9A, M9B, HI, FMRP, BCP]
+    last_updated: "2025-02-15"
+    ibf_update_frequency: "Annual"
+
+cross_field_validation:
+  - rule_id: "SG-VISA-001"
+    description: "COMPASS score only applicable to Employment Pass applications"
+    logic: "IF singapore_visa_immigration_profile.current_visa_type != 'Employment Pass' THEN complementarity_assessment_framework_score MUST be null or 'not_applicable'"
+    action_on_failure: "auto_clear_field_and_log_warning"
+    
+  - rule_id: "SG-CPF-001"
+    description: "CPF contributions only applicable to Citizens/PRs"
+    logic: "IF candidate_profile.singapore_residency_status not in [citizen, pr] THEN compensation_benchmarks.cpf_contributions MUST be null"
+    action_on_failure: "flag_for_counselor_review"
+    
+  - rule_id: "SG-MAS-001"
+    description: "CMFAS modules only required for MAS-regulated roles"
+    logic: "IF career_trajectory.current_role.mas_regulated_role == false THEN singapore_regulatory_compliance.mas_licensing.cmfas_modules_passed MUST be empty"
+    action_on_failure: "suggest_field_correction"
+    
+  - rule_id: "SG-PR-001"
+    description: "Citizenship eligibility requires PR status + 2 years residence"
+    logic: "IF singapore_visa_immigration_profile.pr_citizenship_pathway.citizenship_eligible_date IS NOT null THEN singapore_visa_immigration_profile.pr_citizenship_pathway.pr_approval_date MUST be <= (citizenship_eligible_date - 2 years)"
+    action_on_failure: "flag_for_counselor_verification"
+
+extraction_prompt_templates:
+  sg_visa_detection: |
+    Extract Singapore visa/immigration details from career conversations.
+    Identify: visa type (EP, Tech.Pass, S Pass, ONE Pass, PR, Citizenship), MOM application details, COMPASS framework references, PR/citizenship timeline.
+    Normalize visa types to MOM taxonomy. Flag employer-tied constraints, grace periods, renewal requirements.
+    Return: {visa_type, status, mom_details: {application_date, approval_date, processing_time, compass_score}, constraints: [string], pr_timeline: {applied, approved, citizenship_eligible}}
+    
+  sg_compensation_detection: |
+    Extract Singapore compensation details. Normalize to SGD annual base salary.
+    Identify: base salary, bonus structure, AWS months, CPF eligibility (citizen/PR vs. foreigner), equity components.
+    Flag if compensation includes CPF employer contribution (affects total comp calculation).
+    For VC/PE roles, extract carry structure with SGD estimates and Singapore tax treatment.
+    Return: {base_sgd, bonus: {target_pct, aws_months}, cpf: {employee_pct, employer_pct, eligible}, equity: {type, value_sgd, tax_treatment}, total_comp_range}
+    
+  sg_regulatory_detection: |
+    Extract MAS regulatory context from finance career conversations.
+    Identify: MAS license type (CMS, FA, Bank), CMFAS modules passed, fit-and-proper status, regulatory project exposure (TRM, FEAT, AML/CFT).
+    Flag if role requires CMFAS certification or MAS approval.
+    Return: {license_type, cmfas_modules: [string], fit_and_proper_status, regulatory_frameworks: [string]}
+    
+  apac_mobility_detection: |
+    Extract APAC regional mobility details from Singapore-based career conversations.
+    Identify: regional coverage countries, cross-border visa requirements, travel frequency, cultural competency.
+    Map country-specific visa requirements: e.g., "India business visa 6-12 weeks", "Malaysia no visa for SG citizens".
+    Return: {regional_coverage: [string], cross_border_visas: [{country, visa_type, processing_time}], travel_frequency, cultural_competency: [{market, language, etiquette}]}
+
+singapore_specific_extraction_rules:
+  currency_normalization:
+    default_currency: SGD
+    conversion_source: "MAS exchange rates (monthly average)"
+    historical_conversion_required: true  # For compensation benchmarks across years
+  date_format:
+    preferred: "DD MMM YYYY"  # Singapore convention (e.g., "10 Mar 2025")
+    iso_fallback: true
+  compensation_benchmark_sources:
+    preferred: [IBF Salary Guide, Momentum Survey, alumni report, firm disclosure]
+    deprecated: [Glassdoor SG, generic global surveys]  # Less reliable for SG context
+  regulatory_reference_priority:
+    1: "mas.gov.sg"
+    2: "mom.gov.sg"
+    3: "cpf.gov.sg"
+    4: "edb.gov.sg"
+    5: "ibf.org.sg"
