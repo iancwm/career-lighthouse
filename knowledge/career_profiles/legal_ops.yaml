@@ -1,0 +1,43 @@
+track_name: Legal Operations
+match_description: Niche specialty for law graduates interested in operational and
+  technology aspects of legal departments rather than pure legal practice. Suits candidates
+  with interest in process improvement, legal technology, and in-house environments.
+match_keywords:
+- legal operations
+- contract management
+- e-discovery
+- litigation hold
+- document management
+- SOP drafting
+- legal tech
+- in-house legal
+- GC office
+- law firm operations
+ep_sponsorship: Available at private sector employers (fintechs, law firms, MNCs).
+  Not applicable for government roles.
+top_employers_smu:
+- stripe_singapore
+- freshfields_bruckhaus_deringer
+- ao_shearman
+recruiting_timeline: Rolling; supply extremely constrained (~50 professionals in Singapore).
+  Employers upskill internally or poach from law firm legal departments and GC offices.
+international_realistic: Yes, at private sector employers with EP sponsorship.
+entry_paths:
+- Legal Ops Coordinator at MNC or fintech
+- Paralegal/Legal Assistant at law firm transitioning to ops role
+- Contract management specialist at GC office
+salary_range_2024: 'Legal Ops Coordinator: SGD 80–120K; Legal Ops Specialist: SGD
+  110–160K. Niche market with only ~50 dedicated legal ops professionals in Singapore
+  as of 2025.'
+typical_background: Law degree or paralegal qualification; experience with e-discovery
+  tools, contract management systems, document management platforms. Technical skills
+  (SQL, Tableau, SIEM) increasingly valued.
+counselor_contact: Dr. Patricia Lim, Career Counselor - Law & Governance
+notes: 'Stripe hired 2 legal ops specialists from Freshfields Bruckhaus Deringer and
+  A&O Shearman Sterling. Supply constraint means strong candidates can command premium.
+  Upskilling path: law graduates can transition from compliance or paralegal roles.
+  Distinct from fintech_compliance track but often co-located in same legal/compliance
+  department at fintechs.'
+structured:
+  salary_min_sgd: 80000
+  salary_max_sgd: 120000

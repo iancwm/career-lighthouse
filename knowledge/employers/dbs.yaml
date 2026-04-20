@@ -5,6 +5,7 @@ tracks:
 - tech_product
 - project_management
 - sustainability_esg
+- fintech_compliance
 ep_requirement: Will sponsor
 intake_seasons:
 - rolling
@@ -13,14 +14,12 @@ application_process: Entry via BA or Scrum Master roles (not direct PM). Computi
   degree or IT-related background required. 3–5 years experience typical. DBS Academy
   internal PM certification path common.
 counsellor_contact: Atina
-last_updated: '2026-04-19'
-notes: DBS offers a formal sabbatical/career break arrangement (up to 2 years) that
-  allows mid-career employees to pursue full-time reskilling programs such as SMU
-  MITB without full career exit. Alumni Jensen Seah (wealth management, AVP level)
-  used this pathway in 2021 to complete MITB full-time before pivoting to crypto BD
-  at Crypto.com. Equity and pension preservation during sabbatical may be possible
-  — advise students to negotiate terms before departure. This pathway is relevant
-  for DBS employees considering fintech, crypto, or tech pivots.
+last_updated: '2026-04-20'
+notes: DBS compliance team is a recommended first employer for students targeting
+  fintech compliance careers. Bank AML programs are more mature and audited than fintech
+  equivalents; 2–3 years at DBS compliance builds unassailable credibility before
+  moving to fintech. DBS compliance talent is actively recruited by Stripe, Wise,
+  Revolut, and crypto exchanges. Existing card updated to add fintech_compliance track.
 headcount_estimate: '15–20 PM/BA roles/year; 70% internal promotion from analyst pool,
   30% external (consulting: Accenture, Infosys; fintech: Grab)'
 counselor_contact: 'Dr. Suresh Kumar. Alumni contact: Sophia Lim (NUS Computing ''18),
