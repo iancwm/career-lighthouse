@@ -81,7 +81,7 @@ function CreateTrackFromSession({ sessionId, rawInput, actionLoading, setActionL
     setError("")
     setNotice("")
     try {
-      const res = await fetch(`/api/kb/draft-tracks/generate`, {
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({

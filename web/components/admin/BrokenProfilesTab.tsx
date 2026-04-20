@@ -20,7 +20,7 @@ export default function BrokenProfilesTab() {
 
   async function loadBroken() {
     try {
-      const res = await fetch(`/api/kb/career-profiles/broken`)
+      const res = await fetch(`${API_URL}/api/kb/career-profiles/broken`)
       if (!res.ok) throw new Error("failed")
       const data: BrokenProfile[] = await res.json()
       setBroken(data)
@@ -38,7 +38,7 @@ export default function BrokenProfilesTab() {
     setError("")
     setNotice("")
     try {
-      const res = await fetch(`/api/kb/career-profiles/${slug}/auto-complete`, {
+      const res = await fetch(`${API_URL}/api/kb/career-profiles/${slug}/auto-complete`, {
         method: "POST",
       })
       if (!res.ok) {

@@ -135,8 +135,8 @@ export default function TrackBuilderTab({
     setError("")
     try {
       const [draftRes, trackRes] = await Promise.all([
-        fetch(`/api/kb/draft-tracks`),
-        fetch(`/api/kb/tracks`),
+        fetch(`${API_URL}/api/kb/draft-tracks`),
+        fetch(`${API_URL}/api/kb/tracks`),
       ])
       if (!draftRes.ok || !trackRes.ok) throw new Error("load failed")
       const [draftData, trackData]: [DraftTrackDetail[], TrackRegistryEntry[]] = await Promise.all([
@@ -177,7 +177,7 @@ export default function TrackBuilderTab({
     let cancelled = false
     setPublishedLoading(true)
     setPublishedError("")
-    fetch(`/api/kb/tracks/${selectedSlug}`)
+    fetch(`${API_URL}/api/kb/tracks/${selectedSlug}`)
       .then((r) => {
         if (!r.ok) throw new Error("published track fetch failed")
         return r.json()
@@ -201,7 +201,7 @@ export default function TrackBuilderTab({
       setHistory([])
       return
     }
-    fetch(`/api/kb/tracks/${selectedSlug}/history`)
+    fetch(`${API_URL}/api/kb/tracks/${selectedSlug}/history`)
       .then((r) => {
         if (!r.ok) throw new Error("history failed")
         return r.json()
@@ -221,8 +221,8 @@ export default function TrackBuilderTab({
     const payload = { ...form }
     const method = selectedSlug ? "PUT" : "POST"
     const url = selectedSlug
-      ? `/api/kb/draft-tracks/${selectedSlug}`
-      : `/api/kb/draft-tracks`
+      ? `${API_URL}/api/kb/draft-tracks/${selectedSlug}`
+      : `${API_URL}/api/kb/draft-tracks`
     try {
       const res = await fetch(url, {
         method,
@@ -246,7 +246,7 @@ export default function TrackBuilderTab({
     setError("")
     setNotice("")
     try {
-      const res = await fetch(`/api/kb/draft-tracks/${selectedSlug}/publish`, {
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/${selectedSlug}/publish`, {
         method: "POST",
       })
       if (!res.ok) throw new Error("publish failed")
@@ -265,7 +265,7 @@ export default function TrackBuilderTab({
     setError("")
     setNotice("")
     try {
-      const res = await fetch(`/api/kb/tracks/${selectedSlug}/rollback`, {
+      const res = await fetch(`${API_URL}/api/kb/tracks/${selectedSlug}/rollback`, {
         method: "POST",
       })
       if (!res.ok) throw new Error("rollback failed")
@@ -293,7 +293,7 @@ export default function TrackBuilderTab({
         payload.append("source_type", "note")
         payload.append("text", sourceText.trim())
       }
-      const res = await fetch(`/api/kb/draft-tracks/generate`, {
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/generate`, {
         method: "POST",
         body: payload,
       })
@@ -324,7 +324,7 @@ export default function TrackBuilderTab({
         payload.append("source_type", "note")
         payload.append("text", sourceText.trim())
       }
-      const res = await fetch(`/api/kb/draft-tracks/${selectedSlug}/generate-update`, {
+      const res = await fetch(`${API_URL}/api/kb/draft-tracks/${selectedSlug}/generate-update`, {
         method: "POST",
         body: payload,
       })
