@@ -1384,7 +1384,7 @@ async def extract_facts_from_employer_notes(
     if not _slug_is_safe(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
 
-    emp = employer_store.get(slug)
+    emp = employer_store.get_employer(slug)
     if not emp:
         raise HTTPException(status_code=404, detail=f"Employer '{slug}' not found.")
 
