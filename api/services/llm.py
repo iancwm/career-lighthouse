@@ -299,9 +299,17 @@ def _extract_json_block(text: str) -> str:
     arr_start = text.find("[")
     arr_end = text.rfind("]")
 
-    if obj_start != -1 and obj_end != -1 and obj_end > obj_start:
+    has_obj = obj_start != -1 and obj_end != -1 and obj_end > obj_start
+    has_arr = arr_start != -1 and arr_end != -1 and arr_end > arr_start
+
+    if has_obj and has_arr:
+        # Return whichever bracket opens first (outermost structure)
+        if arr_start < obj_start:
+            return text[arr_start:arr_end + 1].strip()
         return text[obj_start:obj_end + 1].strip()
-    if arr_start != -1 and arr_end != -1 and arr_end > arr_start:
+    if has_obj:
+        return text[obj_start:obj_end + 1].strip()
+    if has_arr:
         return text[arr_start:arr_end + 1].strip()
     return text
 
