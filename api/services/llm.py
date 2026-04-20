@@ -336,7 +336,7 @@ def _repair_json_output(
     timeout_seconds: float | None = None,
     trace_metadata: dict[str, object] | None = None,
     max_retries: int | None = 2,
-) -> dict:
+) -> dict | list:
     if not _json_repair_enabled():
         raise ValueError(f"{schema_name} JSON repair is disabled")
 
@@ -381,10 +381,10 @@ def _repair_json_output(
             repair_source = repaired_text
             continue
 
-        if isinstance(repaired, dict):
+        if isinstance(repaired, (dict, list)):
             return repaired
 
-        last_error = ValueError(f"{schema_name} repair did not return a JSON object")
+        last_error = ValueError(f"{schema_name} repair did not return a JSON object or array")
         parse_error_text = str(last_error)
         repair_source = _json_dumps_safe(repaired)
 
