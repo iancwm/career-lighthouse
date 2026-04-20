@@ -1442,7 +1442,7 @@ async def extract_facts_from_prose(notes: str, employer_name: str = "employer") 
     if not notes or not notes.strip():
         return []
 
-    client = _client()
+    client = get_client()
     prompt = f"""You are extracting structured facts about an employer from counselor notes.
 
 Notes:
