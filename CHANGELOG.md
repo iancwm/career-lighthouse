@@ -4,11 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5.3] - 2026-04-20
+
 ### Added
+- **Langfuse-first observability**: the admin Trace Explorer now reads live Langfuse sessions first and only falls back to local JSONL when Langfuse is unavailable, so the app and observability stack share the same source of truth.
 - **Track Builder self-healing sync**: the draft store now backfills missing draft files from valid published profiles and keeps the track registry aligned, so tracks that were added through another workflow still appear in Track Builder.
 
 ### Fixed
-- **Session-intent payload validation**: intent cards are now validated with Pydantic before analyze/commit writes, which rejects list values in scalar fields and surfaces bad card payloads as fast 422s instead of letting them reach YAML writes.
+- **Session-analysis repair retries**: transient Anthropic overloads in the structured JSON repair path now retry instead of collapsing into an empty result, which stopped the MAS session replay from failing on a one-off 529.
+- **Intent-card payload alignment**: session-analysis card validation now accepts the payload shapes the model actually emits, including numeric employer headcounts and descriptive `international_realistic` text for track cards.
 
 ## [0.1.5.2] - 2026-04-19
 

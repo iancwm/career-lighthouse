@@ -15,7 +15,7 @@ per-endpoint decorators now enforce tighter budgets to protect Anthropic API quo
 
 ### Session-analysis timeout handling
 **What:** Tune `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` via env vars, and add a better non-blocking execution model when session analysis still exceeds the budget.
-**Why:** The timeout is now configurable, and Langfuse confirms the request stays alive while it waits, but long notes can still hit `504 Gateway Timeout` and occupy the user's session flow until they fail.
+**Why:** The timeout is now configurable, Langfuse confirms the request stays alive while it waits, and the structured JSON repair path now retries transient overloads. Long notes can still hit `504 Gateway Timeout` and occupy the user's session flow until they fail.
 **Depends on:** None.
 
 ### FastAPI auth on KB endpoints

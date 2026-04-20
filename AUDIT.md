@@ -1,9 +1,9 @@
 # Production Readiness Audit
-**Repository:** career-lighthouse  **Version:** 0.1.5.2  **Date:** 2026-04-19
+**Repository:** career-lighthouse  **Version:** 0.1.5.3  **Date:** 2026-04-20
 
 ---
 
-## Changelog since v0.1.5.1 (2026-04-14)
+## Changelog since v0.1.5.2 (2026-04-19)
 
 | Spec | Change | Status |
 |------|--------|--------|
@@ -14,6 +14,7 @@
 | Spec 6 | LLM observability — structured trace logging, live session state, session-scoped Langfuse export, and an admin Trace Explorer | **IMPROVED** |
 | Spec 7 | Session analysis tuning — env-driven timeout and multi-pass chunking thresholds | **IMPROVED** |
 | Spec 8 | Session-intent cleanup — JSON-only extraction, retired `<thought>` plumbing, and removed dead `thought` fields from session models/router/tests | **FIXED** |
+| Spec 9 | Session-analysis schema hardening — Langfuse-first trace reads, transient repair retries, and intent-card payload type alignment | **FIXED** |
 
 ---
 
@@ -31,7 +32,7 @@
 | A06 | Vulnerable Components | Acceptable | All major deps current as of 2026-04; no known CVEs in lockfiles; no SBOM or automated audit in CI |
 | A07 | Auth Failures | **FIXED** | Defence-in-depth: FastAPI `Depends(require_admin_key)` + Next.js middleware both enforce `ADMIN_KEY` |
 | A08 | Software/Data Integrity | Gap | No SBOM; no supply-chain scan (Trivy/Grype) in CI/CD pipeline |
-| A09 | Logging & Monitoring | **IMPROVED** | Query log functional; structured LLM lifecycle traces now land in JSONL and Langfuse with `session_id` grouping, live Trace Explorer, and background flushes; no alert thresholds or centralized APM yet |
+| A09 | Logging & Monitoring | **IMPROVED** | Query log functional; structured LLM lifecycle traces now land in JSONL and Langfuse with `session_id` grouping, live Trace Explorer, and background flushes. The Trace Explorer reads Langfuse first and falls back to JSONL only when Langfuse is unavailable; no alert thresholds or centralized APM yet |
 | A10 | SSRF | Low risk | No user-supplied URLs processed; Anthropic API calls use hardcoded SDK endpoints |
 
 ### Remaining Threat Vectors
@@ -40,7 +41,7 @@
 Per-endpoint `@limiter.limit()` decorators now enforce 10 req/min on `POST /api/chat` and 5 req/min on `POST /api/ingest` and `POST /api/brief`. The `slowapi` token-bucket limiter was already wired globally in `main.py`; these decorators add tighter per-endpoint budgets. Remaining gap: no ALB WAF rate rule as an outer layer — add for production hardening.
 
 **LLM request timeout — still user-visible**
-LLM calls now use configurable timeouts, and the live UI immediately shows `started`/`error` traces when a request hangs, but session analysis and brief generation can still hit `504 Gateway Timeout` when the note is large or the Anthropic call is slow. The remaining gap is the model call itself, not the tracing path. The observability stack now proves that the request is alive while it is waiting.
+LLM calls now use configurable timeouts, and the live UI immediately shows `started`/`error` traces when a request hangs, but session analysis and brief generation can still hit `504 Gateway Timeout` when the note is large or the Anthropic call is slow. The remaining gap is the model call itself, not the tracing path. The observability stack now proves that the request is alive while it is waiting, and Langfuse is now the first place we look for trace truth.
 
 **Prompt injection surface — FIXED**
 `api/utils/sanitization.py` (`sanitize_for_prompt`) is now applied to every chunk in `ingestion.prepare_document()` before embedding and storage. It removes angle-bracket directives (`<|...|>`, `<...>`) and redacts known jailbreak phrases (`ignore previous instructions`, `system prompt override`, etc.). Remaining gap: career context and employer facts injected into the live chat prompt are not yet sanitized at the call site in `llm.py` — those values come from counsellor-authored YAMLs (lower risk) but should receive the same treatment as a follow-up. Content moderation pre-pass (e.g. Azure Content Safety) not yet added.
