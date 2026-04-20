@@ -26,7 +26,7 @@ from pydantic import BaseModel, ValidationError
 
 from config import settings
 from services.ingestion import chunk_text
-from models import KBAnalysisResult, DraftTrackDetail
+from models import KBAnalysisResult, DraftTrackDetail, Fact
 
 logger = logging.getLogger(__name__)
 from cfg import model_cfg, kb_cfg, prompts_cfg
@@ -1501,7 +1501,6 @@ Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
                 facts_raw = []
 
         # Validate each fact against Fact model
-        from models import Fact
         validated_facts = []
         for f in facts_raw:
             try:
