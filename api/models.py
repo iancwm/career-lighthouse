@@ -311,6 +311,7 @@ class EmployerDetail(BaseModel):
     counsellor_contact: str | None = None
     notes: str | None = None
     structured: dict[str, Any] = {}
+    source_documents: list[dict[str, Any]] = []
     last_updated: str | None = None
     completeness: str = "amber"  # computed by server: "green" | "amber"
 
