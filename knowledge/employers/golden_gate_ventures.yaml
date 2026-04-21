@@ -13,7 +13,7 @@ notes: 'Compensation by level (GGV, Singapore, 2024): Analyst (pre-MBA) — SGD 
   3x fund return = ~SGD 5.5M over 10-year hold. Partner track (2–3% carry) potential
   SGD 10M+. MBA inflects compensation +60% (Analyst SGD 80K → Associate SGD 130K)
   and unlocks carry.'
-last_updated: '2026-04-13'
+last_updated: '2026-04-21'
 ep_requirement: EP sponsorship available for junior roles (Analyst/Associate). EP
   is 2-year validity, employer-sponsored; visa tied to employer. Tech.Pass transition
   expected post-promotion when salary exceeds SGD 30K/month (self-sponsored, 5-year
@@ -31,3 +31,179 @@ intake_seasons:
 counselor_contact: Isabella Chen — VP Investments, GGV. SMU MBA 2020. Canadian national,
   Singapore PR (Feb 2024). Available for mentoring and speaking engagements. Contact
   via Mr. Vikram Nair.
+singapore_headcount_estimate: null
+counsellor_contact: null
+structured:
+  facts:
+  - slug: ggv-compensation-analyst
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-analyst
+      type: compensation
+      phase_name: Analyst (pre-MBA) compensation
+      value: SGD 80K base + 10–20% bonus, no carry
+      role_type: analyst
+      base_salary_sgd: 80000
+      bonus_pct_low: 10
+      bonus_pct_high: 20
+      carry: false
+      location: Singapore
+      year: 2024
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-compensation-associate
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-associate
+      type: compensation
+      phase_name: Associate (post-MBA) compensation
+      value: SGD 130K base + 20–40% bonus + 0.25–0.5% carry
+      role_type: associate
+      base_salary_sgd: 130000
+      bonus_pct_low: 20
+      bonus_pct_high: 40
+      carry_pct_low: 0.25
+      carry_pct_high: 0.5
+      location: Singapore
+      year: 2024
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-compensation-senior-associate
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-senior-associate
+      type: compensation
+      phase_name: Senior Associate compensation
+      value: SGD 160K base + 30–50% bonus + 0.5–1% carry
+      role_type: senior_associate
+      base_salary_sgd: 160000
+      bonus_pct_low: 30
+      bonus_pct_high: 50
+      carry_pct_low: 0.5
+      carry_pct_high: 1
+      location: Singapore
+      year: 2024
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-compensation-vp
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-vp
+      type: compensation
+      phase_name: VP compensation
+      value: SGD 200K base + 40–60% bonus + 1–1.5% carry (Fund V) + Fund VI carry
+        TBD
+      role_type: vp
+      base_salary_sgd: 200000
+      bonus_pct_low: 40
+      bonus_pct_high: 60
+      carry_pct_low: 1
+      carry_pct_high: 1.5
+      carry_fund: Fund V
+      carry_fund_next: Fund VI TBD
+      location: Singapore
+      year: 2024
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-compensation-vp-carry-longterm
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-vp-carry-longterm
+      type: compensation
+      phase_name: VP carry long-term value estimate
+      value: VP 1–1.5% carry on Fund V ~SGD 300K/year on deployment; 3x fund return
+        = ~SGD 5.5M over 10-year hold
+      role_type: vp
+      carry_annual_est_sgd: 300000
+      carry_total_est_sgd: 5500000
+      fund_return_multiple: 3
+      hold_period_years: 10
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-compensation-partner-carry
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-partner-carry
+      type: compensation
+      phase_name: Partner track carry estimate
+      value: Partner track 2–3% carry, potential SGD 10M+
+      role_type: partner
+      carry_pct_low: 2
+      carry_pct_high: 3
+      carry_total_est_sgd_min: 10000000
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-skill-mba-inflection
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-skill-mba-inflection
+      type: skill_requirement
+      phase_name: MBA as compensation and carry unlock
+      value: MBA inflects compensation +60% (Analyst SGD 80K → Associate SGD 130K)
+        and unlocks carry
+      role_type: associate
+      credential: MBA
+      compensation_inflection_pct: 60
+      unlocks_carry: true
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+  - slug: ggv-compensation-carry-wealth-driver
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: ggv-compensation-carry-wealth-driver
+      type: compensation
+      phase_name: Carry as primary long-term wealth driver
+      value: Carry is primary long-term wealth driver across all carry-eligible levels
+      role_type: all_carry_levels
+      notes: Carry begins at Associate level (0.25–0.5%) and scales to Partner (2–3%)
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+source_documents: []

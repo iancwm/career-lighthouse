@@ -265,6 +265,57 @@ class TestToContextBlock:
         assert "=== EMPLOYER FACTS" in block
         assert "=== END EMPLOYER FACTS ===" in block
 
+    def test_structured_facts_are_included_in_context_block(self, employers_dir, monkeypatch):
+        (employers_dir / "crypto_like.yaml").write_text(textwrap.dedent("""\
+            employer_name: Crypto Like
+            slug: crypto_like
+            tracks:
+              - crypto_bd
+            ep_requirement: EP3
+            intake_seasons:
+              - rolling
+            structured:
+              facts:
+                - slug: crypto-like-comp-token-structure
+                  type: compensation
+                  data:
+                    slug: crypto-like-comp-token-structure
+                    type: compensation
+                    phase_name: Token grants as compensation component
+                    value: CRONOS token grants included as part of total compensation package
+                    role_type: all_roles
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block("crypto_bd")
+        assert "Structured facts:" in block
+        assert "compensation | crypto-like-comp-token-structure" in block
+        assert "Token grants as compensation component" in block
+        assert "CRONOS token grants included" in block
+
+    def test_structured_fact_without_key_field_uses_unnamed_fallback(self, employers_dir, monkeypatch):
+        (employers_dir / "fallback.yaml").write_text(textwrap.dedent("""\
+            employer_name: Fallback Corp
+            slug: fallback
+            tracks:
+              - investment_banking
+            structured:
+              facts:
+                - slug: fallback-fact
+                  type: mystery_fact
+                  data:
+                    slug: fallback-fact
+                    type: mystery_fact
+                    confidence: 80
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block("investment_banking")
+        assert "Fallback Corp" in block
+        assert "mystery_fact | fallback-fact | (unnamed)" in block
+
 
 # ---------------------------------------------------------------------------
 # EmployerEntityStore.to_context_block() — profile_top_employers injection

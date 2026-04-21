@@ -29,6 +29,8 @@ _COMPLETENESS_REQUIRED: frozenset = frozenset(kb_cfg["employers"]["completeness_
 
 # Fields writable via commit-analysis (allowlist prevents hallucinated field writes)
 ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset(kb_cfg["employers"]["allowed_update_fields"])
+_FACTS_PREVIEW_LIMIT = 6
+_FACT_PREVIEW_CHARS = 120
 
 
 def _as_list(value) -> list:
@@ -105,6 +107,7 @@ def employer_to_context_block(employer: dict, max_notes: int = None, max_process
     notes = str(employer.get("notes") or "").strip()
     if len(notes) > max_notes:
         notes = notes[:max_notes] + "..."
+    facts = _format_structured_facts(employer.get("structured") or {})
 
     lines = [
         f"  {name}:",
@@ -116,7 +119,88 @@ def employer_to_context_block(employer: dict, max_notes: int = None, max_process
         lines.append(f"    Application: {process}")
     if notes:
         lines.append(f"    Notes: {notes}")
+    if facts:
+        lines.append("    Structured facts:")
+        lines.extend(f"      - {fact}" for fact in facts)
     return "\n".join(lines)
+
+
+def _fact_payload(fact: object) -> dict:
+    if not isinstance(fact, dict):
+        return {}
+    payload = fact.get("data")
+    if isinstance(payload, dict):
+        return payload
+    return fact
+
+
+def _fact_key_field(fact: dict) -> str:
+    payload = _fact_payload(fact)
+    fact_type = str(fact.get("type") or payload.get("type") or "").strip()
+    candidates: list[str] = []
+    if fact_type == "alumni":
+        candidates = ["full_name", "name"]
+    elif fact_type == "timeline_phase":
+        candidates = ["phase_name", "name"]
+    elif fact_type == "interview_stage":
+        candidates = ["name", "phase_name"]
+    elif fact_type == "compensation":
+        candidates = ["role_level", "phase_name"]
+    elif fact_type == "skill_requirement":
+        candidates = ["phase_name", "name"]
+
+    for key in candidates:
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    for key in ("value", "summary", "description", "notes"):
+        value = payload.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return ""
+
+
+def _format_structured_fact(fact: object) -> str:
+    if not isinstance(fact, dict):
+        return str(fact)
+
+    slug = str(fact.get("slug") or _fact_payload(fact).get("slug") or "").strip()
+    fact_type = str(fact.get("type") or _fact_payload(fact).get("type") or "fact").strip()
+    key_field = _fact_key_field(fact)
+    preview_parts = [fact_type]
+    if slug:
+        preview_parts.append(slug)
+    if key_field:
+        preview_parts.append(key_field)
+    else:
+        preview_parts.append("(unnamed)")
+
+    payload = _fact_payload(fact)
+    detail_candidates = [
+        payload.get("value"),
+        payload.get("notes"),
+        payload.get("reason"),
+        payload.get("description"),
+    ]
+    detail = next((str(value).strip() for value in detail_candidates if isinstance(value, str) and str(value).strip()), "")
+    if detail and detail not in preview_parts:
+        preview_parts.append(detail)
+
+    preview = " | ".join(preview_parts)
+    if len(preview) > _FACT_PREVIEW_CHARS:
+        preview = preview[: _FACT_PREVIEW_CHARS - 1].rstrip() + "…"
+    return preview
+
+
+def _format_structured_facts(structured: dict) -> list[str]:
+    facts = structured.get("facts") if isinstance(structured, dict) else None
+    if not isinstance(facts, list) or not facts:
+        return []
+    lines = [_format_structured_fact(fact) for fact in facts[:_FACTS_PREVIEW_LIMIT]]
+    remaining = len(facts) - len(lines)
+    if remaining > 0:
+        lines.append(f"... and {remaining} more fact(s)")
+    return lines
 
 
 def _normalized_terms(text: str) -> set[str]:

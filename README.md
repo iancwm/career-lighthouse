@@ -108,7 +108,7 @@ The career office dashboard (`/admin`) includes:
 - **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Session extraction now emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so scalar fields stay scalar and bad payloads fail fast instead of leaking into YAML writes.
 - **Knowledge Review** — structured review of proposed KB edits before anything is written.
 - **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
-- **Employer Facts** — maintain employer YAMLs and review track coverage for employer context.
+- **Employer Facts** — maintain employer YAMLs, review track coverage for employer context, and inspect the full extracted fact `data` payload before saving structured updates.
 - **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile. If a published track exists but the draft copy is missing, the builder now seeds the draft and registry automatically so the track stays editable instead of disappearing from the editor.
 - **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection.
 - **LLM Observability** — session and prompt traces, live run state, a dedicated Trace Explorer that reads Langfuse first, and optional Langfuse-backed debugging for model calls.
@@ -139,7 +139,7 @@ The career office dashboard (`/admin`) includes:
 - **Frontend**: Next.js 14
 - **Configuration**: All thresholds, prompts, and model settings externalized to YAML files in `api/cfg/` — tunable without code changes
 - **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code. Legacy slugs are canonicalized on read and write, so old `data_science` payloads migrate to `dsai` automatically.
-- **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI
+- **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI. Structured fact previews from `structured.facts` are also rendered in the admin UI and included in the employer context block so extracted data can influence answers immediately.
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)
 - **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, Langfuse is the primary observability source for trace exploration, and the admin Trace Explorer reads Langfuse sessions first with JSONL fallback only when Langfuse is unavailable. Session runs group correctly once `session_id` is propagated. In Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path. Session intents are now JSON-only, with the old `<thought>` response plumbing removed from the backend contract.
 - **Live timeout visibility**: session analysis and brief generation can still hit the Anthropic timeout under long or expensive requests, but the request now shows a `started` trace immediately and a matching `error` trace if the model times out. The repair path also retries transient overloads, so a one-off 529 no longer turns into a blank session. Wildly better than staring at a blank spinner.
@@ -167,6 +167,7 @@ That means:
 Important distinction:
 
 - Admin edits to employer facts and career profile YAML fields are written back to `knowledge/...`
+- Extracted employer facts are saved under `structured.facts` in the relevant employer YAML and are shown in the admin fact cards and extraction modal before commit
 - Uploaded documents from the Knowledge Base tab are not saved as files under `knowledge/`; they are chunked, embedded, and stored in Qdrant
 
 So if you upload a PDF or TXT and then look in `knowledge/`, you will not see a new file there. The source document becomes vector-store data, not a repo file.

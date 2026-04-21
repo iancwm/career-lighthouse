@@ -1,5 +1,6 @@
 "use client"
 import { useState } from "react"
+import FactDataView from "../forms/FactDataView"
 
 interface Fact {
   slug: string
@@ -147,6 +148,7 @@ export default function ExtractedFactsModal({
                             <code className="font-mono text-xs text-gray-600 truncate">{fact.slug}</code>
                             <span className="text-xs text-gray-500">{getKeyField(fact)}</span>
                           </div>
+                          <FactDataView data={fact.data} className="mt-2" />
                           <p className="text-xs text-gray-500">Confidence: {fact.confidence}%</p>
                         </div>
                       </label>
@@ -176,6 +178,7 @@ export default function ExtractedFactsModal({
                             <code className="font-mono text-xs text-gray-600 truncate">{fact.slug}</code>
                             <span className="text-xs text-gray-500">{getKeyField(fact)}</span>
                           </div>
+                          <FactDataView data={fact.data} className="mt-2" />
                           <p className="text-xs text-gray-500">Confidence: {fact.confidence}%</p>
                         </div>
                       </div>

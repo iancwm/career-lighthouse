@@ -1,5 +1,7 @@
 "use client"
 
+import FactDataView from "./FactDataView"
+
 interface Fact {
   slug: string
   type: string
@@ -66,6 +68,7 @@ export default function FactCard({ fact, onDelete }: FactCardProps) {
           <code className="text-xs font-mono text-gray-600 truncate">{fact.slug}</code>
           <span className="text-xs text-gray-500">{keyField}</span>
         </div>
+        <FactDataView data={fact.data} className="mt-2" />
         <div className="flex items-center gap-3 text-xs">
           <span className="text-gray-500">Confidence: <span className="font-semibold text-gray-700">{fact.confidence}%</span></span>
           <span className="text-gray-400">{new Date(fact.timestamp).toLocaleDateString()}</span>

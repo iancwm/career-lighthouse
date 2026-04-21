@@ -13,4 +13,97 @@ counsellor_contact: '[TODO: Fill in SMU career centre contact for McKinsey track
 notes: SMU Business and Lee Kong Chian alumni placed regularly. Case prep critical
   — recommend Victor Cheng framework. McKinsey SEA office covers Singapore, Malaysia,
   Indonesia; regional mobility possible after 2 years.
-last_updated: '2026-04-11'
+last_updated: '2026-04-21'
+structured:
+  facts:
+  - slug: mckinsey-smu-business-alumni
+    type: alumni
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    deleted: false
+    data:
+      slug: mckinsey-smu-business-alumni
+      type: alumni
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 80
+      data:
+        phase_name: Alumni placement
+        value: SMU Business alumni placed regularly at McKinsey
+        school: SMU Business
+        role_type: general
+  - slug: mckinsey-lee-kong-chian-alumni
+    type: alumni
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    deleted: false
+    data:
+      slug: mckinsey-lee-kong-chian-alumni
+      type: alumni
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 80
+      data:
+        phase_name: Alumni placement
+        value: Lee Kong Chian alumni placed regularly at McKinsey
+        school: Lee Kong Chian School of Business
+        role_type: general
+  - slug: mckinsey-interview-case-prep
+    type: interview_stage
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: mckinsey-interview-case-prep
+      type: interview_stage
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: Case interview preparation
+        value: Case prep critical; Victor Cheng framework recommended
+        format: case_interview
+        framework: Victor Cheng
+  - slug: mckinsey-sea-regional-mobility
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: mckinsey-sea-regional-mobility
+      type: skill_requirement
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: Regional mobility eligibility
+        value: Regional mobility across Singapore, Malaysia, Indonesia possible after
+          2 years in SEA office
+        role_type: consultant
+        duration_days: 730
+  - slug: mckinsey-sea-office-coverage
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: mckinsey-sea-office-coverage
+      type: skill_requirement
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: SEA office scope
+        value: McKinsey SEA office covers Singapore, Malaysia, and Indonesia
+        role_type: general
+source_documents: []
