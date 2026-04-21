@@ -8,11 +8,41 @@ default:
 
 # Build and start all services, including Langfuse (uses Docker layer cache for fast rebuilds)
 up:
+    just langfuse-install
     docker compose --profile langfuse up --build
 
 # Start just the Langfuse observability stack alongside the app.
 langfuse-up:
+    just langfuse-install
     docker compose --profile langfuse up --build
+
+# Pull the optional Langfuse profile images only when they are missing locally.
+langfuse-install:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    images=(
+        docker.io/langfuse/langfuse:3
+        docker.io/langfuse/langfuse-worker:3
+        docker.io/clickhouse/clickhouse-server
+        cgr.dev/chainguard/minio
+        docker.io/redis:7
+        docker.io/postgres:${LANGFUSE_POSTGRES_VERSION:-17}
+    )
+
+    missing=0
+    for image in "${images[@]}"; do
+        if ! docker image inspect "$image" >/dev/null 2>&1; then
+            missing=1
+            break
+        fi
+    done
+
+    if [ "$missing" -eq 1 ]; then
+        echo "Pulling Langfuse images..."
+        docker compose --profile langfuse pull
+    else
+        echo "Langfuse images already present locally."
+    fi
 
 # Show the Langfuse stack containers.
 langfuse-ps:

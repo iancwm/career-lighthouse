@@ -1,6 +1,7 @@
 """Tests for structured LLM observability logging."""
 from __future__ import annotations
 
+import asyncio
 import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
@@ -181,7 +182,7 @@ def test_llm_traces_endpoint_reads_langfuse_sessions():
     finished_at = datetime(2026, 4, 20, 3, 35, 52, tzinfo=timezone.utc)
 
     observation = SimpleNamespace(
-        trace_id="trace-123",
+        id="langfuse-observation-1",
         name="generate_session_intents_json_repair",
         input={
             "raw_input_chars": 7111,
@@ -200,16 +201,15 @@ def test_llm_traces_endpoint_reads_langfuse_sessions():
         },
         session_id="session-123",
         metadata={
-            "trace_id": "trace-123",
+            "traceId": "trace-123",
             "feature": "generate_session_intents",
-            "session_id": "session-123",
             "phase": "json_repair",
-            "parse_attempt": 2,
-            "repair_attempt": 2,
-            "input_chars_pre_trim": 7111,
-            "input_chars_sent": 2505,
-            "max_tokens": 512,
-            "timeout_seconds": 180,
+            "parseAttempt": 2,
+            "repairAttempt": 2,
+            "inputCharsPreTrim": 7111,
+            "inputCharsSent": 2505,
+            "maxTokens": 512,
+            "timeoutSeconds": 180,
         },
         start_time=started_at,
         end_time=finished_at,
@@ -306,8 +306,10 @@ def test_generate_brief_writes_langfuse_observation(mock_client):
     assert fake_langfuse.started[0]["name"] == "generate_brief"
     assert fake_langfuse.started[0]["model"] == "claude-sonnet-4-6"
     assert fake_langfuse.propagated["trace_name"] == "generate_brief"
-    assert fake_langfuse.propagated["version"] == "development"
-    assert fake_langfuse.started[0]["input"]["metadata"]["trace_id"]
+    assert fake_langfuse.propagated["metadata"]["environment"] == "development"
+    assert fake_langfuse.propagated["metadata"]["feature"] == "generate_brief"
+    assert fake_langfuse.started[0]["input"]["metadata"]["traceId"]
+    assert fake_langfuse.started[0]["input"]["metadata"]["traceId"] == fake_langfuse.propagated["metadata"]["traceId"]
     assert fake_langfuse.started[0]["input"]["message_count"] == 1
     assert fake_langfuse.started[0]["input"]["system_preview"]
     assert fake_langfuse.started[0]["input"]["system_chars"] > 0
@@ -316,7 +318,97 @@ def test_generate_brief_writes_langfuse_observation(mock_client):
     assert fake_langfuse.started[0]["input"]["messages"][0]["role"] == "user"
     assert fake_langfuse.started[0]["input"]["messages"][0]["content_preview"]
     assert fake_langfuse.started[0]["input"]["messages"][0]["content_chars"] > 0
-    assert fake_langfuse.started[0]["input"]["metadata"]["trace_id"] == fake_langfuse.propagated["metadata"]["trace_id"]
+    assert fake_langfuse.started[0]["input"]["metadata"]["inputCharsPreTrim"] > 0
+    assert fake_langfuse.started[0]["input"]["metadata"]["kbChunksRetrieved"] == 0
+    assert fake_langfuse.flushed is False
+
+
+def test_langfuse_mask_redacts_common_secrets():
+    import services.llm as llm_module
+
+    masked = llm_module._mask_langfuse_value(
+        {
+            "email": "alice@example.com",
+            "phone": "+1 (555) 123-4567",
+            "api_key": "sk-test-1234567890",
+            "nested": ["Bearer abc.def.ghi", "plain text"],
+        }
+    )
+
+    assert masked["email"] == "[EMAIL_REDACTED]"
+    assert masked["phone"] == "[PHONE_REDACTED]"
+    assert masked["api_key"] == "[API_KEY_REDACTED]"
+    assert masked["nested"][0] == "Bearer [REDACTED]"
+    assert masked["nested"][1] == "plain text"
+
+
+@patch("services.llm.get_client")
+def test_extract_facts_from_prose_writes_langfuse_observation(mock_client):
+    import services.llm as llm_module
+
+    class FakeSpan:
+        def __init__(self):
+            self.updates = []
+
+        def update(self, **kwargs):
+            self.updates.append(kwargs)
+
+    class FakeLangfuseClient:
+        def __init__(self):
+            self.started = []
+            self.flushed = False
+
+        @contextmanager
+        def start_as_current_observation(self, **kwargs):
+            span = FakeSpan()
+            self.started.append(kwargs)
+            yield span
+
+        def flush(self):
+            self.flushed = True
+
+    fake_langfuse = FakeLangfuseClient()
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        json.dumps([
+            {
+                "slug": "google-internship",
+                "type": "timeline_phase",
+                "phase_name": "Summer internship",
+                "value": "June to August",
+                "source": "inferred",
+                "confidence": 90,
+                "timestamp": "2026-04-20T00:00:00Z",
+            }
+        ])
+    )
+
+    fake_settings = SimpleNamespace(
+        anthropic_api_key="fake",
+        llm_timeout_seconds=30.0,
+        llm_trace_log_path="/tmp/llm-trace.jsonl",
+        langfuse_public_key="pk-lf-test",
+        langfuse_secret_key="sk-lf-test",
+        langfuse_base_url="http://langfuse-web:3000",
+        langfuse_tracing_environment="development",
+    )
+
+    @contextmanager
+    def fake_propagate_attributes(**kwargs):
+        fake_langfuse.propagated = kwargs
+        yield
+
+    with patch.object(llm_module, "settings", fake_settings), \
+        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse), \
+        patch.object(llm_module, "propagate_attributes", side_effect=fake_propagate_attributes), \
+        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None):
+        facts = asyncio.run(llm_module.extract_facts_from_prose("Alice discussed Google hiring timelines.", "Google"))
+
+    assert len(facts) == 1
+    assert facts[0]["slug"] == "google-internship"
+    assert fake_langfuse.started[0]["name"] == "extract_facts_from_prose"
+    assert fake_langfuse.started[0]["input"]["metadata"]["feature"] == "extract_facts_from_prose"
+    assert fake_langfuse.started[0]["input"]["metadata"]["traceId"]
+    assert fake_langfuse.propagated["metadata"]["environment"] == "development"
     assert fake_langfuse.flushed is False
 
 

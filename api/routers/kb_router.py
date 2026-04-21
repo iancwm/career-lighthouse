@@ -450,12 +450,14 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         )
     )
     trace_id = str(
-        _get_value(
+        metadata.get("traceId")
+        or metadata.get("trace_id")
+        or _get_value(
             observation,
             "id",
             "trace_id",
             "traceId",
-            default=metadata.get("trace_id") or metadata.get("traceId") or "",
+            default="",
         )
     )
     session_id = _get_value(observation, "session_id", "sessionId", default=metadata.get("session_id") or metadata.get("sessionId"))
@@ -467,7 +469,7 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
             if hinted_model:
                 model = str(hinted_model)
                 break
-    phase = str(metadata.get("phase") or "")
+    phase = str(metadata.get("phase") or metadata.get("phaseName") or "")
     status_message = _get_value(observation, "status_message", "statusMessage", default=metadata.get("error"))
     level = str(_get_value(observation, "level", default="")).upper()
     output_error = None
@@ -516,18 +518,18 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         "feature": metadata.get("feature") or operation,
         "session_id": session_id,
         "phase": phase or None,
-        "chunk_index": _safe_int(metadata.get("chunk_index")),
-        "chunk_count": _safe_int(metadata.get("chunk_count")),
-        "multi_pass_threshold_chars": _safe_int(metadata.get("multi_pass_threshold_chars")),
-        "multi_pass_chunk_tokens": _safe_int(metadata.get("multi_pass_chunk_tokens")),
-        "multi_pass_overlap_tokens": _safe_int(metadata.get("multi_pass_overlap_tokens")),
-        "input_chars_pre_trim": _safe_int(metadata.get("input_chars_pre_trim")),
-        "input_chars_sent": _safe_int(metadata.get("input_chars_sent")),
-        "kb_chunks_retrieved": _safe_int(metadata.get("kb_chunks_retrieved")),
-        "kb_chunks_sent": _safe_int(metadata.get("kb_chunks_sent")),
-        "parse_attempt": _safe_int(metadata.get("parse_attempt")),
-        "repair_attempt": _safe_int(metadata.get("repair_attempt")),
-        "partial_result": metadata.get("partial_result"),
+        "chunk_index": _safe_int(_get_value(metadata, "chunkIndex", "chunk_index")),
+        "chunk_count": _safe_int(_get_value(metadata, "chunkCount", "chunk_count")),
+        "multi_pass_threshold_chars": _safe_int(_get_value(metadata, "multiPassThresholdChars", "multi_pass_threshold_chars")),
+        "multi_pass_chunk_tokens": _safe_int(_get_value(metadata, "multiPassChunkTokens", "multi_pass_chunk_tokens")),
+        "multi_pass_overlap_tokens": _safe_int(_get_value(metadata, "multiPassOverlapTokens", "multi_pass_overlap_tokens")),
+        "input_chars_pre_trim": _safe_int(_get_value(metadata, "inputCharsPreTrim", "input_chars_pre_trim")),
+        "input_chars_sent": _safe_int(_get_value(metadata, "inputCharsSent", "input_chars_sent")),
+        "kb_chunks_retrieved": _safe_int(_get_value(metadata, "kbChunksRetrieved", "kb_chunks_retrieved")),
+        "kb_chunks_sent": _safe_int(_get_value(metadata, "kbChunksSent", "kb_chunks_sent")),
+        "parse_attempt": _safe_int(_get_value(metadata, "parseAttempt", "parse_attempt")),
+        "repair_attempt": _safe_int(_get_value(metadata, "repairAttempt", "repair_attempt")),
+        "partial_result": _get_value(metadata, "partialResult", "partial_result", default=None),
     }
 
     started = LLMTraceEntry(
@@ -551,8 +553,8 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         parse_attempt=trace_meta["parse_attempt"],
         repair_attempt=trace_meta["repair_attempt"],
         partial_result=trace_meta["partial_result"],
-        timeout_seconds=_safe_float(metadata.get("timeout_seconds"), None),
-        max_tokens=_safe_int(metadata.get("max_tokens"), 0) or 0,
+        timeout_seconds=_safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
+        max_tokens=_safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
         latency_ms=0.0,
         input_chars=input_chars,
         output_chars=0,
@@ -583,8 +585,8 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         parse_attempt=trace_meta["parse_attempt"],
         repair_attempt=trace_meta["repair_attempt"],
         partial_result=trace_meta["partial_result"],
-        timeout_seconds=_safe_float(metadata.get("timeout_seconds"), None),
-        max_tokens=_safe_int(metadata.get("max_tokens"), 0) or 0,
+        timeout_seconds=_safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
+        max_tokens=_safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
         latency_ms=latency_ms,
         input_chars=input_chars,
         output_chars=output_chars,

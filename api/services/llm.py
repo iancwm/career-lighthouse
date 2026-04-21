@@ -12,6 +12,7 @@ All prompts and model parameters are loaded from cfg/ YAML files.
 import json
 import logging
 import os
+import re
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -38,6 +39,11 @@ _langfuse_class = None
 propagate_attributes = None
 _langfuse_flush_executor: ThreadPoolExecutor | None = None
 _TRACE_PREVIEW_CHARS = 500
+_LANGFUSE_METADATA_VALUE_LIMIT = 200
+_LANGFUSE_EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
+_LANGFUSE_PHONE_RE = re.compile(r"\b(?:\+?\d[\d\s().-]{7,}\d)\b")
+_LANGFUSE_API_KEY_RE = re.compile(r"\b(?:sk|pk|key|secret)_[A-Za-z0-9_-]{8,}\b")
+_LANGFUSE_BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._-]+\b", re.IGNORECASE)
 
 _llm = model_cfg["llm"]
 _prompts = prompts_cfg.get("prompts", {})
@@ -125,6 +131,48 @@ def _truncate_preview(text: str | None, limit: int = _TRACE_PREVIEW_CHARS) -> st
     return clean[:limit] + "…"
 
 
+def _mask_langfuse_value(data: Any) -> Any:
+    """Best-effort SDK-side masking for trace inputs, outputs, and metadata."""
+    if isinstance(data, str):
+        masked = _LANGFUSE_EMAIL_RE.sub("[EMAIL_REDACTED]", data)
+        masked = _LANGFUSE_PHONE_RE.sub("[PHONE_REDACTED]", masked)
+        masked = _LANGFUSE_API_KEY_RE.sub("[API_KEY_REDACTED]", masked)
+        masked = _LANGFUSE_BEARER_RE.sub("Bearer [REDACTED]", masked)
+        return masked
+    if isinstance(data, dict):
+        return {key: _mask_langfuse_value(value) for key, value in data.items()}
+    if isinstance(data, list):
+        return [_mask_langfuse_value(item) for item in data]
+    if isinstance(data, tuple):
+        return [_mask_langfuse_value(item) for item in data]
+    if data is None or isinstance(data, (int, float, bool)):
+        return data
+    return str(data)
+
+
+def _langfuse_metadata_key(key: str) -> str:
+    """Convert a snake_case key into Langfuse-safe camelCase metadata."""
+    parts = [part for part in re.split(r"[^0-9A-Za-z]+", key) if part]
+    if not parts:
+        return ""
+    if len(parts) == 1:
+        return parts[0][0].lower() + parts[0][1:] if parts[0] else ""
+    first = parts[0][0].lower() + parts[0][1:] if parts[0] else ""
+    rest = "".join(part[:1].upper() + part[1:] for part in parts[1:] if part)
+    return first + rest
+
+
+def _langfuse_metadata_value(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value)
+    if not text:
+        return None
+    if len(text) > _LANGFUSE_METADATA_VALUE_LIMIT:
+        text = text[: _LANGFUSE_METADATA_VALUE_LIMIT - 1] + "…"
+    return text
+
+
 def _langfuse_is_enabled() -> bool:
     return bool(
         getattr(settings, "langfuse_public_key", "")
@@ -184,6 +232,7 @@ def _get_langfuse_client():
                 flush_at=getattr(settings, "langfuse_flush_at", 1),
                 flush_interval=getattr(settings, "langfuse_flush_interval", 1.0),
                 environment=getattr(settings, "langfuse_tracing_environment", "development"),
+                mask=_mask_langfuse_value,
             )
             _langfuse_client_config = config_key
         except Exception:
@@ -233,11 +282,20 @@ def _langfuse_input_payload(system: str, messages: list[dict], metadata: dict[st
 
 
 def _langfuse_trace_metadata(metadata: dict[str, object], trace_id: str) -> dict[str, str]:
-    out: dict[str, str] = {"trace_id": trace_id}
+    out: dict[str, str] = {
+        "traceId": trace_id,
+        "environment": str(getattr(settings, "langfuse_tracing_environment", "development")),
+    }
     for key, value in metadata.items():
-        if value is None:
+        if value is None or key in {"trace_id", "traceId", "session_id", "sessionId"}:
             continue
-        out[key] = str(value)
+        langfuse_key = _langfuse_metadata_key(key)
+        if not langfuse_key:
+            continue
+        masked_value = _langfuse_metadata_value(value)
+        if masked_value is None:
+            continue
+        out[langfuse_key] = masked_value
     return out
 
 
@@ -634,13 +692,12 @@ def _call_with_trace(
             try:
                 propagate_kwargs: dict[str, object] = {
                     "trace_name": operation,
-                    "version": getattr(settings, "langfuse_tracing_environment", "development"),
                 }
                 if metadata.get("session_id"):
                     propagate_kwargs["session_id"] = str(metadata["session_id"])
-                trace_metadata = _langfuse_trace_metadata(metadata, trace_id)
-                if trace_metadata:
-                    propagate_kwargs["metadata"] = trace_metadata
+                langfuse_metadata = _langfuse_trace_metadata(metadata, trace_id)
+                if langfuse_metadata:
+                    propagate_kwargs["metadata"] = langfuse_metadata
                 attr_cm = propagate_attributes(**propagate_kwargs)
             except Exception:
                 logger.warning("Langfuse propagation failed; continuing without tracing", exc_info=True)
@@ -1328,7 +1385,10 @@ def generate_session_intents(
         try:
             propagate_cm = propagate_attributes(
                 session_id=session_id,
-                version=getattr(settings, "langfuse_tracing_environment", "development"),
+                metadata={
+                    "environment": str(getattr(settings, "langfuse_tracing_environment", "development")),
+                    "feature": "generate_session_intents",
+                },
             )
         except Exception:
             logger.warning("Langfuse propagation failed; continuing without tracing", exc_info=True)
@@ -1450,7 +1510,6 @@ async def extract_facts_from_prose(notes: str, employer_name: str = "employer") 
     if not notes or not notes.strip():
         return []
 
-    client = get_client()
     prompt = f"""You are extracting structured facts about an employer from counselor notes.
 
 Notes:
@@ -1489,15 +1548,21 @@ Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
 ]"""
 
     try:
-        msg = client.messages.create(
+        msg = _call_with_trace(
+            operation="extract_facts_from_prose",
             model=_llm["model"],
             max_tokens=2000,
             system="You are a fact extraction service for employer intelligence. Extract structured facts from notes. Return ONLY valid JSON.",
             messages=[{"role": "user", "content": prompt}],
-            timeout=settings.llm_timeout_seconds,
+            timeout_seconds=settings.llm_timeout_seconds,
+            trace_metadata={
+                "feature": "extract_facts_from_prose",
+                "employer_name": employer_name,
+                "input_chars_pre_trim": len(notes),
+            },
         )
 
-        response_text = msg.content[0].text if msg.content else "[]"
+        response_text = _response_text(msg)
 
         # Try to parse as JSON, repair if needed
         try:
