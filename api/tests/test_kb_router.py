@@ -840,6 +840,47 @@ class TestCreateEmployerEndpoint:
         assert r.json()["slug"] == "meta"
         assert (d / "meta.yaml").exists()
 
+    def test_creates_new_employer_with_structured_facts(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "stripe_singapore",
+            "employer_name": "Stripe Singapore",
+            "tracks": ["tech_product"],
+            "ep_requirement": "Likely sponsors EP",
+            "intake_seasons": ["rolling"],
+            "singapore_headcount_estimate": "200+",
+            "application_process": "Online application",
+            "counsellor_contact": None,
+            "notes": "Important APAC hub",
+            "structured": {
+                "facts": [
+                    {
+                        "slug": "stripe-summer-internship",
+                        "type": "timeline_phase",
+                        "data": {
+                            "phase_name": "Summer internship",
+                            "value": "June to August",
+                        },
+                        "confidence": 91,
+                        "source": "inferred",
+                        "timestamp": "2026-04-21T00:00:00Z",
+                    }
+                ]
+            },
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.post("/api/kb/employers", json=payload)
+        assert r.status_code == 201
+
+        import yaml as _yaml
+        with open(d / "stripe_singapore.yaml", encoding="utf-8") as f:
+            written = _yaml.safe_load(f)
+        assert written["structured"]["facts"][0]["slug"] == "stripe-summer-internship"
+        assert written["structured"]["facts"][0]["data"]["phase_name"] == "Summer internship"
+
     def test_409_on_duplicate_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
@@ -932,6 +973,48 @@ class TestUpdateEmployerEndpoint:
         from datetime import datetime, timezone
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         assert data["last_updated"] == today
+
+    def test_updates_structured_facts(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "goldman_sachs",
+            "employer_name": "Goldman Sachs",
+            "tracks": ["investment_banking"],
+            "ep_requirement": "EP4 (COMPASS 40+)",
+            "intake_seasons": ["Jan", "Jul"],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "structured": {
+                "facts": [
+                    {
+                        "slug": "goldman-sachs-timeline",
+                        "type": "timeline_phase",
+                        "data": {
+                            "phase_name": "Summer internship",
+                            "value": "June to August",
+                        },
+                        "confidence": 92,
+                        "source": "inferred",
+                        "timestamp": "2026-04-21T00:00:00Z",
+                    }
+                ]
+            },
+            "last_updated": None,
+            "completeness": "amber",
+        }
+        r = client.put("/api/kb/employers/goldman_sachs", json=payload)
+        assert r.status_code == 200
+
+        import yaml as _yaml
+        with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:
+            written = _yaml.safe_load(f)
+        assert "structured" in written
+        assert written["structured"]["facts"][0]["slug"] == "goldman-sachs-timeline"
+        assert written["structured"]["facts"][0]["data"]["phase_name"] == "Summer internship"
 
     def test_server_ignores_completeness_in_body(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)

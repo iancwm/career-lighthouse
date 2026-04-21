@@ -25,6 +25,183 @@ notes: 'Crypto.com Singapore is a major crypto exchange and institutional platfo
   path) was a key factor in firm survival through 2022. Alumni Jensen Seah (BD Director)
   is a strong contact for institutional BD and MITB-to-crypto pivot narratives. Turnover
   30–40%/year across crypto sector.'
-last_updated: '2026-04-20'
+last_updated: '2026-04-21'
 singapore_headcount_estimate: null
 counsellor_contact: null
+structured:
+  facts:
+  - slug: cryptocom-hiring-boom-2021
+    type: timeline_phase
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-hiring-boom-2021
+      type: timeline_phase
+      phase_name: Aggressive hiring boom
+      value: 2021 bull market period
+      role_type: all_roles
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-layoffs-2022
+    type: timeline_phase
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-layoffs-2022
+      type: timeline_phase
+      phase_name: 40% global headcount cut post-FTX/Terra Luna crash
+      value: 2022 crypto crash period
+      role_type: all_roles
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-recovery-2023-2025
+    type: timeline_phase
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-recovery-2023-2025
+      type: timeline_phase
+      phase_name: Gradual hiring recovery
+      value: 2023-2025
+      role_type: all_roles
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-jensen-seah
+    type: alumni
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-jensen-seah
+      type: alumni
+      phase_name: Alumni contact - Institutional BD
+      value: Jensen Seah, BD Director at Crypto.com Singapore; strong contact for
+        institutional BD and MITB-to-crypto pivot narratives
+      role_type: institutional_bd
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-comp-token-grant-bull
+    type: compensation
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-comp-token-grant-bull
+      type: compensation
+      phase_name: CRONOS token grant - bull market value
+      value: USD 100,000+ equivalent in 2021 bull market
+      role_type: all_roles
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-comp-token-grant-bear
+    type: compensation
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-comp-token-grant-bear
+      type: compensation
+      phase_name: CRONOS token grant - bear market value
+      value: Near-worthless during crypto crashes
+      role_type: all_roles
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-comp-token-structure
+    type: compensation
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-comp-token-structure
+      type: compensation
+      phase_name: Token grants as compensation component
+      value: CRONOS token grants included as part of total compensation package
+      role_type: all_roles
+      duration_days: null
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-skill-institutional-bd
+    type: skill_requirement
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-skill-institutional-bd
+      type: skill_requirement
+      phase_name: Institutional BD role requirements
+      value: Experience in partnerships with exchanges, funds, banks, and fintech
+        platforms; background in institutional business development
+      role_type: institutional_bd
+      duration_days: null
+      source: inferred
+      confidence: 80
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-skill-crypto-sector-knowledge
+    type: skill_requirement
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-skill-crypto-sector-knowledge
+      type: skill_requirement
+      phase_name: Crypto sector knowledge
+      value: Understanding of crypto markets, MAS regulatory framework (RMO), and
+        institutional crypto landscape
+      role_type: institutional_bd
+      duration_days: null
+      source: inferred
+      confidence: 80
+      timestamp: '2025-01-27T00:00:00Z'
+  - slug: cryptocom-skill-mitb-pivot
+    type: skill_requirement
+    timestamp: '2025-01-27T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    deleted: false
+    data:
+      slug: cryptocom-skill-mitb-pivot
+      type: skill_requirement
+      phase_name: MITB-to-crypto pivot narrative
+      value: MITB graduates with strong BD or finance background are relevant candidates
+        for institutional BD roles
+      role_type: institutional_bd
+      duration_days: null
+      source: inferred
+      confidence: 80
+      timestamp: '2025-01-27T00:00:00Z'
+source_documents: []

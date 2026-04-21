@@ -14,7 +14,7 @@ application_process: Entry via BA or Scrum Master roles (not direct PM). Computi
   degree or IT-related background required. 3–5 years experience typical. DBS Academy
   internal PM certification path common.
 counsellor_contact: Atina
-last_updated: '2026-04-20'
+last_updated: '2026-04-21'
 notes: DBS compliance team is a recommended first employer for students targeting
   fintech compliance careers. Bank AML programs are more mature and audited than fintech
   equivalents; 2–3 years at DBS compliance builds unassailable credibility before
@@ -26,3 +26,60 @@ counselor_contact: 'Dr. Suresh Kumar. Alumni contact: Sophia Lim (NUS Computing 
   Senior PM Digital Banking Transformation — available for guest lecture on PM careers
   (target: May 2025, NUS Computing). Follow-up: Connect with NUS Computing faculty
   to arrange. Action owner: Dr. Suresh Kumar.'
+structured:
+  facts:
+  - slug: dbs-compliance-career-track
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: dbs-compliance-career-track
+      type: skill_requirement
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+      data:
+        phase_name: Fintech compliance career track
+        value: 2–3 years in DBS compliance builds strong credibility for fintech compliance
+          roles; AML program experience preferred
+        role_type: compliance
+  - slug: dbs-compliance-aml-maturity
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: dbs-compliance-aml-maturity
+      type: skill_requirement
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+      data:
+        phase_name: AML program background
+        value: DBS AML programs described as more mature and audited than fintech
+          equivalents; AML compliance background is a key credential
+        role_type: compliance
+  - slug: dbs-compliance-recruiter-targets
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    deleted: false
+    data:
+      slug: dbs-compliance-recruiter-targets
+      type: skill_requirement
+      source: inferred
+      confidence: 100
+      timestamp: '2025-01-30T00:00:00Z'
+      data:
+        phase_name: Post-DBS employer demand
+        value: DBS compliance alumni actively recruited by Stripe, Wise, Revolut,
+          and crypto exchanges
+        role_type: compliance
+source_documents: []

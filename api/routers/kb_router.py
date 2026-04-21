@@ -1245,6 +1245,7 @@ def create_employer(
         raise HTTPException(status_code=409, detail=f"Employer '{slug}' already exists.")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    payload = detail.model_dump(exclude_unset=True) if hasattr(detail, "model_dump") else detail.dict(exclude_unset=True)
     data = {
         "employer_name": detail.employer_name.strip(),
         "slug": slug,
@@ -1257,6 +1258,10 @@ def create_employer(
         "notes": detail.notes,
         "last_updated": now,
     }
+    if "structured" in payload:
+        data["structured"] = dict(detail.structured or {})
+    if "source_documents" in payload:
+        data["source_documents"] = list(detail.source_documents or [])
     # Remove None values to keep YAML clean
     data = {k: v for k, v in data.items() if v is not None}
 
@@ -1307,6 +1312,7 @@ def update_employer(
         raise HTTPException(status_code=500, detail="Failed to read employer YAML.")
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    payload = detail.model_dump(exclude_unset=True) if hasattr(detail, "model_dump") else detail.dict(exclude_unset=True)
     # Merge incoming fields; server always sets last_updated
     existing.update({
         "employer_name": detail.employer_name.strip() if detail.employer_name else existing.get("employer_name", ""),
@@ -1319,6 +1325,10 @@ def update_employer(
         "notes": detail.notes,
         "last_updated": now,
     })
+    if "structured" in payload:
+        existing["structured"] = dict(detail.structured or {})
+    if "source_documents" in payload:
+        existing["source_documents"] = list(detail.source_documents or [])
     # Preserve slug field
     existing["slug"] = slug
 
