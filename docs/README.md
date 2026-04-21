@@ -17,6 +17,12 @@ The root of the repo contains the active project documentation:
 - **docs/schema/** — Data schema designs and standards
   - `SCHEMA-FOUNDATION.md` — Structured schema foundation for career knowledge base (facts with metadata, timestamps, sourcing)
 
+## Counsellor Trust Documentation
+
+- **docs/counsellor_trust/** — Sprint specs and planning for counsellor-facing trust, provenance, and publishing surfaces
+  - `sprint_list.md` — High-level sprint sequence for the trust track
+  - `sprint_1_spec.md` — Sprint 1 spec for provenance, active/superseded state, and tool explanations
+
 ## Archived Materials
 
 - **docs/archived/** — Historical documents and drafts
@@ -36,6 +42,7 @@ The root of the repo contains the active project documentation:
 
 **For implementation details:**
 - See `/docs/schema/` for data structure specifications
+- See `/docs/counsellor_trust/` for counsellor trust sprint specs
 
 **For historical context:**
 - See `/docs/archived/plans/` for prior session work
@@ -45,4 +52,5 @@ The root of the repo contains the active project documentation:
 
 - **Active specs** → root level (DESIGN.md, TODOS.md, etc.)
 - **Schema definitions** → docs/schema/
+- **Counsellor trust specs** → docs/counsellor_trust/
 - **Historical/archived material** → docs/archived/

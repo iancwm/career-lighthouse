@@ -21,6 +21,11 @@ Shipped: FactEditor component with type-specific field schemas for all 5 fact ty
 **Why:** Phase 3 (student query surface) depends on fact retrieval; counselor dashboard depends on fact filtering.
 **Depends on:** Facts are being written to career profile and employer YAMLs; endpoint just needs to read and serialize them.
 
+### Counsellor Trust Sprint 1: provenance panel and plain-English tool explainer
+**What:** Add visible status, source date, last updated, and provenance details on Admin workspace landing cards, Employer Facts detail view, and Knowledge Review diff view; add plain-English tool explanations on the highest-friction cards.
+**Why:** Counsellors are asking the developer to explain the UI because one-line labels are too thin, and Henry Yeo needs a system that is obvious and defensible without hand-holding.
+**Depends on:** Existing admin workspace, EmployerFactsTab, Knowledge Review diff views, and the audit/history routes they already expose.
+
 ### ~~Structured Facts Phase 1 Validation: Stripe pilot + LLM extraction test~~ ✓ Done (2026-04-21)
 Shipped: manual facts confirmed writing correctly to employer and career profile YAMLs; full Stripe document uploaded to validate LLM extraction pipeline end-to-end.
 
@@ -187,11 +192,6 @@ stale API build issue that initially hid traces was fixed during verification.
 **What:** Cap the employer context block per track once a single career type gets too many employers.
 **Why:** Per-track density, not total count, becomes the token-budget bottleneck.
 **Depends on:** Career-type filtered injection shipping in v1.
-
-### Lightweight provenance badges in review surfaces
-**What:** Show source and revision provenance on proposed changes and published facts.
-**Why:** Counsellors trust changes more when they can see where they came from without opening raw internals.
-**Depends on:** Revision history.
 
 ### Durable source document ledger
 **What:** Persist uploaded source files and tie them to revisions for reprocessing and audit.
