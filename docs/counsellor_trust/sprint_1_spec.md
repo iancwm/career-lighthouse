@@ -28,7 +28,7 @@ Make the three highest-friction counsellor surfaces self-explanatory:
 
 1. Admin workspace landing cards
 2. Employer Facts detail view
-3. Knowledge Review diff view
+3. Review proposed changes / `KnowledgeUpdateTab`
 
 These are the first surfaces where counsellors should be able to understand purpose, status, and provenance at a glance.
 
@@ -67,6 +67,8 @@ Sponsor user: Henry Yeo, who needs the system to be credible, low-friction, and 
 - Superseded: a prior version that remains visible for audit, but is no longer current.
 - Archived: a retired item kept for reference, with no expectation that it should be used again.
 
+Employer facts use explicit lifecycle metadata so the UI can show whether a fact is active or superseded instead of inferring state from whether it still appears in the current list.
+
 ### Lifecycle rule
 
 A record is active when it is the current live version for that employer or review item. A record is superseded when a newer record exists that replaces it or points back to it in history. Archived is reserved for records that are intentionally retired.
@@ -93,15 +95,20 @@ Detail panel:
 - source
 - source date
 - last updated
-- updated by
 - superseded by
 - audit link
 
+`updated by` is deferred until proper login/auth exists. Do not invent it from git history or container metadata.
+
+For Review proposed changes, source timestamps must travel through the diff contract so counsellors can see where a change came from before they save it.
+
 ### Audit-link targets
 
-- Employer Facts should link to the originating YAML diff.
+- Employer Facts should link to the employer history endpoint that resolves to the originating YAML diff.
 - Knowledge Review items should link to the review history.
 - Admin workspace cards should link to the in-app action history when that exists.
+
+Employer Facts need a real employer history endpoint, not a guessed file path.
 
 ### Copy contract for tool explainer text
 
@@ -119,6 +126,7 @@ Only the top three most confusing tools get the full four-sentence explainer. Ot
 - Show a status badge on list cards.
 - Show the full provenance panel in detail views.
 - Keep superseded items visible but collapsed by default.
+- Soft-delete facts so history stays visible when a fact is no longer active.
 - Limit inline history to three entries.
 - Put older history behind a `view history` action.
 
@@ -132,9 +140,9 @@ Add a concise purpose line and visible provenance summary to the cards counsello
 
 Expose the active/superseded state and the full provenance panel for employer facts, since this is where counsellors inspect actual knowledge records.
 
-### Knowledge Review diff view
+### Review proposed changes / `KnowledgeUpdateTab`
 
-Expose source and revision context so counsellors can tell what changed and why before they publish or accept a change.
+Expose source and revision context so counsellors can tell what changed and why before they publish or accept a change. This surface is the existing `KnowledgeUpdateTab`, and the primary action label is `Review proposed changes`.
 
 ## Success Criteria
 
@@ -145,6 +153,8 @@ Sprint 1 is successful if:
 - Henry Yeo can review the surfaces and explain them to another person without adding his own interpretation.
 - Missing provenance is never shown as a blank mystery state.
 - The first three target surfaces each have a clear purpose line and a visible provenance summary.
+- The review flow preserves source timestamps on proposed changes.
+- Employer facts can be retired without deleting their history.
 
 ## Implementation Notes
 
@@ -152,10 +162,11 @@ Sprint 1 is successful if:
 - Existing audit and revision patterns should be reused instead of introducing a parallel provenance system.
 - The spec should stay compatible with the current admin workspace shape.
 - Any copy expansion should stay limited to the top three confusing tools first.
+- Split the large admin components before wiring in the new provenance panel and lifecycle UI.
+- Add contract tests for provenance, lifecycle, audit, soft-delete, and source timestamp behavior.
 
 ## Open Questions
 
-- Which fields are computed from YAML and git history versus explicitly authored?
 - How much history should be visible by default on each surface?
 - Should the tone be strictly plain or slightly guided for first-time counsellors?
 
