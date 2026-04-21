@@ -165,10 +165,121 @@ Sprint 1 is successful if:
 - Split the large admin components before wiring in the new provenance panel and lifecycle UI.
 - Add contract tests for provenance, lifecycle, audit, soft-delete, and source timestamp behavior.
 
+## Design Decisions
+
+Resolved during design review (2026-04-21). These are binding for implementation.
+
+### Visual Hierarchy — per surface
+
+**Admin workspace tool cards:** Purpose-first hierarchy.
+- Row 1: tool name (title-md, Instrument Sans 22px) + lifecycle badge right-aligned
+- Row 2: purpose line (body-sm, Instrument Sans 14px, muted #5F6B76)
+- Row 3: provenance summary in IBM Plex Mono meta (12px): source date · last updated
+- Status badge does not dominate the card. It confirms state; the purpose line orients.
+
+**Employer Facts detail view:** Type and lifecycle share the first row.
+- Row 1: `[fact-type badge]  [● Active]` — type badge left, lifecycle badge immediately after
+- Row 2: key field value (body-md, ink #1F2937)
+- Row 3: `▸ Provenance` — collapsed by default, click to expand
+- Superseded facts: same layout, muted #5F6B76 text throughout, `○ Superseded` badge
+
+**KnowledgeUpdateTab — Review proposed changes:** Source timestamp is per-field inline.
+- Each proposed field change shows: old value → new value, then source and date below in IBM Plex Mono meta
+- Example: `ep_requirement: "2.8 GPA" → "3.0 GPA"` / `Source: Counselor note · 21 Apr 2026`
+
+### Lifecycle Badge Design
+
+Use a dot + label pill pattern, not a colored left-border card.
+
+- `● Active` — teal `#0F766E` dot, teal label, pill background `#0F766E` at 10% opacity
+- `○ Superseded` — muted `#5F6B76` dot, muted label, pill background neutral
+- `◦ Archived` — amber `#B45309` dot, amber label, pill background `#B45309` at 10% opacity
+
+Badge label: Instrument Sans body-sm (14px). Pill border-radius: 9999px (DESIGN.md pill). No colored left-border on cards.
+
+### Fact Type Badge Colors
+
+Remap from Tailwind color utilities to DESIGN.md tokens:
+
+| Fact type | Badge color |
+|-----------|-------------|
+| alumni | teal `#0F766E` (primary) |
+| timeline_phase | amber `#B45309` (secondary) |
+| interview_stage | ink `#1F2937` (neutral) |
+| compensation | amber `#B45309` (secondary) |
+| skill_requirement | muted `#5F6B76` (neutral) |
+
+### Provenance Panel
+
+The full provenance panel (source, source date, last updated, superseded by, audit link) is expandable on click, not always visible.
+
+- Collapsed: `▸ Provenance` trigger in body-sm, muted
+- Expanded: `▾ Provenance` with fields in IBM Plex Mono meta (12px / 1.4)
+- Panel container: surface `#FFFDFC`, border `line #D8D0C4`, border-radius md (14px)
+- Audit link: Instrument Sans body-sm, teal `#0F766E`, `→` suffix, opens in new tab
+
+### Interaction States
+
+**Empty state (Employer Facts, no facts yet):**
+Show warm message and primary CTA — do not show a blank list.
+> "No facts yet for [Employer Name]. Facts you add here are shared with students who ask about this employer."
+> `[ + Add first fact ]` — teal primary button
+
+**Loading state:** Skeleton placeholder matching fact card dimensions. Do not use a spinner alone.
+
+**Error state (history endpoint unavailable):** Inline non-blocking message: "History unavailable — try refreshing." Do not fail the whole fact view; the fact content remains visible.
+
+**Partial provenance (some fields unknown):** Show `Unknown` explicitly per the missing data rule. Do not leave fields blank.
+
+### Soft-Delete UX
+
+When a counsellor deletes a fact, it transitions in-place to Superseded — it does not disappear.
+
+1. Fact badge changes immediately from `● Active` to `○ Superseded`
+2. Fact text transitions to muted `#5F6B76`
+3. A 5-second undo toast appears: `Undo · 4s  ×`
+4. After undo window: the fact remains in the list as Superseded, collapsed by default
+
+This makes the lifecycle model tangible at the moment of action.
+
+### Sponsor Demonstration Surface
+
+The Employer Facts detail view is the primary surface for demonstrating the trust model to Henry Yeo. A complete fact with `● Active` badge, expandable provenance panel showing source and date, and an audit link should be the first thing shown in any sponsor walkthrough. Build this surface to that standard.
+
+### Responsive & Accessibility
+
+Mobile scope for Sprint 1: readable on mobile, no intentional layout changes.
+- Provenance panel fields stack vertically on narrow screens; no horizontal overflow
+- All interactive elements (delete, provenance toggle, audit link) must be minimum 44px touch target
+- Fix `FactCard` delete button: currently ~28px, must be padded to 44px
+
+A11y baseline (DESIGN.md):
+- Visible focus states on all interactive elements (provenance toggle, delete, audit link)
+- WCAG AA contrast for all text including muted provenance fields
+- `aria-expanded` on provenance toggle
+
+### Design System Token Reference
+
+For implementers — explicit DESIGN.md token mappings for all new Sprint 1 elements:
+
+| Element | Token |
+|---------|-------|
+| Purpose line text | `muted #5F6B76`, Instrument Sans body-sm 14px |
+| Provenance fields | IBM Plex Mono meta 12px / 1.4 |
+| Badge label | Instrument Sans body-sm 14px |
+| Panel background | `surface #FFFDFC` |
+| Panel border | `line #D8D0C4` |
+| Panel border-radius | `md` (14px) |
+| Active dot/text | `#0F766E` |
+| Superseded dot/text | `#5F6B76` |
+| Archived dot/text | `#B45309` |
+| Audit link | `#0F766E`, → suffix, `target="_blank"` |
+
 ## Open Questions
 
-- How much history should be visible by default on each surface?
 - Should the tone be strictly plain or slightly guided for first-time counsellors?
+
+(Resolved: history visible by default = 3 entries inline, then `view history`. Decided in UI Contract section.)
 
 ## Deliverable Shape
 
@@ -181,3 +292,16 @@ The delivered UI should make it obvious, from the same screen:
 - where to inspect the audit trail
 
 If a counsellor still needs the developer to explain those basics, Sprint 1 has not done its job.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAN (PLAN) | 3 critical decisions (F/G/H): lifecycle filter bug in to_context_block(), source_timestamp via metadata injection, 30-YAML schema drift. 9 backend + 8 frontend + 2 E2E tests specified. |
+| Design Review | `/plan-design-review` | UI/UX gaps | 1 | CLEAN (PLAN) | score: 5/10 → 9/10, 11 decisions |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+**UNRESOLVED:** 0
+**VERDICT:** Design Review CLEARED. Eng Review CLEARED. Implementation may begin.

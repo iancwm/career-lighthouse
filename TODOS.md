@@ -11,6 +11,48 @@ This backlog is ordered by execution priority:
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
 
+### Counsellor Trust Sprint 1: Fix FactCard delete button touch target
+**What:** Increase the delete button padding in `web/components/admin/forms/FactCard.tsx` so the touch target is at minimum 44px (currently ~28px).
+**Why:** DESIGN.md requires 44px minimum touch targets; WCAG AA requires the same. Mobile counsellors and accessibility users are impacted.
+**Pros:** Small fix, big a11y win. No logic change, just padding.
+**Cons:** None.
+**Depends on:** Counsellor Trust Sprint 1 implementation.
+
+### Counsellor Trust Sprint 1: Remap FactCard type badge colors to DESIGN.md tokens
+**What:** In `web/components/admin/forms/FactCard.tsx`, replace `getTypeColor()` Tailwind utilities (purple-100, blue-100, green-100, orange-100, pink-100) with DESIGN.md palette: alumni→teal #0F766E, timeline_phase→amber #B45309, interview_stage→ink #1F2937, compensation→amber #B45309, skill_requirement→muted #5F6B76.
+**Why:** Current colors are off-system (purple appears on AI slop blacklist). The lifecycle badge added in Sprint 1 uses DESIGN.md tokens; fact type badges should be consistent.
+**Pros:** Visual coherence with the full design system. One function to update.
+**Cons:** Minor visual change — existing screenshots will look different.
+**Depends on:** Counsellor Trust Sprint 1 implementation.
+
+### Counsellor Trust Sprint 1: Fix lifecycle filter in to_context_block() — critical bug
+**What:** Add a lifecycle filter to `to_context_block()` in `api/services/employer_store.py` so that only `lifecycle=active` facts are included in the student-facing LLM context block. Superseded and archived facts must not appear.
+**Why:** Eng review (2026-04-22) confirmed that soft-deleting a fact (marking it Superseded) currently has no effect on what students receive from the LLM — the retired fact still appears verbatim in context. This is a data integrity bug with live user impact.
+**Pros:** One-line filter in `to_context_block()`. No schema change needed once the `lifecycle` field migration lands.
+**Cons:** Must land after the `Fact.deleted` → `lifecycle` model migration, otherwise the filter has nothing to check.
+**Depends on:** `Fact` model migration from `deleted: bool` to `lifecycle: Literal["active","superseded","archived"]` (part of Sprint 1 implementation).
+
+### Counsellor Trust Sprint 1: Split EmployerFactsTab.tsx before provenance wiring
+**What:** Extract `EmployerDetailForm` and `EmployerFactsList` from the 875-line `web/components/admin/EmployerFactsTab.tsx` before adding the lifecycle badge and provenance panel UI.
+**Why:** The spec explicitly flags this as a prerequisite. Wiring the lifecycle/provenance layer into a 875-line component will produce a maintenance disaster. The split is lower-risk before the new UI is added.
+**Pros:** Each resulting component stays under ~300 lines. Easier to unit-test FactsList in isolation.
+**Cons:** Minor refactor risk — need to verify props thread correctly after split.
+**Depends on:** None (pure refactor, safe before Sprint 1 feature work begins).
+
+### Counsellor Trust Sprint 1: Extract shared Fact type to web/types/facts.ts
+**What:** Create `web/types/facts.ts` with a single `Fact` interface (including the new `lifecycle` field) and import it in `FactCard.tsx`, `EmployerFactsTab.tsx`, and `ExtractedFactsModal.tsx`.
+**Why:** The `Fact` interface is currently duplicated across at least 3 files. Adding the `lifecycle` field requires updating each copy separately — a drift risk that will cause TypeScript to silently accept stale shapes.
+**Pros:** One source of truth. `lifecycle` field addition propagates everywhere automatically.
+**Cons:** Minor refactor. Import changes across 3 files.
+**Depends on:** None (can be done before or in parallel with Sprint 1 feature work).
+
+### Counsellor Trust Sprint 1: Extract shared ProvenancePanel component
+**What:** Build `web/components/admin/ProvenancePanel.tsx` as a standalone component with the `▸ Provenance` toggle, expanded field list (source, date, last updated, superseded by, audit link), and DESIGN.md styling.
+**Why:** Eng review confirmed the provenance panel is the single most visible Sprint 1 UI element. Building it inline in FactCard and copying it later will produce visual drift. Extract once, wire everywhere.
+**Pros:** Consistent provenance display across FactCard and any future surfaces. One place to fix contrast/spacing issues.
+**Cons:** One extra component to navigate. Worth it given the spec's emphasis on this surface.
+**Depends on:** Counsellor Trust Sprint 1 implementation (after shared Fact type is extracted).
+
 ### Structured Facts Phase 2: LLM extraction accuracy testing
 **What:** Test extraction end-to-end on real Stripe notes; refine extraction prompt if accuracy < 80%; write 3–5 sample facts via UI (manual + extraction).
 **Why:** Extraction endpoint is now fully functional (three bugs fixed 2026-04-20/21: wrong method name, JSON array parsing, repair function signature). Accuracy testing is the remaining gate before Phase 3.
@@ -81,6 +123,13 @@ ranges in session card commits now populate `salary_min_sgd`/`salary_max_sgd` vi
 **Depends on:** Revision metadata on structured facts.
 
 ## Next
+
+### Normalize employer YAMLs: headcount_estimate → singapore_headcount_estimate
+**What:** Rename `headcount_estimate` to `singapore_headcount_estimate` across all ~30 employer YAML files in `knowledge/employers/`.
+**Why:** Eng review (2026-04-22) found schema drift — the API reads `singapore_headcount_estimate` but existing YAMLs use `headcount_estimate`, causing silent data misses on every employer load.
+**Pros:** One-time rename, low risk. Eliminates a class of silent null reads on the headcount field.
+**Cons:** Must update all 30 files consistently (script or bulk find-replace).
+**Depends on:** None. Safe to run independently.
 
 ### ADMIN_KEY passed as query param — migrate to header or cookie
 **What:** Replace `?key=...` query param with `Authorization: Bearer` header or session cookie.
