@@ -335,6 +335,38 @@ class EmployerEntityStore:
         lines.append("=== END EMPLOYER FACTS ===")
         return "\n".join(lines)
 
+    def append_source_document(self, slug: str, filename: str, raw_text: str) -> bool:
+        """Append a parsed document's text to the employer's source_documents list.
+
+        Reads the YAML, appends the entry, writes back, then invalidates the cache.
+        Returns False if the employer file does not exist.
+        """
+        employers_dir = Path(os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir())))
+        yaml_path = employers_dir / f"{slug}.yaml"
+        if not yaml_path.exists():
+            logger.warning("append_source_document: %s not found", yaml_path)
+            return False
+
+        with open(yaml_path, encoding="utf-8") as f:
+            employer = yaml.safe_load(f)
+        if not isinstance(employer, dict):
+            return False
+
+        docs = employer.get("source_documents") or []
+        docs.append({
+            "filename": filename,
+            "raw_text": raw_text,
+            "uploaded_at": datetime.now(timezone.utc).isoformat(),
+        })
+        employer["source_documents"] = docs
+
+        with open(yaml_path, "w", encoding="utf-8") as f:
+            yaml.dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+
+        self.invalidate()
+        logger.info("append_source_document: added %r to %s (%d docs total)", filename, slug, len(docs))
+        return True
+
     def invalidate(self) -> None:
         """Reset loaded flag so employers are reloaded on next access."""
         self._loaded = False

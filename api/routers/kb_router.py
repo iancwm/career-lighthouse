@@ -1374,9 +1374,10 @@ async def extract_facts_from_employer_notes(
     slug: str,
     employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
-    """Extract structured facts from employer notes using LLM.
+    """Extract structured facts from employer notes and uploaded source documents.
 
-    Reads the employer's notes field and extracts timeline, alumni, interview,
+    Concatenates the employer's notes field with any raw text stored via
+    /api/ingest?employer_slug=... and extracts timeline, alumni, interview,
     compensation, and skill requirement facts. Returns facts as JSON for counsellor review.
 
     Auth note: protected by Next.js middleware only.
@@ -1389,16 +1390,21 @@ async def extract_facts_from_employer_notes(
     if not emp:
         raise HTTPException(status_code=404, detail=f"Employer '{slug}' not found.")
 
-    notes = emp.get("notes", "")
-    if not notes or not notes.strip():
-        raise HTTPException(status_code=400, detail="Employer has no notes to extract from.")
+    notes = emp.get("notes") or ""
+    source_docs = emp.get("source_documents") or []
+    doc_texts = "\n\n".join(d["raw_text"] for d in source_docs if d.get("raw_text"))
+    combined = "\n\n".join(filter(None, [notes.strip(), doc_texts.strip()]))
 
+    if not combined:
+        raise HTTPException(status_code=400, detail="Employer has no notes or source documents to extract from.")
+
+    source_label = "employer_notes+documents" if doc_texts else "employer_notes"
     try:
-        facts = await extract_facts_from_prose(notes, emp.get("employer_name", slug))
+        facts = await extract_facts_from_prose(combined, emp.get("employer_name", slug))
         return {
             "facts": facts,
             "total": len(facts),
-            "source": "employer_notes",
+            "source": source_label,
         }
     except Exception as exc:
         logger.error("extract_facts_from_employer_notes: failed for %r: %s", slug, exc)

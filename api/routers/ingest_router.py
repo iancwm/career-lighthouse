@@ -2,7 +2,7 @@
 import logging
 import re
 import numpy as np
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
 from starlette.requests import Request
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,8 @@ from models import IngestResponse
 from services import health_cache
 from services.career_profiles import get_career_profile_store
 from services.embedder import Embedder
-from services.ingestion import prepare_document
+from services.employer_store import get_employer_store, EmployerEntityStore
+from services.ingestion import parse_file, prepare_document
 from services.vector_store import VectorStore
 from limiter import limiter
 
@@ -90,8 +91,10 @@ def _check_deduplication(
 async def ingest(
     request: Request,
     file: UploadFile = File(...),
+    employer_slug: str | None = Form(None),
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
     # Content-Length guard — fires before buffering the body.
     # Absent header is OK (chunked encoding) — browsers and curl send it for files.
@@ -140,6 +143,14 @@ async def ingest(
         # Invalidate caches — KB has changed
         health_cache.invalidate_overlap_cache()
         get_career_profile_store().invalidate()
+
+    # If an employer slug was provided, also store the raw parsed text against the employer.
+    # This makes the full document available to the fact extractor, not just the notes field.
+    if employer_slug and points:
+        raw_text = parse_file(content, filename)
+        stored = employer_store.append_source_document(employer_slug, filename, raw_text)
+        if not stored:
+            logger.warning("ingest: employer_slug=%r not found — source document not stored", employer_slug)
 
     # Build similarity warning if overlap exceeds threshold
     similarity_warning: str | None = None

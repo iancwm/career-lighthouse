@@ -21,10 +21,8 @@ Shipped: FactEditor component with type-specific field schemas for all 5 fact ty
 **Why:** Phase 3 (student query surface) depends on fact retrieval; counselor dashboard depends on fact filtering.
 **Depends on:** Facts are being written to career profile and employer YAMLs; endpoint just needs to read and serialize them.
 
-### Structured Facts Phase 1 Validation: Stripe pilot + LLM extraction test
-**What:** (1) Write 3–5 sample facts manually for Stripe employer + fintech_compliance track (timeline, alumni, interview stages). (2) Test LLM extraction prompt on a real counselor note; measure accuracy.
-**Why:** Confirms the schema is viable before building batch tooling. Spec assignment, lines 523–536.
-**Depends on:** Phase 2 UI complete; extraction endpoint now working (unblocked as of 2026-04-21).
+### ~~Structured Facts Phase 1 Validation: Stripe pilot + LLM extraction test~~ ✓ Done (2026-04-21)
+Shipped: manual facts confirmed writing correctly to employer and career profile YAMLs; full Stripe document uploaded to validate LLM extraction pipeline end-to-end.
 
 ### ~~Rate limiting on public endpoints~~ ✓ Done (2026-04-18)
 Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/min), `POST /api/ingest`
