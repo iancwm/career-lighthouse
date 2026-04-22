@@ -247,8 +247,9 @@ function resetToIdle() {
       </div>
 
       {state === "success" && (
-        <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {successMsg}
+        <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+          <p className="font-semibold mb-0.5">Update published</p>
+          <p className="text-xs text-green-600">{successMsg}</p>
         </div>
       )}
 
@@ -561,7 +562,7 @@ function resetToIdle() {
                   disabled={newChunkCount === 0 && profileFieldCount === 0 && employerFieldCount === 0}
                   className="px-4 py-2.5 bg-[#0F766E] text-white text-sm font-medium rounded-xl hover:bg-[#0A5C57] disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
                 >
-                  Save reviewed changes
+                  Publish updated content
                 </button>
                 <button
                   onClick={() => {

@@ -90,10 +90,10 @@ describe("KnowledgeUpdateTab", () => {
       target: { value: "Goldman changed their EP policy" },
     })
     fireEvent.click(screen.getByRole("button", { name: /Review proposed changes/i }))
-    await waitFor(() => screen.getByText(/Save reviewed changes/i))
-    fireEvent.click(screen.getByRole("button", { name: /^Save reviewed changes$/i }))
+    await waitFor(() => screen.getByText(/Publish updated content/i))
+    fireEvent.click(screen.getByRole("button", { name: /^Publish updated content$/i }))
     await waitFor(() =>
-      expect(screen.getByText(/Saved/i)).toBeInTheDocument()
+      expect(screen.getByText(/Update published/i)).toBeInTheDocument()
     )
   })
 
@@ -107,7 +107,7 @@ describe("KnowledgeUpdateTab", () => {
       target: { value: "Goldman changed their EP policy" },
     })
     fireEvent.click(screen.getByRole("button", { name: /Review proposed changes/i }))
-    await waitFor(() => screen.getByText(/Save reviewed changes/i))
+    await waitFor(() => screen.getByText(/Publish updated content/i))
     fireEvent.click(screen.getByRole("button", { name: /Discard/i }))
     expect(screen.getByText(/Your review summary will appear here/i)).toBeInTheDocument()
   })
@@ -128,8 +128,8 @@ describe("KnowledgeUpdateTab", () => {
       target: { value: "Goldman changed EP policy" },
     })
     fireEvent.click(screen.getByRole("button", { name: /Review proposed changes/i }))
-    await waitFor(() => screen.getByText(/Save reviewed changes/i))
-    fireEvent.click(screen.getByRole("button", { name: /^Save reviewed changes$/i }))
+    await waitFor(() => screen.getByText(/Publish updated content/i))
+    fireEvent.click(screen.getByRole("button", { name: /^Publish updated content$/i }))
     await waitFor(() => expect(onCommitted).toHaveBeenCalledOnce())
   })
 })
