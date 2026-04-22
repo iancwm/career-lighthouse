@@ -171,6 +171,8 @@ Sprint 3 should focus on surfacing that trust model to students and making the c
 
 Goal: make the architecture behave consistently with the product promise.
 
+See the working spec in [sprint_4_spec.md](./sprint_4_spec.md).
+
 ### Scope
 
 * codify retrieval rules around superseded documents
