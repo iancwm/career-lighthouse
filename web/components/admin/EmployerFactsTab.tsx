@@ -3,9 +3,59 @@ import { useEffect, useRef, useState } from "react"
 import FactCard from "./forms/FactCard"
 import FactEditor from "./forms/FactEditor"
 import ExtractedFactsModal from "./modals/ExtractedFactsModal"
-import { Fact, getFactKeyValue, normalizeFactLifecycle, sortFactsForDisplay } from "@/types/facts"
+import { Fact, getFactKeyValue, getFactTypeLabel, isActiveFact, normalizeFactLifecycle, sortFactsForDisplay } from "@/types/facts"
 
 const API_URL = "/api/admin"
+
+// ── Replace-flow types ─────────────────────────────────────────────────────
+
+interface ReplacePFChange {
+  old: string | null
+  new: string
+  source_type?: string | null
+  source_label?: string | null
+  source_timestamp?: string | null
+}
+
+interface ReplaceNewChunk {
+  text: string
+  source_type: string
+  source_label: string
+  source_timestamp?: string | null
+  career_type: string | null
+  chunk_id: string
+}
+
+interface ReplaceAnalysisResult {
+  interpretation_bullets: string[]
+  profile_updates: Record<string, Record<string, ReplacePFChange>>
+  employer_updates: Record<string, Record<string, ReplacePFChange>>
+  new_chunks: ReplaceNewChunk[]
+  already_covered: { excerpt: string; source_doc: string }[]
+}
+
+interface ReplaceDiffState {
+  result: ReplaceAnalysisResult
+  employerEdits: Record<string, Record<string, string>>
+  profileEdits: Record<string, Record<string, string>>
+  chunkEdits: string[]
+}
+
+interface ReplaceTarget {
+  factSlug: string
+  factLabel: string
+  factTypeLabel: string
+}
+
+interface ReplaceConfirmation {
+  employerName: string
+  factTypeLabel: string
+  factLabel: string
+  newValue: string
+  updatedAt: string
+}
+
+type ReplaceFlowState = "idle" | "input" | "analysing" | "diff" | "publishing" | "error_analyse" | "error_publish" | "success"
 
 interface EmployerDetail {
   slug: string
@@ -225,6 +275,15 @@ export default function EmployerFactsTab() {
   const [extractLoading, setExtractLoading] = useState(false)
   const [extractError, setExtractError] = useState("")
   const [undoToast, setUndoToast] = useState<{ slug: string; label: string; remaining: number } | null>(null)
+  const [replaceTarget, setReplaceTarget] = useState<ReplaceTarget | null>(null)
+  const [replaceFlowState, setReplaceFlowState] = useState<ReplaceFlowState>("idle")
+  const [replaceMode, setReplaceMode] = useState<"note" | "file">("note")
+  const [replaceNote, setReplaceNote] = useState("")
+  const [replaceFile, setReplaceFile] = useState<File | null>(null)
+  const [replaceDiff, setReplaceDiff] = useState<ReplaceDiffState | null>(null)
+  const [replaceConfirmation, setReplaceConfirmation] = useState<ReplaceConfirmation | null>(null)
+  const replaceFileInputRef = useRef<HTMLInputElement | null>(null)
+  const replaceConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const saveBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const undoTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -242,6 +301,7 @@ export default function EmployerFactsTab() {
       if (saveBannerTimerRef.current) clearTimeout(saveBannerTimerRef.current)
       if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
       if (undoTickRef.current) clearInterval(undoTickRef.current)
+      if (replaceConfirmTimerRef.current) clearTimeout(replaceConfirmTimerRef.current)
     }
   }, [])
 
@@ -531,6 +591,181 @@ export default function EmployerFactsTab() {
       setSaveBanner("")
       setSaveState("idle")
     }, 3000)
+  }
+
+  // ── Replace flow ──────────────────────────────────────────────────────────
+
+  function handleStartReplace(factSlug: string) {
+    const fact = facts.find((f) => f.slug === factSlug)
+    if (!fact) return
+    setReplaceTarget({
+      factSlug: fact.slug,
+      factLabel: getFactKeyValue(fact),
+      factTypeLabel: getFactTypeLabel(fact.type),
+    })
+    setReplaceFlowState("input")
+    setReplaceMode("note")
+    setReplaceNote("")
+    setReplaceFile(null)
+    setReplaceDiff(null)
+    setReplaceConfirmation(null)
+    if (replaceConfirmTimerRef.current) clearTimeout(replaceConfirmTimerRef.current)
+  }
+
+  function handleCancelReplace() {
+    if (replaceConfirmTimerRef.current) clearTimeout(replaceConfirmTimerRef.current)
+    setReplaceTarget(null)
+    setReplaceFlowState("idle")
+    setReplaceNote("")
+    setReplaceFile(null)
+    setReplaceDiff(null)
+    setReplaceConfirmation(null)
+  }
+
+  async function handleReplaceAnalyse() {
+    if (!replaceTarget || !selected) return
+    setReplaceFlowState("analysing")
+    const formData = new FormData()
+    if (replaceMode === "note") {
+      formData.append("text", replaceNote.trim())
+      formData.append("source_type", "note")
+    } else if (replaceFile) {
+      formData.append("file", replaceFile)
+      formData.append("source_type", "file")
+    }
+    try {
+      const res = await fetch(`${API_URL}/api/kb/analyse`, { method: "POST", body: formData })
+      if (!res.ok) { setReplaceFlowState("error_analyse"); return }
+      const result: ReplaceAnalysisResult = await res.json()
+      const employerEdits: Record<string, Record<string, string>> = {}
+      for (const [slug, fields] of Object.entries(result.employer_updates ?? {})) {
+        employerEdits[slug] = {}
+        for (const [field, change] of Object.entries(fields)) {
+          employerEdits[slug][field] = change.new
+        }
+      }
+      const profileEdits: Record<string, Record<string, string>> = {}
+      for (const [slug, fields] of Object.entries(result.profile_updates ?? {})) {
+        profileEdits[slug] = {}
+        for (const [field, change] of Object.entries(fields)) {
+          profileEdits[slug][field] = change.new
+        }
+      }
+      setReplaceDiff({ result, employerEdits, profileEdits, chunkEdits: result.new_chunks.map((c) => c.text) })
+      setReplaceFlowState("diff")
+    } catch {
+      setReplaceFlowState("error_analyse")
+    }
+  }
+
+  async function handleReplacePublish() {
+    if (!replaceDiff || !selected || !replaceTarget) return
+    setReplaceFlowState("publishing")
+
+    const employerUpdates: Record<string, Record<string, ReplacePFChange>> = {}
+    for (const [slug, fields] of Object.entries(replaceDiff.result.employer_updates ?? {})) {
+      employerUpdates[slug] = {}
+      for (const [field, change] of Object.entries(fields)) {
+        employerUpdates[slug][field] = {
+          old: change.old,
+          new: replaceDiff.employerEdits[slug]?.[field] ?? change.new,
+          source_type: change.source_type ?? null,
+          source_label: change.source_label ?? null,
+          source_timestamp: change.source_timestamp ?? null,
+        }
+      }
+    }
+    const profileUpdates: Record<string, Record<string, ReplacePFChange>> = {}
+    for (const [slug, fields] of Object.entries(replaceDiff.result.profile_updates ?? {})) {
+      profileUpdates[slug] = {}
+      for (const [field, change] of Object.entries(fields)) {
+        profileUpdates[slug][field] = {
+          old: change.old,
+          new: replaceDiff.profileEdits[slug]?.[field] ?? change.new,
+          source_type: change.source_type ?? null,
+          source_label: change.source_label ?? null,
+          source_timestamp: change.source_timestamp ?? null,
+        }
+      }
+    }
+    const newChunks = replaceDiff.result.new_chunks.map((chunk, i) => ({
+      ...chunk,
+      text: replaceDiff.chunkEdits[i] ?? chunk.text,
+    }))
+
+    try {
+      const commitRes = await fetch(`${API_URL}/api/kb/commit-analysis`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ profile_updates: profileUpdates, employer_updates: employerUpdates, new_chunks: newChunks }),
+      })
+      if (!commitRes.ok) { setReplaceFlowState("error_publish"); return }
+
+      // Mark the replaced fact as superseded and save employer
+      const now = new Date().toISOString()
+      const newFacts = normalizeFacts(
+        facts.map((f) =>
+          f.slug === replaceTarget.factSlug
+            ? { ...f, lifecycle: "superseded" as const, deleted: true, last_updated: now }
+            : f
+        )
+      )
+      setFacts(newFacts)
+      isDirty.current = false
+
+      const updatedBody = {
+        ...selected,
+        ...form,
+        slug: selected.slug,
+        completeness: "amber" as const,
+        structured: persistFacts(newFacts),
+      }
+      fetch(`${API_URL}/api/kb/employers/${selected.slug}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedBody),
+      }).then(async (r) => {
+        if (r.ok) {
+          const updated: EmployerDetail = await r.json()
+          setEmployers((prev) => prev.map((e) => (e.slug === updated.slug ? updated : e)))
+          setSelected(updated)
+          setForm({ ...updated })
+        }
+      }).catch(() => { /* commit succeeded; employer update is best-effort */ })
+
+      // Derive confirmation content from the diff
+      const changesForThisEmployer = employerUpdates[selected.slug]
+      const firstChange = changesForThisEmployer ? Object.values(changesForThisEmployer)[0] : null
+
+      setReplaceConfirmation({
+        employerName: selected.employer_name,
+        factTypeLabel: replaceTarget.factTypeLabel,
+        factLabel: replaceTarget.factLabel,
+        newValue: firstChange?.new ?? "",
+        updatedAt: new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" }),
+      })
+      setReplaceDiff(null)
+      setReplaceFlowState("success")
+
+      replaceConfirmTimerRef.current = setTimeout(() => {
+        handleCancelReplace()
+      }, 6000)
+    } catch {
+      setReplaceFlowState("error_publish")
+    }
+  }
+
+  function formatReplaceSourceLabel(value?: string | null) {
+    if (!value || !value.trim()) return "Unknown"
+    const clean = value.trim().replace(/_/g, " ")
+    return clean.replace(/\b\w/g, (c) => c.toUpperCase())
+  }
+
+  function formatReplaceSourceDate(value?: string | null) {
+    if (!value || !value.trim()) return "Unknown"
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return parsed.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" })
   }
 
   const canSave = mode === "create"
@@ -858,7 +1093,7 @@ export default function EmployerFactsTab() {
                 {activeTab === "facts" && (
                 <div className="space-y-4">
                   {/* Facts list */}
-                  {facts.length === 0 && !showFactEditor && (
+                  {facts.length === 0 && !showFactEditor && replaceFlowState === "idle" && (
                     <div className="rounded-2xl border border-[#D8D0C4] bg-[#FFFDFC] px-5 py-6 text-left">
                       <p className="text-sm text-[#1F2937]">
                         No facts yet for {selected?.employer_name || "this employer"}.
@@ -887,13 +1122,275 @@ export default function EmployerFactsTab() {
                           supersededBy={supersededByBySlug.get(fact.slug)}
                           historyHref={historyHref}
                           onDelete={handleDeleteFact}
+                          onReplace={replaceFlowState === "idle" && isActiveFact(fact) ? handleStartReplace : undefined}
                         />
                       ))}
                     </div>
                   )}
 
+                  {/* Replace fact workflow panel */}
+                  {replaceFlowState !== "idle" && replaceTarget && (
+                    <div className="rounded-2xl border border-[#D8D0C4] bg-[#FFFDFC] p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div>
+                          <h4 className="text-sm font-semibold text-[#1F2937]">Replace current content</h4>
+                          <p className="text-xs text-[#5F6B76] mt-0.5">
+                            {replaceTarget.factTypeLabel}: <span className="font-medium text-[#1F2937]">{replaceTarget.factLabel}</span>
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleCancelReplace}
+                          className="p-1 text-[#5F6B76] hover:text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#0F766E] rounded"
+                          aria-label="Cancel replace"
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Input phase */}
+                      {replaceFlowState === "input" && (
+                        <div className="space-y-3">
+                          <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                            <button
+                              onClick={() => { setReplaceMode("note"); setReplaceFile(null) }}
+                              className={`flex-1 py-2 font-medium transition-colors focus:outline-none ${replaceMode === "note" ? "bg-[#0F766E] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                            >
+                              Counsellor note
+                            </button>
+                            <button
+                              onClick={() => setReplaceMode("file")}
+                              className={`flex-1 py-2 font-medium transition-colors focus:outline-none ${replaceMode === "file" ? "bg-[#0F766E] text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                            >
+                              Uploaded file
+                            </button>
+                          </div>
+
+                          {replaceMode === "note" ? (
+                            <textarea
+                              value={replaceNote}
+                              onChange={(e) => setReplaceNote(e.target.value)}
+                              placeholder="Describe the updated content, for example: Goldman changed their EP threshold to 50+ COMPASS from Q2 2026."
+                              className="w-full border border-gray-300 rounded-lg p-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] min-h-[100px]"
+                            />
+                          ) : (
+                            <div
+                              className="border-2 border-dashed border-gray-300 rounded-lg p-5 text-center cursor-pointer hover:border-[#0F766E] transition-colors"
+                              onClick={() => replaceFileInputRef.current?.click()}
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => {
+                                e.preventDefault()
+                                const f = e.dataTransfer.files[0]
+                                if (f) setReplaceFile(f)
+                              }}
+                            >
+                              {replaceFile ? (
+                                <p className="text-sm text-gray-700 font-medium">{replaceFile.name}</p>
+                              ) : (
+                                <>
+                                  <p className="text-gray-500 text-sm">Drag and drop or click to choose a file</p>
+                                  <p className="text-xs text-gray-400 mt-1">Accepted formats: PDF, DOCX, TXT</p>
+                                </>
+                              )}
+                              <input
+                                ref={replaceFileInputRef}
+                                type="file"
+                                accept=".pdf,.docx,.txt"
+                                className="hidden"
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) setReplaceFile(f) }}
+                              />
+                            </div>
+                          )}
+
+                          <button
+                            onClick={handleReplaceAnalyse}
+                            disabled={replaceMode === "note" ? !replaceNote.trim() : !replaceFile}
+                            className="min-h-[44px] w-full py-2.5 bg-[#0F766E] text-white text-sm font-medium rounded-xl hover:bg-[#0A5C57] disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                          >
+                            Review proposed changes
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Analysing / publishing spinner */}
+                      {(replaceFlowState === "analysing" || replaceFlowState === "publishing") && (
+                        <div className="flex items-center justify-center gap-3 py-8">
+                          <div className="w-5 h-5 border-2 border-[#0F766E] border-t-transparent rounded-full animate-spin" />
+                          <p className="text-sm text-[#5F6B76]">
+                            {replaceFlowState === "publishing" ? "Publishing update..." : "Preparing review..."}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Error: analysis failed */}
+                      {replaceFlowState === "error_analyse" && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                          <p>Could not prepare the review. Please try again or make the note more specific.</p>
+                          <button
+                            onClick={handleReplaceAnalyse}
+                            className="mt-2 min-h-[44px] px-3 py-2 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Error: publish failed */}
+                      {replaceFlowState === "error_publish" && replaceDiff && (
+                        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-3">
+                          <p>Could not save this update yet. Please retry.</p>
+                          <button
+                            onClick={handleReplacePublish}
+                            className="mt-2 min-h-[44px] px-3 py-2 bg-red-600 text-white rounded-lg text-xs hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-400"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Diff review */}
+                      {(replaceFlowState === "diff" || replaceFlowState === "error_publish") && replaceDiff && (
+                        <div className="space-y-3">
+                          {replaceDiff.result.interpretation_bullets.length > 0 && (
+                            <div className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+                              <p className="text-xs font-medium text-gray-500 mb-2">Summary of what will change:</p>
+                              <ul className="space-y-1">
+                                {replaceDiff.result.interpretation_bullets.map((b, i) => (
+                                  <li key={i} className="text-xs text-gray-700 flex gap-2">
+                                    <span className="text-[#0F766E] mt-0.5 shrink-0">•</span>
+                                    <span>{b}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {/* Employer fact updates */}
+                          {Object.keys(replaceDiff.result.employer_updates ?? {}).length > 0 && (
+                            <section>
+                              <h5 className="text-xs font-semibold text-gray-600 mb-2">Employer updates</h5>
+                              <div className="space-y-2">
+                                {Object.entries(replaceDiff.result.employer_updates).map(([slug, fields]) =>
+                                  Object.entries(fields).map(([field, change]) => (
+                                    <div key={`${slug}-${field}`} className="rounded-lg border border-gray-200 p-3 text-xs">
+                                      <p className="font-medium text-gray-600 mb-1">{slug} / {field}</p>
+                                      {change.old && (
+                                        <p className="text-gray-400 line-through mb-1 leading-relaxed">{change.old}</p>
+                                      )}
+                                      <textarea
+                                        className="w-full border border-[#D8D0C4] bg-[#F0E7DB] rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] leading-relaxed"
+                                        rows={2}
+                                        value={replaceDiff.employerEdits[slug]?.[field] ?? change.new}
+                                        onChange={(e) => {
+                                          const val = e.target.value
+                                          setReplaceDiff((prev) => {
+                                            if (!prev) return prev
+                                            return {
+                                              ...prev,
+                                              employerEdits: {
+                                                ...prev.employerEdits,
+                                                [slug]: { ...prev.employerEdits[slug], [field]: val },
+                                              },
+                                            }
+                                          })
+                                        }}
+                                      />
+                                      <div className="mt-1.5 text-[11px] leading-5 text-[#5F6B76]">
+                                        Source: {formatReplaceSourceLabel(change.source_label)} · {formatReplaceSourceDate(change.source_timestamp)}
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </section>
+                          )}
+
+                          {/* Profile updates */}
+                          {Object.keys(replaceDiff.result.profile_updates ?? {}).length > 0 && (
+                            <section>
+                              <h5 className="text-xs font-semibold text-gray-600 mb-2">Career profile updates</h5>
+                              <div className="space-y-2">
+                                {Object.entries(replaceDiff.result.profile_updates).map(([slug, fields]) =>
+                                  Object.entries(fields).map(([field, change]) => (
+                                    <div key={`${slug}-${field}`} className="rounded-lg border border-gray-200 p-3 text-xs">
+                                      <p className="font-medium text-gray-600 mb-1">{slug} / {field}</p>
+                                      {change.old && (
+                                        <p className="text-gray-400 line-through mb-1 leading-relaxed">{change.old}</p>
+                                      )}
+                                      <textarea
+                                        className="w-full border border-[#D8D0C4] bg-[#F0E7DB] rounded p-2 text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-[#0F766E] leading-relaxed"
+                                        rows={2}
+                                        value={replaceDiff.profileEdits[slug]?.[field] ?? change.new}
+                                        onChange={(e) => {
+                                          const val = e.target.value
+                                          setReplaceDiff((prev) => {
+                                            if (!prev) return prev
+                                            return {
+                                              ...prev,
+                                              profileEdits: {
+                                                ...prev.profileEdits,
+                                                [slug]: { ...prev.profileEdits[slug], [field]: val },
+                                              },
+                                            }
+                                          })
+                                        }}
+                                      />
+                                      <div className="mt-1.5 text-[11px] leading-5 text-[#5F6B76]">
+                                        Source: {formatReplaceSourceLabel(change.source_label)} · {formatReplaceSourceDate(change.source_timestamp)}
+                                      </div>
+                                    </div>
+                                  ))
+                                )}
+                              </div>
+                            </section>
+                          )}
+
+                          {Object.keys(replaceDiff.result.employer_updates ?? {}).length === 0 &&
+                            Object.keys(replaceDiff.result.profile_updates ?? {}).length === 0 &&
+                            replaceDiff.result.new_chunks.length === 0 && (
+                            <p className="text-sm text-gray-500 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                              No specific updates detected. Check the note and try again, or publish to save any new searchable chunks.
+                            </p>
+                          )}
+
+                          {replaceFlowState === "diff" && (
+                            <div className="flex gap-2 pt-2 border-t border-gray-100">
+                              <button
+                                onClick={handleReplacePublish}
+                                className="min-h-[44px] flex-1 py-2.5 bg-[#0F766E] text-white text-sm font-medium rounded-xl hover:bg-[#0A5C57] focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                              >
+                                Publish updated content
+                              </button>
+                              <button
+                                onClick={handleCancelReplace}
+                                className="min-h-[44px] px-4 py-2.5 border border-gray-300 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Success confirmation */}
+                      {replaceFlowState === "success" && replaceConfirmation && (
+                        <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+                          <p className="text-sm font-semibold text-green-800 mb-2">
+                            {replaceConfirmation.employerName} · {replaceConfirmation.factTypeLabel} updated
+                          </p>
+                          <div className="text-xs text-green-700 space-y-1">
+                            {replaceConfirmation.newValue && (
+                              <p>Now active: <span className="font-medium">{replaceConfirmation.newValue}</span></p>
+                            )}
+                            <p>Superseded: <span className="font-medium">{replaceConfirmation.factLabel}</span></p>
+                            <p className="text-green-600">Updated: {replaceConfirmation.updatedAt}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Action buttons */}
-                  {!showFactEditor && (
+                  {!showFactEditor && replaceFlowState === "idle" && (
                     <div className="flex gap-2 pt-2">
                       <button
                         onClick={() => setShowFactEditor(true)}
@@ -919,7 +1416,7 @@ export default function EmployerFactsTab() {
                     </div>
                   )}
 
-                  {showFactEditor && (
+                  {showFactEditor && replaceFlowState === "idle" && (
                     <FactEditor
                       onAdd={handleAddFact}
                       onCancel={() => setShowFactEditor(false)}

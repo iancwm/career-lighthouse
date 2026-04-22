@@ -17,9 +17,10 @@ interface FactCardProps {
   supersededBy?: string | null
   historyHref?: string | null
   onDelete?: (slug: string) => void
+  onReplace?: (slug: string) => void
 }
 
-export default function FactCard({ fact, supersededBy, historyHref, onDelete }: FactCardProps) {
+export default function FactCard({ fact, supersededBy, historyHref, onDelete, onReplace }: FactCardProps) {
   const lifecycle = normalizeFactLifecycle(fact)
   const keyField = getFactKeyValue(fact)
   const typeColor = getFactTypeBadgeClass(fact.type)
@@ -52,6 +53,16 @@ export default function FactCard({ fact, supersededBy, historyHref, onDelete }: 
           </span>
           <span className="text-gray-400">{new Date(fact.timestamp).toLocaleDateString()}</span>
         </div>
+        {lifecycle === "active" && onReplace && (
+          <div className="mt-3 pt-3 border-t border-[#D8D0C4]">
+            <button
+              onClick={() => onReplace(fact.slug)}
+              className="min-h-[44px] w-full rounded-lg border border-[#0F766E] px-3 py-2 text-xs font-medium text-[#0F766E] hover:bg-[#0F766E]/5 focus:outline-none focus:ring-2 focus:ring-[#0F766E] transition-colors"
+            >
+              Replace current content
+            </button>
+          </div>
+        )}
         <div className="mt-3">
           <ProvenancePanel
             source={sourceLabel}
