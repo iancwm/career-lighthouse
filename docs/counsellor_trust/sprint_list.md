@@ -13,7 +13,7 @@ That fits the current codebase well:
 
 I would structure the work into **4 sprints**.
 
-## Sprint 1 — Canonical content lifecycle and supersession model
+## ~~Sprint 1 — Canonical content lifecycle and supersession model~~ ✓ Done
 
 Goal: make “what is active” and “what has been superseded” explicit in the backend and admin UI.
 
@@ -58,6 +58,8 @@ This directly addresses the counsellor trust problem and the Head of Service gov
 
 Goal: turn ingestion into a trustworthy workflow instead of a generic upload action.
 
+See the final spec in [sprint_2_spec.md](./sprint_2_spec.md).
+
 ### Scope
 
 * create a guided “replace current content” workflow for first-class knowledge items
@@ -88,6 +90,24 @@ You already have admin knowledge surfaces, but they are still too close to imple
 * counsellor can tell which content is live after publish
 * outdated content is visibly superseded, not ambiguously “somewhere in the system”
 * active career intelligence remains YAML-backed and inspectable
+
+### Sprint 2 test requirements
+
+* add a regression test that walks the full replace/review/publish flow and asserts the post-action confirmation state, including the published result and reset back to idle
+* cover both analysis input modes, note and file, so the workflow does not regress to one path only
+* cover the error paths for analysis failure and commit failure so counsellors get a clear recovery path instead of a silent drop
+* assert that source provenance is preserved through the review payload, even though Sprint 2 should not rebuild the provenance UI itself
+
+### Sprint 1 impact on Sprint 2
+
+Sprint 1 already shipped the trust-model plumbing that Sprint 2 depends on:
+
+* active/superseded/archived lifecycle states
+* readable provenance summaries and audit/history links
+* review proposed changes language in `KnowledgeUpdateTab`
+* source timestamps carried through the review flow
+
+Sprint 2 should now focus on the remaining guided replace/publish workflow and clearer post-action confirmation without reworking the provenance foundation again.
 
 ---
 
@@ -171,3 +191,28 @@ Per your direction:
 * optimistic locking
 
 I would also avoid a major admin IA restructure for now, since you explicitly want to defer that.
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | issues_open | 1 architecture issue, 1 test gap, 0 performance issues |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+**UNRESOLVED:** 0
+**VERDICT:** Sprint 1 is done. Sprint 2 scope is trimmed and ready to implement, but the full replace/review/publish regression should be added before coding.
+
+## NOT in scope
+
+* auth hardening, because Sprint 2 is about workflow, not access control.
+* session timeout handling, because it is a separate reliability task.
+* optimistic locking, because it is a broader concurrency problem than this sprint needs.
+
+## What already exists
+
+* `KnowledgeUpdateTab` already handles review, edit, commit, source timestamps, and success/error states.
+* `EmployerFactsTab` already handles active/superseded lifecycle, provenance, history links, and undo on soft delete.
+* Track Builder already has a publish/rollback workflow, so Sprint 2 should not rebuild a second publishing model.
