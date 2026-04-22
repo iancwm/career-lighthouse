@@ -7,9 +7,182 @@ tracks:
 ep_requirement: Likely sponsors EP for qualified candidates; major Singapore bank.
   Verify current policy.
 counselor_contact: Dr. Patricia Lim, Career Counselor - Law & Governance
-notes: UOB compliance team recommended as first employer for students targeting fintech
-  compliance careers. Bank AML/KYC programs are mature and audited; 2–3 years builds
-  strong credibility. UOB compliance talent actively recruited by fintechs (Stripe,
-  Wise, Revolut). Talent pipeline source confirmed by Aditya Mehta (Stripe Head of
-  Compliance APAC, NUS LLM '18).
-last_updated: '2026-04-20'
+notes: 'Retail Banking (Relationship Manager → Senior RM) comp: SGD 70–85K base +
+  15–20% bonus (performance-based on AUM growth). Mass-affluent client segment (SGD
+  100K–1M wealth). Role is customer-facing with no data/analytics exposure. Alumni
+  Jane Teoh (MITB AI ''23) transitioned from UOB Senior RM to Stripe Data Analyst
+  via MITB AI Track — banking domain knowledge (settlement mechanics, FX, regulatory
+  compliance, fraud patterns) proved differentiator in fintech data roles. UOB banking
+  culture: hierarchical, documentation-heavy.'
+last_updated: '2026-04-22'
+intake_seasons: []
+singapore_headcount_estimate: null
+application_process: null
+counsellor_contact: null
+structured:
+  facts:
+  - slug: uob-rm-compensation-base
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-01-30T00:00:00Z'
+    source_timestamp: '2025-01-30T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: uob-rm-compensation-base
+      type: compensation
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: Relationship Manager to Senior RM base salary
+        value: SGD 70,000 – 85,000 per annum
+        role_type: full_time
+        details: Base salary range for Retail Banking RM and Senior RM roles
+  - slug: uob-rm-compensation-bonus
+    type: compensation
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-01-30T00:00:00Z'
+    source_timestamp: '2025-01-30T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: uob-rm-compensation-bonus
+      type: compensation
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: Relationship Manager to Senior RM performance bonus
+        value: 15–20% of base salary
+        role_type: full_time
+        details: Performance-based bonus tied to AUM growth
+  - slug: uob-jane-teoh-mitb
+    type: alumni
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-01-30T00:00:00Z'
+    source_timestamp: '2025-01-30T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: uob-jane-teoh-mitb
+      type: alumni
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: Jane Teoh alumni transition
+        value: Jane Teoh — MITB AI Track, Class of 2023; transitioned from UOB Senior
+          RM to Stripe Data Analyst
+        role_type: full_time
+        details: Banking domain knowledge (settlement mechanics, FX, regulatory compliance,
+          fraud patterns) was a key differentiator in securing fintech data role at
+          Stripe
+        school: MITB
+        track: AI
+        graduation_year: 2023
+        prior_employer: UOB
+        prior_role: Senior Relationship Manager
+        next_employer: Stripe
+        next_role: Data Analyst
+  - slug: uob-rm-skill-requirement-client-segment
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-01-30T00:00:00Z'
+    source_timestamp: '2025-01-30T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: uob-rm-skill-requirement-client-segment
+      type: skill_requirement
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: Mass-affluent client management
+        value: Experience managing clients with SGD 100K–1M wealth (mass-affluent
+          segment)
+        role_type: full_time
+        details: Role is customer-facing; no data or analytics exposure involved
+  - slug: uob-rm-skill-requirement-domain-knowledge
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-01-30T00:00:00Z'
+    source_timestamp: '2025-01-30T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: uob-rm-skill-requirement-domain-knowledge
+      type: skill_requirement
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 80
+      data:
+        phase_name: Banking domain knowledge for RM roles
+        value: Knowledge of settlement mechanics, FX, regulatory compliance, fraud
+          patterns
+        role_type: full_time
+        details: Domain expertise transferable to fintech data roles; relevant for
+          RM positions at UOB
+  - slug: uob-culture-hierarchical
+    type: skill_requirement
+    timestamp: '2025-01-30T00:00:00Z'
+    source: inferred
+    confidence: 100
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-01-30T00:00:00Z'
+    source_timestamp: '2025-01-30T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: uob-culture-hierarchical
+      type: skill_requirement
+      timestamp: '2025-01-30T00:00:00Z'
+      source: inferred
+      confidence: 100
+      data:
+        phase_name: UOB workplace culture fit
+        value: Hierarchical, documentation-heavy banking culture
+        role_type: full_time
+        details: Candidates should be comfortable with structured, process-oriented
+          environments and extensive documentation requirements
+source_documents: []
