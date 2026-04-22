@@ -50,6 +50,29 @@ Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/
 (5/min), and `POST /api/brief` (5/min). The `slowapi` infrastructure was already wired in `main.py`;
 per-endpoint decorators now enforce tighter budgets to protect Anthropic API quota and Fargate costs.
 
+### Student Chat Insights Sprint 1: Scaffold the insight collection
+**What:** Add 7 config fields to `api/config.py` (both the `BaseSettings` class and the fallback `@dataclass`), create `StudentChatInsightPayload` in `api/models_insights.py`, implement `StudentChatInsightStore` in `api/services/student_chat_insights.py` (`ensure_collection`, `index_message`, `build_payload`), and register `get_student_insight_store()` in `api/dependencies.py`.
+**Why:** Establishes the schema, privacy gates, and DI scaffolding before any data flows. This sprint ships no user-visible feature — it's the foundation Sprint 2 and Sprint 3 build on.
+**Context:** Full spec at `docs/student_chat_qdrant_ingestion/sprint_1_scaffold.md`. Key decisions: `message_id` is uuid4 generated at index time (pass as `p["id"]` to `VectorStore.upsert()`); `StudentChatInsightRecord` model removed as unused; `intake_context=None` with store flags True must return None gracefully (not AttributeError).
+**Depends on:** Nothing.
+
+### Student Chat Insights Sprint 2: Index student messages from the chat flow
+**What:** After each successful `POST /api/chat` response, write the student message into the student-chat insight collection. Feature-gated by `student_chat_insights_enabled`. Failure must be non-fatal (chat request must still return 200).
+**Why:** Produces the data corpus that Sprint 3's counsellor search needs. No user-visible change — silent indexing in the background.
+**Context:** Full spec at `docs/student_chat_qdrant_ingestion/sprint_2_indexing.md`. Key decisions: synchronous write (no `await`) mirroring the `_log_query()` pattern; test isolation via `app.dependency_overrides[dependencies.get_student_insight_store]`; `intake_context=None` integration test added (test 12a).
+**Depends on:** Sprint 1.
+
+### Student Chat Insights Sprint 3: Counsellor semantic search
+**What:** Add `POST /api/insights/student-questions/search` (admin-protected via `require_admin_key`), implement `StudentChatInsightStore.search()` with Qdrant filters, and build `StudentInsightsTab.tsx` with all 8 AdminWorkspace/ToolsDrawer touch points.
+**Why:** First visible product value from the epic. Lets counsellors ask "what are students worried about with international hiring?" without reading raw chatlogs.
+**Context:** Full spec at `docs/student_chat_qdrant_ingestion/sprint_3_counsellor_search.md`. Key decisions: `DatetimeRange` (not `Range`) for timestamp filtering; `embedder.encode()` (not `embed()`); `build_filters()` gates background/region conditions on `student_chat_store_*` config flags; 8 AdminWorkspace touch points including ToolsDrawer.tsx.
+**Depends on:** Sprint 1 (service + DI). Can be parallelized with Sprint 2 after Sprint 1 ships.
+
+### Student chat insight write — add Qdrant timeout cap
+**What:** Add a timeout cap to the synchronous `insight_store.index_message()` call in `chat_router.py`, or move the write to `run_in_executor` when `chat()` is refactored to `async def`.
+**Why:** The write is wrapped in try/except (non-fatal) but has no timeout. If Qdrant is slow or unresponsive, the chat response is held up by the full Qdrant client timeout (potentially 30s+). Timeout handling was explicitly OOS for Sprint 1–3; this is the natural follow-up once the feature is observable in Langfuse traces.
+**Depends on:** Student chat insights Sprint 1–2 shipped.
+
 ### Session-analysis timeout handling
 **What:** Tune `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` via env vars, and add a better non-blocking execution model when session analysis still exceeds the budget.
 **Why:** The timeout is now configurable, Langfuse confirms the request stays alive while it waits, and the structured JSON repair path now retries transient overloads. Long notes can still hit `504 Gateway Timeout` and occupy the user's session flow until they fail.

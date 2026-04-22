@@ -60,146 +60,199 @@ As a product engineer, I need a dedicated and clearly bounded storage model for 
 
 ---
 
-## Technical design target
+## Technical design
 
-### New conceptual layer
+### Collection separation
 
-Add a new insight domain:
+Add a new insight domain alongside the existing knowledge collection:
 
-- **knowledge Qdrant collection**: uploaded source docs for chat grounding
-- **student insight Qdrant collection**: counsellor-only semantic retrieval over student messages
+- **knowledge Qdrant collection** (`kb_cfg["storage"]["collection"]`): uploaded source docs for chat grounding
+- **student insight Qdrant collection** (`settings.student_chat_collection_name`): counsellor-only semantic retrieval over student messages
 
-These must be separate at the config, service, and API levels.
+These must be separate at the config, service, and API levels. The insight collection is never queried by the student-facing chat path.
 
-### Proposed new config
+### Config additions (`api/config.py` Settings class)
 
-Add to config/YAML or settings model:
+Add to the `Settings` class:
 
-| Key | Type |
-|-----|------|
-| `student_chat_insights_enabled` | `bool` |
-| `student_chat_collection_name` | `str` |
-| `student_chat_top_k_default` | `int` |
-| `student_chat_embedding_min_chars` | `int` |
-| `student_chat_store_background` | `bool` |
-| `student_chat_store_region` | `bool` |
-| `student_chat_store_interest` | `bool` |
+| Key | Type | Default | Notes |
+|-----|------|---------|-------|
+| `student_chat_insights_enabled` | `bool` | `False` | Feature toggle; entire write path is skipped when false |
+| `student_chat_collection_name` | `str` | `"student_chat_insights"` | Qdrant collection name |
+| `student_chat_top_k_default` | `int` | `10` | Default result count for counsellor search (Sprint 3) |
+| `student_chat_embedding_min_chars` | `int` | `20` | Messages shorter than this are not indexed |
+| `student_chat_store_background` | `bool` | `False` | Allow storing `background` field from intake context |
+| `student_chat_store_region` | `bool` | `False` | Allow storing `region` field from intake context |
+| `student_chat_store_interest` | `bool` | `False` | Allow storing `interest` field from intake context |
 
-**Default stance:**
+The `store_background/region/interest` flags control gradual rollout of optional student context fields. Defaulting to `False` means only career-type and resume-presence are captured until explicitly enabled via environment variable.
 
-- `enabled: false` in initial config until wired
-- `store_background` / `store_region` / `store_interest`: `false` unless explicitly approved by config
+### Payload schema
 
-### Proposed indexed payload schema
+Each point in the student insight collection has this payload:
 
-Each point in the new collection should include:
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `message_id` | `str` | |
-| `session_id` | `str \| None` | |
-| `timestamp` | `str` | |
-| `role` | `"user"` | always literal |
-| `text` | `str` | student message text |
-| `active_career_type` | `str \| None` | |
-| `background` | `str \| None` | only if allowed by config |
-| `region` | `str \| None` | only if allowed by config |
-| `interest` | `str \| None` | only if allowed by config |
-| `has_resume` | `bool` | |
-| `source_channel` | `"student_chat"` | always literal |
-| `schema_version` | `int` | |
+| Field | Type | Source | Notes |
+|-------|------|--------|-------|
+| `message_id` | `str` | `uuid4` generated at index time | Index artifact stored in Qdrant metadata; not present in `ChatRequest`. Allows linking search results back to the original message. |
+| `timestamp` | `str` | Server-side UTC ISO 8601 | Set at index time, not from client |
+| `role` | `"user"` | Literal constant | Always `"user"` in v1 |
+| `text` | `str` | `req.message` | Student message text |
+| `active_career_type` | `str \| None` | Resolved from chat flow | Career track slug |
+| `background` | `str \| None` | `req.intake_context.background` | Only stored if `student_chat_store_background=True` |
+| `region` | `str \| None` | `req.intake_context.region` | Only stored if `student_chat_store_region=True` |
+| `interest` | `str \| None` | `req.intake_context.interest` | Only stored if `student_chat_store_interest=True` |
+| `has_resume` | `bool` | `bool(req.resume_text)` | Presence flag only; resume text is never stored |
+| `source_channel` | `"student_chat"` | Literal constant | Marks this as a student chat insight |
+| `schema_version` | `int` | `1` | For future migration compatibility |
 
 **Do not store:**
-
-- Resume text
+- Resume text (any form)
 - Assistant replies
-- Full raw intake payload unless specifically allowed by config
-- Any canonical knowledge references as if this were source-of-truth content
+- `session_id` (dropped from v1; no source in current `ChatRequest` model)
+- Full raw intake payload unless specifically allowed by config flag
 
-### Proposed service boundaries
+### Service: `api/services/student_chat_insights.py`
 
-Create a dedicated service, for example:
+Create `StudentChatInsightStore`. This service:
+
+- **Composes `VectorStore`** internally for upserts and collection bootstrapping — `VectorStore.__init__(client, collection)` accepts any collection name, so `StudentChatInsightStore` wraps `VectorStore(client, collection=settings.student_chat_collection_name)`. This avoids duplicating Qdrant client code.
+- **Uses `VectorStore` only for upserts and `ensure_collection()`**. All search/retrieval is custom code in `StudentChatInsightStore` (never routed through the KB `VectorStore` instance).
+- Does not share any code path with student-facing retrieval.
+
+Key methods:
+
+```python
+class StudentChatInsightStore:
+    def __init__(self, client: QdrantClient):
+        self._store = VectorStore(client=client, collection=settings.student_chat_collection_name)
+
+    def ensure_collection(self, dim: int) -> None:
+        """Idempotent. Safe to call on every app startup."""
+        self._store.ensure_collection(dim=dim)
+
+    def index_message(
+        self,
+        text: str,
+        embedder: Embedder,
+        active_career_type: str | None,
+        intake_context: IntakeContext | None,
+        has_resume: bool,
+    ) -> str:
+        """Build payload, embed text, upsert to insight collection. Returns message_id.
+
+        Pass message_id as p["id"] in the upsert call — VectorStore.upsert() applies
+        _to_uuid() internally (see api/services/vector_store.py:69), so the raw uuid4
+        string is the correct value to pass.
+        """
+        ...
+
+    def build_payload(
+        self,
+        text: str,
+        active_career_type: str | None,
+        intake_context: IntakeContext | None,
+        has_resume: bool,
+    ) -> StudentChatInsightPayload:
+        """Apply privacy gates. Called by index_message and by tests."""
+        ...
+```
+
+### Dependency injection (new in `api/dependencies.py`)
+
+```python
+@lru_cache
+def get_student_insight_store() -> StudentChatInsightStore:
+    client = get_qdrant_client()   # reuses the cached Qdrant client
+    store = StudentChatInsightStore(client=client)
+    store.ensure_collection(dim=model_cfg["embedding"]["dim"])  # idempotent
+    return store
+```
+
+`model_cfg` is already imported in `dependencies.py` (same source used by `get_vector_store()`). This follows the existing pattern exactly: service created, collection bootstrapped, then cached for the app lifetime. The knowledge collection and the insight collection are bootstrapped independently.
+
+### Typed models (`api/models_insights.py`)
+
+```python
+class StudentChatInsightPayload(BaseModel):
+    message_id: str
+    timestamp: str
+    role: Literal["user"] = "user"
+    text: str
+    active_career_type: str | None = None
+    background: str | None = None
+    region: str | None = None
+    interest: str | None = None
+    has_resume: bool
+    source_channel: Literal["student_chat"] = "student_chat"
+    schema_version: int = 1
 
 ```
-api/services/student_chat_insights.py
-```
-
-Responsibilities:
-
-- Create/ensure collection
-- Build payload from chat request context
-- Upsert points into Qdrant
-- Expose collection-specific search methods later
-
-Avoid reusing generic KB vector-store methods if that would blur the separation.
 
 ---
 
-## Suggested implementation tasks
+## Implementation tasks
 
 ### Backend
 
-1. Add config/settings entries for student chat insights.
-2. Add typed models:
-   - `StudentChatInsightRecord`
-   - `StudentChatInsightPayload`
-3. Add a dedicated service: `StudentChatInsightStore` or similar.
-4. Add collection bootstrap logic:
-   - Ensure collection exists
-   - Verify vector size matches embedder output
-5. Add payload builder with privacy gates:
-   - Redacts/excludes disallowed fields
-6. Add code comments and docstrings clarifying:
-   - Not canonical knowledge
-   - Not used for student answer retrieval
+1. Add config settings entries for student chat insights (7 fields above).
+   **Note:** `api/config.py` defines `Settings` twice — once as a pydantic `BaseSettings` subclass and once as a fallback `@dataclass` (lines 63–103) for lightweight test envs. Add all 7 fields to **both** classes.
+2. Add typed model `StudentChatInsightPayload` in `api/models_insights.py`.
+3. Create `api/services/student_chat_insights.py` with `StudentChatInsightStore`:
+   - `ensure_collection(dim)`
+   - `index_message(text, embedder, active_career_type, intake_context, has_resume) -> str`
+   - `build_payload(...) -> StudentChatInsightPayload`
+4. Add `get_student_insight_store()` to `api/dependencies.py` following the `get_vector_store()` pattern.
+5. Add code comments in the service clarifying:
+   - This collection is not canonical knowledge
+   - This collection is never queried by student-facing chat
 
 ### Documentation
 
-7. Add a short ADR or markdown note covering:
-   - Purpose
-   - Scope
-   - Privacy rules
-   - Non-goals
+6. Update this spec to reflect APPROVED decisions (done).
+7. Add inline comments in `student_chat_insights.py` that document the privacy rules and non-goals.
 
 ### Tests
 
-8. Unit tests for payload-building rules.
-9. Unit tests that resume text is never present.
-10. Unit tests for config-gated intake-field persistence.
+8. Unit test: `build_payload` includes `message_id`, `text`, `timestamp`, `source_channel`.
+9. Unit test: `build_payload` never includes resume text even when `has_resume=True`.
+10. Unit test: `background/region/interest` only appear in payload when config flags are `True`.
+11. Unit test: `background/region/interest` are `None` in payload when config flags are `False`.
+11a. Unit test: `build_payload` with `intake_context=None` and all store flags `True` — background/region/interest are `None`, no `AttributeError`. (Guards against crash when store flags are enabled but chat requests lack intake context.)
+12. Unit test: feature-toggle `student_chat_insights_enabled=False` — no collection bootstrap, no write.
 
 ---
 
-## Proposed acceptance criteria
+## Acceptance criteria
 
 - There is a dedicated student-chat insight collection config and service.
 - The insight payload schema is typed and tested.
 - Resume text cannot enter the payload.
+- `session_id` is not in the schema (dropped from v1).
+- `message_id` is generated server-side as `uuid4` at index time.
 - Assistant messages are not part of the design contract.
-- Documentation clearly states that this collection is counsellor-only and non-canonical.
+- Documentation clearly states this collection is counsellor-only and non-canonical.
+- `get_student_insight_store()` follows the existing `get_vector_store()` pattern in `dependencies.py`.
 
 ---
 
 ## Test cases
 
-- Payload contains message text, timestamp, career type, source channel.
-- Payload omits resume text even when `resume_text` is present in request.
-- Payload includes background/region/interest only when enabled in config.
-- Collection bootstrap succeeds with current embedding dimensions.
-- Feature-toggle disabled path does not initialize or write.
-
----
-
-## Coding-agent spec prompt
-
-Build the student-chat insight storage foundation. Add config, typed models, and a dedicated Qdrant-backed service for counsellor-only semantic retrieval over student messages. The service must be strictly separate from canonical KB retrieval. Resume text must never be stored. Assistant messages are out of scope. Add tests covering payload construction, privacy gates, and feature-toggle behavior.
+- Payload contains `message_id` (uuid4 format), `text`, `timestamp`, `source_channel="student_chat"`.
+- Payload omits resume text even when `resume_text` is present in request (only `has_resume=True`).
+- Payload includes `background/region/interest` only when the corresponding config flag is `True`.
+- Payload excludes `background/region/interest` when config flags are `False` (default).
+- `build_payload` with `intake_context=None` and store flags `True` — background/region/interest are `None`, no `AttributeError`.
+- `ensure_collection()` succeeds with current embedding dimensions.
+- `ensure_collection()` is idempotent — safe to call twice with the same dim.
+- Feature-toggle disabled path does not call `ensure_collection()` or write.
 
 ---
 
 ## Recommended implementation order
 
-1. Config
-2. Typed models
-3. Service scaffold
-4. Collection bootstrap
-5. Tests
-6. Docs
+1. Config (7 new fields in `Settings`, both classes)
+2. Typed model (`StudentChatInsightPayload` in `api/models_insights.py`)
+3. Service scaffold (`StudentChatInsightStore` with `ensure_collection` and `build_payload`)
+4. Dependency injection (`get_student_insight_store` in `dependencies.py`)
+5. Tests (payload construction, privacy gates, feature-toggle)
+6. Docstring clarifications
