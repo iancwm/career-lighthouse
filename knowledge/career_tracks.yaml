@@ -19,12 +19,20 @@ tracks:
   label: General Singapore Job Market
   status: active
   last_published: null
+- slug: general_singapore_job_market
+  label: Venture Capital / Private Equity / Investment Management
+  status: active
+  last_published: null
 - slug: government_economics
   label: Public Sector / Government Economics
   status: active
   last_published: null
 - slug: investment_banking
   label: Investment Banking
+  status: active
+  last_published: null
+- slug: legal_ops
+  label: Specialised Legal & Operations
   status: active
   last_published: null
 - slug: non_governmental_organization
