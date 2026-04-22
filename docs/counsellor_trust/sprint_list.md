@@ -1,5 +1,5 @@
 **Career Lighthouse is a counsellor-trust system first.**
-YAML is the canonical career intelligence layer; Qdrant is supporting retrieval for voluminous source material. Content should be auditable, supersession should be explicit, and students should see a full visible context panel in chat. The next sprint cycle should avoid auth hardening, timeout handling, and optimistic locking for now.
+YAML is the canonical career intelligence layer; Qdrant is supporting retrieval for voluminous source material. Content should be auditable, supersession should be explicit, and students should see a full visible context panel in chat. Sprint 1 is now implemented; the next sprint cycle should avoid auth hardening, timeout handling, and optimistic locking for now.
 
 That fits the current codebase well:
 

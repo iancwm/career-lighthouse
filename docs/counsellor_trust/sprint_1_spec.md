@@ -1,6 +1,6 @@
 # Counsellor Trust Sprint 1 Spec
 
-Status: Draft  
+Status: Implemented (2026-04-22)
 Owner: Counsellor Trust track  
 Audience: product, design, engineering, and sponsor review  
 Related backlog: [sprint_list.md](./sprint_list.md)

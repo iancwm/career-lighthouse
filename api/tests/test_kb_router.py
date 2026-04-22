@@ -1077,6 +1077,32 @@ class TestUpdateEmployerEndpoint:
         r = client.put("/api/kb/employers/../evil", json=payload)
         assert r.status_code in (422, 404)
 
+    def test_history_endpoint_returns_previous_snapshot(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        payload = {
+            "slug": "goldman_sachs",
+            "employer_name": "Goldman Sachs",
+            "tracks": ["investment_banking"],
+            "ep_requirement": "EP3 (updated)",
+            "intake_seasons": ["Jan"],
+            "singapore_headcount_estimate": None,
+            "application_process": None,
+            "counsellor_contact": None,
+            "notes": None,
+            "last_updated": "2020-01-01",
+            "completeness": "amber",
+        }
+        r = client.put("/api/kb/employers/goldman_sachs", json=payload)
+        assert r.status_code == 200
+
+        history = client.get("/api/kb/employers/goldman_sachs/history")
+        assert history.status_code == 200
+        data = history.json()
+        assert len(data) >= 1
+        assert data[0]["filename"].endswith(".yaml")
+
 
 # ---------------------------------------------------------------------------
 # DELETE /api/kb/employers/{slug}

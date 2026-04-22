@@ -33,6 +33,11 @@ _FACTS_PREVIEW_LIMIT = 6
 _FACT_PREVIEW_CHARS = 120
 
 
+def _default_employer_history_dir() -> Path:
+    employers_dir = Path(os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir())))
+    return employers_dir.parent / "employers_history"
+
+
 def _as_list(value) -> list:
     """Normalize legacy scalar/list YAML fields into a list.
 
@@ -60,6 +65,22 @@ def _default_employers_dir() -> Path:
         if path.exists():
             return path
     return candidates[0]
+
+
+def _history_dir() -> Path:
+    return Path(os.environ.get("EMPLOYER_HISTORY_DIR", str(_default_employer_history_dir())))
+
+
+def _version_stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+
+
+def _atomic_yaml_write(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        yaml.safe_dump(payload, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+    tmp.replace(path)
 
 
 def _compute_completeness(employer: dict) -> str:
@@ -134,6 +155,21 @@ def _fact_payload(fact: object) -> dict:
     return fact
 
 
+def _fact_lifecycle(fact: object) -> str:
+    if not isinstance(fact, dict):
+        return "active"
+    lifecycle = str(fact.get("lifecycle") or "").strip().lower()
+    if lifecycle in {"active", "superseded", "archived"}:
+        return lifecycle
+    if fact.get("deleted"):
+        return "superseded"
+    return "active"
+
+
+def _fact_is_active(fact: object) -> bool:
+    return _fact_lifecycle(fact) == "active"
+
+
 def _fact_key_field(fact: dict) -> str:
     payload = _fact_payload(fact)
     fact_type = str(fact.get("type") or payload.get("type") or "").strip()
@@ -196,8 +232,9 @@ def _format_structured_facts(structured: dict) -> list[str]:
     facts = structured.get("facts") if isinstance(structured, dict) else None
     if not isinstance(facts, list) or not facts:
         return []
-    lines = [_format_structured_fact(fact) for fact in facts[:_FACTS_PREVIEW_LIMIT]]
-    remaining = len(facts) - len(lines)
+    active_facts = [fact for fact in facts if _fact_is_active(fact)]
+    lines = [_format_structured_fact(fact) for fact in active_facts[:_FACTS_PREVIEW_LIMIT]]
+    remaining = len(active_facts) - len(lines)
     if remaining > 0:
         lines.append(f"... and {remaining} more fact(s)")
     return lines
@@ -348,6 +385,28 @@ class EmployerEntityStore:
         """Return all active employer dicts (for admin endpoint)."""
         self._ensure_loaded()
         return list(self._employers.values())
+
+    def list_history(self, slug: str) -> list[dict]:
+        """Return saved employer history snapshots, newest first."""
+        history_dir = _history_dir() / slug
+        if not history_dir.exists():
+            return []
+        entries: list[dict] = []
+        for yaml_path in sorted(history_dir.glob("*.yaml"), reverse=True):
+            version = yaml_path.stem
+            entries.append({
+                "version": version,
+                "recorded_at": version,
+                "filename": yaml_path.name,
+            })
+        return entries
+
+    def snapshot_history(self, slug: str, payload: dict) -> str:
+        """Persist the current employer YAML into the history directory."""
+        version = _version_stamp()
+        history_path = _history_dir() / slug / f"{version}.yaml"
+        _atomic_yaml_write(history_path, payload)
+        return version
 
     def to_context_block(
         self,

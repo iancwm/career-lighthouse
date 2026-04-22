@@ -294,6 +294,38 @@ class TestToContextBlock:
         assert "Token grants as compensation component" in block
         assert "CRONOS token grants included" in block
 
+    def test_superseded_facts_are_filtered_from_context_block(self, employers_dir, monkeypatch):
+        (employers_dir / "history.yaml").write_text(textwrap.dedent("""\
+            employer_name: History Corp
+            slug: history
+            tracks:
+              - investment_banking
+            structured:
+              facts:
+                - slug: history-active
+                  type: alumni
+                  lifecycle: active
+                  data:
+                    name: Active Alum
+                - slug: history-old
+                  type: alumni
+                  lifecycle: superseded
+                  data:
+                    name: Old Alum
+                - slug: history-deleted
+                  type: alumni
+                  deleted: true
+                  data:
+                    name: Deleted Alum
+        """), encoding="utf-8")
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+        store = EmployerEntityStore()
+        block = store.to_context_block("investment_banking")
+        assert "Active Alum" in block
+        assert "Old Alum" not in block
+        assert "Deleted Alum" not in block
+
     def test_structured_fact_without_key_field_uses_unnamed_fallback(self, employers_dir, monkeypatch):
         (employers_dir / "fallback.yaml").write_text(textwrap.dedent("""\
             employer_name: Fallback Corp

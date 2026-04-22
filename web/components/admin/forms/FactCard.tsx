@@ -1,84 +1,72 @@
 "use client"
 
 import FactDataView from "./FactDataView"
-
-interface Fact {
-  slug: string
-  type: string
-  data: Record<string, unknown>
-  confidence: number
-  source: string
-  timestamp: string
-  deleted?: boolean
-}
+import LifecycleBadge from "../LifecycleBadge"
+import ProvenancePanel from "../ProvenancePanel"
+import {
+  Fact,
+  getFactKeyValue,
+  getFactSourceLabel,
+  getFactTypeBadgeClass,
+  getFactTypeLabel,
+  normalizeFactLifecycle,
+} from "@/types/facts"
 
 interface FactCardProps {
   fact: Fact
+  supersededBy?: string | null
+  historyHref?: string | null
   onDelete?: (slug: string) => void
 }
 
-function getKeyField(fact: Fact): string {
-  const { type, data } = fact
-  switch (type) {
-    case "alumni":
-      return data.name ? String(data.name) : "(unnamed)"
-    case "timeline_phase":
-      return data.phase_name ? String(data.phase_name) : "(unnamed)"
-    case "interview_stage":
-      return data.name ? String(data.name) : `Stage ${data.order || "?"}`
-    case "compensation":
-      return data.role_level ? String(data.role_level) : "(unnamed)"
-    case "skill_requirement":
-      return "(skill)"
-    default:
-      return "(unknown)"
-  }
-}
-
-function getTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    alumni: "bg-purple-100 text-purple-700 border-purple-200",
-    timeline_phase: "bg-blue-100 text-blue-700 border-blue-200",
-    interview_stage: "bg-green-100 text-green-700 border-green-200",
-    compensation: "bg-orange-100 text-orange-700 border-orange-200",
-    skill_requirement: "bg-pink-100 text-pink-700 border-pink-200",
-  }
-  return colors[type] || "bg-gray-100 text-gray-700 border-gray-200"
-}
-
-export default function FactCard({ fact, onDelete }: FactCardProps) {
-  const keyField = getKeyField(fact)
-  const typeColor = getTypeColor(fact.type)
-  const sourceLabel = {
-    counselor: "Counselor",
-    inferred: "Inferred",
-    direct_from_alumni: "Alumni",
-  }[fact.source] || fact.source
+export default function FactCard({ fact, supersededBy, historyHref, onDelete }: FactCardProps) {
+  const lifecycle = normalizeFactLifecycle(fact)
+  const keyField = getFactKeyValue(fact)
+  const typeColor = getFactTypeBadgeClass(fact.type)
+  const sourceLabel = getFactSourceLabel(fact.source)
+  const textMuted = lifecycle !== "active"
 
   return (
-    <div className="group flex items-start justify-between gap-3 rounded-lg border border-gray-200 p-3 bg-white hover:bg-gray-50 transition-colors">
+    <div
+      className={`group flex items-start justify-between gap-3 rounded-lg border p-3 transition-colors ${
+        textMuted ? "border-[#D8D0C4] bg-[#FFFDFC] text-[#5F6B76]" : "border-gray-200 bg-white hover:bg-gray-50"
+      }`}
+    >
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1.5">
-          <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${typeColor}`}>
-            {fact.type.replace(/_/g, " ")}
+        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+          <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-medium ${typeColor}`}>
+            {getFactTypeLabel(fact.type)}
           </span>
-          <span className="text-xs text-gray-500">{sourceLabel}</span>
+          <LifecycleBadge lifecycle={fact.lifecycle} deleted={fact.deleted} />
         </div>
         <div className="flex items-baseline gap-2 mb-1">
           <code className="text-xs font-mono text-gray-600 truncate">{fact.slug}</code>
           <span className="text-xs text-gray-500">{keyField}</span>
         </div>
-        <FactDataView data={fact.data} className="mt-2" />
-        <div className="flex items-center gap-3 text-xs">
-          <span className="text-gray-500">Confidence: <span className="font-semibold text-gray-700">{fact.confidence}%</span></span>
+        <div className={textMuted ? "opacity-80" : ""}>
+          <FactDataView data={fact.data} className="mt-2" />
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-xs">
+          <span className="text-gray-500">
+            Confidence: <span className="font-semibold text-gray-700">{fact.confidence}%</span>
+          </span>
           <span className="text-gray-400">{new Date(fact.timestamp).toLocaleDateString()}</span>
+        </div>
+        <div className="mt-3">
+          <ProvenancePanel
+            source={sourceLabel}
+            sourceDate={fact.source_timestamp || fact.timestamp}
+            lastUpdated={fact.last_updated || fact.source_timestamp || fact.timestamp}
+            supersededBy={supersededBy || fact.superseded_by || "Unknown"}
+            auditHref={fact.audit_url || historyHref}
+          />
         </div>
       </div>
 
       {onDelete && (
         <button
           onClick={() => onDelete(fact.slug)}
-          className="opacity-0 group-hover:opacity-100 flex-shrink-0 p-1.5 text-gray-400 hover:text-red-500 transition-opacity focus:outline-none focus:ring-2 focus:ring-red-400 rounded"
+          className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 flex-shrink-0 min-h-11 min-w-11 p-2.5 text-gray-400 hover:text-red-500 transition-opacity focus:outline-none focus:ring-2 focus:ring-red-400 rounded"
           aria-label={`Delete ${fact.slug}`}
           title="Delete fact"
         >

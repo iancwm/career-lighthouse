@@ -115,6 +115,24 @@ class TestAnalyse:
         chunks = r.json()["new_chunks"]
         assert all(c["chunk_id"] != "" for c in chunks)
 
+    def test_analysis_response_includes_provenance(self, in_memory_qdrant, mock_embedder):
+        client, _ = make_client(in_memory_qdrant, mock_embedder)
+
+        with patch("services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE):
+            with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+                r = client.post(
+                    "/api/kb/analyse",
+                    data={"text": "Goldman changed their EP policy", "source_type": "note"},
+                )
+
+        assert r.status_code == 200
+        data = r.json()
+        change = data["profile_updates"]["investment_banking"]["ep_sponsorship"]
+        assert change["source_label"] == "counsellor_note"
+        assert change["source_type"] == "note"
+        assert change["source_timestamp"]
+        assert data["new_chunks"][0]["source_timestamp"]
+
     def test_already_covered_empty_for_novel_input(self, in_memory_qdrant, mock_embedder):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         response = {**VALID_ANALYSIS_RESPONSE, "already_covered": []}

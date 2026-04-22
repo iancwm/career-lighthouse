@@ -3,20 +3,9 @@ import { useEffect, useRef, useState } from "react"
 import FactCard from "./forms/FactCard"
 import FactEditor from "./forms/FactEditor"
 import ExtractedFactsModal from "./modals/ExtractedFactsModal"
+import { Fact, getFactKeyValue, normalizeFactLifecycle, sortFactsForDisplay } from "@/types/facts"
 
 const API_URL = "/api/admin"
-
-// ── Types ─────────────────────────────────────────────────────────────────
-
-interface Fact {
-  slug: string
-  type: string
-  data: Record<string, unknown>
-  confidence: number
-  source: string
-  timestamp: string
-  deleted?: boolean
-}
 
 interface EmployerDetail {
   slug: string
@@ -56,6 +45,32 @@ function completenessTooltip(emp: EmployerDetail): string {
   if (!emp.tracks?.length) missing.push("tracks")
   if (!emp.ep_requirement) missing.push("ep_requirement")
   return missing.length > 0 ? `Missing: ${missing.join(", ")}` : "Incomplete"
+}
+
+function normalizeFacts(facts: Fact[]): Fact[] {
+  return sortFactsForDisplay(
+    facts.map((fact) => {
+      const lifecycle = normalizeFactLifecycle(fact)
+      const timestamp = fact.timestamp || fact.last_updated || fact.source_timestamp || new Date().toISOString()
+      return {
+        ...fact,
+        lifecycle,
+        deleted: lifecycle !== "active",
+        source_timestamp: fact.source_timestamp || timestamp,
+        last_updated: fact.last_updated || timestamp,
+      }
+    })
+  )
+}
+
+function persistFacts(facts: Fact[]): Record<string, unknown> {
+  return {
+    facts: normalizeFacts(facts).map((fact) => ({
+      ...fact,
+      lifecycle: normalizeFactLifecycle(fact),
+      deleted: normalizeFactLifecycle(fact) !== "active",
+    })),
+  }
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -209,7 +224,10 @@ export default function EmployerFactsTab() {
   const [extractedFacts, setExtractedFacts] = useState<Fact[]>([])
   const [extractLoading, setExtractLoading] = useState(false)
   const [extractError, setExtractError] = useState("")
+  const [undoToast, setUndoToast] = useState<{ slug: string; label: string; remaining: number } | null>(null)
   const saveBannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const undoTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isDirty = useRef(false)
 
   const trackOptions = profiles.map((p) => ({ value: p.slug, label: p.career_type }))
@@ -217,6 +235,14 @@ export default function EmployerFactsTab() {
   useEffect(() => {
     fetchEmployers()
     fetchProfiles()
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (saveBannerTimerRef.current) clearTimeout(saveBannerTimerRef.current)
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+      if (undoTickRef.current) clearInterval(undoTickRef.current)
+    }
   }, [])
 
   function fetchEmployers() {
@@ -255,9 +281,10 @@ export default function EmployerFactsTab() {
     isDirty.current = false
     setUnsavedConfirm(null)
     setShowFactEditor(false)
+    setUndoToast(null)
     // Load facts from structured data
     const structuredFacts = (emp.structured?.facts as Fact[]) || []
-    setFacts(structuredFacts.filter((f) => !f.deleted))
+    setFacts(normalizeFacts(structuredFacts))
   }
 
   function startCreate() {
@@ -284,16 +311,59 @@ export default function EmployerFactsTab() {
     isDirty.current = false
     setFacts([])
     setShowFactEditor(false)
+    setUndoToast(null)
   }
 
   function handleAddFact(newFact: Fact) {
-    setFacts((prev) => [...prev, newFact])
+    setFacts((prev) => normalizeFacts([...prev, newFact]))
     setShowFactEditor(false)
     isDirty.current = true
   }
 
   function handleDeleteFact(slug: string) {
-    setFacts((prev) => prev.filter((f) => f.slug !== slug))
+    const target = facts.find((fact) => fact.slug === slug)
+    if (!target) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    if (undoTickRef.current) clearInterval(undoTickRef.current)
+    setFacts((prev) =>
+      prev.map((fact) =>
+        fact.slug === slug
+          ? { ...fact, lifecycle: "superseded", deleted: true, last_updated: new Date().toISOString() }
+          : fact
+      )
+    )
+    setUndoToast({ slug, label: getFactKeyValue(target), remaining: 5 })
+    undoTickRef.current = setInterval(() => {
+      setUndoToast((current) => {
+        if (!current || current.slug !== slug) return current
+        const remaining = current.remaining - 1
+        if (remaining <= 0) return { ...current, remaining: 0 }
+        return { ...current, remaining }
+      })
+    }, 1000)
+    undoTimerRef.current = setTimeout(() => {
+      if (undoTickRef.current) clearInterval(undoTickRef.current)
+      undoTickRef.current = null
+      undoTimerRef.current = null
+      setUndoToast(null)
+    }, 5000)
+    isDirty.current = true
+  }
+
+  function handleUndoDelete() {
+    if (!undoToast) return
+    if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+    if (undoTickRef.current) clearInterval(undoTickRef.current)
+    undoTimerRef.current = null
+    undoTickRef.current = null
+    setFacts((prev) =>
+      prev.map((fact) =>
+        fact.slug === undoToast.slug
+          ? { ...fact, lifecycle: "active", deleted: false, last_updated: new Date().toISOString() }
+          : fact
+      )
+    )
+    setUndoToast(null)
     isDirty.current = true
   }
 
@@ -370,7 +440,7 @@ export default function EmployerFactsTab() {
         application_process: form.application_process || null,
         counsellor_contact: form.counsellor_contact || null,
         notes: form.notes || null,
-        structured: facts.length > 0 ? { facts: facts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) } : {},
+        structured: facts.length > 0 ? persistFacts(facts) : {},
         last_updated: null,
         completeness: "amber",
       }
@@ -409,7 +479,7 @@ export default function EmployerFactsTab() {
         ...form,
         slug: selected.slug,
         completeness: "amber",
-        structured: facts.length > 0 ? { facts: facts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()) } : {},
+        structured: facts.length > 0 ? persistFacts(facts) : {},
       }
       const r = await fetch(`${API_URL}/api/kb/employers/${selected.slug}`, {
         method: "PUT",
@@ -466,6 +536,19 @@ export default function EmployerFactsTab() {
   const canSave = mode === "create"
     ? Boolean(form.employer_name?.trim() && (slugPreview || slugify(form.employer_name || "")))
     : Boolean(selected)
+  const historyHref = selected ? `${API_URL}/api/kb/employers/${selected.slug}/history` : null
+  const supersededByBySlug = new Map<string, string>()
+  for (const fact of facts) {
+    if (normalizeFactLifecycle(fact) !== "superseded") continue
+    const matching = facts.find(
+      (candidate) =>
+        candidate.slug !== fact.slug &&
+        normalizeFactLifecycle(candidate) === "active" &&
+        candidate.type === fact.type &&
+        getFactKeyValue(candidate) === getFactKeyValue(fact)
+    )
+    if (matching) supersededByBySlug.set(fact.slug, matching.slug)
+  }
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -776,18 +859,33 @@ export default function EmployerFactsTab() {
                 <div className="space-y-4">
                   {/* Facts list */}
                   {facts.length === 0 && !showFactEditor && (
-                    <div className="text-center py-8">
-                      <p className="text-sm text-gray-500 mb-4">No structured facts yet.</p>
+                    <div className="rounded-2xl border border-[#D8D0C4] bg-[#FFFDFC] px-5 py-6 text-left">
+                      <p className="text-sm text-[#1F2937]">
+                        No facts yet for {selected?.employer_name || "this employer"}.
+                      </p>
+                      <p className="mt-2 text-sm text-[#5F6B76]">
+                        Facts you add here stay visible for audit and help counsellors answer student questions with current employer guidance.
+                      </p>
+                      <button
+                        onClick={() => setShowFactEditor(true)}
+                        className="mt-4 rounded-full bg-[#0F766E] px-4 py-2.5 text-sm font-medium text-white hover:bg-[#115e59] focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                      >
+                        + Add first fact
+                      </button>
                     </div>
                   )}
 
                   {facts.length > 0 && (
                     <div className="space-y-2.5">
-                      <p className="text-xs font-medium text-gray-600 mb-3">Captured facts ({facts.length})</p>
+                      <p className="text-xs font-medium text-gray-600 mb-3">
+                        Captured facts ({facts.length}) - active and superseded records stay visible
+                      </p>
                       {facts.map((fact) => (
                         <FactCard
                           key={fact.slug}
                           fact={fact}
+                          supersededBy={supersededByBySlug.get(fact.slug)}
+                          historyHref={historyHref}
                           onDelete={handleDeleteFact}
                         />
                       ))}
@@ -827,6 +925,35 @@ export default function EmployerFactsTab() {
                       onCancel={() => setShowFactEditor(false)}
                       existingSlugs={facts.map((f) => f.slug)}
                     />
+                  )}
+
+                  {undoToast && (
+                    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[#D8D0C4] bg-[#FFFDFC] px-4 py-3 text-sm">
+                      <span className="text-[#1F2937]">
+                        Fact moved to superseded: <span className="font-medium">{undoToast.label}</span>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={handleUndoDelete}
+                          className="rounded-full bg-[#0F766E] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#115e59] focus:outline-none focus:ring-2 focus:ring-[#0F766E]"
+                        >
+                          Undo · {undoToast.remaining}s
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (undoTimerRef.current) clearTimeout(undoTimerRef.current)
+                            if (undoTickRef.current) clearInterval(undoTickRef.current)
+                            undoTimerRef.current = null
+                            undoTickRef.current = null
+                            setUndoToast(null)
+                          }}
+                          className="rounded-full px-2 text-xs font-medium text-[#5F6B76] hover:text-[#1F2937]"
+                          aria-label="Dismiss undo toast"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
                   )}
 
                   {/* Extraction error banner */}

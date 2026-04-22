@@ -32,6 +32,7 @@ from models import (
     DocCoverageItem,
     DraftTrackDetail,
     EmployerDetail,
+    EmployerHistoryVersion,
     KBAnalysisResult,
     KBCommitRequest,
     KBCommitResponse,
@@ -1219,6 +1220,17 @@ def get_employer(
     return _build_employer_detail({**emp, "slug": emp.get("slug", slug)})
 
 
+@router.get("/employers/{slug}/history", response_model=list[EmployerHistoryVersion])
+def get_employer_history(
+    slug: str,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Return employer YAML history snapshots, newest first."""
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+    return employer_store.list_history(slug)
+
+
 @router.post("/employers", response_model=EmployerDetail, status_code=201)
 def create_employer(
     detail: EmployerDetail,
@@ -1311,6 +1323,8 @@ def update_employer(
         logger.error("update_employer: failed to read %r: %s", slug, exc)
         raise HTTPException(status_code=500, detail="Failed to read employer YAML.")
 
+    employer_store.snapshot_history(slug, existing)
+
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     payload = detail.model_dump(exclude_unset=True) if hasattr(detail, "model_dump") else detail.dict(exclude_unset=True)
     # Merge incoming fields; server always sets last_updated
@@ -1372,6 +1386,9 @@ def delete_employer(
 
     disabled_path = edir / f"{slug}.yaml.disabled"
     try:
+        with open(yaml_path, encoding="utf-8") as f:
+            existing = yaml.safe_load(f) or {}
+        employer_store.snapshot_history(slug, existing)
         yaml_path.rename(disabled_path)
     except Exception as exc:
         logger.error("delete_employer: failed to rename %r: %s", slug, exc)
@@ -1502,13 +1519,22 @@ def analyse(
             detail="Analysis failed — please try again or rephrase your input.",
         )
 
+    provenance_timestamp = datetime.now(timezone.utc).isoformat()
     for i, chunk in enumerate(result.new_chunks):
         chunk.source_label = source_label
         chunk.source_type = source_type if source_type in ("note", "file") else "note"
+        chunk.source_timestamp = chunk.source_timestamp or provenance_timestamp
         # Content-based chunk_id: same text → same ID (idempotent re-commit),
         # different text → different ID (no clobbering across distinct notes).
         content_key = chunk.text.strip()[:120]
         chunk.chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_label}::{content_key}"))
+
+    for update_map in (result.profile_updates, result.employer_updates):
+        for fields in update_map.values():
+            for change in fields.values():
+                change.source_type = change.source_type or source_type
+                change.source_label = change.source_label or source_label
+                change.source_timestamp = change.source_timestamp or provenance_timestamp
 
     return result
 
@@ -1652,6 +1678,7 @@ def commit_analysis(
         try:
             with open(yaml_path, encoding="utf-8") as f:
                 employer = yaml.safe_load(f) or {}
+            employer_store.snapshot_history(slug, employer)
             changed_fields: list[str] = []
             for field_name, change in field_changes.items():
                 if field_name not in ALLOWED_EMPLOYER_FIELDS:

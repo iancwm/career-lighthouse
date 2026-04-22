@@ -6,7 +6,13 @@ const ANALYSIS_RESULT = {
   interpretation_bullets: ["Goldman raised COMPASS threshold to 50+"],
   profile_updates: {
     investment_banking: {
-      ep_sponsorship: { old: "High at BBs", new: "50+ COMPASS required at Goldman from 2026" },
+      ep_sponsorship: {
+        old: "High at BBs",
+        new: "50+ COMPASS required at Goldman from 2026",
+        source_type: "note",
+        source_label: "counsellor_note",
+        source_timestamp: "2026-04-21T00:00:00Z",
+      },
     },
   },
   new_chunks: [
@@ -14,6 +20,7 @@ const ANALYSIS_RESULT = {
       text: "Goldman now requires COMPASS 50+",
       source_type: "note",
       source_label: "counsellor_note",
+      source_timestamp: "2026-04-21T00:00:00Z",
       career_type: "investment_banking",
       chunk_id: "abc-123",
     },
@@ -53,6 +60,7 @@ describe("KnowledgeUpdateTab", () => {
     )
     expect(screen.getByText(/New Searchable Notes/i)).toBeInTheDocument()
     expect(screen.getByText(/Goldman raised COMPASS threshold to 50\+/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/Source: Counsellor Note/i).length).toBeGreaterThan(0)
   })
 
   it("shows error state when analysis API returns non-ok", async () => {

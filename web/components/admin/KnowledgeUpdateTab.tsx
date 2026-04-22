@@ -8,12 +8,16 @@ const API_URL = "/api/admin"
 interface ProfileFieldChange {
   old: string | null
   new: string
+  source_type?: string | null
+  source_label?: string | null
+  source_timestamp?: string | null
 }
 
 interface NewChunk {
   text: string
   source_type: string
   source_label: string
+  source_timestamp?: string | null
   career_type: string | null
   chunk_id: string
 }
@@ -57,7 +61,7 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
 
   const canAnalyse = inputMode === "note" ? noteText.trim().length > 0 : selectedFile !== null
 
-  function resetToIdle() {
+function resetToIdle() {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current)
     if (successTimerRef.current) clearTimeout(successTimerRef.current)
     abortControllerRef.current?.abort()
@@ -65,6 +69,26 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
     setState("idle")
     setDiff(null)
     setAlreadyCoveredOpen(false)
+  }
+
+  function formatSourceLabel(value?: string | null) {
+    if (!value || !value.trim()) return "Unknown"
+    const clean = value.trim().replace(/_/g, " ")
+    if (clean.includes(" ") || (clean === clean.toLowerCase() && !/[.\-/]/.test(clean))) {
+      return clean.replace(/\b\w/g, (char) => char.toUpperCase())
+    }
+    return clean
+  }
+
+  function formatSourceDate(value?: string | null) {
+    if (!value || !value.trim()) return "Unknown"
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return value
+    return parsed.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    })
   }
 
   async function handleAnalyse() {
@@ -133,6 +157,9 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
         profileUpdates[slug][field] = {
           old: change.old,
           new: diff.profileEdits[slug]?.[field] ?? change.new,
+          source_type: change.source_type ?? null,
+          source_label: change.source_label ?? null,
+          source_timestamp: change.source_timestamp ?? null,
         }
       }
     }
@@ -143,6 +170,9 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
         employerUpdates[slug][field] = {
           old: change.old,
           new: diff.employerEdits[slug]?.[field] ?? change.new,
+          source_type: change.source_type ?? null,
+          source_label: change.source_label ?? null,
+          source_timestamp: change.source_timestamp ?? null,
         }
       }
     }
@@ -392,8 +422,16 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
                                   },
                                 }
                               })
-                            }}
-                          />
+                              }}
+                            />
+                          <div className="mt-2 font-mono-display text-[12px] leading-5 text-[#5F6B76]">
+                            <div>
+                              Source: {formatSourceLabel(change.source_label)} · {formatSourceDate(change.source_timestamp)}
+                            </div>
+                            {change.source_type && (
+                              <div>Type: {formatSourceLabel(change.source_type)}</div>
+                            )}
+                          </div>
                         </div>
                       ))
                     )}
@@ -431,8 +469,16 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
                                   },
                                 }
                               })
-                            }}
-                          />
+                              }}
+                            />
+                          <div className="mt-2 font-mono-display text-[12px] leading-5 text-[#5F6B76]">
+                            <div>
+                              Source: {formatSourceLabel(change.source_label)} · {formatSourceDate(change.source_timestamp)}
+                            </div>
+                            {change.source_type && (
+                              <div>Type: {formatSourceLabel(change.source_type)}</div>
+                            )}
+                          </div>
                         </div>
                       ))
                     )}
@@ -464,8 +510,14 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
                               edits[i] = val
                               return { ...prev, chunkEdits: edits }
                             })
-                          }}
-                        />
+                            }}
+                          />
+                        <div className="mt-2 font-mono-display text-[12px] leading-5 text-[#5F6B76]">
+                          <div>
+                            Source: {formatSourceLabel(chunk.source_label)} · {formatSourceDate(chunk.source_timestamp)}
+                          </div>
+                          <div>Type: {formatSourceLabel(chunk.source_type)}</div>
+                        </div>
                       </div>
                     ))}
                   </div>

@@ -1,15 +1,13 @@
 "use client"
 import { useState } from "react"
 import FactDataView from "../forms/FactDataView"
-
-interface Fact {
-  slug: string
-  type: string
-  data: Record<string, unknown>
-  confidence: number
-  source: string
-  timestamp: string
-}
+import {
+  Fact,
+  getFactKeyValue,
+  getFactTypeBadgeClass,
+  getFactTypeLabel,
+  getFactSourceLabel,
+} from "@/types/facts"
 
 interface ExtractedFactsModalProps {
   extracted: Fact[]
@@ -18,35 +16,6 @@ interface ExtractedFactsModalProps {
   onClose: () => void
   isLoading?: boolean
   error?: string
-}
-
-function getKeyField(fact: Fact): string {
-  const { type, data } = fact
-  switch (type) {
-    case "alumni":
-      return data.name ? String(data.name) : "(unnamed)"
-    case "timeline_phase":
-      return data.phase_name ? String(data.phase_name) : "(unnamed)"
-    case "interview_stage":
-      return data.name ? String(data.name) : `Stage ${data.order || "?"}`
-    case "compensation":
-      return data.role_level ? String(data.role_level) : "(unnamed)"
-    case "skill_requirement":
-      return "(skill)"
-    default:
-      return "(unknown)"
-  }
-}
-
-function getTypeColor(type: string): string {
-  const colors: Record<string, string> = {
-    alumni: "bg-purple-100 text-purple-700 border-purple-200",
-    timeline_phase: "bg-blue-100 text-blue-700 border-blue-200",
-    interview_stage: "bg-green-100 text-green-700 border-green-200",
-    compensation: "bg-orange-100 text-orange-700 border-orange-200",
-    skill_requirement: "bg-pink-100 text-pink-700 border-pink-200",
-  }
-  return colors[type] || "bg-gray-100 text-gray-700 border-gray-200"
 }
 
 export default function ExtractedFactsModal({
@@ -132,24 +101,26 @@ export default function ExtractedFactsModal({
                         key={fact.slug}
                         className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 hover:bg-blue-50 cursor-pointer transition-colors"
                       >
-                        <input
-                          type="checkbox"
-                          checked={selected.has(fact.slug)}
-                          onChange={() => toggle(fact.slug)}
-                          className="w-4 h-4 mt-0.5 rounded"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${getTypeColor(fact.type)}`}>
-                              {fact.type.replace(/_/g, " ")}
+                          <input
+                            type="checkbox"
+                            checked={selected.has(fact.slug)}
+                            onChange={() => toggle(fact.slug)}
+                            className="w-4 h-4 mt-0.5 rounded"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                            <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-medium ${getFactTypeBadgeClass(fact.type)}`}>
+                              {getFactTypeLabel(fact.type)}
                             </span>
                           </div>
                           <div className="flex items-baseline gap-2 text-sm mb-1">
                             <code className="font-mono text-xs text-gray-600 truncate">{fact.slug}</code>
-                            <span className="text-xs text-gray-500">{getKeyField(fact)}</span>
+                            <span className="text-xs text-gray-500">{getFactKeyValue(fact)}</span>
                           </div>
                           <FactDataView data={fact.data} className="mt-2" />
-                          <p className="text-xs text-gray-500">Confidence: {fact.confidence}%</p>
+                          <p className="text-xs text-gray-500">
+                            Confidence: {fact.confidence}% · {getFactSourceLabel(fact.source)}
+                          </p>
                         </div>
                       </label>
                     ))}
@@ -167,19 +138,21 @@ export default function ExtractedFactsModal({
                         key={fact.slug}
                         className="flex items-start gap-3 p-3 rounded-lg border border-gray-100 bg-gray-50 opacity-60"
                       >
-                        <input type="checkbox" disabled className="w-4 h-4 mt-0.5 rounded" />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium border ${getTypeColor(fact.type)}`}>
-                              {fact.type.replace(/_/g, " ")}
+                          <input type="checkbox" disabled className="w-4 h-4 mt-0.5 rounded" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                            <span className={`inline-block rounded-full border px-2.5 py-1 text-xs font-medium ${getFactTypeBadgeClass(fact.type)}`}>
+                              {getFactTypeLabel(fact.type)}
                             </span>
                           </div>
                           <div className="flex items-baseline gap-2 text-sm mb-1">
                             <code className="font-mono text-xs text-gray-600 truncate">{fact.slug}</code>
-                            <span className="text-xs text-gray-500">{getKeyField(fact)}</span>
+                            <span className="text-xs text-gray-500">{getFactKeyValue(fact)}</span>
                           </div>
                           <FactDataView data={fact.data} className="mt-2" />
-                          <p className="text-xs text-gray-500">Confidence: {fact.confidence}%</p>
+                          <p className="text-xs text-gray-500">
+                            Confidence: {fact.confidence}% · {getFactSourceLabel(fact.source)}
+                          </p>
                         </div>
                       </div>
                     ))}

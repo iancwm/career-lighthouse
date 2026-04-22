@@ -146,12 +146,16 @@ class KBHealthResponse(BaseModel):
 class ProfileFieldChange(BaseModel):
     old: Optional[str] = None   # current value in YAML (None if field is new)
     new: str                    # proposed replacement value (counsellor-editable)
+    source_type: str | None = None
+    source_label: str | None = None
+    source_timestamp: str | None = None
 
 
 class NewChunk(BaseModel):
     text: str
     source_type: str            # "note" | "file"
     source_label: str           # "counsellor_note" for notes; filename for uploads
+    source_timestamp: str | None = None
     career_type: Optional[str] = None
     chunk_id: str = ""          # filled by server after Claude returns
 
@@ -281,7 +285,14 @@ class Fact(BaseModel):
     source: Literal["counselor", "inferred", "direct_from_alumni"]  # provenance
     confidence: int  # 1–100; confidence in this fact
     trace_id: Optional[str] = None  # Langfuse trace ID if extracted by LLM
+    lifecycle: Literal["active", "superseded", "archived"] = "active"
     deleted: bool = False  # soft delete; queries filter out by default
+    last_updated: str | None = None
+    source_timestamp: str | None = None
+    source_label: str | None = None
+    source_type: str | None = None
+    superseded_by: str | None = None
+    audit_url: str | None = None
     data: dict[str, Any] = {}  # Type-specific fields (name, degree, school, etc.)
 
 
@@ -314,6 +325,12 @@ class EmployerDetail(BaseModel):
     source_documents: list[dict[str, Any]] = []
     last_updated: str | None = None
     completeness: str = "amber"  # computed by server: "green" | "amber"
+
+
+class EmployerHistoryVersion(BaseModel):
+    version: str
+    recorded_at: str
+    filename: str
 
 
 # Sprint 4 — Track publishing workflow models

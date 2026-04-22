@@ -55,14 +55,14 @@ const DRAWER_SURFACES: DrawerSurface[] = ["observability", "traces", "knowledge"
 
 const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
   { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
-  { id: "observability", label: "LLM Observability", description: "Inspect traces, latency, and Qdrant health." },
+  { id: "observability", label: "LLM Observability", description: "Inspect traces, latency, and retrieval health." },
   { id: "traces", label: "Trace Explorer", description: "Inspect a session's LLM runs and live starts." },
   { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
-  { id: "update", label: "Review Updates", description: "Turn notes into reviewed changes." },
+  { id: "update", label: "Review Updates", description: "Review one note or file before it changes the KB." },
   { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
   { id: "broken", label: "⚠ Broken Profiles", description: "Fix career profiles with missing fields." },
   { id: "careers", label: "Career Tracks", description: "See structured chat metadata." },
-  { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts." },
+  { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts and retain audit history." },
   { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
 ]
 
@@ -97,8 +97,8 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
   },
   update: {
     label: "Patch a single fact",
-    whatYouDo: "Paste a short note targeting a specific employer or track.",
-    whatHappens: "The system compares against existing KB and proposes field-level changes for your review.",
+    whatYouDo: "Paste a short note targeting one employer or track when you already know the record you want to change.",
+    whatHappens: "The system compares against existing KB and proposes field-level changes for your review. It does not rewrite sessions or bulk-publish content.",
   },
   resume: {
     label: "Review a student resume",
@@ -112,13 +112,13 @@ const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; 
   },
   employers: {
     label: "Maintain employer details",
-    whatYouDo: "View, create, edit, or delete employer-specific records.",
-    whatHappens: "Changes are written immediately to the employer YAML files.",
+    whatYouDo: "View, create, edit, or retire employer-specific records while keeping the old versions visible for audit.",
+    whatHappens: "Changes are written immediately to the employer YAML files. It does not publish career tracks or hide retired facts from history.",
   },
   tracks: {
     label: "Draft and publish tracks",
-    whatYouDo: "Draft a career track from research notes, then publish or rollback.",
-    whatHappens: "Publishing writes the track to the live career profile with versioned history for rollback.",
+    whatYouDo: "Draft a career track from research notes, then publish or rollback when the content is ready.",
+    whatHappens: "Publishing writes the track to the live career profile with versioned history for rollback. It does not directly alter student chat until the profile is published.",
   },
   careers: {
     label: "View all tracks and provenance",

@@ -1,18 +1,6 @@
 "use client"
 import { useState } from "react"
-
-type FactType = "timeline_phase" | "alumni" | "interview_stage" | "compensation" | "skill_requirement"
-type SourceType = "counselor" | "inferred" | "direct_from_alumni"
-
-interface Fact {
-  slug: string
-  type: FactType
-  data: Record<string, unknown>
-  confidence: number
-  source: SourceType
-  timestamp: string
-  deleted?: boolean
-}
+import { Fact, FactType, FactSource } from "@/types/facts"
 
 interface FactEditorProps {
   onAdd: (fact: Fact) => void
@@ -159,7 +147,7 @@ function generateSlug(type: FactType, data: Record<string, unknown>, employerSlu
 export default function FactEditor({ onAdd, onCancel, existingSlugs = [] }: FactEditorProps) {
   const [type, setType] = useState<FactType>("alumni")
   const [data, setData] = useState<Record<string, unknown>>({})
-  const [source, setSource] = useState<SourceType>("counselor")
+  const [source, setSource] = useState<FactSource>("counselor")
   const [confidence, setConfidence] = useState(85)
   const [error, setError] = useState("")
 
@@ -187,13 +175,18 @@ export default function FactEditor({ onAdd, onCancel, existingSlugs = [] }: Fact
       slug = `${baseSlug}-${today}`
     }
 
+    const now = new Date().toISOString()
+
     const newFact: Fact = {
       slug,
       type,
       data,
       confidence,
       source,
-      timestamp: new Date().toISOString(),
+      timestamp: now,
+      lifecycle: "active",
+      last_updated: now,
+      source_timestamp: now,
     }
 
     onAdd(newFact)
