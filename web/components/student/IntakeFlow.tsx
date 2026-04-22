@@ -15,6 +15,11 @@ interface Props {
   initialContext?: IntakeContext | null
 }
 
+interface InterestOption {
+  id: string
+  label: string
+}
+
 const BACKGROUNDS = [
   { id: "undergrad", label: "Undergrad" },
   { id: "masters", label: "Pre-exp Masters" },
@@ -60,7 +65,7 @@ export default function IntakeFlow({ onComplete, onBack, initialContext }: Props
   const [background, setBackground] = useState<string | null>(initialContext?.background ?? null)
   const [region, setRegion] = useState<string | null>(initialContext?.region ?? null)
   const [interest, setInterest] = useState<string | null>(initialContext?.interest ?? null)
-  const [interests, setInterests] = useState<{ id: string; label: string }[]>([])
+  const [interests, setInterests] = useState<InterestOption[]>([])
 
   useEffect(() => {
     async function loadTracks() {
@@ -75,13 +80,14 @@ export default function IntakeFlow({ onComplete, onBack, initialContext }: Props
         const res = await fetch(`${API_URL}/api/tracks/active`)
         if (res.ok) {
           const data = await res.json()
-          const options = data.map((t: any) => ({
+          const options: InterestOption[] = data.map((t: { slug: string; label: string }) => ({
             id: t.slug,
             label: t.label,
           }))
           options.push({ id: "not_sure", label: "Not sure yet" })
           const uniqueOptions = options.filter(
-            (opt, index, arr) => arr.findIndex((candidate) => candidate.id === opt.id) === index
+            (opt: InterestOption, index: number, arr: InterestOption[]) =>
+              arr.findIndex((candidate) => candidate.id === opt.id) === index
           )
           setInterests(uniqueOptions.length > 1 ? uniqueOptions : fallback)
         } else {

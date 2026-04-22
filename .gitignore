@@ -11,4 +11,10 @@ venv/
 /data/
 .gstack/
 .codex
+.agents/
+.agents/plugins
+.playwright-cli/*
 logs/
+.playwright/cli.config.json
+
+.playwright/cli.config.json
