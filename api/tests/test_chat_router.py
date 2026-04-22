@@ -58,6 +58,8 @@ def test_chat_returns_response_and_citations(in_memory_qdrant, mock_embedder):
     assert data["response"] == "Here is career advice"
     assert len(data["citations"]) >= 1
     assert data["citations"][0]["filename"] == "guide.txt"
+    assert data["citations"][0]["source_name"] == "Guide"
+    assert data["citations"][0]["updated_at"] == "2026-01-01"
 
 
 # ---------------------------------------------------------------------------

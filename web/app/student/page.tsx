@@ -54,7 +54,7 @@ export default function StudentPage() {
       )}
 
       {flowState === "intake" && (
-        <IntakeFlow onComplete={handleIntakeComplete} onBack={handleBack} />
+        <IntakeFlow onComplete={handleIntakeComplete} onBack={handleBack} initialContext={intakeContext} />
       )}
 
       {flowState === "chat" && (
@@ -62,7 +62,11 @@ export default function StudentPage() {
           <div className="mb-4">
             <ResumeUpload onResume={handleResume} hasResume={!!resumeText} />
           </div>
-          <ChatInterface resumeText={resumeText} intakeContext={intakeContext} />
+          <ChatInterface
+            resumeText={resumeText}
+            intakeContext={intakeContext}
+            onEditContext={() => setFlowState("intake")}
+          />
         </>
       )}
     </div>

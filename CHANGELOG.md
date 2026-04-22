@@ -7,6 +7,9 @@ All notable changes to this project will be documented in this file.
 ### Added
 - **8 new employer profiles**: A&O Shearman, Freshfields Bruckhaus Deringer, OCBC, Revolut Singapore, Stripe Singapore, UOB, Wise Singapore added; DBS and Crypto.com updated with extracted facts. Fintech compliance career track extended with richer salary data, LLM/JD guidance, match keywords, and career trajectory notes.
 - **Legal Ops career profile**: new `legal_ops.yaml` covering legal operations roles in corporate, fintech, and in-house legal teams.
+- **Sprint 3 student trust surfaces**: student chat now includes a compact context pill that expands inline to show intake context, active career label, and resume presence, plus in-chat `Edit context` and `Reset chat` actions.
+- **Readable citation provenance in student chat**: citation badges now open a detail panel with source name, updated date, lifecycle state, and excerpt; backend citation responses now include `source_name`, `updated_at`, and `source_lifecycle`.
+- **Sprint 3 regression coverage**: added student-page flow coverage for guided entry -> intake -> chat -> reset restart, plus expanded chat-interface and citation disclosure tests.
 
 ### Fixed
 - **LLM fact extraction — JSON array parsing**: `_extract_json_block` now preserves the outermost `[...]` when Claude returns a JSON array. Previously, any array response was silently reduced to invalid JSON by incorrectly preferring the inner `{...}` boundaries.

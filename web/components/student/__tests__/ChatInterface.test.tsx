@@ -25,9 +25,13 @@ function makeFetchErrorMock(status = 500) {
   return mock
 }
 
-describe("ChatInterface — Sprint 2 career type state", () => {
+describe("ChatInterface — Sprint 3 trust state", () => {
   it("sends intake_context on the first message when provided", async () => {
-    const fetchMock = makeFetchMock({ response: "Hello", citations: [], active_career_type: "consulting" })
+    const fetchMock = makeFetchMock({
+      response: "Hello, I can help with consulting.",
+      citations: [],
+      active_career_type: "consulting",
+    })
 
     render(
       <ChatInterface
@@ -40,6 +44,7 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByText(/help with consulting/i)).toBeInTheDocument())
 
     const body = JSON.parse(fetchMock.mock.calls[1][1].body)
     expect(body.intake_context).toEqual({ background: "masters", region: "south_asia", interest: "consulting" })
@@ -96,7 +101,7 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     expect(secondCallBody.intake_context).toBeUndefined()
   })
 
-  it("shows profile badge when active_career_type is set", async () => {
+  it("shows a visible context pill when active_career_type is set", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce({
         ok: true,
@@ -119,11 +124,11 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
 
     await waitFor(() => {
-      expect(screen.getByText("Investment Banking")).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /investment banking/i })).toBeInTheDocument()
     })
   })
 
-  it("does not show profile badge when no active_career_type", async () => {
+  it("renders a trust pill even when no active_career_type is known", async () => {
     makeFetchMock({ response: "Advice", citations: [], active_career_type: null })
 
     render(<ChatInterface resumeText="" />)
@@ -132,7 +137,51 @@ describe("ChatInterface — Sprint 2 career type state", () => {
     fireEvent.click(screen.getByRole("button", { name: /send/i }))
 
     await waitFor(() => screen.getByText(/Advice/i))
-    expect(screen.queryByText("Advising on:")).not.toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /context:/i })).toHaveTextContent("Unknown")
+  })
+
+  it("clears chat state when reset is clicked and resends intake context on the next question", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([{ slug: "consulting", label: "Consulting" }]),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ response: "First answer", citations: [], active_career_type: "consulting" }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ response: "Second answer", citations: [], active_career_type: "consulting" }),
+      } as Response)
+    global.fetch = fetchMock
+
+    render(
+      <ChatInterface
+        resumeText=""
+        intakeContext={{ background: null, region: null, interest: "consulting" }}
+      />
+    )
+
+    fireEvent.change(screen.getByPlaceholderText(/ask about/i), { target: { value: "Hello" } })
+    fireEvent.click(screen.getByRole("button", { name: /send/i }))
+    await waitFor(() => screen.getByText("First answer"))
+
+    fireEvent.click(screen.getByRole("button", { name: /context:/i }))
+    fireEvent.click(screen.getByRole("button", { name: /reset chat/i }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("First answer")).not.toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /context:/i })).toHaveTextContent("Unknown")
+    })
+
+    fireEvent.change(screen.getByPlaceholderText(/ask about/i), { target: { value: "Again" } })
+    fireEvent.click(screen.getByRole("button", { name: /send/i }))
+    await waitFor(() => screen.getByText("Second answer"))
+
+    const secondCallBody = JSON.parse(fetchMock.mock.calls[2][1].body)
+    expect(secondCallBody.intake_context).toEqual({ background: null, region: null, interest: "consulting" })
+    expect(secondCallBody.active_career_type).toBeUndefined()
   })
 
   it("shows inline error message when fetch returns non-ok response", async () => {

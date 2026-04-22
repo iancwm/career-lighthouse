@@ -39,6 +39,9 @@ class ChatRequest(BaseModel):
 class Citation(BaseModel):
     filename: str
     excerpt: str
+    source_name: Optional[str] = None
+    updated_at: Optional[str] = None
+    source_lifecycle: Optional[str] = None
 
 
 class ChatResponse(BaseModel):

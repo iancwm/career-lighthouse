@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -127,6 +128,14 @@ def _resolve_career_type(
     return active_slug
 
 
+def _humanize_source_name(filename: str) -> str:
+    stem = Path(filename).stem
+    cleaned = stem.replace("_", " ").replace("-", " ").strip()
+    if not cleaned:
+        return filename
+    return cleaned.title()
+
+
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("10 per minute")
 def chat(
@@ -162,8 +171,13 @@ def chat(
     employer_context: Optional[str] = employer_block if employer_block else None
 
     citations = [
-        Citation(filename=c["payload"]["source_filename"],
-                 excerpt=c["payload"]["text"][:150])
+        Citation(
+            filename=c["payload"]["source_filename"],
+            excerpt=c["payload"]["text"][:150],
+            source_name=_humanize_source_name(str(c["payload"].get("source_filename", "unknown"))),
+            updated_at=str(c["payload"].get("upload_timestamp") or c["payload"].get("updated_at") or ""),
+            source_lifecycle=str(c["payload"].get("lifecycle") or c["payload"].get("status") or ""),
+        )
         for c in chunks
     ]
     response_text = llm.chat_with_context(

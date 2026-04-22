@@ -115,6 +115,8 @@ Sprint 2 should now focus on the remaining guided replace/publish workflow and c
 
 Goal: make chat personalization inspectable and credible.
 
+See the working spec in [sprint_3_spec.md](./sprint_3_spec.md).
+
 ### Scope
 
 * add a visible context panel in student chat showing:
@@ -131,17 +133,37 @@ Goal: make chat personalization inspectable and credible.
   * source name
   * updated date
 * ensure citations prefer active, non-superseded sources
+* keep the resume presence visible so students can tell what influenced the first answer
 
 ### Why third
 
-The current chat already shows a lightweight “Advising on” chip, but that is not enough for your stated goal of visible context state .
+The current chat already shows a lightweight `Advising on` chip, but that is not enough for your stated goal of visible context state.
 
 ### Acceptance criteria
 
 * student can see the full active context influencing the conversation
 * student can tell whether their intake choices actually shaped the chat
-* answers show readable source + updated information
+* answers show readable source name and updated date, not raw filename chips
+* students can edit or reset context from the chat surface itself
 * no citation or retrieval path surfaces superseded content as current
+
+### Sprint 3 test requirements
+
+* add a regression test that renders the visible context panel with background, region, interest, resolved career type, and resume presence
+* cover the first assistant response so it explicitly acknowledges the selected context in plain English
+* cover edit and reset behavior so the chat can return to a clean idle state without a full page refresh
+* cover the new provenance rendering so citations show readable source information instead of only raw filenames
+* assert that active sources are preferred and superseded sources do not appear as current student citations
+
+### Sprint 2 impact on Sprint 3
+
+Sprint 2 already shipped the trust-model plumbing that Sprint 3 can reuse:
+
+* active/superseded lifecycle semantics
+* readable provenance summaries and audit/history links
+* source timestamps carried through review and publish flows
+
+Sprint 3 should focus on surfacing that trust model to students and making the current context visibly editable, without reworking the counselor workflow again.
 
 ---
 

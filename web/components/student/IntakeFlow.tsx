@@ -12,6 +12,7 @@ export interface IntakeContext {
 interface Props {
   onComplete: (ctx: IntakeContext) => void
   onBack: () => void
+  initialContext?: IntakeContext | null
 }
 
 const BACKGROUNDS = [
@@ -55,10 +56,10 @@ function PillGroup({
   )
 }
 
-export default function IntakeFlow({ onComplete, onBack }: Props) {
-  const [background, setBackground] = useState<string | null>(null)
-  const [region, setRegion] = useState<string | null>(null)
-  const [interest, setInterest] = useState<string | null>(null)
+export default function IntakeFlow({ onComplete, onBack, initialContext }: Props) {
+  const [background, setBackground] = useState<string | null>(initialContext?.background ?? null)
+  const [region, setRegion] = useState<string | null>(initialContext?.region ?? null)
+  const [interest, setInterest] = useState<string | null>(initialContext?.interest ?? null)
   const [interests, setInterests] = useState<{ id: string; label: string }[]>([])
 
   useEffect(() => {
@@ -76,10 +77,13 @@ export default function IntakeFlow({ onComplete, onBack }: Props) {
           const data = await res.json()
           const options = data.map((t: any) => ({
             id: t.slug,
-            label: t.label
+            label: t.label,
           }))
           options.push({ id: "not_sure", label: "Not sure yet" })
-          setInterests(options.length > 1 ? options : fallback)
+          const uniqueOptions = options.filter(
+            (opt, index, arr) => arr.findIndex((candidate) => candidate.id === opt.id) === index
+          )
+          setInterests(uniqueOptions.length > 1 ? uniqueOptions : fallback)
         } else {
           setInterests(fallback)
         }
