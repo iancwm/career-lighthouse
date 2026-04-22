@@ -42,6 +42,26 @@ def reset_app_overrides():
         app.dependency_overrides.clear()
 
 
+@pytest.fixture(autouse=True)
+def reset_source_ledger(monkeypatch, tmp_path):
+    """Keep the source ledger isolated to each test case."""
+    monkeypatch.setenv("SOURCE_LEDGER_DIR", str(tmp_path / "source_ledger"))
+    monkeypatch.setenv("SOURCE_LEDGER_HISTORY_DIR", str(tmp_path / "source_ledger_history"))
+    try:
+        from services.source_ledger import SourceLedgerStore
+
+        SourceLedgerStore._instance = None
+    except Exception:
+        pass
+    yield
+    try:
+        from services.source_ledger import SourceLedgerStore
+
+        SourceLedgerStore._instance = None
+    except Exception:
+        pass
+
+
 # ---------------------------------------------------------------------------
 # Real-service fixtures (for integration/eval tests)
 # These are clearly named with 'real_' prefix to prevent accidental use

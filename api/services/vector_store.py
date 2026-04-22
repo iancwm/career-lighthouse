@@ -18,6 +18,7 @@ from qdrant_client.models import (
 )
 
 from cfg import model_cfg, kb_cfg
+from services.source_ledger import get_source_ledger_store
 
 
 def _to_uuid(id_str: str) -> str:
@@ -111,7 +112,8 @@ class VectorStore:
         """List all unique documents in the collection, aggregated by filename.
 
         Returns:
-            List of dicts with 'doc_id', 'filename', 'chunk_count', 'uploaded_at'.
+            List of dicts with 'doc_id', 'filename', 'chunk_count', 'uploaded_at',
+            and lifecycle metadata when available.
         """
         all_points, _ = self._client.scroll(
             collection_name=self._collection,
@@ -121,9 +123,62 @@ class VectorStore:
         )
         docs: dict[str, dict] = {}
         for pt in all_points:
-            fname = pt.payload["source_filename"]
-            ts = pt.payload.get("upload_timestamp", "")
+            payload = pt.payload or {}
+            fname = str(payload.get("source_filename") or payload.get("filename") or "").strip()
+            if not fname:
+                continue
+            ts = str(payload.get("upload_timestamp") or payload.get("updated_at") or "")
             if fname not in docs:
-                docs[fname] = {"doc_id": fname, "filename": fname, "chunk_count": 0, "uploaded_at": ts}
+                docs[fname] = {
+                    "doc_id": fname,
+                    "filename": fname,
+                    "chunk_count": 0,
+                    "uploaded_at": ts,
+                    "lifecycle": "active",
+                    "uploaded_by": None,
+                    "superseded_by": None,
+                    "linked_knowledge_object": None,
+                    "archived_at": None,
+                    "source_record_id": fname,
+                }
             docs[fname]["chunk_count"] += 1
-        return list(docs.values())
+            if ts and not docs[fname].get("uploaded_at"):
+                docs[fname]["uploaded_at"] = ts
+
+        ledger = get_source_ledger_store()
+        ledger_docs = {record["filename"]: record for record in ledger.list_records()}
+        all_filenames = sorted(set(docs) | set(ledger_docs))
+        merged_docs: list[dict] = []
+
+        for fname in all_filenames:
+            qdrant_doc = docs.get(fname, {})
+            ledger_doc = ledger_docs.get(fname)
+            if ledger_doc:
+                merged = {
+                    "doc_id": ledger_doc.get("doc_id") or ledger_doc.get("source_record_id") or fname,
+                    "source_record_id": ledger_doc.get("source_record_id") or fname,
+                    "filename": fname,
+                    "chunk_count": int(qdrant_doc.get("chunk_count") or ledger_doc.get("chunk_count") or 0),
+                    "uploaded_at": ledger_doc.get("uploaded_at") or qdrant_doc.get("uploaded_at") or "",
+                    "lifecycle": ledger_doc.get("lifecycle") or "active",
+                    "uploaded_by": ledger_doc.get("uploaded_by"),
+                    "superseded_by": ledger_doc.get("superseded_by"),
+                    "linked_knowledge_object": ledger_doc.get("linked_knowledge_object"),
+                    "archived_at": ledger_doc.get("archived_at"),
+                }
+            else:
+                merged = {
+                    "doc_id": qdrant_doc.get("doc_id") or fname,
+                    "source_record_id": qdrant_doc.get("source_record_id") or fname,
+                    "filename": fname,
+                    "chunk_count": int(qdrant_doc.get("chunk_count") or 0),
+                    "uploaded_at": qdrant_doc.get("uploaded_at") or "",
+                    "lifecycle": "active",
+                    "uploaded_by": None,
+                    "superseded_by": None,
+                    "linked_knowledge_object": None,
+                    "archived_at": None,
+                }
+            merged_docs.append(merged)
+
+        return merged_docs

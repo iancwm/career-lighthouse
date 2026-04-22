@@ -1,35 +1,79 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
 import StatCards from "@/components/admin/StatCards"
 import DocCoverageList from "@/components/admin/DocCoverageList"
 import LowConfidenceLog from "@/components/admin/LowConfidenceLog"
 import RedundancyPanel from "@/components/admin/RedundancyPanel"
+import SourceStateSummary from "@/components/admin/SourceStateSummary"
 
-interface KBHealth {
+interface LowConfidenceQuery {
+  ts: string
+  query_text: string
+  max_score: number
+  doc_matched: string | null
+}
+
+interface DocCoverageItem {
+  filename: string
+  chunk_count: number
+  coverage_status: "good" | "thin"
+  has_overlap_warning: boolean
+}
+
+interface OverlapPair {
+  doc_a: string
+  doc_b: string
+  overlap_pct: number
+  recommendation: string
+}
+
+interface StaleSourceEvidence {
+  filename: string
+  reason: string
+  chunk_count?: number | null
+  last_seen_at?: string | null
+}
+
+interface SourceStatePayload {
+  active_sources?: number | null
+  active_source_count?: number | null
+  superseded_sources?: number | null
+  superseded_source_count?: number | null
+  stale_sources?: number | null
+  stale_source_count?: number | null
+  active_hits?: number | null
+  active_hit_count?: number | null
+  superseded_hits?: number | null
+  superseded_hit_count?: number | null
+  last_refreshed_at?: string | null
+  updated_at?: string | null
+  stale_source_evidence?: StaleSourceEvidence[]
+}
+
+interface KBHealthResponse {
   total_docs: number
   total_chunks: number
   avg_match_score: number | null
   retrieval_diversity_score: number | null
-  low_confidence_queries: {
-    ts: string
-    query_text: string
-    max_score: number
-    doc_matched: string | null
-  }[]
-  doc_coverage: {
-    filename: string
-    chunk_count: number
-    coverage_status: "good" | "thin"
-    has_overlap_warning: boolean
-  }[]
-  high_overlap_pairs: {
-    doc_a: string
-    doc_b: string
-    overlap_pct: number
-    recommendation: string
-  }[]
+  low_confidence_queries: LowConfidenceQuery[]
+  doc_coverage: DocCoverageItem[]
+  high_overlap_pairs: OverlapPair[]
+  source_state?: SourceStatePayload
+  active_sources?: number | null
+  active_source_count?: number | null
+  superseded_sources?: number | null
+  superseded_source_count?: number | null
+  stale_sources?: number | null
+  stale_source_count?: number | null
+  active_hits?: number | null
+  active_hit_count?: number | null
+  superseded_hits?: number | null
+  superseded_hit_count?: number | null
+  last_refreshed_at?: string | null
+  updated_at?: string | null
+  stale_source_evidence?: StaleSourceEvidence[]
 }
 
 interface LLMTraceEntry {
@@ -55,19 +99,195 @@ interface LLMTraceEntry {
   error: string | null
 }
 
+interface SourceStateView {
+  activeCount: number | null
+  supersededCount: number | null
+  staleCount: number | null
+  activeHitCount: number | null
+  supersededHitCount: number | null
+  lastRefreshedAt: string | null
+  staleEvidence: StaleSourceEvidence[]
+}
+
+interface KBHealthView extends Omit<KBHealthResponse, "source_state"> {
+  sourceState: SourceStateView
+}
+
 function formatLatency(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(2)}s`
 }
 
+function formatTimestamp(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed)
+}
+
 function traceStatusClass(status: string): string {
-  if (status === "ok") return "bg-emerald-100 text-emerald-700"
-  if (status === "started") return "bg-sky-100 text-sky-700"
-  return "bg-rose-100 text-rose-700"
+  if (status === "ok") return "border-emerald-200 bg-emerald-100 text-emerald-700"
+  if (status === "started") return "border-sky-200 bg-sky-100 text-sky-700"
+  return "border-rose-200 bg-rose-100 text-rose-700"
+}
+
+function traceStatusLabel(status: string): string {
+  if (status === "ok") return "Completed"
+  if (status === "started") return "In flight"
+  return "Error"
+}
+
+function normalizeSourceState(health: KBHealthResponse): SourceStateView {
+  const sourceState = health.source_state ?? health
+  return {
+    activeCount: sourceState.active_sources ?? sourceState.active_source_count ?? null,
+    supersededCount: sourceState.superseded_sources ?? sourceState.superseded_source_count ?? null,
+    staleCount: sourceState.stale_sources ?? sourceState.stale_source_count ?? null,
+    activeHitCount: sourceState.active_hits ?? sourceState.active_hit_count ?? null,
+    supersededHitCount: sourceState.superseded_hits ?? sourceState.superseded_hit_count ?? null,
+    lastRefreshedAt: sourceState.last_refreshed_at ?? sourceState.updated_at ?? null,
+    staleEvidence: sourceState.stale_source_evidence ?? [],
+  }
+}
+
+function normalizeHealth(payload: KBHealthResponse): KBHealthView {
+  const { source_state, ...rest } = payload
+  return {
+    ...rest,
+    sourceState: normalizeSourceState(payload),
+  }
+}
+
+function StaleSourceEvidencePanel({ evidence }: { evidence: StaleSourceEvidence[] }) {
+  return (
+    <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+      <div className="border-b border-[var(--cl-line)] pb-4">
+        <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Stale evidence</p>
+        <h3 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">Lingering old chunks</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">
+          These items still exist in the vector index, but the source ledger says they are no longer current.
+        </p>
+      </div>
+
+      {evidence.length === 0 ? (
+        <p className="mt-4 text-sm text-[#2F6B4F]">No stale-source evidence detected yet.</p>
+      ) : (
+        <ul className="mt-4 space-y-3">
+          {evidence.map((item) => (
+            <li key={`${item.filename}-${item.last_seen_at ?? item.reason}`} className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface)] px-4 py-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-[var(--cl-ink)]">{item.filename}</p>
+                  <p className="mt-1 text-sm leading-6 text-[var(--cl-muted)]">{item.reason}</p>
+                </div>
+                <div className="text-sm text-[var(--cl-muted)] sm:text-right">
+                  <p>
+                    <span className="font-mono-display text-[var(--cl-ink)]">{item.chunk_count ?? "Unknown"}</span> chunks
+                  </p>
+                  <p>{item.last_seen_at ? formatTimestamp(item.last_seen_at) : "Last seen Unknown"}</p>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function TraceTable({ traces }: { traces: LLMTraceEntry[] }) {
+  return (
+    <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+      <div className="flex flex-col gap-2 border-b border-[var(--cl-line)] pb-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Trace evidence</p>
+          <h3 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">Recent LLM traces</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">
+            Newest last. Started rows stay visible while a request is still in flight.
+          </p>
+        </div>
+        <p className="text-sm text-[var(--cl-muted)]">{traces.length} rows</p>
+      </div>
+
+      {traces.length === 0 ? (
+        <p className="mt-4 text-sm text-[var(--cl-muted)]">No LLM traces recorded yet.</p>
+      ) : (
+        <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--cl-line)]">
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse text-left">
+              <thead className="bg-[var(--cl-surface-2)]">
+                <tr className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">
+                  <th className="px-4 py-3 font-mono-display">Time</th>
+                  <th className="px-4 py-3 font-mono-display">Operation</th>
+                  <th className="px-4 py-3 font-mono-display">Status</th>
+                  <th className="px-4 py-3 font-mono-display">Model</th>
+                  <th className="px-4 py-3 font-mono-display">Latency</th>
+                  <th className="px-4 py-3 font-mono-display">Session</th>
+                </tr>
+              </thead>
+              <tbody>
+                {traces.map((trace, index) => (
+                  <tr
+                    key={`${trace.trace_id}-${trace.status}-${trace.ts}-${index}`}
+                    className="border-t border-[var(--cl-line)] bg-[var(--cl-surface)]"
+                  >
+                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">{formatTimestamp(trace.ts)}</td>
+                    <td className="px-4 py-4 align-top">
+                      <div className="space-y-2">
+                        <p className="font-medium text-[var(--cl-ink)]">{trace.operation}</p>
+                        <p className="text-xs leading-5 text-[var(--cl-muted)]">
+                          {trace.phase ?? "No phase"}
+                          {trace.chunk_index && trace.chunk_count ? ` · chunk ${trace.chunk_index}/${trace.chunk_count}` : ""}
+                        </p>
+                        {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens || trace.multi_pass_overlap_tokens) && (
+                          <p className="text-xs leading-5 text-[var(--cl-muted)]">
+                            {trace.multi_pass_threshold_chars ? `threshold ${trace.multi_pass_threshold_chars} chars` : ""}
+                            {trace.multi_pass_threshold_chars && trace.multi_pass_chunk_tokens ? " · " : ""}
+                            {trace.multi_pass_chunk_tokens ? `chunk ${trace.multi_pass_chunk_tokens} tokens` : ""}
+                            {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens) && trace.multi_pass_overlap_tokens ? " · " : ""}
+                            {trace.multi_pass_overlap_tokens !== undefined && trace.multi_pass_overlap_tokens !== null
+                              ? `overlap ${trace.multi_pass_overlap_tokens} tokens`
+                              : ""}
+                          </p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top">
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${traceStatusClass(trace.status)}`}>
+                        {traceStatusLabel(trace.status)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">{trace.model}</td>
+                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">
+                      {formatLatency(trace.latency_ms)}
+                      <div className="mt-1 text-xs text-[var(--cl-muted)]">
+                        {trace.timeout_seconds ? `timeout ${trace.timeout_seconds}s` : "No timeout"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">
+                      {trace.session_id ? <span className="font-mono-display">{trace.session_id.slice(0, 12)}</span> : "Unknown"}
+                      <div className="mt-1 text-xs text-[var(--cl-muted)]">
+                        {trace.input_chars} in · {trace.output_chars} out
+                      </div>
+                      {trace.error && <p className="mt-1 text-xs text-[var(--cl-error)]">{trace.error}</p>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </section>
+  )
 }
 
 export default function LLMObservabilityTab() {
-  const [health, setHealth] = useState<KBHealth | null>(null)
+  const [health, setHealth] = useState<KBHealthView | null>(null)
   const [traces, setTraces] = useState<LLMTraceEntry[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
@@ -90,7 +310,7 @@ export default function LLMObservabilityTab() {
     ])
       .then(([healthData, traceData]) => {
         if (cancelled) return
-        setHealth(healthData as KBHealth)
+        setHealth(normalizeHealth(healthData as KBHealthResponse))
         setTraces((traceData as LLMTraceEntry[]).slice().reverse())
       })
       .catch(() => {
@@ -105,24 +325,23 @@ export default function LLMObservabilityTab() {
     }
   }, [refreshKey])
 
-  const summary = useMemo(() => {
-    const latestByTrace = new Map<string, LLMTraceEntry>()
-    for (const trace of traces) {
-      const current = latestByTrace.get(trace.trace_id)
-      if (!current || new Date(trace.ts).getTime() >= new Date(current.ts).getTime()) {
-        latestByTrace.set(trace.trace_id, trace)
-      }
-    }
+  const staleEvidence = health?.sourceState.staleEvidence ?? []
 
-    const latestRuns = Array.from(latestByTrace.values())
-    const failures = latestRuns.filter((trace) => trace.status === "error").length
-    const active = latestRuns.filter((trace) => trace.status === "started").length
-    const slowest = traces.reduce((max, trace) => Math.max(max, trace.latency_ms), 0)
-    return { failures, active, slowest, total: latestRuns.length }
-  }, [traces])
-
-  if (loading) {
-    return <p className="text-sm text-[var(--cl-muted)]">Loading observability…</p>
+  if (loading && !health) {
+    return (
+      <section className="space-y-4">
+        <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+          <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">LLM observability</p>
+          <div className="mt-3 h-8 w-56 rounded bg-[var(--cl-surface-2)]" />
+          <div className="mt-4 h-4 w-80 rounded bg-[var(--cl-surface-2)]" />
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            <div className="h-32 rounded-3xl bg-[var(--cl-surface-2)]" />
+            <div className="h-32 rounded-3xl bg-[var(--cl-surface-2)]" />
+            <div className="h-32 rounded-3xl bg-[var(--cl-surface-2)]" />
+          </div>
+        </div>
+      </section>
+    )
   }
 
   return (
@@ -133,14 +352,14 @@ export default function LLMObservabilityTab() {
             <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">LLM observability</p>
             <h2 className="mt-2 font-display text-3xl leading-tight text-[var(--cl-ink)]">Trace every call</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-              This view shows Langfuse-backed trace data, KB health, and Qdrant retrieval signals, with a JSONL fallback only when Langfuse is unavailable.
+              This view shows Langfuse-backed trace data, KB health, and the source-state ledger, with a JSONL fallback only when Langfuse is unavailable.
             </p>
           </div>
 
           <button
             type="button"
             onClick={() => setRefreshKey((value) => value + 1)}
-            className="rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] hover:border-[var(--cl-accent)]"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--cl-accent)] focus:ring-offset-2 focus:ring-offset-[var(--cl-surface)]"
           >
             Refresh
           </button>
@@ -151,136 +370,47 @@ export default function LLMObservabilityTab() {
             {error}
           </div>
         )}
+      </div>
 
-        {health && (
-          <div className="mt-6">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Trace runs</p>
-                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.total}</p>
-              </div>
-              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">In flight</p>
-                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.active}</p>
-              </div>
-              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Failed runs</p>
-                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.failures}</p>
-              </div>
-              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Slowest trace</p>
-                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{summary.slowest ? formatLatency(summary.slowest) : "—"}</p>
-              </div>
-              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Weak queries</p>
-                <p className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{health.low_confidence_queries.length}</p>
-              </div>
-            </div>
+      {health && (
+        <div className="space-y-6">
+          <SourceStateSummary
+            activeCount={health.sourceState.activeCount}
+            supersededCount={health.sourceState.supersededCount}
+            staleCount={health.sourceState.staleCount}
+            activeHitCount={health.sourceState.activeHitCount}
+            supersededHitCount={health.sourceState.supersededHitCount}
+            lastRefreshedAt={health.sourceState.lastRefreshedAt}
+            loading={loading}
+          />
 
-            <div className="mt-4">
-              <StatCards
-                totalDocs={health.total_docs}
-                totalChunks={health.total_chunks}
-                lowConfidenceCount={health.low_confidence_queries.length}
-                avgMatchScore={health.avg_match_score}
-                diversityScore={health.retrieval_diversity_score}
-              />
-            </div>
+          <StatCards
+            totalDocs={health.total_docs}
+            totalChunks={health.total_chunks}
+            lowConfidenceCount={health.low_confidence_queries.length}
+            avgMatchScore={health.avg_match_score}
+            diversityScore={health.retrieval_diversity_score}
+          />
 
-            <div className="grid gap-4 xl:grid-cols-2">
+          <div className="grid gap-4 xl:grid-cols-2">
+            <div className="space-y-4">
               <DocCoverageList docs={health.doc_coverage} />
-              <LowConfidenceLog avgMatchScore={health.avg_match_score} queries={health.low_confidence_queries} />
+              <StaleSourceEvidencePanel evidence={staleEvidence} />
+              {health.high_overlap_pairs.length > 0 && <RedundancyPanel pairs={health.high_overlap_pairs} />}
             </div>
-
-            {health.high_overlap_pairs.length > 0 && (
-              <div className="mt-4">
-                <RedundancyPanel pairs={health.high_overlap_pairs} />
-              </div>
-            )}
+            <LowConfidenceLog avgMatchScore={health.avg_match_score} queries={health.low_confidence_queries} />
           </div>
-        )}
-      </div>
 
-      <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h3 className="font-display text-2xl text-[var(--cl-ink)]">Recent LLM traces</h3>
-            <p className="mt-1 text-sm text-[var(--cl-muted)]">Structured trace entries from Langfuse first, with a local fallback for offline development. Use these to debug prompt drift, timeouts, and malformed outputs.</p>
-            <p className="mt-1 text-xs text-[var(--cl-muted)]">Each call emits a `started` row immediately and a terminal `ok` or `error` row when it finishes.</p>
-          </div>
-          <span className="rounded-full bg-[var(--cl-surface-2)] px-3 py-1 text-xs font-medium text-[var(--cl-muted)]">
-            newest last
-          </span>
+          <TraceTable traces={traces} />
         </div>
+      )}
 
-        {traces.length === 0 ? (
-          <p className="text-sm text-[var(--cl-muted)]">No LLM traces recorded yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {traces.map((trace) => (
-              <article key={trace.trace_id} className="rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-4 shadow-[0_8px_18px_rgba(31,41,55,0.04)]">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="font-display text-lg text-[var(--cl-ink)]">{trace.operation}</h4>
-                      <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${traceStatusClass(trace.status)}`}>
-                        {trace.status}
-                      </span>
-                      <span className="rounded-full bg-[var(--cl-surface-2)] px-2.5 py-0.5 text-xs font-mono text-[var(--cl-muted)]">
-                        {trace.model}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-sm text-[var(--cl-muted)]">
-                      {new Date(trace.ts).toLocaleString()} · {formatLatency(trace.latency_ms)} · {trace.max_tokens} max tokens
-                      {trace.timeout_seconds ? ` · timeout ${trace.timeout_seconds}s` : ""}
-                    </p>
-                    {(trace.session_id || trace.phase || trace.chunk_index || trace.chunk_count) && (
-                      <p className="mt-1 text-xs text-[var(--cl-muted)]">
-                        {trace.session_id ? `session ${trace.session_id.slice(0, 8)}` : ""}
-                        {trace.session_id && trace.phase ? " · " : ""}
-                        {trace.phase ?? ""}
-                        {trace.chunk_index && trace.chunk_count ? ` · chunk ${trace.chunk_index}/${trace.chunk_count}` : ""}
-                      </p>
-                    )}
-                    {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens || trace.multi_pass_overlap_tokens) && (
-                      <p className="mt-1 text-xs text-[var(--cl-muted)]">
-                        {trace.multi_pass_threshold_chars ? `threshold ${trace.multi_pass_threshold_chars} chars` : ""}
-                        {trace.multi_pass_threshold_chars && trace.multi_pass_chunk_tokens ? " · " : ""}
-                        {trace.multi_pass_chunk_tokens ? `chunk ${trace.multi_pass_chunk_tokens} tokens` : ""}
-                        {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens) && trace.multi_pass_overlap_tokens ? " · " : ""}
-                        {trace.multi_pass_overlap_tokens !== undefined && trace.multi_pass_overlap_tokens !== null
-                          ? `overlap ${trace.multi_pass_overlap_tokens} tokens`
-                          : ""}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-2 text-right text-xs text-[var(--cl-muted)] lg:min-w-56">
-                    <p>Input: {trace.input_chars} chars</p>
-                    <p>Output: {trace.output_chars} chars</p>
-                    <p>Trace ID: <span className="font-mono">{trace.trace_id.slice(0, 12)}</span></p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Input preview</p>
-                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-[var(--cl-surface-2)] p-3 text-xs leading-6 text-[var(--cl-ink)]">
-                      {trace.input_preview || "—"}
-                    </pre>
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Output preview</p>
-                    <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-[var(--cl-surface-2)] p-3 text-xs leading-6 text-[var(--cl-ink)]">
-                      {trace.error || trace.output_preview || "—"}
-                    </pre>
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        )}
-      </div>
+      {!health && !error && (
+        <p className="text-sm text-[var(--cl-muted)]">No observability data available yet.</p>
+      )}
+      {!health && error && (
+        <p className="text-sm text-[var(--cl-muted)]">Refresh once the backend is available again.</p>
+      )}
     </section>
   )
 }

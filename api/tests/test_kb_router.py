@@ -1337,3 +1337,31 @@ class TestCommitAnalysisProfileUpdates:
         r = client.post("/api/kb/commit-analysis", json=payload)
         assert r.status_code == 200
         assert r.json()["employers_updated"] == []
+
+
+def test_kb_health_reports_source_state_counts_and_hit_breakdown(in_memory_qdrant, mock_embedder):
+    client, store = make_client(in_memory_qdrant, mock_embedder)
+    for i in range(2):
+        seed_chunk(store, "active-guide.txt", f"active chunk {i}", chunk_index=i)
+    seed_chunk(store, "legacy-guide.txt", "legacy chunk", chunk_index=0)
+
+    from services.source_ledger import get_source_ledger_store
+
+    ledger = get_source_ledger_store()
+    ledger.upsert_record(filename="active-guide.txt", chunk_count=2, lifecycle="active")
+    ledger.upsert_record(
+        filename="legacy-guide.txt",
+        chunk_count=1,
+        lifecycle="superseded",
+        superseded_by="active-guide.txt",
+    )
+
+    r = client.get("/api/kb/health")
+
+    assert r.status_code == 200
+    data = r.json()
+    assert data["active_source_count"] == 1
+    assert data["superseded_source_count"] == 1
+    assert data["stale_source_count"] == 1
+    assert data["active_hit_count"] >= 0
+    assert data["superseded_hit_count"] >= 0

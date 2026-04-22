@@ -20,6 +20,7 @@ from services.career_profiles import (
 )
 from services.employer_store import EmployerEntityStore, get_employer_store
 from services.embedder import Embedder
+from services.source_ledger import filter_active_chunks, get_source_ledger_store
 from services.vector_store import VectorStore
 from services.track_drafts import TrackDraftStore
 from limiter import limiter
@@ -136,6 +137,15 @@ def _humanize_source_name(filename: str) -> str:
     return cleaned.title()
 
 
+def _chunk_lifecycle(payload: dict) -> str:
+    lifecycle = str(payload.get("lifecycle") or payload.get("status") or "").strip().lower()
+    if lifecycle:
+        return lifecycle
+    filename = str(payload.get("source_filename") or payload.get("filename") or "").strip()
+    record = get_source_ledger_store().get_record(filename)
+    return str(record.get("lifecycle") or "active") if record else "active"
+
+
 @router.post("/chat", response_model=ChatResponse)
 @limiter.limit("10 per minute")
 def chat(
@@ -148,6 +158,7 @@ def chat(
 ):
     query_vec = embedder.encode(req.message)
     chunks = store.search(query_vec, top_k=5)
+    active_chunks = filter_active_chunks(chunks)
 
     # Career type resolution: intake → cosine → client fallback
     active_career_type = _resolve_career_type(req, query_vec, profile_store)
@@ -176,19 +187,19 @@ def chat(
             excerpt=c["payload"]["text"][:150],
             source_name=_humanize_source_name(str(c["payload"].get("source_filename", "unknown"))),
             updated_at=str(c["payload"].get("upload_timestamp") or c["payload"].get("updated_at") or ""),
-            source_lifecycle=str(c["payload"].get("lifecycle") or c["payload"].get("status") or ""),
+            source_lifecycle=_chunk_lifecycle(c["payload"]),
         )
-        for c in chunks
+        for c in active_chunks
     ]
     response_text = llm.chat_with_context(
         message=req.message,
         resume_text=req.resume_text,
-        chunks=chunks,
+        chunks=active_chunks,
         history=[m.model_dump() for m in req.history],
         career_context=career_context,
         employer_context=employer_context,
     )
-    _log_query(req.message, chunks, active_career_type)
+    _log_query(req.message, active_chunks, active_career_type)
     return ChatResponse(
         response=response_text,
         citations=citations,

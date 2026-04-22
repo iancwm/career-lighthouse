@@ -61,6 +61,7 @@ from services.employer_store import (
 from constants.profile_fields import ALLOWED_PROFILE_FIELDS
 from services.embedder import Embedder
 from services.ingestion import chunk_text, parse_file
+from services.source_ledger import get_source_ledger_store
 from services.vector_store import VectorStore
 from services import llm as llm_service
 from services.llm import extract_facts_from_prose
@@ -1792,6 +1793,7 @@ def kb_health(
     # --- Query log metrics ---
     window_start = datetime.now(timezone.utc) - timedelta(days=_LOG_WINDOW_DAYS)
     entries = _read_query_log(since=window_start)
+    source_state = get_source_ledger_store().summarize_source_state(docs, entries)
 
     avg_match_score: Optional[float] = None
     retrieval_diversity_score: Optional[float] = None
@@ -1835,6 +1837,20 @@ def kb_health(
         low_confidence_queries=low_confidence_queries,
         doc_coverage=doc_coverage,
         high_overlap_pairs=high_overlap_pairs,
+        source_state=source_state,
+        active_sources=source_state.active_source_count,
+        active_source_count=source_state.active_source_count,
+        superseded_sources=source_state.superseded_source_count,
+        superseded_source_count=source_state.superseded_source_count,
+        stale_sources=source_state.stale_source_count,
+        stale_source_count=source_state.stale_source_count,
+        active_hits=source_state.active_hit_count,
+        active_hit_count=source_state.active_hit_count,
+        superseded_hits=source_state.superseded_hit_count,
+        superseded_hit_count=source_state.superseded_hit_count,
+        last_refreshed_at=source_state.last_refreshed_at,
+        updated_at=source_state.last_refreshed_at,
+        stale_source_evidence=source_state.stale_source_evidence,
     )
 
 

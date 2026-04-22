@@ -15,6 +15,7 @@ from services.career_profiles import get_career_profile_store
 from services.embedder import Embedder
 from services.employer_store import get_employer_store, EmployerEntityStore
 from services.ingestion import parse_file, prepare_document
+from services.source_ledger import get_source_ledger_store
 from services.vector_store import VectorStore
 from limiter import limiter
 
@@ -143,6 +144,11 @@ async def ingest(
         # Invalidate caches — KB has changed
         health_cache.invalidate_overlap_cache()
         get_career_profile_store().invalidate()
+        get_source_ledger_store().upsert_record(
+            filename=filename,
+            chunk_count=len(points),
+            linked_knowledge_object=employer_slug,
+        )
 
     # If an employer slug was provided, also store the raw parsed text against the employer.
     # This makes the full document available to the fact extractor, not just the notes field.

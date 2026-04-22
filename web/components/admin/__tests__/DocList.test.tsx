@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from "@testing-library/react"
+import { vi } from "vitest"
 import DocList from "../DocList"
 
 const mockDocs = [
@@ -8,6 +9,7 @@ const mockDocs = [
 
 beforeEach(() => {
   global.fetch = vi.fn().mockResolvedValue({
+    ok: true,
     json: () => Promise.resolve(mockDocs),
   } as any)
 })
@@ -15,8 +17,10 @@ beforeEach(() => {
 afterEach(() => vi.resetAllMocks())
 
 describe("DocList", () => {
+  afterEach(() => vi.resetAllMocks())
+
   it("shows empty state when no docs", async () => {
-    global.fetch = vi.fn().mockResolvedValue({ json: () => Promise.resolve([]) } as any)
+    global.fetch = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve([]) } as any)
     render(<DocList refreshKey={0} />)
     await waitFor(() => expect(screen.getByText(/No source documents uploaded yet/i)).toBeInTheDocument())
   })
@@ -25,6 +29,34 @@ describe("DocList", () => {
     render(<DocList refreshKey={0} />)
     await waitFor(() => expect(screen.getByText("smu-alumni-paths.txt")).toBeInTheDocument())
     expect(screen.getByText("gic-guide.txt")).toBeInTheDocument()
-    expect(screen.getByText("4 chunks")).toBeInTheDocument()
+    expect(screen.getByText((_, element) => element?.textContent === "4 chunks")).toBeInTheDocument()
+  })
+
+  it("marks a doc row archived and calls onDeleted after delete succeeds", async () => {
+    const onDeleted = vi.fn()
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve(mockDocs),
+      } as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({ status: "deleted" }),
+      } as any)
+    global.fetch = fetchMock
+
+    render(<DocList refreshKey={0} onDeleted={onDeleted} />)
+
+    await waitFor(() => expect(screen.getByText("smu-alumni-paths.txt")).toBeInTheDocument())
+    screen.getAllByRole("button")[0].click()
+
+    await waitFor(() => expect(onDeleted).toHaveBeenCalledOnce())
+    expect(screen.getByText("smu-alumni-paths.txt")).toBeInTheDocument()
+    expect(screen.getByLabelText(/Lifecycle state: Archived/i)).toBeInTheDocument()
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/api/docs/smu-alumni-paths.txt"),
+      expect.objectContaining({ method: "DELETE" })
+    )
   })
 })

@@ -12,43 +12,55 @@ interface Props {
 }
 
 export default function DocCoverageList({ docs }: Props) {
-  if (!docs.length) {
-    return <p className="text-sm text-gray-400">No documents uploaded yet.</p>
-  }
-
   return (
-    <div>
-      <h3 className="text-sm font-semibold text-gray-700 mb-2">
-        Document Coverage
-      </h3>
-      <ul className="space-y-1">
-        {docs.map((doc) => (
-          <li
-            key={doc.filename}
-            className="flex items-center justify-between text-sm bg-white border rounded px-3 py-2"
-          >
-            <span className="truncate flex-1 mr-2">{doc.filename}</span>
-            <span className="text-gray-400 text-xs mr-2">{doc.chunk_count} chunks</span>
-            {doc.has_overlap_warning && (
-              <span
-                title="This document overlaps with another — see Redundancy panel"
-                className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded mr-2"
-              >
-                overlap
-              </span>
-            )}
-            <span
-              className={`text-xs px-2 py-0.5 rounded font-medium ${
-                doc.coverage_status === "good"
-                  ? "bg-green-100 text-green-700"
-                  : "bg-amber-100 text-amber-700"
-              }`}
+    <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+      <div className="border-b border-[var(--cl-line)] pb-4">
+        <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Coverage</p>
+        <h3 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">Document coverage</h3>
+        <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">
+          Thin coverage and overlap warnings point to documents that may need another pass.
+        </p>
+      </div>
+
+      {!docs.length ? (
+        <p className="mt-4 text-sm text-[var(--cl-muted)]">No documents uploaded yet.</p>
+      ) : (
+        <ul className="mt-4 space-y-2">
+          {docs.map((doc) => (
+            <li
+              key={doc.filename}
+              className="flex flex-col gap-3 rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface)] px-4 py-3 md:flex-row md:items-center md:justify-between"
             >
-              {doc.coverage_status}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-[var(--cl-ink)]">{doc.filename}</p>
+                <p className="mt-1 text-sm text-[var(--cl-muted)]">
+                  <span className="font-mono-display text-[var(--cl-ink)]">{doc.chunk_count}</span> chunks
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                {doc.has_overlap_warning && (
+                  <span
+                    title="This document overlaps with another source. See the redundancy panel."
+                    className="rounded-full border border-amber-200 bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-700"
+                  >
+                    overlap
+                  </span>
+                )}
+                <span
+                  className={`rounded-full border px-2.5 py-1 text-xs font-medium ${
+                    doc.coverage_status === "good"
+                      ? "border-green-200 bg-green-100 text-green-700"
+                      : "border-amber-200 bg-amber-100 text-amber-700"
+                  }`}
+                >
+                  {doc.coverage_status}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }

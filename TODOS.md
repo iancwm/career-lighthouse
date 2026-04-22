@@ -216,10 +216,8 @@ stale API build issue that initially hid traces was fixed during verification.
 **Why:** Per-track density, not total count, becomes the token-budget bottleneck.
 **Depends on:** Career-type filtered injection shipping in v1.
 
-### Durable source document ledger
-**What:** Persist uploaded source files and tie them to revisions for reprocessing and audit.
-**Why:** Raw inputs should remain a durable source of truth, not just an ephemeral upload.
-**Depends on:** Document storage layout decision.
+### ~~Durable source document ledger~~ ✓ Done (2026-04-22)
+Shipped: uploaded source files now persist in the source ledger, document deletions archive rather than erase lifecycle history, retrieval only treats active sources as current, and KB health surfaces active/superseded/stale source signals for admin review.
 
 ### Missing Terraform resources for production deployment
 **What:** Define ECS Service, ALB HTTPS listener, target groups, EFS backup policy, WAF, auto-scaling, VPC/subnets/SGs.

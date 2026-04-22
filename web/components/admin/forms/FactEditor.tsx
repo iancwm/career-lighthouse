@@ -317,7 +317,7 @@ export default function FactEditor({ onAdd, onCancel, existingSlugs = [] }: Fact
           <label className="block text-xs font-medium text-gray-600 mb-1">Source</label>
           <select
             value={source}
-            onChange={(e) => setSource(e.target.value as SourceType)}
+            onChange={(e) => setSource(e.target.value as FactSource)}
             className="w-full rounded border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-blue-400 bg-white"
           >
             <option value="counselor">Counselor</option>

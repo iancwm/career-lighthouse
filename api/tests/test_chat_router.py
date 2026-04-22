@@ -423,3 +423,110 @@ def test_chat_passes_message_to_employer_matching_layer(in_memory_qdrant, mock_e
     )
     _, kwargs = mock_llm.call_args
     assert kwargs.get("employer_context") is not None
+
+
+def test_chat_filters_superseded_chunks_before_citation_and_llm(in_memory_qdrant, mock_embedder):
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    store.search = MagicMock(return_value=[
+        {
+            "score": 0.99,
+            "payload": {
+                "source_filename": "active-guide.txt",
+                "chunk_index": 0,
+                "upload_timestamp": "2026-01-01",
+                "text": "Current source material.",
+                "lifecycle": "active",
+            },
+        },
+        {
+            "score": 0.98,
+            "payload": {
+                "source_filename": "superseded-guide.txt",
+                "chunk_index": 0,
+                "upload_timestamp": "2025-01-01",
+                "text": "Stale source material.",
+                "lifecycle": "superseded",
+            },
+        },
+    ])
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+    mock_ps.match_career_type_keywords.return_value = None
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    with patch.object(llm_module, "chat_with_context", return_value="answer") as mock_llm:
+        client = TestClient(app)
+        r = client.post("/api/chat", json={
+            "message": "What should I use?",
+            "resume_text": None,
+            "history": [],
+        })
+
+    assert r.status_code == 200
+    passed_chunks = mock_llm.call_args.kwargs["chunks"]
+    assert [chunk["payload"]["source_filename"] for chunk in passed_chunks] == ["active-guide.txt"]
+    assert r.json()["citations"] == [
+        {
+            "filename": "active-guide.txt",
+            "excerpt": "Current source material.",
+            "source_name": "Active Guide",
+            "updated_at": "2026-01-01",
+            "source_lifecycle": "active",
+        }
+    ]
+
+
+def test_chat_does_not_resurrect_stale_chunks_when_no_active_sources_remain(in_memory_qdrant, mock_embedder):
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    store.search = MagicMock(return_value=[
+        {
+            "score": 0.96,
+            "payload": {
+                "source_filename": "legacy-guide.txt",
+                "chunk_index": 0,
+                "upload_timestamp": "2025-01-01",
+                "text": "Legacy source material.",
+                "lifecycle": "superseded",
+            },
+        }
+    ])
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+    mock_ps.match_career_type_keywords.return_value = None
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    with patch.object(llm_module, "chat_with_context", return_value="cautious answer") as mock_llm:
+        client = TestClient(app)
+        r = client.post("/api/chat", json={
+            "message": "What is the current rule?",
+            "resume_text": None,
+            "history": [],
+        })
+
+    assert r.status_code == 200
+    assert mock_llm.call_args.kwargs["chunks"] == []
+    assert r.json()["citations"] == []

@@ -3,6 +3,7 @@ import numpy as np
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
+from services import health_cache
 
 
 def _make_client(in_memory_qdrant, mock_embedder):
@@ -27,6 +28,12 @@ def test_ingest_txt_file(in_memory_qdrant, mock_embedder):
     assert data["chunk_count"] >= 1
     assert data["status"] == "ok"
 
+    from services.source_ledger import get_source_ledger_store
+
+    record = get_source_ledger_store().get_record("test.txt")
+    assert record is not None
+    assert record["lifecycle"] == "active"
+
 
 def test_ingest_invalidates_career_profile_store(in_memory_qdrant, mock_embedder):
     """Uploading a document resets CareerProfileStore so updated YAMLs are picked up."""
@@ -35,6 +42,29 @@ def test_ingest_invalidates_career_profile_store(in_memory_qdrant, mock_embedder
         mock_store = mock_get_store.return_value
         client.post("/api/ingest", files={"file": ("test.txt", b"hello world career", "text/plain")})
     mock_store.invalidate.assert_called_once()
+
+
+def test_reupload_same_filename_replaces_doc_and_invalidates_overlap_cache(in_memory_qdrant, mock_embedder):
+    client = _make_client(in_memory_qdrant, mock_embedder)
+    health_cache.set_overlap_pairs([{"doc_a": "old.txt", "doc_b": "other.txt", "overlap_pct": 0.9}])
+    assert health_cache.get_overlap_pairs() is not None
+
+    first = client.post("/api/ingest", files={"file": ("repeat.txt", b"old content", "text/plain")})
+    assert first.status_code == 200
+    assert first.json()["status"] == "ok"
+    assert health_cache.get_overlap_pairs() is None
+
+    health_cache.set_overlap_pairs([{"doc_a": "repeat.txt", "doc_b": "other.txt", "overlap_pct": 0.9}])
+    second = client.post("/api/ingest", files={"file": ("repeat.txt", b"new content", "text/plain")})
+
+    assert second.status_code == 200
+    assert second.json()["status"] == "ok"
+    assert health_cache.get_overlap_pairs() is None
+
+    docs = client.get("/api/docs").json()
+    repeat = [doc for doc in docs if doc["filename"] == "repeat.txt"]
+    assert len(repeat) == 1
+    assert repeat[0]["chunk_count"] >= 1
 
 
 class TestFilenameValidation:

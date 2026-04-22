@@ -60,6 +60,12 @@ class DocInfo(BaseModel):
     filename: str
     chunk_count: int
     uploaded_at: str
+    lifecycle: Literal["active", "superseded", "archived"] = "active"
+    uploaded_by: Optional[str] = None
+    superseded_by: Optional[str] = None
+    linked_knowledge_object: Optional[str] = None
+    archived_at: Optional[str] = None
+    source_record_id: Optional[str] = None
 
 class IngestResponse(BaseModel):
     doc_id: str
@@ -134,6 +140,23 @@ class OverlapPair(BaseModel):
     recommendation: str = "merge or remove one"
 
 
+class SourceStateEvidence(BaseModel):
+    filename: str
+    reason: str
+    chunk_count: int = 0
+    last_seen_at: Optional[str] = None
+
+
+class SourceStateSummary(BaseModel):
+    active_source_count: int = 0
+    superseded_source_count: int = 0
+    stale_source_count: int = 0
+    active_hit_count: int = 0
+    superseded_hit_count: int = 0
+    last_refreshed_at: Optional[str] = None
+    stale_source_evidence: list[SourceStateEvidence] = []
+
+
 class KBHealthResponse(BaseModel):
     total_docs: int
     total_chunks: int
@@ -142,6 +165,20 @@ class KBHealthResponse(BaseModel):
     low_confidence_queries: list[LowConfidenceQuery] = []
     doc_coverage: list[DocCoverageItem] = []
     high_overlap_pairs: list[OverlapPair] = []
+    source_state: Optional[SourceStateSummary] = None
+    active_sources: Optional[int] = None
+    active_source_count: Optional[int] = None
+    superseded_sources: Optional[int] = None
+    superseded_source_count: Optional[int] = None
+    stale_sources: Optional[int] = None
+    stale_source_count: Optional[int] = None
+    active_hits: Optional[int] = None
+    active_hit_count: Optional[int] = None
+    superseded_hits: Optional[int] = None
+    superseded_hit_count: Optional[int] = None
+    last_refreshed_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    stale_source_evidence: list[SourceStateEvidence] = []
 
 
 # Sprint 3 — diff-first KB ingestion models

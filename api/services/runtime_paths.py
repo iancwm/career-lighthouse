@@ -63,6 +63,14 @@ def default_emerging_track_signals_path() -> Path:
     return repo_root() / "logs" / "emerging_track_signals.jsonl"
 
 
+def default_source_ledger_dir() -> Path:
+    return repo_root() / "knowledge" / "source_ledger"
+
+
+def default_source_ledger_history_dir() -> Path:
+    return repo_root() / "knowledge" / "source_ledger_history"
+
+
 def default_tracks_version_path() -> Path:
     return repo_root() / "knowledge" / ".tracks-version"
 
@@ -96,6 +104,11 @@ def runtime_storage_targets() -> dict[str, tuple[str, Path]]:
         "TRACK_PUBLISH_JOURNAL_PATH": ("file", _env_path("TRACK_PUBLISH_JOURNAL_PATH", default_publish_journal_path())),
         "TRACK_PUBLISH_LOG_PATH": ("file", _env_path("TRACK_PUBLISH_LOG_PATH", default_publish_log_path())),
         "TRACKS_VERSION_PATH": ("file", _env_path("TRACKS_VERSION_PATH", default_tracks_version_path())),
+        "SOURCE_LEDGER_DIR": ("dir", _env_path("SOURCE_LEDGER_DIR", default_source_ledger_dir())),
+        "SOURCE_LEDGER_HISTORY_DIR": (
+            "dir",
+            _env_path("SOURCE_LEDGER_HISTORY_DIR", default_source_ledger_history_dir()),
+        ),
     }
 
 

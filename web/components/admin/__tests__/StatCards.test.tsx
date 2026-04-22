@@ -19,10 +19,10 @@ describe("StatCards", () => {
     expect(screen.getByText("3.5")).toBeInTheDocument()
   })
 
-  it("renders — for null scores", () => {
+  it("renders Unknown for null scores", () => {
     render(<StatCards {...baseProps} avgMatchScore={null} diversityScore={null} />)
-    const dashes = screen.getAllByText("—")
-    expect(dashes.length).toBe(2)
+    const unknowns = screen.getAllByText("Unknown")
+    expect(unknowns.length).toBe(2)
   })
 
   it("weakQueryCount > 5 applies red class", () => {

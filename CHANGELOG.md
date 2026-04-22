@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Counsellor Trust Sprint 4**: source-ledger-backed document lifecycle tracking, active-only chat retrieval and citations, source-state summaries in KB health, and ledger-aware document inventory in the admin UI.
 - **8 new employer profiles**: A&O Shearman, Freshfields Bruckhaus Deringer, OCBC, Revolut Singapore, Stripe Singapore, UOB, Wise Singapore added; DBS and Crypto.com updated with extracted facts. Fintech compliance career track extended with richer salary data, LLM/JD guidance, match keywords, and career trajectory notes.
 - **Legal Ops career profile**: new `legal_ops.yaml` covering legal operations roles in corporate, fintech, and in-house legal teams.
 - **Sprint 3 student trust surfaces**: student chat now includes a compact context pill that expands inline to show intake context, active career label, and resume presence, plus in-chat `Edit context` and `Reset chat` actions.
@@ -12,6 +13,7 @@ All notable changes to this project will be documented in this file.
 - **Sprint 3 regression coverage**: added student-page flow coverage for guided entry -> intake -> chat -> reset restart, plus expanded chat-interface and citation disclosure tests.
 
 ### Fixed
+- **Admin QA hardening**: stale `SourceType` casting in `FactEditor`, restrictive dev CSP in `next.config.js`, and duplicate trace keys in `LLMObservabilityTab` were fixed during browser QA.
 - **LLM fact extraction — JSON array parsing**: `_extract_json_block` now preserves the outermost `[...]` when Claude returns a JSON array. Previously, any array response was silently reduced to invalid JSON by incorrectly preferring the inner `{...}` boundaries.
 - **LLM fact extraction — repair path**: `_repair_json_output` now returns JSON arrays in addition to objects, so the extraction repair loop works correctly when Claude repairs a list of facts.
 

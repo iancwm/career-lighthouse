@@ -14,7 +14,7 @@ describe("DocCoverageList", () => {
       />
     )
     expect(screen.getByText("resume.pdf")).toBeInTheDocument()
-    expect(screen.getByText("12 chunks")).toBeInTheDocument()
+    expect(screen.getByText((_, element) => element?.textContent === "12 chunks")).toBeInTheDocument()
   })
 
   it("shows green badge for good coverage", () => {
