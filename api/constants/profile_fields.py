@@ -37,7 +37,7 @@ ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset([
     "ep_requirement",
     "intake_seasons",
     "application_process",
-    "headcount_estimate",
+    "singapore_headcount_estimate",
     "counselor_contact",
     "notes",
 ])

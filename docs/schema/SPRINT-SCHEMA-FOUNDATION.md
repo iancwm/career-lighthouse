@@ -9,9 +9,9 @@
 
 ## Overview
 
-The SCHEMA-FOUNDATION.md design is approved and core infrastructure (models, LLM hardening, Langfuse traces) is in place. **Execution is blocked on Phase 2 UI** — counselors have no way to enter facts into the system yet. This sprint unblocks that and validates the design before scaling to batch tooling.
+The SCHEMA-FOUNDATION.md design is approved and core infrastructure (models, LLM hardening, Langfuse traces) is in place. **Execution is blocked on Phase 2 UI and the alumni staging handoff** — counselors have no way to enter facts into the system yet, and alumni extraction still stops at a read-only preview. This sprint unblocks that and validates the design before scaling to batch tooling.
 
-**Why now:** KB observability (Sprint 1) is done. Career profiles YAML are structured (Sprint 2). The next bottleneck is facts — counselors need to capture structured knowledge (timelines, alumni, interview stages) from prose without parsing it manually each time.
+**Why now:** KB observability (Sprint 1) is done. Career profiles YAML are structured (Sprint 2). The next bottleneck is facts — counselors need to capture structured knowledge (timelines, alumni, interview stages) from prose without parsing it manually each time, then move alumni notes through staging before they become canonical records.
 
 ---
 
@@ -24,6 +24,12 @@ The SCHEMA-FOUNDATION.md design is approved and core infrastructure (models, LLM
 - ✓ Employer list with search, add, delete
 - ✓ Full employer detail form (name, tracks, EP requirement, intake seasons, headcount, application process, counselor contact, notes)
 - ✗ **ZERO structured facts UI** — no fact type selector, field editors, "New Fact" button, or facts list display
+
+**AlumniFactsTab exists but lacks a staging bridge:**
+- ✓ Read/write alumni record surface exists
+- ✓ Preview extraction exists for notes
+- ✗ Extraction stops at preview, there is no explicit promote-to-record staging step
+- ✗ The note intake and record viewing order is not yet specified for the top of the page
 
 **Recommended architecture: Tabbed approach (Option A)**
 ```
@@ -180,6 +186,35 @@ Output ONLY valid JSON. No prose.
 - `api/prompts/fact_extraction.yaml` — **new** extraction-specific prompt
 - `api/services/llm.py` — add `extract_facts_from_prose()` helper (returns validated list or error)
 - `api/tests/test_fact_extraction.py` — **new** test suite with Stripe notes example
+
+### Task 2.4 — Alumni record staging and page layout
+**Ownership:** Ian  
+**Estimate:** 2 days  
+**Acceptance Criteria:**
+- Alumni Records page starts with a note-extraction composer at the top, before the persisted record list.
+- The record viewer sits below the document upload / parsed-text block, so the source note is visible before the canonical record.
+- Extraction results land in a staging state first, not as an immediate save.
+- Staging shows candidate alumni fields, suggested company links, confidence, and source text, with explicit promote / discard controls.
+- `Save alumni` only writes to canonical alumni YAML after the staged review is accepted.
+- Alumni extraction can also be surfaced from the existing staging area so counsellors can review alumni facts alongside employer/profile updates.
+
+**Files to edit:**
+- `web/components/admin/AlumniFactsTab.tsx` — top-of-page extraction composer and record viewer placement
+- `web/components/admin/KnowledgeUpdateTab.tsx` — surface alumni staging alongside existing diff review
+- `web/components/admin/SessionInbox.tsx` — pass alumni-only notes into the staging flow when appropriate
+- `web/components/admin/modals/AlumniExtractionModal.tsx` — **new** staging review modal for alumni drafts
+- `api/routers/alumni_router.py` — add explicit staging/promote actions if the preview needs a write-through step
+- `api/services/alumni_store.py` — helper(s) for staged draft normalization and promotion
+
+**UX flow:**
+1. Counselor pastes or uploads a note.
+2. Alumni extraction appears at the top of the page.
+3. The draft alumni record is shown in staging, below the upload / parsed-note area.
+4. Counselor reviews the candidate profile and company links.
+5. Counselor promotes the staged draft into the alumni record or discards it.
+6. The saved alumni record then appears in the canonical record list below.
+
+**Design note:** This keeps the staged note preview and the saved record separate. No silent auto-save. The page has one job at each vertical band, which fits the existing admin workspace and avoids a second hidden save path.
 
 ---
 
@@ -468,11 +503,12 @@ Sort facts by `timestamp DESC` (newest first) when writing to YAML.
 | 2.1 EmployerFactsTab form | 3d | W1 Mon | W1 Wed |
 | 2.2 Extraction trigger | 2d | W1 Thu | W2 Fri |
 | 2.3 Prompt refinement | 1d | W2 Mon | W2 Tue |
+| 2.4 Alumni staging integration | 2d | W2 Tue | W2 Wed |
 | 3.1 `/api/kb/facts` endpoint | 2d | W2 Wed | W2 Fri |
 | 3.2 Grouped view | 1d | W3 Mon | W3 Mon |
 | 1.1 Stripe sample facts | 1d | W3 Tue | W3 Tue |
 | 1.2 LLM extraction test | 1d | W3 Wed | W3 Wed |
-| **Total** | **11d** | W1 Mon | W3 Wed |
+| **Total** | **13d** | W1 Mon | W3 Wed |
 
 ---
 
@@ -505,6 +541,12 @@ Sort facts by `timestamp DESC` (newest first) when writing to YAML.
 - [ ] Wire up backend endpoint to call extraction
 - [ ] End-to-end test: click "Extract from notes", see results in modal
 
+**Day 3–4 (Task 2.4 start):**
+- [ ] Add top-of-page alumni extraction composer to AlumniFactsTab
+- [ ] Add staging review modal for alumni drafts
+- [ ] Wire alumni drafts into KnowledgeUpdateTab / staging flow
+- [ ] Verify promoted alumni facts land in the canonical record list below the intake block
+
 **Day 3 (Phase 1 validation):**
 - [ ] Write 5 sample facts manually to stripe.yaml (or via UI)
 - [ ] Run extraction test on Stripe notes, measure accuracy
@@ -536,3 +578,18 @@ Don't refactor existing employer form. Keep Details tab as-is. Add Facts tab alo
 - Merged to main; tagged v0.1.6.0 or later
 - SCHEMA-FOUNDATION.md updated with any schema adjustments discovered during implementation
 - Team demo showing: manual fact entry + extraction workflow on Stripe
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | CLEAN (PLAN) | 6 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 2 | CLEAN (FULL) | score: 6/10 → 8/10, 1 decision |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+**CODEX:** none on this branch yet.
+**CROSS-MODEL:** staging-first alumni extraction now matches the existing knowledge-review pattern, so the plan avoids a second direct-write flow.
+**UNRESOLVED:** 0
+**VERDICT:** ENG + DESIGN CLEARED, ready to implement.

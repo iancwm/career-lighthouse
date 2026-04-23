@@ -20,6 +20,9 @@ Shipped: fact type badges now use the DESIGN.md palette instead of the old purpl
 ### ~~Counsellor Trust Sprint 1: Fix lifecycle filter in to_context_block() — critical bug~~ ✓ Done (2026-04-22)
 Shipped: `api/services/employer_store.py` now filters context blocks to active facts only, so superseded and archived records no longer reach student-facing prompts.
 
+### ~~FastAPI auth on KB endpoints~~ ✓ Done (2026-04-23)
+Shipped: `/api/kb/*`, `/api/insights/*`, and `/api/sessions/*` routers already carry `require_admin_key` at the router level, so the KB surfaces are protected in the backend now.
+
 ### ~~Counsellor Trust Sprint 1: Split EmployerFactsTab.tsx before provenance wiring~~ ✓ Done (2026-04-22)
 Shipped: the employer facts surface now carries the lifecycle/provenance UI directly, with the supporting logic split across smaller shared pieces.
 
@@ -121,12 +124,8 @@ ranges in session card commits now populate `salary_min_sgd`/`salary_max_sgd` vi
 
 ## Next
 
-### Normalize employer YAMLs: headcount_estimate → singapore_headcount_estimate
-**What:** Rename `headcount_estimate` to `singapore_headcount_estimate` across all ~30 employer YAML files in `knowledge/employers/`.
-**Why:** Eng review (2026-04-22) found schema drift — the API reads `singapore_headcount_estimate` but existing YAMLs use `headcount_estimate`, causing silent data misses on every employer load.
-**Pros:** One-time rename, low risk. Eliminates a class of silent null reads on the headcount field.
-**Cons:** Must update all 30 files consistently (script or bulk find-replace).
-**Depends on:** None. Safe to run independently.
+### ~~Normalize employer YAMLs: headcount_estimate → singapore_headcount_estimate~~ ✓ Done (2026-04-23)
+Shipped: all active employer YAMLs now use `singapore_headcount_estimate`, and the employer allowlist / prompt references were updated to match the API read path.
 
 ### ADMIN_KEY passed as query param — migrate to header or cookie
 **What:** Replace `?key=...` query param with `Authorization: Bearer` header or session cookie.

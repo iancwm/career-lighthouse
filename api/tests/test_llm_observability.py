@@ -407,8 +407,71 @@ def test_extract_facts_from_prose_writes_langfuse_observation(mock_client):
     assert facts[0]["slug"] == "google-internship"
     assert fake_langfuse.started[0]["name"] == "extract_facts_from_prose"
     assert fake_langfuse.started[0]["input"]["metadata"]["feature"] == "extract_facts_from_prose"
-    assert fake_langfuse.started[0]["input"]["metadata"]["traceId"]
+    assert fake_langfuse.started[0]["input"]["metadata"]["trace_id"]
     assert fake_langfuse.propagated["metadata"]["environment"] == "development"
+    assert fake_langfuse.flushed is False
+
+
+@patch("services.llm.get_client")
+def test_extract_facts_from_prose_accepts_fenced_json_without_repair(mock_client):
+    import services.llm as llm_module
+
+    class FakeLangfuseClient:
+        def __init__(self):
+            self.started = []
+            self.flushed = False
+
+        @contextmanager
+        def start_as_current_observation(self, **kwargs):
+            self.started.append(kwargs)
+            yield SimpleNamespace(update=lambda **kwargs: None)
+
+        def flush(self):
+            self.flushed = True
+
+    fake_langfuse = FakeLangfuseClient()
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        "```json\n"
+        + json.dumps([
+            {
+                "slug": "google-internship",
+                "type": "timeline_phase",
+                "phase_name": "Summer internship",
+                "value": "June to August",
+                "source": "inferred",
+                "confidence": 90,
+                "timestamp": "2026-04-20T00:00:00Z",
+            }
+        ])
+        + "\n```"
+    )
+
+    fake_settings = SimpleNamespace(
+        anthropic_api_key="fake",
+        llm_timeout_seconds=30.0,
+        llm_trace_log_path="/tmp/llm-trace.jsonl",
+        langfuse_public_key="pk-lf-test",
+        langfuse_secret_key="sk-lf-test",
+        langfuse_base_url="http://langfuse-web:3000",
+        langfuse_tracing_environment="development",
+    )
+
+    @contextmanager
+    def fake_propagate_attributes(**kwargs):
+        fake_langfuse.propagated = kwargs
+        yield
+
+    with patch.object(llm_module, "settings", fake_settings), \
+        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse), \
+        patch.object(llm_module, "propagate_attributes", side_effect=fake_propagate_attributes), \
+        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None), \
+        patch.object(llm_module, "_repair_json_output", side_effect=AssertionError("repair should not be needed")):
+        facts = asyncio.run(llm_module.extract_facts_from_prose("Alice discussed Google hiring timelines.", "Google"))
+
+    assert len(facts) == 1
+    assert facts[0]["slug"] == "google-internship"
+    assert fake_langfuse.started[0]["name"] == "extract_facts_from_prose"
+    assert fake_langfuse.started[0]["input"]["metadata"]["feature"] == "extract_facts_from_prose"
     assert fake_langfuse.flushed is False
 
 

@@ -6,11 +6,9 @@ GET  /api/kb/health           — KB health metrics for the admin dashboard
 POST /api/kb/analyse          — analyse counsellor input, return diff (no writes)
 POST /api/kb/commit-analysis  — commit a counsellor-approved diff to KB and YAMLs
 
-Auth note: These endpoints are protected by Next.js middleware (web/middleware.ts)
-which blocks unauthenticated requests to /admin. No FastAPI-level auth guard is
-implemented here — accepted risk for pre-launch private network deployment.
-TODO: Add Depends() auth guard before any public-facing deployment.
-      See TODOS.md: "FastAPI-level auth on /api/kb/* endpoints"
+Auth note: These endpoints are protected by the router-level `require_admin_key`
+dependency and by Next.js middleware (web/middleware.ts). The remaining auth
+follow-up is migrating the admin key transport off the query param.
 """
 import json
 import logging
@@ -778,8 +776,7 @@ def career_profiles(
     Returns structured metadata from the 'structured:' YAML block alongside
     basic completeness indicators. Does not return the full profile content.
 
-    Auth note: protected by Next.js middleware same as /health and /test-query.
-    See TODOS.md: "FastAPI-level auth on /api/kb/* endpoints"
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     return profile_store.list_profiles()
 
@@ -881,10 +878,12 @@ def auto_complete_profile(
 
     # Write back to disk
     from services.career_profiles import _default_profiles_dir
-    yaml_path = _default_profiles_dir() / f"{slug}.yaml"
+    profiles_dir = Path(os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir())))
+    yaml_path = profiles_dir / f"{slug}.yaml"
     try:
         import yaml as _yaml
         tmp = yaml_path.with_suffix(".tmp")
+        profiles_dir.mkdir(parents=True, exist_ok=True)
         with open(tmp, "w", encoding="utf-8") as f:
             _yaml.safe_dump(broken, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
         tmp.replace(yaml_path)
@@ -1197,8 +1196,7 @@ def list_employers(
     """List all active employer entities (admin use only).
 
     Excludes disabled employers (*.yaml.disabled).
-    Auth note: protected by Next.js middleware same as /health.
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     return [_build_employer_detail(emp) for emp in employer_store.list_employers()]
 
@@ -1210,8 +1208,7 @@ def get_employer(
 ):
     """Get a single employer entity by slug.
 
-    Auth note: protected by Next.js middleware.
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     if not _slug_is_safe(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
@@ -1240,8 +1237,7 @@ def create_employer(
     """Create a new employer entity.
 
     Returns 409 if a YAML (or .yaml.disabled) already exists for this slug.
-    Auth note: protected by Next.js middleware.
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     slug = detail.slug
     if not _slug_is_safe(slug):
@@ -1306,8 +1302,7 @@ def update_employer(
 
     Server always sets last_updated to today regardless of request body.
     The 'completeness' field in the request body is ignored (server-computed).
-    Auth note: protected by Next.js middleware.
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     if not _slug_is_safe(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
@@ -1373,8 +1368,7 @@ def delete_employer(
 
     Does NOT hard-delete — counsellor can restore via manual rename or future
     PATCH /api/kb/employers/{slug}/restore endpoint.
-    Auth note: protected by Next.js middleware.
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     TODO: Add PATCH restore endpoint — see TODOS.md "Restore path for disabled employer entities".
     """
     if not _slug_is_safe(slug):
@@ -1410,8 +1404,7 @@ async def extract_facts_from_employer_notes(
     /api/ingest?employer_slug=... and extracts timeline, alumni, interview,
     compensation, and skill requirement facts. Returns facts as JSON for counsellor review.
 
-    Auth note: protected by Next.js middleware only.
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     if not _slug_is_safe(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
@@ -1457,8 +1450,7 @@ def analyse(
     Accepts either a text note (form field 'text') or a file upload.
     Does NOT write to the KB — returns KBAnalysisResult for counsellor review.
 
-    Auth note: protected by Next.js middleware only (same as /health).
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     # --- 1. Extract counsellor input text ---
     if source_type == "file" and file is not None:
@@ -1553,8 +1545,7 @@ def commit_analysis(
     Upserts new chunks to Qdrant, writes updated YAML fields to profile files,
     then invalidates caches so changes are reflected immediately.
 
-    Auth note: protected by Next.js middleware only (same as /health).
-    TODO: Add Depends() auth guard — see TODOS.md.
+    Auth note: protected by the router-level `require_admin_key` dependency.
     """
     # Basic input validation — guard against malformed or outsized payloads
     _MAX_CHUNKS = 10

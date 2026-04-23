@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 import AlumniFactsTab from "../AlumniFactsTab"
 
+const ADMIN_KEY = "test-admin-key"
+
 const ALUMNI_FIXTURE = [
   {
     slug: "aditya_mehta",
@@ -110,17 +112,29 @@ function setupFetch(initialAlumni = ALUMNI_FIXTURE) {
   return fetchMock
 }
 
+function setAdminKeyInUrl() {
+  window.history.replaceState({}, "", `/admin?key=${ADMIN_KEY}`)
+}
+
+function expectAllRequestsAuthenticated(fetchMock: any) {
+  expect(
+    fetchMock.mock.calls.every(([, init]) => (init?.headers as Record<string, string> | undefined)?.["X-Admin-Key"] === ADMIN_KEY)
+  ).toBe(true)
+}
+
 describe("AlumniFactsTab", () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    setAdminKeyInUrl()
   })
 
   it("renders the roster and loads the selected alumni profile", async () => {
-    setupFetch()
+    const fetchMock = setupFetch()
 
     render(<AlumniFactsTab />)
 
     await waitFor(() => expect(screen.getByDisplayValue("Aditya Mehta")).toBeInTheDocument())
+    expectAllRequestsAuthenticated(fetchMock)
     expect(screen.getByDisplayValue("Aditya Mehta")).toBeInTheDocument()
     expect(screen.getByLabelText(/^Current company$/i)).toHaveValue("Stripe Singapore")
     expect(screen.getByLabelText(/^Company name$/i)).toHaveValue("Stripe Singapore")
@@ -141,11 +155,11 @@ describe("AlumniFactsTab", () => {
 
     await waitFor(() => expect(screen.getByText(/Alumni profile saved/i)).toBeInTheDocument())
     expect(screen.getByDisplayValue("Head of Compliance Program APAC")).toBeInTheDocument()
-    expect(fetchMock).toHaveBeenCalled()
+    expectAllRequestsAuthenticated(fetchMock)
   })
 
   it("creates a new alumni profile with company links", async () => {
-    setupFetch()
+    const fetchMock = setupFetch()
 
     render(<AlumniFactsTab />)
 
@@ -172,10 +186,11 @@ describe("AlumniFactsTab", () => {
     expect(screen.getByDisplayValue("Maya Lim")).toBeInTheDocument()
     expect(screen.getByLabelText(/^Current company$/i)).toHaveValue("Grab")
     expect(screen.getByLabelText(/^Company name$/i)).toHaveValue("Grab")
+    expectAllRequestsAuthenticated(fetchMock)
   })
 
   it("shows an extraction preview from meeting notes", async () => {
-    setupFetch()
+    const fetchMock = setupFetch()
 
     render(<AlumniFactsTab />)
 
@@ -190,5 +205,6 @@ describe("AlumniFactsTab", () => {
     expect(screen.getByText(/Suggested profile changes/i)).toBeInTheDocument()
     expect(screen.getByText(/Suggested company links/i)).toBeInTheDocument()
     expect(screen.getByText(/Raw extracted facts/i)).toBeInTheDocument()
+    expectAllRequestsAuthenticated(fetchMock)
   })
 })

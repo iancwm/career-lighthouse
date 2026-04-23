@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
 
 const API_URL = "/api/admin"
 
@@ -281,7 +282,7 @@ export default function AlumniFactsTab() {
     setLoadState("loading")
     setError("")
     try {
-      const res = await fetch(`${API_URL}/api/kb/alumni`)
+      const res = await adminFetch("/api/kb/alumni")
       if (!res.ok) throw new Error("failed")
       const data = normalizeProfileList(await res.json())
       setAlumni(data)
@@ -348,8 +349,8 @@ export default function AlumniFactsTab() {
     try {
       const payload = buildPayload(form, companyLinks, selectedSlug)
       const method = mode === "create" || !selectedSlug ? "POST" : "PUT"
-      const url = method === "POST" ? `${API_URL}/api/kb/alumni` : `${API_URL}/api/kb/alumni/${selectedSlug}`
-      const res = await fetch(url, {
+      const path = method === "POST" ? "/api/kb/alumni" : `/api/kb/alumni/${selectedSlug}`
+      const res = await adminFetch(path, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -387,7 +388,7 @@ export default function AlumniFactsTab() {
     setPreview(null)
 
     try {
-      const res = await fetch(`${API_URL}/api/kb/alumni/extract-preview`, {
+      const res = await adminFetch("/api/kb/alumni/extract-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -484,7 +485,7 @@ export default function AlumniFactsTab() {
           </div>
         )}
 
-        {preview.raw && (
+        {preview.raw !== undefined && preview.raw !== null && (
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Preview payload</p>
             <pre className="mt-2 overflow-x-auto rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-4 text-xs text-[var(--cl-ink)]">

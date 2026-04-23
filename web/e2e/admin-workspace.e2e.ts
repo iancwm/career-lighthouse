@@ -80,7 +80,7 @@ test.describe("Admin workspace IA", () => {
   test("supports the alumni records workflow", async ({ page }) => {
     let alumni = [...ALUMNI_FIXTURE]
 
-    await page.route("**/api/admin/api/kb/alumni**", async (route) => {
+    await page.route("**/api/kb/alumni**", async (route) => {
       const request = route.request()
       const url = new URL(request.url())
       const method = request.method()
@@ -123,7 +123,7 @@ test.describe("Admin workspace IA", () => {
       await route.fallback()
     })
 
-    await page.goto("/admin?view=alumni")
+    await page.goto("/admin?view=alumni&key=test-admin-key")
 
     await expect(page.getByRole("heading", { name: "Alumni Records" })).toBeVisible()
     await expect(page.getByLabel("Full name")).toHaveValue("Aditya Mehta")

@@ -1,28 +1,9 @@
 entry_paths: MSc Sustainability → NGO/certification (~70% of graduates); corporate
   ESG (~20%); consulting (~10%). Big 4 consulting highest barrier (MBA + internship
   path preferred).
-salary_range_2024:
-  ngo_nonprofit_analyst:
-    range_sgd: 60000–80000
-    bonus: Minimal (3–8%)
-    equity: None
-    notes: Non-profit/NGO sustainability analyst roles. Mission-driven; 25–35% below
-      fintech/banking equivalent.
-  certification_body_analyst:
-    range_sgd: 70000–95000
-    bonus: Performance-based
-    equity: None
-    notes: B Labs, ISO, LRQA, DNV. Niche but growing segment.
-  big4_esg_consulting:
-    range_sgd: 80000–120000
-    bonus: Standard consulting bonus
-    equity: None
-    notes: Deloitte, EY, KPMG sustainability practices. Senior roles SGD 110–140K.
-  corporate_esg_multinational:
-    range_sgd: 100000–150000
-    bonus: Corporate bonus structure
-    equity: RSUs at some firms
-    notes: Unilever, IKEA, DBS corporate ESG teams. Highest comp in sector.
+salary_range_2024: 'Energy sector ESG/transition roles: SGD 130–160K base (Manager);
+  SGD 160–210K (Senior Manager). Bonus 15–25%. Higher than fintech/tech ESG equivalents.
+  Equity rarely offered at energy majors (mostly public, ESOS restricted).'
 structured:
   salary_min_sgd: 60000
   salary_max_sgd: 80000
@@ -60,3 +41,10 @@ typical_background: Most entrants hold an undergraduate degree in environmental 
   Candidates with prior internship exposure to ESG reporting frameworks (GRI, TCFD,
   ISSB) or sustainability certifications (e.g., LEED, CFA ESG Certificate) are notably
   more competitive.
+notes: 'Energy sector sustainability/ESG roles (energy transition, CCUS, renewables
+  partnerships) pay 15–25% higher than tech/fintech equivalents at same seniority.
+  Energy majors (ExxonMobil, Shell, TotalEnergies) expanding energy transition teams
+  in Singapore. Domain expertise (LNG, power generation) + MBA = strongest profile
+  for energy-adjacent ESG roles. Traditional oil/gas ESG roles may have 10–15 year
+  shelf life as renewables scale. Source: Rendall Tan alumni call (ExxonMobil Singapore,
+  SMU MBA ''22), April 2025. Counsellor: Dr. Margaret Chen.'

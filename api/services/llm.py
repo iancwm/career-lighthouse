@@ -1510,41 +1510,50 @@ async def extract_facts_from_prose(notes: str, employer_name: str = "employer") 
     if not notes or not notes.strip():
         return []
 
-    prompt = f"""You are extracting structured facts about an employer from counselor notes.
+    prompt = f"""You are extracting structured facts from employer notes.
+
+Return a raw JSON array only.
+Do not use markdown fences, prose, bullets, comments, or code blocks.
+If there are no facts, return [] exactly.
 
 Notes:
 {notes}
 
 Employer: {employer_name}
 
-Extract ALL facts matching these types:
-1. timeline_phase — when do applications open/close for which roles?
-2. alumni — any student names, schools, years, companies mentioned?
-3. interview_stage — steps in the process, format, duration?
-4. compensation — salary ranges, equity, benefits?
-5. skill_requirement — what background/skills do they look for?
+Extract only facts that are explicitly stated or clearly supported by the notes.
+Prefer fewer, higher-confidence facts over speculation.
 
-For each fact:
-- Use lowercase slug naming: "employer-type-keyfield" (e.g., "stripe-aditya-mehta")
-- Set confidence: 100 if directly stated, 80 if strongly inferred, 50 if guessed
-- timestamp: today's date in ISO format
-- source: "inferred" (always, for LLM extraction)
+Allowed fact types:
+1. timeline_phase - application windows, deadlines, event timing, recruiting phases
+2. alumni - student or alumni names, schools, years, roles, company transitions
+3. interview_stage - process steps, format, timing, duration
+4. compensation - base pay, bonus, equity, benefits, total compensation
+5. skill_requirement - background, skills, tools, domain knowledge, prerequisites
 
-Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
+For every fact object:
+- Use exactly these top-level keys: slug, type, timestamp, source, confidence, data
+- Put all descriptive fields inside data
+- Use a lowercase slug like "stripe-aditya-mehta"
+- Set source to "inferred"
+- Set confidence to an integer from 50 to 100
+- Set timestamp to an ISO-8601 UTC string ending in Z
 
+Example:
 [
   {{
     "slug": "stripe-internship-summer",
     "type": "timeline_phase",
-    "phase_name": "Summer internship application",
-    "value": "June 1 – August 31",
-    "role_type": "summer_internship",
-    "duration_days": 92,
+    "timestamp": "2026-04-20T00:00:00Z",
     "source": "inferred",
     "confidence": 85,
-    "timestamp": "2026-04-20T00:00:00Z"
-  }},
-  ...
+    "data": {{
+      "phase_name": "Summer internship application",
+      "value": "June 1 - August 31",
+      "role_type": "summer_internship",
+      "duration_days": 92
+    }}
+  }}
 ]"""
 
     try:
@@ -1552,7 +1561,7 @@ Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
             operation="extract_facts_from_prose",
             model=_llm["model"],
             max_tokens=2000,
-            system="You are a fact extraction service for employer intelligence. Extract structured facts from notes. Return ONLY valid JSON.",
+            system="You are a fact extraction service for employer intelligence. Return only a raw JSON array. Do not use markdown fences or any text outside the JSON.",
             messages=[{"role": "user", "content": prompt}],
             timeout_seconds=settings.llm_timeout_seconds,
             trace_metadata={
@@ -1564,9 +1573,9 @@ Output ONLY valid JSON. No prose. Return empty array [] if no facts found.
 
         response_text = _response_text(msg)
 
-        # Try to parse as JSON, repair if needed
+        # Try to parse as JSON, repair if needed.
         try:
-            facts_raw = json.loads(response_text)
+            facts_raw = _parse_json_payload(response_text)
         except json.JSONDecodeError:
             # Attempt repair
             facts_raw = _repair_json_output(
