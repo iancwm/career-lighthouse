@@ -15,6 +15,7 @@ from services.runtime_paths import validate_runtime_storage
 from services.llm import shutdown_langfuse_traces
 from services.session_store import SessionStorageError
 from routers import (
+    alumni_router,
     brief_router,
     chat_router,
     docs_router,
@@ -89,6 +90,7 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(docs_router.router)
 app.include_router(ingest_router.router)
 app.include_router(brief_router.router)
+app.include_router(alumni_router.router)
 app.include_router(kb_router.router)
 app.include_router(chat_router.router)
 app.include_router(session_router.router)

@@ -22,6 +22,7 @@ vi.mock("@/components/admin/LowConfidenceLog", () => ({ default: () => <div>low-
 vi.mock("@/components/admin/RedundancyPanel", () => ({ default: () => <div>redundancy-panel</div> }))
 vi.mock("@/components/admin/KnowledgeUpdateTab", () => ({ default: () => <div>knowledge-update-tab</div> }))
 vi.mock("@/components/admin/EmployerFactsTab", () => ({ default: () => <div>employer-facts-tab</div> }))
+vi.mock("@/components/admin/AlumniFactsTab", () => ({ default: () => <div>alumni-facts-tab</div> }))
 vi.mock("@/components/admin/SessionInbox", () => ({
   default: ({
     onSelectSession,
@@ -154,6 +155,15 @@ describe("AdminWorkspace", () => {
     expect(screen.getByText("student-insights-tab")).toBeInTheDocument()
   })
 
+  it("renders the alumni workspace when requested", async () => {
+    currentQuery = "view=alumni"
+
+    render(<AdminWorkspace />)
+
+    expect(screen.getByRole("button", { name: /^Alumni Records$/i })).toBeInTheDocument()
+    expect(screen.getByText("alumni-facts-tab")).toBeInTheDocument()
+  })
+
   it("renders the trace explorer when requested", async () => {
     currentQuery = "view=traces&sessionId=session-1"
     fetch.mockResolvedValueOnce({
@@ -220,6 +230,15 @@ describe("AdminWorkspace", () => {
     expect(push).toHaveBeenCalledWith("/admin?view=careers&trackSlug=data_science", {
       scroll: false,
     })
+  })
+
+  it("routes Alumni Records selection through the URL", async () => {
+    currentQuery = "view=sessions"
+    render(<AdminWorkspace />)
+
+    fireEvent.click(screen.getByRole("button", { name: /^Alumni Records$/i }))
+
+    expect(push).toHaveBeenCalledWith("/admin?view=alumni", { scroll: false })
   })
 
   it("keeps Trace Explorer as a deep-link surface", async () => {

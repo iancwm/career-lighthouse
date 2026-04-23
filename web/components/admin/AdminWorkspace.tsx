@@ -13,6 +13,7 @@ import LowConfidenceLog from "@/components/admin/LowConfidenceLog"
 import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import KnowledgeUpdateTab from "@/components/admin/KnowledgeUpdateTab"
 import EmployerFactsTab from "@/components/admin/EmployerFactsTab"
+import AlumniFactsTab from "@/components/admin/AlumniFactsTab"
 import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
@@ -374,6 +375,8 @@ export default function AdminWorkspace() {
       {view === "broken" && <BrokenProfilesTab />}
 
       {view === "employers" && <EmployerFactsTab />}
+
+      {view === "alumni" && <AlumniFactsTab />}
 
       {(view === "tracks" || view === "careers") && (
         <TrackBuilderTab

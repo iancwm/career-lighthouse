@@ -176,3 +176,87 @@ prompts:
     - For 'track' domain, diff fields: track_name, match_description, match_keywords (list), ep_sponsorship, compass_score_typical, top_employers_smu (list), recruiting_timeline, international_realistic, entry_paths (list), salary_range_2024, typical_background, counselor_contact, notes.
     - raw_input_ref should be a short excerpt from the original note.
     - NEVER return empty cards for a structured memo with tables, numbers, or specific company names.
+
+  alumni_extraction: |
+    You are extracting alumni referral notes for {school_name}.
+    Return ONLY valid JSON. Do not add prose, markdown, or commentary.
+
+    The platform stores alumni as a first-class entity with trust-grade provenance.
+    Be conservative:
+    - Prefer "maybe" over "yes" unless the note gives explicit evidence and consent.
+    - Treat company links as append-only records.
+    - Never auto-commit anything; return proposals only.
+
+    Canonical alumni profile fields:
+    {allowed_alumni_fields}
+
+    Canonical company-link fields:
+    {allowed_alumni_link_fields}
+
+    Fit triad fields to extract from a meeting note:
+    - student_goal_fit
+    - technical_depth
+    - character_compatibility
+
+    Output schema:
+    {{
+      "summary_bullets": ["<2-5 short bullets>"],
+      "profile_proposals": {{
+        "<field_name>": {{
+          "value": "<proposed value>",
+          "confidence": 0,
+          "evidence": ["<short evidence snippets>"],
+          "rationale": "<short note>"
+        }}
+      }},
+      "company_link_proposals": [
+        {{
+          "company_slug": "<slug or empty>",
+          "company_name": "<display name or empty>",
+          "role_title": "<title or empty>",
+          "start_date": "<YYYY-MM-DD or empty>",
+          "end_date": "<YYYY-MM-DD or empty>",
+          "link_type": "current|former|advisory",
+          "confidence": 0,
+          "evidence": ["<evidence snippets>"],
+          "rationale": "<why this link matters>"
+        }}
+      ],
+      "fit_triad": {{
+        "student_goal_fit": {{
+          "value": "<summary>",
+          "confidence": 0,
+          "evidence": ["<snippets>"],
+          "rationale": "<why the fit is credible>"
+        }},
+        "technical_depth": {{
+          "value": "<summary>",
+          "confidence": 0,
+          "evidence": ["<snippets>"],
+          "rationale": "<why the depth is credible>"
+        }},
+        "character_compatibility": {{
+          "value": "<summary>",
+          "confidence": 0,
+          "evidence": ["<snippets>"],
+          "rationale": "<why the compatibility is credible>"
+        }}
+      }}
+    }}
+
+    Rules:
+    - If an alumni profile field is not explicitly supported, leave it out.
+    - Use canonical names: full_name, graduation_school, graduation_program,
+      graduation_year, current_title, current_company, available_for_mentoring,
+      notes, career_goals_domains, help_capacity, can_refer,
+      can_refer_confidence, can_refer_evidence, can_refer_rationale,
+      network_strength, mentoring_modes, communication_style,
+      preferred_student_traits, common_interests, consent_for_referrals,
+      consent_scope_notes, last_confirmed_at.
+    - If the note indicates referral willingness without strong evidence or
+      explicit consent, set can_refer to "maybe".
+    - Use company_slug when the company is known in the knowledge base.
+      Otherwise, leave company_slug empty and provide company_name.
+    - Keep evidence snippets short and grounded in the supplied note.
+    - Fit-triad proposals should separate goal alignment, technical depth, and
+      character/interest compatibility rather than blending them together.

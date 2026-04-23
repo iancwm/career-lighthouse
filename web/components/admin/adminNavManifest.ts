@@ -1,4 +1,4 @@
-export type AdminView = "sessions" | "observability" | "student-insights" | "traces" | "knowledge" | "update" | "careers" | "employers" | "tracks" | "resume" | "broken"
+export type AdminView = "sessions" | "observability" | "student-insights" | "traces" | "knowledge" | "update" | "careers" | "employers" | "alumni" | "tracks" | "resume" | "broken"
 
 export type WorkstreamId = "career-wire" | "smart-counsellor" | "admin-room"
 
@@ -104,6 +104,19 @@ export const ADMIN_VIEWS: Record<AdminView, AdminViewDefinition> = {
       label: "Maintain employer records",
       whatYouDo: "View, create, edit, or retire employer records while keeping historical versions visible.",
       whatHappens: "Changes are written to employer YAML files with audit-friendly history.",
+    },
+  },
+  alumni: {
+    id: "alumni",
+    label: "Alumni Records",
+    description: "Maintain alumni profiles and link trusted contacts to the companies they know best.",
+    workstreamId: "career-wire",
+    showInPrimaryNav: true,
+    showInDrawer: true,
+    directive: {
+      label: "Maintain alumni profiles",
+      whatYouDo: "Create and edit alumni profiles, then connect each alumnus to relevant companies and referral context.",
+      whatHappens: "Alumni profiles are written with company links, notes, and extraction previews for counselor review.",
     },
   },
   tracks: {

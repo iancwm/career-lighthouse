@@ -1,4 +1,5 @@
 from routers import (
+    alumni_router,
     brief_router,
     chat_router,
     docs_router,
@@ -9,6 +10,7 @@ from routers import (
 )
 
 __all__ = [
+    "alumni_router",
     "docs_router",
     "ingest_router",
     "chat_router",

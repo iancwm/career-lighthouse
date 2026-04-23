@@ -22,6 +22,7 @@ const SOURCE_TEXT: Partial<Record<AdminView, string>> = {
   knowledge: "Source: uploaded documents",
   update: "Source: counsellor note or file",
   employers: "Source: employer YAML",
+  alumni: "Source: alumni profiles and company links",
   tracks: "Source: draft + publish history",
   broken: "Source: profile YAML",
   resume: "Source: student resume",
