@@ -14,7 +14,15 @@ from middleware.security_headers import SecurityHeadersMiddleware
 from services.runtime_paths import validate_runtime_storage
 from services.llm import shutdown_langfuse_traces
 from services.session_store import SessionStorageError
-from routers import docs_router, ingest_router, chat_router, brief_router, kb_router, session_router
+from routers import (
+    brief_router,
+    chat_router,
+    docs_router,
+    ingest_router,
+    insights_router,
+    kb_router,
+    session_router,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +92,7 @@ app.include_router(brief_router.router)
 app.include_router(kb_router.router)
 app.include_router(chat_router.router)
 app.include_router(session_router.router)
+app.include_router(insights_router.router)
 
 
 @app.get("/health")

@@ -3,6 +3,7 @@ from functools import lru_cache
 from fastapi import Header, HTTPException, status
 from qdrant_client import QdrantClient
 from services.embedder import Embedder
+from services.student_chat_insights import StudentChatInsightStore
 from services.vector_store import VectorStore
 from config import settings
 from cfg import kb_cfg, model_cfg
@@ -47,5 +48,17 @@ def get_embedder() -> Embedder:
 def get_vector_store() -> VectorStore:
     client = get_qdrant_client()
     store = VectorStore(client=client, collection=kb_cfg["storage"]["collection"])
+    store.ensure_collection(dim=model_cfg["embedding"]["dim"])
+    return store
+
+
+@lru_cache
+def get_student_insight_store() -> StudentChatInsightStore:
+    # Feature-gated: when disabled, avoid Qdrant client/bootstrap entirely.
+    if not settings.student_chat_insights_enabled:
+        return StudentChatInsightStore(client=None)
+
+    client = get_qdrant_client()
+    store = StudentChatInsightStore(client=client)
     store.ensure_collection(dim=model_cfg["embedding"]["dim"])
     return store

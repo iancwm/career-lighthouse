@@ -69,6 +69,7 @@ vi.mock("@/components/admin/TrackBuilderTab", () => ({
     </div>
   ),
 }))
+vi.mock("@/components/admin/StudentInsightsTab", () => ({ default: () => <div>student-insights-tab</div> }))
 
 describe("AdminWorkspace", () => {
   beforeEach(() => {
@@ -142,6 +143,15 @@ describe("AdminWorkspace", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: /Trace every call/i })).toBeInTheDocument()
     )
+  })
+
+  it("renders the student insights workspace when requested", async () => {
+    currentQuery = "view=student-insights"
+
+    render(<AdminWorkspace />)
+
+    expect(screen.getByRole("button", { name: /^Student Insights$/i })).toBeInTheDocument()
+    expect(screen.getByText("student-insights-tab")).toBeInTheDocument()
   })
 
   it("renders the trace explorer when requested", async () => {

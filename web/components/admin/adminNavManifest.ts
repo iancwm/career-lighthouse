@@ -1,4 +1,4 @@
-export type AdminView = "sessions" | "observability" | "traces" | "knowledge" | "update" | "careers" | "employers" | "tracks" | "resume" | "broken"
+export type AdminView = "sessions" | "observability" | "student-insights" | "traces" | "knowledge" | "update" | "careers" | "employers" | "tracks" | "resume" | "broken"
 
 export type WorkstreamId = "career-wire" | "smart-counsellor" | "admin-room"
 
@@ -162,6 +162,19 @@ export const ADMIN_VIEWS: Record<AdminView, AdminViewDefinition> = {
       label: "Inspect LLM traces",
       whatYouDo: "Review structured LLM calls, latency, and retrieval health before changing prompts.",
       whatHappens: "You can see what the model saw, how long it took, and where retrieval is drifting.",
+    },
+  },
+  "student-insights": {
+    id: "student-insights",
+    label: "Student Insights",
+    description: "Semantically search recent student questions from chat history.",
+    workstreamId: "admin-room",
+    showInPrimaryNav: true,
+    showInDrawer: true,
+    directive: {
+      label: "Search student concerns",
+      whatYouDo: "Run semantic search over student questions and narrow results with optional metadata filters.",
+      whatHappens: "Results show matching student questions with timestamps and context labels for rapid counselling prep.",
     },
   },
   traces: {

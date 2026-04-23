@@ -17,6 +17,7 @@ import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
 import LLMObservabilityTab from "@/components/admin/LLMObservabilityTab"
+import StudentInsightsTab from "@/components/admin/StudentInsightsTab"
 import TraceExplorerTab from "@/components/admin/TraceExplorerTab"
 import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
 import BrokenProfilesTab from "@/components/admin/BrokenProfilesTab"
@@ -356,6 +357,8 @@ export default function AdminWorkspace() {
       )}
 
       {view === "observability" && <LLMObservabilityTab />}
+
+      {view === "student-insights" && <StudentInsightsTab />}
 
       {view === "traces" && <TraceExplorerTab initialSessionId={sessionParam} />}
 

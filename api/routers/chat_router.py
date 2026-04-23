@@ -9,7 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 
 from config import settings
-from dependencies import get_embedder, get_vector_store
+from dependencies import get_embedder, get_student_insight_store, get_vector_store
 from models import ChatRequest, ChatResponse, Citation, TrackRegistryEntry
 from services import llm
 from services.career_profiles import (
@@ -20,6 +20,7 @@ from services.career_profiles import (
 )
 from services.employer_store import EmployerEntityStore, get_employer_store
 from services.embedder import Embedder
+from services.student_chat_insights import StudentChatInsightStore
 from services.source_ledger import filter_active_chunks, get_source_ledger_store
 from services.vector_store import VectorStore
 from services.track_drafts import TrackDraftStore
@@ -153,9 +154,12 @@ def chat(
     req: ChatRequest,
     embedder: Embedder = Depends(get_embedder),
     store: VectorStore = Depends(get_vector_store),
+    insight_store: StudentChatInsightStore = Depends(get_student_insight_store),
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
     employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
+    # SYNC ONLY: StudentChatInsightStore.index_message() and _log_query() are
+    # blocking and thread-pool safe only while chat() remains sync def.
     query_vec = embedder.encode(req.message)
     chunks = store.search(query_vec, top_k=5)
     active_chunks = filter_active_chunks(chunks)
@@ -199,6 +203,28 @@ def chat(
         career_context=career_context,
         employer_context=employer_context,
     )
+    if settings.student_chat_insights_enabled and len(req.message) >= settings.student_chat_embedding_min_chars:
+        try:
+            message_id = insight_store.index_message(
+                text=req.message,
+                embedder=embedder,
+                active_career_type=active_career_type,
+                intake_context=req.intake_context,
+                has_resume=bool(req.resume_text),
+            )
+            logger.info(
+                "student insight indexed",
+                extra={
+                    "collection": settings.student_chat_collection_name,
+                    "message_id": message_id,
+                },
+            )
+        except Exception as exc:
+            logger.warning(
+                "student insight write failed: %s",
+                exc,
+                extra={"collection": settings.student_chat_collection_name},
+            )
     _log_query(req.message, active_chunks, active_career_type)
     return ChatResponse(
         response=response_text,

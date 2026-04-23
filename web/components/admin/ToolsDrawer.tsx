@@ -26,6 +26,7 @@ const SOURCE_TEXT: Partial<Record<AdminView, string>> = {
   broken: "Source: profile YAML",
   resume: "Source: student resume",
   observability: "Source: trace and retrieval logs",
+  "student-insights": "Source: student chat",
 }
 
 export default function ToolsDrawer({
