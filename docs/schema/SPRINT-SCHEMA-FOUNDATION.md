@@ -191,30 +191,39 @@ Output ONLY valid JSON. No prose.
 **Ownership:** Ian  
 **Estimate:** 2 days  
 **Acceptance Criteria:**
-- Alumni Records page starts with a note-extraction composer at the top, before the persisted record list.
-- The record viewer sits below the document upload / parsed-text block, so the source note is visible before the canonical record.
-- Extraction results land in a staging state first, not as an immediate save.
-- Staging shows candidate alumni fields, suggested company links, confidence, and source text, with explicit promote / discard controls.
-- `Save alumni` only writes to canonical alumni YAML after the staged review is accepted.
-- Alumni extraction can also be surfaced from the existing staging area so counsellors can review alumni facts alongside employer/profile updates.
+- Alumni Records page starts with a note-extraction composer at the top of the main column, before the persisted record viewer.
+- The saved alumni list remains a secondary navigation rail, not the first thing the user is asked to edit.
+- The page uses one note source of truth. The top composer drives extraction preview and the saved counselor note field, so the note being reviewed never drifts from the note being saved.
+- Extraction results render inline beneath the composer as a preview, showing candidate alumni fields, suggested company links, confidence, and source text.
+- `Save alumni` still writes to canonical alumni YAML after the counselor reviews the preview and edits the form.
+- Keep alumni extraction on the Alumni Records surface in this sprint. Do not introduce a second staging lane in `KnowledgeUpdateTab` or `SessionInbox`.
 
 **Files to edit:**
-- `web/components/admin/AlumniFactsTab.tsx` — top-of-page extraction composer and record viewer placement
-- `web/components/admin/KnowledgeUpdateTab.tsx` — surface alumni staging alongside existing diff review
-- `web/components/admin/SessionInbox.tsx` — pass alumni-only notes into the staging flow when appropriate
-- `web/components/admin/modals/AlumniExtractionModal.tsx` — **new** staging review modal for alumni drafts
-- `api/routers/alumni_router.py` — add explicit staging/promote actions if the preview needs a write-through step
-- `api/services/alumni_store.py` — helper(s) for staged draft normalization and promotion
+- `web/components/admin/AlumniFactsTab.tsx` — move the note composer above the editor, keep the record list secondary, and render the preview inline under the composer
+- `web/components/admin/__tests__/AlumniFactsTab.test.tsx` — regression coverage for composer position and single-note-source behavior
+- `web/e2e/admin-workspace.e2e.ts` — assert the composer appears above the editor on load and after profile switches
 
 **UX flow:**
-1. Counselor pastes or uploads a note.
-2. Alumni extraction appears at the top of the page.
-3. The draft alumni record is shown in staging, below the upload / parsed-note area.
-4. Counselor reviews the candidate profile and company links.
-5. Counselor promotes the staged draft into the alumni record or discards it.
-6. The saved alumni record then appears in the canonical record list below.
+1. Counselor opens Alumni Records.
+2. Counselor pastes or uploads a note into the top composer.
+3. The selected alumni record and company links sit below the composer in the main column.
+4. Counselor reviews the inline preview, then edits the form if needed.
+5. Counselor saves the alumni profile.
+6. The saved alumni record remains visible in the secondary list for later selection.
 
-**Design note:** This keeps the staged note preview and the saved record separate. No silent auto-save. The page has one job at each vertical band, which fits the existing admin workspace and avoids a second hidden save path.
+**Design note:** This keeps the page to one vertical story. The left rail is for finding records, the main column is for review and edit, and the extraction preview never competes with the record list as the primary action.
+
+**Hierarchy sketch:**
+```
+Alumni Records
+├─ Main column
+│  ├─ Note-extraction composer
+│  ├─ Selected alumni editor
+│  ├─ Company links
+│  └─ Inline extraction preview
+└─ Secondary rail
+   └─ Saved alumni list
+```
 
 ---
 
@@ -585,11 +594,12 @@ Don't refactor existing employer form. Keep Details tab as-is. Add Facts tab alo
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 2 | CLEAN (PLAN) | 6 issues, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 2 | CLEAN (FULL) | score: 6/10 → 8/10, 1 decision |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 3 | CLEAN (PLAN) | 3 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 3 | CLEAN (IA) | score: 7/10 → 9/10, 1 decision |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
 **CODEX:** none on this branch yet.
-**CROSS-MODEL:** staging-first alumni extraction now matches the existing knowledge-review pattern, so the plan avoids a second direct-write flow.
+**CROSS-MODEL:** alumni extraction should stay on the AlumniFactsTab surface and follow one vertical hierarchy: composer first, editor second, records list third.
 **UNRESOLVED:** 0
 **VERDICT:** ENG + DESIGN CLEARED, ready to implement.
+**STALE:** none

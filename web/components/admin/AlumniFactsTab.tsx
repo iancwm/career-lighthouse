@@ -239,7 +239,6 @@ export default function AlumniFactsTab() {
   const [saveState, setSaveState] = useState<SaveState>("idle")
   const [banner, setBanner] = useState("")
   const [error, setError] = useState("")
-  const [previewNotes, setPreviewNotes] = useState("")
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState("")
   const [preview, setPreview] = useState<AlumniExtractionPreview | null>(null)
@@ -264,7 +263,6 @@ export default function AlumniFactsTab() {
       setSelectedSlug(null)
       setForm(EMPTY_PROFILE)
       setCompanyLinks([])
-      setPreviewNotes("")
       setMode(nextMode)
       return
     }
@@ -272,7 +270,6 @@ export default function AlumniFactsTab() {
     setSelectedSlug(profile.slug)
     setForm({ ...profile, company_links: profile.company_links.map((link) => ({ ...link })) })
     setCompanyLinks(profile.company_links.map((link) => ({ ...link })))
-    setPreviewNotes(profile.notes)
     setPreview(null)
     setPreviewError("")
     setMode(nextMode)
@@ -377,9 +374,9 @@ export default function AlumniFactsTab() {
   }
 
   async function handlePreviewExtraction() {
-    const text = previewNotes.trim()
+    const text = form.notes.trim()
     if (!text) {
-      setPreviewError("Add meeting notes first to preview extraction.")
+      setPreviewError("Add a counselor note first to preview extraction.")
       return
     }
 
@@ -608,12 +605,50 @@ export default function AlumniFactsTab() {
 
         <div className="space-y-6">
           <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Note extraction</p>
+                <h3 className="mt-1 font-display text-2xl text-[var(--cl-ink)]">Paste the counselor note once</h3>
+                <p className="mt-1 text-sm text-[var(--cl-muted)]">
+                  The same note powers extraction preview and the saved counselor note field below.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void handlePreviewExtraction()}
+                disabled={previewLoading || !form.notes.trim()}
+                className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
+              >
+                {previewLoading ? "Previewing…" : "Preview extraction"}
+              </button>
+            </div>
+
+            <label className="mt-4 block space-y-2">
+              <span className="text-sm font-medium text-[var(--cl-ink)]">Counselor note</span>
+              <textarea
+                value={form.notes}
+                onChange={(event) => updateField("notes", event.target.value)}
+                className="min-h-[160px] w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                placeholder="Paste the alumni conversation here. The preview and saved record both use this note."
+              />
+            </label>
+
+            {previewError && (
+              <div className="mt-4 rounded-2xl border border-[var(--cl-error)]/25 bg-[var(--cl-error)]/10 px-4 py-3 text-sm text-[var(--cl-error)]">
+                {previewError}
+              </div>
+            )}
+
+            {preview && <div className="mt-5">{renderPreviewContent()}</div>}
+          </section>
+
+          <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
             <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
                 <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Selected profile</p>
                 <h3 className="mt-1 font-display text-2xl text-[var(--cl-ink)]">{selectedLabel}</h3>
                 <p className="mt-1 text-sm text-[var(--cl-muted)]">
-                  Edit the profile fields, then save the company links counselors rely on for referrals and mentoring.
+                  Edit the profile fields below, then save the company links counselors rely on for referrals and mentoring.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -692,16 +727,6 @@ export default function AlumniFactsTab() {
                 className="h-4 w-4 rounded border-[var(--cl-line)] text-[var(--cl-accent)] focus:ring-[var(--cl-accent)]"
               />
               <span className="text-sm text-[var(--cl-ink)]">Available for mentoring</span>
-            </label>
-
-            <label className="mt-4 block space-y-2">
-              <span className="text-sm font-medium text-[var(--cl-ink)]">Counselor notes</span>
-              <textarea
-                value={form.notes}
-                onChange={(event) => updateField("notes", event.target.value)}
-                className="min-h-[120px] w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
-                placeholder="How this alumnus can help, what counselors should remember, and any useful context."
-              />
             </label>
 
             <div className="mt-5 flex flex-wrap gap-2">
@@ -803,44 +828,6 @@ export default function AlumniFactsTab() {
                 </div>
               ))}
             </div>
-          </section>
-
-          <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Extraction preview</p>
-                <h3 className="mt-1 font-display text-2xl text-[var(--cl-ink)]">Preview what the LLM would extract</h3>
-                <p className="mt-1 text-sm text-[var(--cl-muted)]">
-                  Paste a meeting note or alumni call summary to check the profile and company links before saving them.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => void handlePreviewExtraction()}
-                disabled={previewLoading}
-                className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
-              >
-                {previewLoading ? "Previewing…" : "Preview extraction"}
-              </button>
-            </div>
-
-            <label className="mt-4 block space-y-2">
-              <span className="text-sm font-medium text-[var(--cl-ink)]">Meeting notes</span>
-              <textarea
-                value={previewNotes}
-                onChange={(event) => setPreviewNotes(event.target.value)}
-                className="min-h-[160px] w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
-                placeholder="Paste the alumni conversation here to see a preview of the profile fields and company links the LLM would suggest."
-              />
-            </label>
-
-            {previewError && (
-              <div className="mt-4 rounded-2xl border border-[var(--cl-error)]/25 bg-[var(--cl-error)]/10 px-4 py-3 text-sm text-[var(--cl-error)]">
-                {previewError}
-              </div>
-            )}
-
-            {preview && <div className="mt-5">{renderPreviewContent()}</div>}
           </section>
         </div>
       </div>

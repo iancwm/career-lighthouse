@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test"
+import { ADMIN_VIEWS } from "@/components/admin/adminNavManifest"
 
 const ALUMNI_FIXTURE = [
   {
@@ -52,6 +53,31 @@ const ALUMNI_PREVIEW = {
   ],
 }
 
+async function expectCounselorNoteAboveSelectedProfile(page: Parameters<typeof test>[1]["page"]) {
+  const counselorNote = page.getByLabel("Counselor note")
+  const fullNameField = page.getByLabel("Full name")
+
+  await expect(counselorNote).toBeVisible()
+  await expect(fullNameField).toBeVisible()
+
+  const counselorNoteBox = await counselorNote.boundingBox()
+  const fullNameBox = await fullNameField.boundingBox()
+
+  expect(counselorNoteBox, "Counselor note should be rendered before the selected profile editor").not.toBeNull()
+  expect(fullNameBox, "Selected profile editor should be rendered").not.toBeNull()
+  expect(counselorNoteBox!.y).toBeLessThan(fullNameBox!.y)
+}
+
+const SMOKE_VIEWS = Object.values(ADMIN_VIEWS).filter(
+  (view) => view.showInPrimaryNav || view.isLegacyAlias || view.id === "traces"
+)
+
+async function expectAdminViewToLoad(page: Parameters<typeof test>[1]["page"], viewId: string, label: string) {
+  await page.goto(`/admin?view=${viewId}&key=test-admin-key`)
+  await expect(page.getByRole("heading", { name: "Career Lighthouse" })).toBeVisible()
+  await expect(page.locator("header").getByText(label, { exact: true }).first()).toBeVisible()
+}
+
 test.describe("Admin workspace IA", () => {
   test("lands on Career Wire with Staging Area by default", async ({ page }) => {
     await page.goto("/admin")
@@ -75,6 +101,12 @@ test.describe("Admin workspace IA", () => {
 
     await expect(page).toHaveURL(/view=traces/)
     await expect(page.getByRole("region", { name: "Trace explorer" })).toBeVisible()
+  })
+
+  test("smokes every admin tab route", async ({ page }) => {
+    for (const view of SMOKE_VIEWS) {
+      await expectAdminViewToLoad(page, view.id, view.label)
+    }
   })
 
   test("supports the alumni records workflow", async ({ page }) => {
@@ -126,6 +158,7 @@ test.describe("Admin workspace IA", () => {
     await page.goto("/admin?view=alumni&key=test-admin-key")
 
     await expect(page.getByRole("heading", { name: "Alumni Records" })).toBeVisible()
+    await expectCounselorNoteAboveSelectedProfile(page)
     await expect(page.getByLabel("Full name")).toHaveValue("Aditya Mehta")
 
     await page.getByRole("button", { name: "New Alumni" }).click()
@@ -146,7 +179,11 @@ test.describe("Admin workspace IA", () => {
     await expect(page.getByText("Alumni profile created.")).toBeVisible()
     await expect(page.getByLabel("Full name")).toHaveValue("Maya Lim")
 
-    await page.getByLabel("Meeting notes").fill("Maya can mentor product students at Grab.")
+    await page.getByRole("button", { name: /Aditya Mehta/i }).click()
+    await expect(page.getByLabel("Full name")).toHaveValue("Aditya Mehta")
+    await expectCounselorNoteAboveSelectedProfile(page)
+
+    await page.getByLabel("Counselor note").fill("Maya can mentor product students at Grab.")
     await page.getByRole("button", { name: "Preview extraction" }).click()
 
     await expect(page.getByText("The alumnus helps with compliance and risk referrals.")).toBeVisible()

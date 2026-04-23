@@ -122,6 +122,10 @@ function expectAllRequestsAuthenticated(fetchMock: any) {
   ).toBe(true)
 }
 
+function expectNodeBefore(left: HTMLElement, right: HTMLElement) {
+  expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+}
+
 describe("AlumniFactsTab", () => {
   beforeEach(() => {
     vi.resetAllMocks()
@@ -196,12 +200,39 @@ describe("AlumniFactsTab", () => {
 
     await waitFor(() => expect(screen.getByDisplayValue("Aditya Mehta")).toBeInTheDocument())
 
-    fireEvent.change(screen.getByLabelText(/Meeting notes/i), {
+    const counselorNotesField = screen.queryByLabelText(/Counselor note/i)
+    if (counselorNotesField) {
+      fireEvent.change(counselorNotesField, {
+        target: { value: "Counselor notes should not drive extraction." },
+      })
+    }
+
+    fireEvent.change(screen.getByLabelText(/Counselor note/i), {
       target: { value: "Aditya can mentor students for compliance roles at Stripe Singapore." },
     })
+
+    const counselorNoteField = screen.getByLabelText(/Counselor note/i)
+    const noteExtractionHeading = screen.getByRole("heading", { name: /Paste the counselor note once/i })
+    const selectedProfileHeading = screen.getByText(/Selected profile/i, { selector: "p" })
+    const companyLinksHeading = screen.getByRole("heading", { name: /Trusted companies and referral context/i })
+
+    expectNodeBefore(counselorNoteField, selectedProfileHeading)
+    expectNodeBefore(noteExtractionHeading, selectedProfileHeading)
+    expectNodeBefore(selectedProfileHeading, companyLinksHeading)
+
     fireEvent.click(screen.getByRole("button", { name: /Preview extraction/i }))
 
     await waitFor(() => expect(screen.getByText(/The alumnus helps with compliance/i)).toBeInTheDocument())
+
+    const previewCall = fetchMock.mock.calls.find(
+      ([url, init]) => String(url).endsWith("/api/kb/alumni/extract-preview") && (init?.method ?? "GET").toUpperCase() === "POST"
+    )
+    expect(previewCall).toBeDefined()
+    const [, previewInit] = previewCall as [RequestInfo | URL, RequestInit | undefined]
+    const previewBody = JSON.parse(String(previewInit?.body ?? "{}")) as { text?: string; alumni_slug?: string }
+    expect(previewBody.text).toBe("Aditya can mentor students for compliance roles at Stripe Singapore.")
+    expect(previewBody.alumni_slug).toBe("aditya_mehta")
+
     expect(screen.getByText(/Suggested profile changes/i)).toBeInTheDocument()
     expect(screen.getByText(/Suggested company links/i)).toBeInTheDocument()
     expect(screen.getByText(/Raw extracted facts/i)).toBeInTheDocument()
