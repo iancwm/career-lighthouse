@@ -1,4 +1,4 @@
-export type AdminView = "sessions" | "observability" | "student-insights" | "traces" | "knowledge" | "update" | "careers" | "employers" | "alumni" | "tracks" | "resume" | "broken"
+export type AdminView = "sessions" | "observability" | "student-insights" | "facts" | "traces" | "knowledge" | "update" | "careers" | "employers" | "alumni" | "tracks" | "resume" | "broken"
 
 export type WorkstreamId = "career-wire" | "smart-counsellor" | "admin-room"
 
@@ -188,6 +188,19 @@ export const ADMIN_VIEWS: Record<AdminView, AdminViewDefinition> = {
       label: "Search student concerns",
       whatYouDo: "Run semantic search over student questions and narrow results with optional metadata filters.",
       whatHappens: "Results show matching student questions with timestamps and context labels for rapid counselling prep.",
+    },
+  },
+  facts: {
+    id: "facts",
+    label: "Facts Dashboard",
+    description: "Review captured structured facts and spot coverage gaps across employers and profiles.",
+    workstreamId: "smart-counsellor",
+    showInPrimaryNav: true,
+    showInDrawer: true,
+    directive: {
+      label: "Review captured facts",
+      whatYouDo: "Filter structured facts by employer, school, source, or type and inspect grouped coverage.",
+      whatHappens: "The dashboard shows what the KB knows, where it came from, and what still needs review.",
     },
   },
   traces: {

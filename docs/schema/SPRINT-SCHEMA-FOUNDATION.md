@@ -229,7 +229,7 @@ Alumni Records
 
 ## Phase 3: Student Query Surface (`/api/kb/facts` Endpoint)
 
-### Task 3.1 — Build `/api/kb/facts` list and filter endpoint
+### ~~Task 3.1 — Build `/api/kb/facts` list and filter endpoint~~ ✓ Done (2026-04-23)
 **Ownership:** Ian  
 **Estimate:** 2 days  
 **Acceptance Criteria:**
@@ -243,6 +243,8 @@ Alumni Records
 - Response includes fact metadata (slug, timestamp, trace_id, source URL for counselor edits)
 - Tests pass (filtering, edge cases, auth)
 
+Shipped: the facts endpoint now reads employer and career-profile YAML facts, filters by type/employer/school/year/source/confidence, and returns metadata including source URLs for counselor review.
+
 **Files to create:**
 - New endpoint in `api/routers/kb_router.py` — `@router.get("/facts")`
 
@@ -250,13 +252,28 @@ Alumni Records
 - `api/models.py` — add `FactQueryResponse` pydantic model
 - `api/services/career_profiles.py` or new `fact_store.py` — fact reading + filtering
 
-### Task 3.2 — Grouped facts view (`/api/kb/facts/grouped`)
+### ~~Task 3.2 — Grouped facts view (`/api/kb/facts/grouped`)~~ ✓ Done (2026-04-23)
 **Ownership:** Ian  
 **Estimate:** 1 day  
 **Acceptance Criteria:**
 - `GET /api/kb/facts/grouped?by=employer` groups facts by employer slug
 - `GET /api/kb/facts/grouped?by=type` groups by fact type
 - Used by counselor dashboard (Task 4.1)
+
+Shipped: grouped responses are now available for both employer slug and fact type views.
+
+---
+
+### Task 4.1 — Counselor facts dashboard (`/admin?view=facts`) ✓ Done (2026-04-24)
+**Ownership:** Ian  
+**Estimate:** 2 days  
+**Acceptance Criteria:**
+- Smart Counsellor lane includes a Facts Dashboard view
+- `GET /api/kb/facts` and `GET /api/kb/facts/grouped` power the dashboard
+- Counselors can filter by type, employer, school, source, and confidence
+- Grouped and recent lists render structured facts for review
+
+Shipped: the `facts` view is now wired into `AdminWorkspace`, with grouped/recent coverage and Playwright QA passing.
 
 ---
 
@@ -381,10 +398,11 @@ Sort facts by `timestamp DESC` (newest first) when writing to YAML.
 - Ready for broader counselor adoption
 
 **Phase 3 deployment → Monitor adoption**
-- Counselors using EmployerFactsTab to capture facts
+- Counselors using EmployerFactsTab and the Facts Dashboard to capture and review facts
 - Track velocity: facts/week captured
+- Use the Facts Dashboard to monitor coverage gaps and review load
 
-**Gate to Phase 4 (counselor dashboard):** 50+ facts captured from 5+ employers.
+**Gate to Phase 4 (counselor facts dashboard):** 50+ facts captured from 5+ employers.
 
 ---
 
@@ -515,9 +533,10 @@ Sort facts by `timestamp DESC` (newest first) when writing to YAML.
 | 2.4 Alumni staging integration | 2d | W2 Tue | W2 Wed |
 | 3.1 `/api/kb/facts` endpoint | 2d | W2 Wed | W2 Fri |
 | 3.2 Grouped view | 1d | W3 Mon | W3 Mon |
+| 4.1 Counselor facts dashboard | 2d | W3 Tue | W3 Wed |
 | 1.1 Stripe sample facts | 1d | W3 Tue | W3 Tue |
 | 1.2 LLM extraction test | 1d | W3 Wed | W3 Wed |
-| **Total** | **13d** | W1 Mon | W3 Wed |
+| **Total** | **15d** | W1 Mon | W3 Wed |
 
 ---
 
@@ -561,6 +580,12 @@ Sort facts by `timestamp DESC` (newest first) when writing to YAML.
 - [ ] Run extraction test on Stripe notes, measure accuracy
 - [ ] Commit both manual facts and extraction test results
 
+**Day 4 (Task 4.1):**
+- [ ] Add the Facts Dashboard view to Smart Counsellor
+- [ ] Verify grouped and recent facts load from `/api/kb/facts`
+- [ ] Check filters for type, employer, school, source, and confidence
+- [ ] Confirm Playwright smoke coverage includes the new `facts` route
+
 ---
 
 ## Current Assessment (2026-04-20)
@@ -569,10 +594,11 @@ Sort facts by `timestamp DESC` (newest first) when writing to YAML.
 - ✓ Employer list + CRUD (create, read, update, delete) functional
 - ✓ Two-panel layout established
 - ✓ Form fields for employer metadata complete
-- ✗ **NO facts UI** — needs Details/Facts tabs and entire fact workflow
+- ✓ Facts Dashboard now shows the structured read-side view of captured facts
+- ✗ Facts entry workflow still lives in EmployerFactsTab and is the next place to polish for the write-side experience
 
 **Recommended starting point:**
-Don't refactor existing employer form. Keep Details tab as-is. Add Facts tab alongside. This keeps risk low and change surface small.
+Keep the employer form stable and treat the Facts Dashboard as the read-side companion. This keeps risk low and change surface small.
 
 ---
 
@@ -601,5 +627,5 @@ Don't refactor existing employer form. Keep Details tab as-is. Add Facts tab alo
 **CODEX:** none on this branch yet.
 **CROSS-MODEL:** alumni extraction should stay on the AlumniFactsTab surface and follow one vertical hierarchy: composer first, editor second, records list third.
 **UNRESOLVED:** 0
-**VERDICT:** ENG + DESIGN CLEARED, ready to implement.
+**VERDICT:** ENG + DESIGN CLEARED, ready to implement remaining facts work and keep the shipped dashboard aligned with the sprint plan.
 **STALE:** none

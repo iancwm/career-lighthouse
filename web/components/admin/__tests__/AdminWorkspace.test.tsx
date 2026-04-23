@@ -23,6 +23,7 @@ vi.mock("@/components/admin/RedundancyPanel", () => ({ default: () => <div>redun
 vi.mock("@/components/admin/KnowledgeUpdateTab", () => ({ default: () => <div>knowledge-update-tab</div> }))
 vi.mock("@/components/admin/EmployerFactsTab", () => ({ default: () => <div>employer-facts-tab</div> }))
 vi.mock("@/components/admin/AlumniFactsTab", () => ({ default: () => <div>alumni-facts-tab</div> }))
+vi.mock("@/components/admin/FactsDashboardTab", () => ({ default: () => <div>facts-dashboard-tab</div> }))
 vi.mock("@/components/admin/SessionInbox", () => ({
   default: ({
     onSelectSession,
@@ -153,6 +154,15 @@ describe("AdminWorkspace", () => {
 
     expect(screen.getByRole("button", { name: /^Student Insights$/i })).toBeInTheDocument()
     expect(screen.getByText("student-insights-tab")).toBeInTheDocument()
+  })
+
+  it("renders the facts dashboard when requested", async () => {
+    currentQuery = "view=facts"
+
+    render(<AdminWorkspace />)
+
+    expect(screen.getByRole("button", { name: /^Facts Dashboard$/i })).toBeInTheDocument()
+    expect(screen.getByText("facts-dashboard-tab")).toBeInTheDocument()
   })
 
   it("renders the alumni workspace when requested", async () => {

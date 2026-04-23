@@ -37,10 +37,8 @@ Shipped: provenance now renders through a reusable `ProvenancePanel` with the vi
 **Why:** Extraction endpoint is now fully functional (three bugs fixed 2026-04-20/21: wrong method name, JSON array parsing, repair function signature). Accuracy testing is the remaining gate before Phase 3.
 **Depends on:** ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose — all implemented and working as of 2026-04-21.
 
-### Structured Facts Phase 3: Build `/api/kb/facts` query endpoint
-**What:** Add `GET /api/kb/facts?type=alumni&school=NUS` and `/api/kb/facts/grouped` endpoints to filter facts by type, employer, confidence, and source.
-**Why:** Phase 3 (student query surface) depends on fact retrieval; counselor dashboard depends on fact filtering.
-**Depends on:** Facts are being written to career profile and employer YAMLs; endpoint just needs to read and serialize them.
+### ~~Structured Facts Phase 3: Build `/api/kb/facts` query endpoint~~ ✓ Done (2026-04-23)
+Shipped: `GET /api/kb/facts` and `GET /api/kb/facts/grouped` now load employer and career-profile facts, apply filters for type/employer/school/year/source/confidence, and exclude deleted records by default.
 
 ### ~~Counsellor Trust Sprint 1: provenance panel and plain-English tool explainer~~ ✓ Done (2026-04-22)
 Shipped: the admin landing cards, employer facts view, and knowledge review diff flow now surface purpose copy plus visible provenance summaries.

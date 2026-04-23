@@ -348,6 +348,14 @@ class FactQueryResponse(BaseModel):
     filters_applied: dict[str, Any] = {}
 
 
+class FactGroupResponse(BaseModel):
+    """Response from /api/kb/facts/grouped endpoint."""
+    by: Literal["employer", "type"]
+    groups: dict[str, list[Fact]] = Field(default_factory=dict)
+    total: int
+    filters_applied: dict[str, Any] = Field(default_factory=dict)
+
+
 # Sprint 3 Addendum — Employer Entity YAML models
 
 class EmployerDetail(BaseModel):
@@ -365,6 +373,13 @@ class EmployerDetail(BaseModel):
     source_documents: list[dict[str, Any]] = []
     last_updated: str | None = None
     completeness: str = "amber"  # computed by server: "green" | "amber"
+
+    @field_validator("singapore_headcount_estimate", mode="before")
+    @classmethod
+    def _coerce_singapore_headcount_estimate(cls, value: Any) -> Any:
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            return str(value)
+        return value
 
 
 class EmployerHistoryVersion(BaseModel):

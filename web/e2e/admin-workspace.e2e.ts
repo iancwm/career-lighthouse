@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test, type Page } from "@playwright/test"
 import { ADMIN_VIEWS } from "@/components/admin/adminNavManifest"
 
 const ALUMNI_FIXTURE = [
@@ -53,7 +53,7 @@ const ALUMNI_PREVIEW = {
   ],
 }
 
-async function expectCounselorNoteAboveSelectedProfile(page: Parameters<typeof test>[1]["page"]) {
+async function expectCounselorNoteAboveSelectedProfile(page: Page) {
   const counselorNote = page.getByLabel("Counselor note")
   const fullNameField = page.getByLabel("Full name")
 
@@ -72,7 +72,7 @@ const SMOKE_VIEWS = Object.values(ADMIN_VIEWS).filter(
   (view) => view.showInPrimaryNav || view.isLegacyAlias || view.id === "traces"
 )
 
-async function expectAdminViewToLoad(page: Parameters<typeof test>[1]["page"], viewId: string, label: string) {
+async function expectAdminViewToLoad(page: Page, viewId: string, label: string) {
   await page.goto(`/admin?view=${viewId}&key=test-admin-key`)
   await expect(page.getByRole("heading", { name: "Career Lighthouse" })).toBeVisible()
   await expect(page.locator("header").getByText(label, { exact: true }).first()).toBeVisible()
@@ -104,6 +104,33 @@ test.describe("Admin workspace IA", () => {
   })
 
   test("smokes every admin tab route", async ({ page }) => {
+    await page.route("**/api/kb/facts**", async (route) => {
+      const request = route.request()
+      const url = new URL(request.url())
+      if (url.pathname.endsWith("/api/kb/facts/grouped")) {
+        await route.fulfill({
+          json: {
+            by: "employer",
+            groups: {},
+            total: 0,
+            filters_applied: { include_deleted: false },
+          },
+        })
+        return
+      }
+      if (url.pathname.endsWith("/api/kb/facts")) {
+        await route.fulfill({
+          json: {
+            facts: [],
+            total: 0,
+            filters_applied: { include_deleted: false },
+          },
+        })
+        return
+      }
+      await route.fallback()
+    })
+
     for (const view of SMOKE_VIEWS) {
       await expectAdminViewToLoad(page, view.id, view.label)
     }

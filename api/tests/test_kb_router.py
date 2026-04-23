@@ -748,6 +748,135 @@ def make_profiles_dir(tmp_path):
     return d
 
 
+def make_facts_dirs(tmp_path):
+    employers_dir = tmp_path / "employers"
+    profiles_dir = tmp_path / "career_profiles"
+    employers_dir.mkdir()
+    profiles_dir.mkdir()
+
+    stripe_payload = {
+        "employer_name": "Stripe Singapore",
+        "slug": "stripe_singapore",
+        "tracks": ["fintech_compliance"],
+        "ep_requirement": "Likely sponsors EP",
+        "intake_seasons": ["rolling"],
+        "last_updated": "2026-04-22",
+        "structured": {
+            "facts": [
+                {
+                    "slug": "stripe-sg-capstone",
+                    "type": "timeline_phase",
+                    "timestamp": "2026-04-20T00:00:00Z",
+                    "source": "inferred",
+                    "confidence": 90,
+                    "data": {
+                        "phase_name": "Summer internship window",
+                        "value": "June to August",
+                    },
+                },
+                {
+                    "slug": "stripe-sg-aditya",
+                    "type": "alumni",
+                    "timestamp": "2026-04-19T00:00:00Z",
+                    "source": "direct_from_alumni",
+                    "confidence": 95,
+                    "data": {
+                        "full_name": "Aditya Mehta",
+                        "school": "NUS",
+                        "graduation_year": 2018,
+                        "current_company": "Stripe Singapore",
+                        "current_title": "Head of Compliance",
+                    },
+                },
+                {
+                    "slug": "stripe-sg-interview",
+                    "type": "interview_stage",
+                    "timestamp": "2026-04-18T00:00:00Z",
+                    "source": "counselor",
+                    "confidence": 88,
+                    "deleted": True,
+                    "data": {
+                        "name": "HR screening",
+                        "format": "phone call",
+                        "duration_minutes": 20,
+                    },
+                },
+                {
+                    "slug": "stripe-sg-low-confidence",
+                    "type": "skill_requirement",
+                    "timestamp": "2026-04-17T00:00:00Z",
+                    "source": "inferred",
+                    "confidence": 65,
+                    "data": {
+                        "focus": ["AML/KYC"],
+                        "preferred_background": ["bank compliance"],
+                    },
+                },
+            ]
+        },
+    }
+    consulting_payload = {
+        "career_type": "Consulting",
+        "ep_sponsorship": "High",
+        "compass_score_typical": "45-60",
+        "top_employers_smu": ["McKinsey"],
+        "recruiting_timeline": "Oct-Jan",
+        "international_realistic": True,
+        "entry_paths": ["Internship"],
+        "salary_range_2024": "S$80K-100K",
+        "typical_background": "Business",
+        "counselor_contact": "Coach",
+        "notes": "Sample profile for query surface tests",
+        "structured": {
+            "facts": [
+                {
+                    "slug": "consulting-cycle",
+                    "type": "timeline_phase",
+                    "timestamp": "2026-04-16T00:00:00Z",
+                    "source": "counselor",
+                    "confidence": 82,
+                    "data": {
+                        "phase_name": "Consulting internship cycle",
+                        "value": "October to November",
+                    },
+                }
+            ]
+        },
+    }
+
+    (employers_dir / "stripe_singapore.yaml").write_text(
+        yaml.safe_dump(stripe_payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        encoding="utf-8",
+    )
+    (profiles_dir / "consulting.yaml").write_text(
+        yaml.safe_dump(consulting_payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    return employers_dir, profiles_dir
+
+
+def make_facts_client(in_memory_qdrant, mock_embedder, employers_dir, profiles_dir, monkeypatch):
+    from main import app
+    from services.vector_store import VectorStore
+    from services.career_profiles import CareerProfileStore
+    from services.employer_store import EmployerEntityStore
+    import dependencies
+
+    CareerProfileStore._instance = None
+    EmployerEntityStore._instance = None
+
+    store = VectorStore(client=in_memory_qdrant, collection="knowledge")
+    store.ensure_collection(384)
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+
+    monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+    monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+
+    return TestClient(app), store
+
+
 # ---------------------------------------------------------------------------
 # GET /api/kb/employers
 # ---------------------------------------------------------------------------
@@ -778,6 +907,21 @@ class TestListEmployersEndpoint:
         data = {item["slug"]: item for item in r.json()}
         assert data["drw"]["tracks"] == ["quant_finance"]
         assert data["drw"]["intake_seasons"] == ["Q4 2026"]
+
+    def test_coerces_numeric_headcount_estimate_in_employer_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        (d / "mas.yaml").write_text(textwrap.dedent("""\
+            employer_name: Monetary Authority of Singapore
+            slug: mas
+            tracks:
+              - public_sector
+            singapore_headcount_estimate: 2000
+        """), encoding="utf-8")
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.get("/api/kb/employers")
+        assert r.status_code == 200
+        data = {item["slug"]: item for item in r.json()}
+        assert data["mas"]["singapore_headcount_estimate"] == "2000"
 
     def test_empty_dir_returns_empty_list(self, in_memory_qdrant, mock_embedder, tmp_path):
         empty = tmp_path / "emp"
@@ -1129,6 +1273,110 @@ class TestDeleteEmployerEndpoint:
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
         r = client.delete("/api/kb/employers/../evil")
         assert r.status_code in (422, 404)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/kb/facts
+# ---------------------------------------------------------------------------
+
+class TestFactsQueryEndpoints:
+    def test_facts_list_excludes_deleted_and_applies_filters(self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch):
+        employers_dir, profiles_dir = make_facts_dirs(tmp_path)
+        client, _ = make_facts_client(
+            in_memory_qdrant,
+            mock_embedder,
+            employers_dir,
+            profiles_dir,
+            monkeypatch,
+        )
+
+        r = client.get("/api/kb/facts")
+        assert r.status_code == 200
+        data = r.json()
+        assert data["total"] == 4
+        assert len(data["facts"]) == 4
+        assert {fact["type"] for fact in data["facts"]} == {"timeline_phase", "alumni", "skill_requirement"}
+        assert all(fact["deleted"] is False for fact in data["facts"])
+
+        alumni = client.get(
+            "/api/kb/facts",
+            params={
+                "type": "alumni",
+                "employer": "stripe",
+                "school": "NUS",
+                "graduation_year": 2018,
+                "confidence__gte": 90,
+                "source": "direct_from_alumni",
+            },
+        )
+        assert alumni.status_code == 200
+        alumni_data = alumni.json()
+        assert alumni_data["total"] == 1
+        assert alumni_data["facts"][0]["slug"] == "stripe-sg-aditya"
+        assert alumni_data["facts"][0]["source_label"] == "stripe_singapore"
+        assert alumni_data["facts"][0]["audit_url"] == "/api/kb/employers/stripe_singapore"
+
+        hidden = client.get("/api/kb/facts", params={"type": "interview_stage"})
+        assert hidden.status_code == 200
+        assert hidden.json()["total"] == 0
+
+        visible_deleted = client.get(
+            "/api/kb/facts",
+            params={"type": "interview_stage", "include_deleted": True},
+        )
+        assert visible_deleted.status_code == 200
+        deleted_data = visible_deleted.json()
+        assert deleted_data["total"] == 1
+        assert deleted_data["facts"][0]["deleted"] is True
+
+    def test_facts_grouped_returns_buckets_and_counts(self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch):
+        employers_dir, profiles_dir = make_facts_dirs(tmp_path)
+        client, _ = make_facts_client(
+            in_memory_qdrant,
+            mock_embedder,
+            employers_dir,
+            profiles_dir,
+            monkeypatch,
+        )
+
+        by_type = client.get("/api/kb/facts/grouped", params={"by": "type"})
+        assert by_type.status_code == 200
+        grouped = by_type.json()
+        assert grouped["by"] == "type"
+        assert grouped["total"] == 4
+        assert set(grouped["groups"].keys()) == {"alumni", "skill_requirement", "timeline_phase"}
+        assert len(grouped["groups"]["timeline_phase"]) == 2
+        assert all(item["deleted"] is False for items in grouped["groups"].values() for item in items)
+
+        by_employer = client.get("/api/kb/facts/grouped", params={"by": "employer"})
+        assert by_employer.status_code == 200
+        employer_grouped = by_employer.json()
+        assert employer_grouped["by"] == "employer"
+        assert employer_grouped["total"] == 4
+        assert set(employer_grouped["groups"].keys()) == {"consulting", "stripe_singapore"}
+        assert len(employer_grouped["groups"]["stripe_singapore"]) == 3
+        assert len(employer_grouped["groups"]["consulting"]) == 1
+
+    def test_facts_endpoints_handle_empty_data(self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch):
+        empty_employers = tmp_path / "empty_employers"
+        empty_profiles = tmp_path / "empty_profiles"
+        empty_employers.mkdir()
+        empty_profiles.mkdir()
+        client, _ = make_facts_client(
+            in_memory_qdrant,
+            mock_embedder,
+            empty_employers,
+            empty_profiles,
+            monkeypatch,
+        )
+
+        facts = client.get("/api/kb/facts")
+        assert facts.status_code == 200
+        assert facts.json() == {"facts": [], "total": 0, "filters_applied": {"include_deleted": False}}
+
+        grouped = client.get("/api/kb/facts/grouped")
+        assert grouped.status_code == 200
+        assert grouped.json() == {"by": "employer", "groups": {}, "total": 0, "filters_applied": {"include_deleted": False}}
 
 
 # ---------------------------------------------------------------------------
