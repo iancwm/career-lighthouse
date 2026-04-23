@@ -22,7 +22,6 @@ vi.mock("@/components/admin/LowConfidenceLog", () => ({ default: () => <div>low-
 vi.mock("@/components/admin/RedundancyPanel", () => ({ default: () => <div>redundancy-panel</div> }))
 vi.mock("@/components/admin/KnowledgeUpdateTab", () => ({ default: () => <div>knowledge-update-tab</div> }))
 vi.mock("@/components/admin/EmployerFactsTab", () => ({ default: () => <div>employer-facts-tab</div> }))
-vi.mock("@/components/admin/CareerTracksTab", () => ({ default: () => <div>career-tracks-tab</div> }))
 vi.mock("@/components/admin/SessionInbox", () => ({
   default: ({
     onSelectSession,
@@ -82,6 +81,10 @@ describe("AdminWorkspace", () => {
   it("defaults to sessions and normalizes the URL", async () => {
     render(<AdminWorkspace />)
 
+    expect(screen.getByRole("button", { name: /Career Wire.*Current lane/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Smart Counsellor.*Switch lane/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Admin Room.*Switch lane/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Staging Area/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /open session/i })).toBeInTheDocument()
 
     await waitFor(() =>
@@ -194,5 +197,45 @@ describe("AdminWorkspace", () => {
     expect(push).toHaveBeenCalledWith("/admin?view=tracks&trackSlug=data_science", {
       scroll: false,
     })
+  })
+
+  it("keeps legacy careers URL working through Track Builder", async () => {
+    currentQuery = "view=careers&trackSlug=consulting"
+    render(<AdminWorkspace />)
+
+    expect(screen.getByText("track-builder:consulting")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /pick track/i }))
+
+    expect(push).toHaveBeenCalledWith("/admin?view=careers&trackSlug=data_science", {
+      scroll: false,
+    })
+  })
+
+  it("keeps Trace Explorer as a deep-link surface", async () => {
+    currentQuery = "view=observability"
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        total_docs: 0,
+        total_chunks: 0,
+        avg_match_score: null,
+        retrieval_diversity_score: null,
+        low_confidence_queries: [],
+        doc_coverage: [],
+        high_overlap_pairs: [],
+      }),
+    } as Response)
+    fetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => [],
+    } as Response)
+
+    render(<AdminWorkspace />)
+
+    expect(screen.queryByRole("button", { name: /^Trace Explorer$/i })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: /Open Trace Explorer/i }))
+
+    expect(push).toHaveBeenCalledWith("/admin?view=traces", { scroll: false })
   })
 })

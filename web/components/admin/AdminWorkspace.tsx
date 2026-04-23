@@ -14,15 +14,22 @@ import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import KnowledgeUpdateTab from "@/components/admin/KnowledgeUpdateTab"
 import EmployerFactsTab from "@/components/admin/EmployerFactsTab"
 import TrackBuilderTab from "@/components/admin/TrackBuilderTab"
-import CareerTracksTab from "@/components/admin/CareerTracksTab"
 import SessionInbox from "@/components/admin/SessionInbox"
 import SmartCanvas from "@/components/admin/SmartCanvas"
 import LLMObservabilityTab from "@/components/admin/LLMObservabilityTab"
 import TraceExplorerTab from "@/components/admin/TraceExplorerTab"
 import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
 import BrokenProfilesTab from "@/components/admin/BrokenProfilesTab"
-import ToolsDrawer, { DrawerSurface } from "@/components/admin/ToolsDrawer"
+import ToolsDrawer from "@/components/admin/ToolsDrawer"
 import DirectiveBanner from "@/components/admin/DirectiveBanner"
+import {
+  ADMIN_WORKSTREAMS,
+  AdminView,
+  getViewDefinition,
+  getWorkstreamForView,
+  getWorkstreamViews,
+  isAdminView,
+} from "@/components/admin/adminNavManifest"
 
 interface KBHealth {
   total_docs: number
@@ -49,103 +56,24 @@ interface KBHealth {
   }[]
 }
 
-type DrawerView = DrawerSurface | "sessions"
-
-const DRAWER_SURFACES: DrawerSurface[] = ["observability", "traces", "knowledge", "update", "careers", "employers", "tracks", "resume", "broken"]
-
-const VIEW_ORDER: { id: DrawerView; label: string; description: string }[] = [
-  { id: "sessions", label: "Sessions", description: "Review active counselor sessions first." },
-  { id: "observability", label: "LLM Observability", description: "Inspect traces, latency, and retrieval health." },
-  { id: "traces", label: "Trace Explorer", description: "Inspect a session's LLM runs and live starts." },
-  { id: "knowledge", label: "Documents", description: "Upload, inspect, and measure the KB." },
-  { id: "update", label: "Review Updates", description: "Review one note or file before it changes the KB." },
-  { id: "resume", label: "Resume Review", description: "Generate prep briefs from student resumes." },
-  { id: "broken", label: "⚠ Broken Profiles", description: "Fix career profiles with missing fields." },
-  { id: "careers", label: "Career Tracks", description: "See structured chat metadata." },
-  { id: "employers", label: "Employer Facts", description: "Maintain employer-specific facts and retain audit history." },
-  { id: "tracks", label: "Track Builder", description: "Draft, publish, and rollback career tracks." },
-]
-
-function isDrawerView(value: string | null): value is DrawerView {
-  return value === "observability" || value === "traces" || value === "knowledge" || value === "update" || value === "careers" || value === "employers" || value === "tracks" || value === "sessions" || value === "resume" || value === "broken"
-}
-
-function isDrawerSurface(value: string | null): value is DrawerSurface {
-  return DRAWER_SURFACES.includes(value as DrawerSurface)
-}
-
-const DIRECTIVE_BANNERS: Record<DrawerView, { label: string; whatYouDo: string; whatHappens: string }> = {
-  sessions: {
-    label: "Review session cards",
-    whatYouDo: "Review and approve/discard individual update cards extracted from your notes.",
-    whatHappens: "Approved cards write to the knowledge base. Discarded cards are ignored.",
-  },
-  observability: {
-    label: "Inspect LLM traces",
-    whatYouDo: "Review structured LLM calls, latency, and Qdrant health before you touch the prompts.",
-    whatHappens: "You can see what the model saw, how long it took, and where retrieval is drifting.",
-  },
-  traces: {
-    label: "Trace explorer",
-    whatYouDo: "Filter individual LLM traces by session, status, or operation.",
-    whatHappens: "Started rows appear immediately so you can follow an active session while it is still processing.",
-  },
-  knowledge: {
-    label: "Manage uploaded documents",
-    whatYouDo: "Upload files to the knowledge base or review what's already stored.",
-    whatHappens: "Files are chunked, embedded, and indexed for semantic search. Test queries to verify retrieval quality.",
-  },
-  update: {
-    label: "Patch a single fact",
-    whatYouDo: "Paste a short note targeting one employer or track when you already know the record you want to change.",
-    whatHappens: "The system compares against existing KB and proposes field-level changes for your review. It does not rewrite sessions or bulk-publish content.",
-  },
-  resume: {
-    label: "Review a student resume",
-    whatYouDo: "Paste a student resume to generate a prep brief.",
-    whatHappens: "The system produces fit assessment, risks, and talking points in markdown.",
-  },
-  broken: {
-    label: "Fix broken career profiles",
-    whatYouDo: "Review profiles with missing required fields and auto-complete them with AI.",
-    whatHappens: "Missing fields are filled by the LLM based on existing profile content. You review before they go live.",
-  },
-  employers: {
-    label: "Maintain employer details",
-    whatYouDo: "View, create, edit, or retire employer-specific records while keeping the old versions visible for audit.",
-    whatHappens: "Changes are written immediately to the employer YAML files. It does not publish career tracks or hide retired facts from history.",
-  },
-  tracks: {
-    label: "Draft and publish tracks",
-    whatYouDo: "Draft a career track from research notes, then publish or rollback when the content is ready.",
-    whatHappens: "Publishing writes the track to the live career profile with versioned history for rollback. It does not directly alter student chat until the profile is published.",
-  },
-  careers: {
-    label: "View all tracks and provenance",
-    whatYouDo: "Inspect what the system knows about each track, where it came from, and who published it.",
-    whatHappens: "Each row shows source documents, last update date, and publishing counsellor.",
-  },
-}
-
 export default function AdminWorkspace() {
-  const apiUrl = "/api/admin"
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const viewParam = searchParams.get("view")
   const sessionParam = searchParams.get("sessionId")
   const trackParam = searchParams.get("trackSlug")
-  const view: DrawerView = isDrawerView(viewParam) ? viewParam : "sessions"
+  const view: AdminView = isAdminView(viewParam) ? viewParam : "sessions"
 
   const [refreshKey, setRefreshKey] = useState(0)
   const [health, setHealth] = useState<KBHealth | null>(null)
   const [healthError, setHealthError] = useState(false)
   const [healthLoading, setHealthLoading] = useState(false)
-  const [drawerOpen, setDrawerOpen] = useState(isDrawerSurface(viewParam))
+  const [drawerOpen, setDrawerOpen] = useState(false)
   const toggleButtonRef = useRef<HTMLButtonElement>(null)
 
   function buildUrl(next: {
-    view?: DrawerView | null
+    view?: AdminView | null
     sessionId?: string | null
     trackSlug?: string | null
   }) {
@@ -171,7 +99,7 @@ export default function AdminWorkspace() {
     if (next.view && next.view !== "sessions" && next.view !== "traces") {
       params.delete("sessionId")
     }
-    if (next.view && next.view !== "tracks") {
+    if (next.view && next.view !== "tracks" && next.view !== "careers") {
       params.delete("trackSlug")
     }
 
@@ -180,7 +108,7 @@ export default function AdminWorkspace() {
   }
 
   function navigate(next: {
-    view?: DrawerView | null
+    view?: AdminView | null
     sessionId?: string | null
     trackSlug?: string | null
   }) {
@@ -188,7 +116,7 @@ export default function AdminWorkspace() {
   }
 
   useEffect(() => {
-    if (!isDrawerView(viewParam)) {
+    if (!isAdminView(viewParam)) {
       const fallback = viewParam === null ? "sessions" : view
       if (fallback !== viewParam) {
         router.replace(buildUrl({ view: fallback }), { scroll: false })
@@ -221,24 +149,27 @@ export default function AdminWorkspace() {
     }
   }, [view, refreshKey])
 
-  const currentSurface = VIEW_ORDER.find((item) => item.id === view) ?? VIEW_ORDER[0]
-  const activeDrawerSurface: DrawerSurface | null = isDrawerSurface(viewParam) ? viewParam : null
+  const currentSurface = getViewDefinition(view)
+  const activeWorkstream = getWorkstreamForView(view)
+  const workstreamViews = getWorkstreamViews(activeWorkstream.id)
+  const activeSurfaceId = view === "careers" ? "tracks" : view
 
   function toggleDrawer() {
-    if (drawerOpen) {
-      setDrawerOpen(false)
-    } else {
-      setDrawerOpen(true)
-    }
+    setDrawerOpen((value) => !value)
   }
 
-  function handleDrawerNavigate(surface: DrawerSurface) {
+  function handleDrawerNavigate(nextView: AdminView) {
     setDrawerOpen(false)
     navigate({
-      view: surface,
-      sessionId: surface === "traces" ? sessionParam : null,
-      trackSlug: null,
+      view: nextView,
+      sessionId: nextView === "traces" ? sessionParam : null,
+      trackSlug: nextView === "tracks" || nextView === "careers" ? trackParam : null,
     })
+  }
+
+  function selectWorkstream(viewId: AdminView) {
+    setDrawerOpen(false)
+    navigate({ view: viewId, sessionId: null, trackSlug: null })
   }
 
   return (
@@ -251,13 +182,13 @@ export default function AdminWorkspace() {
               Career Lighthouse
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-              Review sessions first, keep the knowledge base tidy, and publish career tracks with a clear working-copy trail.
+              Workstream-first navigation keeps intake, student prep, and machine-room operations in separate lanes.
             </p>
           </div>
 
           <div className="flex flex-col items-end gap-3">
             <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">Active surface</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">Active page</p>
               <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{currentSurface.label}</p>
               <p className="mt-1 text-sm text-[var(--cl-muted)]">{currentSurface.description}</p>
             </div>
@@ -268,7 +199,16 @@ export default function AdminWorkspace() {
                   onClick={() => navigate({ view: "sessions", sessionId: null, trackSlug: null })}
                   className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90"
                 >
-                  ← Session Editor
+                  ← Staging Area
+                </button>
+              )}
+              {(activeWorkstream.id === "smart-counsellor" || activeWorkstream.id === "admin-room") && view !== "traces" && (
+                <button
+                  type="button"
+                  onClick={() => navigate({ view: "traces", sessionId: null })}
+                  className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
+                >
+                  Open Trace Explorer
                 </button>
               )}
               <button
@@ -278,25 +218,76 @@ export default function AdminWorkspace() {
                 aria-expanded={drawerOpen}
                 className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
               >
-                {drawerOpen ? "\u2715 Close" : "\u2699 Manage Knowledge"}
+                {drawerOpen ? "\u2715 Close" : `\u2699 Browse ${activeWorkstream.label}`}
               </button>
             </div>
           </div>
+        </div>
+
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
+          {ADMIN_WORKSTREAMS.map((workstream) => {
+            const isActive = workstream.id === activeWorkstream.id
+            return (
+              <button
+                key={workstream.id}
+                type="button"
+                onClick={() => selectWorkstream(workstream.defaultView)}
+                className={`rounded-2xl border px-4 py-4 text-left transition-colors ${
+                  isActive
+                    ? "border-[var(--cl-accent)] bg-[var(--cl-accent)]/8"
+                    : "border-[var(--cl-line)] bg-[var(--cl-surface)] hover:border-[var(--cl-accent)]/40"
+                }`}
+              >
+                <p className="font-display text-xl text-[var(--cl-ink)]">{workstream.label}</p>
+                <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">{workstream.description}</p>
+                <span
+                  className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                    isActive
+                      ? "bg-[var(--cl-accent)] text-white"
+                      : "bg-[var(--cl-surface-2)] text-[var(--cl-muted)]"
+                  }`}
+                >
+                  {isActive ? "Current lane" : "Switch lane"}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {workstreamViews.map((item) => {
+            const isActive = activeSurfaceId === item.id
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleDrawerNavigate(item.id)}
+                className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+                  isActive
+                    ? "border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white"
+                    : "border-[var(--cl-line)] bg-[var(--cl-surface)] text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/50"
+                }`}
+              >
+                {item.label}
+              </button>
+            )
+          })}
         </div>
       </header>
 
       <ToolsDrawer
         open={drawerOpen}
-        activeSurface={activeDrawerSurface}
+        workstreamId={activeWorkstream.id}
+        activeView={view}
         onToggle={toggleDrawer}
         onNavigate={handleDrawerNavigate}
         toggleButtonRef={toggleButtonRef}
       />
 
       <DirectiveBanner
-        label={DIRECTIVE_BANNERS[view].label}
-        whatYouDo={DIRECTIVE_BANNERS[view].whatYouDo}
-        whatHappens={DIRECTIVE_BANNERS[view].whatHappens}
+        label={currentSurface.directive.label}
+        whatYouDo={currentSurface.directive.whatYouDo}
+        whatHappens={currentSurface.directive.whatHappens}
       />
 
       {view === "knowledge" && (
@@ -379,14 +370,12 @@ export default function AdminWorkspace() {
 
       {view === "broken" && <BrokenProfilesTab />}
 
-      {view === "careers" && <CareerTracksTab />}
-
       {view === "employers" && <EmployerFactsTab />}
 
-      {view === "tracks" && (
+      {(view === "tracks" || view === "careers") && (
         <TrackBuilderTab
           selectedSlug={trackParam}
-          onSelectedSlugChange={(slug) => navigate({ view: "tracks", trackSlug: slug })}
+          onSelectedSlugChange={(slug) => navigate({ view, trackSlug: slug })}
         />
       )}
 
