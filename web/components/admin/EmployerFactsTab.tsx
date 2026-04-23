@@ -288,6 +288,7 @@ export default function EmployerFactsTab() {
   const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const undoTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isDirty = useRef(false)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const trackOptions = profiles.map((p) => ({ value: p.slug, label: p.career_type }))
 
@@ -324,7 +325,10 @@ export default function EmployerFactsTab() {
   }
 
   function selectEmployer(emp: EmployerDetail) {
-    if (isDirty.current) {
+    if (saveState === "saving") {
+      return
+    }
+    if (isDirty.current || hasUnsavedChanges) {
       setUnsavedConfirm(emp)
       return
     }
@@ -339,6 +343,7 @@ export default function EmployerFactsTab() {
     setSaveBanner("")
     setActiveTab("details")
     isDirty.current = false
+    setHasUnsavedChanges(false)
     setUnsavedConfirm(null)
     setShowFactEditor(false)
     setUndoToast(null)
@@ -369,6 +374,7 @@ export default function EmployerFactsTab() {
     setSaveBanner("")
     setActiveTab("details")
     isDirty.current = false
+    setHasUnsavedChanges(false)
     setFacts([])
     setShowFactEditor(false)
     setUndoToast(null)
@@ -378,6 +384,7 @@ export default function EmployerFactsTab() {
     setFacts((prev) => normalizeFacts([...prev, newFact]))
     setShowFactEditor(false)
     isDirty.current = true
+    setHasUnsavedChanges(true)
   }
 
   function handleDeleteFact(slug: string) {
@@ -408,6 +415,7 @@ export default function EmployerFactsTab() {
       setUndoToast(null)
     }, 5000)
     isDirty.current = true
+    setHasUnsavedChanges(true)
   }
 
   function handleUndoDelete() {
@@ -425,6 +433,7 @@ export default function EmployerFactsTab() {
     )
     setUndoToast(null)
     isDirty.current = true
+    setHasUnsavedChanges(true)
   }
 
   async function handleExtractFacts() {
@@ -465,11 +474,13 @@ export default function EmployerFactsTab() {
     setShowExtractModal(false)
     setExtractedFacts([])
     isDirty.current = true
+    setHasUnsavedChanges(true)
   }
 
   function updateField(field: keyof EmployerDetail, value: unknown) {
     setForm((prev) => ({ ...prev, [field]: value }))
     isDirty.current = true
+    setHasUnsavedChanges(true)
     if (field === "employer_name" && !slugManuallyEdited && mode === "create") {
       setSlugPreview(slugify(value as string))
     }
@@ -477,16 +488,15 @@ export default function EmployerFactsTab() {
 
   async function handleSave() {
     if (mode === "create") {
-      await handleCreate()
-    } else {
-      await handleUpdate()
+      return await handleCreate()
     }
+    return await handleUpdate()
   }
 
   async function handleCreate() {
-    if (!form.employer_name?.trim()) return
+    if (!form.employer_name?.trim()) return false
     const slug = slugPreview || slugify(form.employer_name)
-    if (!slug) return
+    if (!slug) return false
 
     setSaveState("saving")
     try {
@@ -513,7 +523,7 @@ export default function EmployerFactsTab() {
         const err = await r.json().catch(() => ({}))
         setSaveState("error")
         setSaveBanner(r.status === 409 ? `Employer '${slug}' already exists.` : (err.detail || "Save failed."))
-        return
+        return false
       }
       const created: EmployerDetail = await r.json()
       const updated = [...employers, created]
@@ -524,14 +534,17 @@ export default function EmployerFactsTab() {
       setSaveState("success")
       showSuccessBanner("Employer created.")
       isDirty.current = false
+      setHasUnsavedChanges(false)
+      return true
     } catch {
       setSaveState("error")
       setSaveBanner("Save failed — network error.")
+      return false
     }
   }
 
   async function handleUpdate() {
-    if (!selected) return
+    if (!selected) return false
     setSaveState("saving")
     try {
       const body: EmployerDetail = {
@@ -550,7 +563,7 @@ export default function EmployerFactsTab() {
         const err = await r.json().catch(() => ({}))
         setSaveState("error")
         setSaveBanner(err.detail || "Save failed.")
-        return
+        return false
       }
       const updated: EmployerDetail = await r.json()
       setEmployers((prev) => prev.map((e) => (e.slug === updated.slug ? updated : e)))
@@ -559,9 +572,12 @@ export default function EmployerFactsTab() {
       setSaveState("success")
       showSuccessBanner("Saved.")
       isDirty.current = false
+      setHasUnsavedChanges(false)
+      return true
     } catch {
       setSaveState("error")
       setSaveBanner("Save failed — network error.")
+      return false
     }
   }
 
@@ -712,6 +728,7 @@ export default function EmployerFactsTab() {
       )
       setFacts(newFacts)
       isDirty.current = false
+      setHasUnsavedChanges(false)
 
       const updatedBody = {
         ...selected,
@@ -771,6 +788,12 @@ export default function EmployerFactsTab() {
   const canSave = mode === "create"
     ? Boolean(form.employer_name?.trim() && (slugPreview || slugify(form.employer_name || "")))
     : Boolean(selected)
+  const navigationLocked = hasUnsavedChanges || saveState === "saving"
+  const navigationLockedMessage = saveState === "saving"
+    ? "Saving changes. Employer switching is disabled until the save completes."
+    : hasUnsavedChanges
+      ? "You have unsaved changes. Save or discard them before switching employers."
+      : ""
   const historyHref = selected ? `${API_URL}/api/kb/employers/${selected.slug}/history` : null
   const supersededByBySlug = new Map<string, string>()
   for (const fact of facts) {
@@ -861,10 +884,13 @@ export default function EmployerFactsTab() {
                     <div
                       key={emp.slug}
                       onClick={() => selectEmployer(emp)}
+                      aria-disabled={navigationLocked && selected?.slug !== emp.slug}
                       className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors border-b border-gray-100 group ${
-                        isSelected
-                          ? "bg-blue-50 border-l-2 border-l-blue-400"
-                          : "hover:bg-gray-50"
+                          isSelected
+                            ? "bg-blue-50 border-l-2 border-l-blue-400"
+                            : saveState === "saving" && selected?.slug !== emp.slug
+                            ? "bg-gray-50 opacity-60 cursor-not-allowed pointer-events-none"
+                            : "hover:bg-gray-50"
                       }`}
                     >
                       <CompletenessIndicator emp={emp} />
@@ -884,6 +910,7 @@ export default function EmployerFactsTab() {
               <div className="border-t border-gray-100 p-3">
                 <button
                   onClick={startCreate}
+                  disabled={navigationLocked}
                   className="w-full py-2 rounded-lg text-xs text-blue-600 font-medium border border-blue-200 hover:bg-blue-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
                 >
                   + Add employer
@@ -896,21 +923,40 @@ export default function EmployerFactsTab() {
         {/* ── Right panel (65%) ─────────────────────────────────── */}
         <div className="flex-1 flex flex-col">
           {/* Unsaved changes warning */}
-          {unsavedConfirm && (
+          {(unsavedConfirm || navigationLockedMessage) && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
-              <span>Unsaved changes to <span className="font-medium">{selected?.employer_name || "this employer"}</span></span>
-              <button
-                onClick={() => { handleSave().then(() => { if (unsavedConfirm) commitSelection(unsavedConfirm) }) }}
-                className="px-2 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => { isDirty.current = false; commitSelection(unsavedConfirm) }}
-                className="px-2 py-1 border border-amber-300 text-amber-700 rounded hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
-              >
-                Discard
-              </button>
+              <span>
+                {unsavedConfirm ? (
+                  <>
+                    Unsaved changes to <span className="font-medium">{selected?.employer_name || "this employer"}</span>.{" "}
+                    Save or discard before opening <span className="font-medium">{unsavedConfirm.employer_name}</span>.
+                  </>
+                ) : (
+                  navigationLockedMessage
+                )}
+              </span>
+              {unsavedConfirm && (
+                <>
+                  <button
+                    onClick={() => { handleSave().then((saved) => { if (saved && unsavedConfirm) commitSelection(unsavedConfirm) }) }}
+                    className="px-2 py-1 bg-amber-600 text-white rounded hover:bg-amber-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => { isDirty.current = false; setHasUnsavedChanges(false); commitSelection(unsavedConfirm) }}
+                    className="px-2 py-1 border border-amber-300 text-amber-700 rounded hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  >
+                    Discard
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {navigationLocked && !unsavedConfirm && (
+            <div className="px-4 pb-2 text-xs text-amber-700">
+              Switch employers is blocked until the current edit is saved or discarded.
             </div>
           )}
 
@@ -1476,7 +1522,7 @@ export default function EmployerFactsTab() {
               )}
 
               {/* Sticky Save button */}
-              <div className="border-t border-gray-100 px-4 py-3 bg-white">
+              <div className="sticky bottom-0 z-10 border-t border-gray-100 px-4 py-3 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-[0_-6px_20px_rgba(15,23,42,0.06)]">
                 <button
                   onClick={handleSave}
                   disabled={!canSave || saveState === "saving"}

@@ -1,5 +1,5 @@
 "use client"
-import { useRef, useState } from "react"
+import { useRef, useState, type ChangeEvent } from "react"
 import { adminFetch } from "@/lib/admin-api"
 import MarkdownMessage from "@/components/student/MarkdownMessage"
 
@@ -7,8 +7,13 @@ export default function ResumeReviewTab() {
   const [resume, setResume] = useState("")
   const [brief, setBrief] = useState("")
   const [loading, setLoading] = useState(false)
+  const [extracting, setExtracting] = useState(false)
   const [error, setError] = useState("")
+  const [uploadError, setUploadError] = useState("")
+  const [fileName, setFileName] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   async function handleGenerate() {
     if (!resume.trim()) return
@@ -31,6 +36,36 @@ export default function ResumeReviewTab() {
     }
   }
 
+  async function handleFileUpload(file: File) {
+    setExtracting(true)
+    setUploadError("")
+    try {
+      const form = new FormData()
+      form.append("file", file)
+      const res = await fetch(`${apiUrl}/api/sessions/parse-file`, {
+        method: "POST",
+        body: form,
+      })
+      if (!res.ok) {
+        const detail = await res.json().catch(() => null)
+        throw new Error(detail?.detail || "Could not extract text from this file.")
+      }
+      const data = await res.json()
+      setResume(data.text || "")
+      setFileName(data.filename || file.name)
+      textareaRef.current?.focus()
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Could not extract text from this file.")
+    } finally {
+      setExtracting(false)
+    }
+  }
+
+  function handleFileInputChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) void handleFileUpload(file)
+  }
+
   function scrollToInput() {
     textareaRef.current?.scrollIntoView({ behavior: "smooth" })
     setTimeout(() => textareaRef.current?.focus(), 300)
@@ -38,28 +73,50 @@ export default function ResumeReviewTab() {
 
   return (
     <div>
-      {/* Upcoming student meeting banner */}
-      <div className="mb-6 rounded-lg bg-[#F0E7DB] border-l-4 border-[#0F766E] px-4 py-3">
-        <p className="text-sm font-semibold text-[#1F2937]">
-          Have an upcoming student meeting?
+      <div className="mb-5">
+        <h2 className="text-lg font-semibold mb-1">Have an upcoming student meeting?</h2>
+        <p className="text-sm text-[#5F6B76]">
+          Upload a resume file or paste the text first, then generate a short prep brief with fit, risks, and talking points.
         </p>
-        <p className="text-sm text-[#5F6B76] mt-1">
-          Paste the student's resume below to generate a prep brief with fit assessment,
-          risks, and talking points for your next meeting.
-        </p>
-        <button
-          onClick={scrollToInput}
-          className="mt-2 rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] transition-colors"
-          style={{ minHeight: "44px" }}
-        >
-          Start a resume review
-        </button>
       </div>
 
-      <h2 className="text-lg font-semibold mb-1">Student Resume Review</h2>
-      <p className="text-sm text-[#5F6B76] mb-4">
-        Paste a student resume to draft a prep brief with likely fit, risks, and talking points for the next meeting.
-      </p>
+      <div className="mb-4 rounded-xl border border-[#D8D0C4] bg-[#FFFDFC] p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".docx,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+            className="hidden"
+            onChange={handleFileInputChange}
+            disabled={extracting || loading}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={extracting || loading}
+            className="rounded-lg border border-[#0F766E] px-4 py-2 text-sm font-medium text-[#0F766E] hover:bg-[#F0F7F6] disabled:opacity-40"
+            style={{ minHeight: "44px" }}
+          >
+            {extracting ? "Extracting…" : "Upload .docx or .txt"}
+          </button>
+          <button
+            type="button"
+            onClick={scrollToInput}
+            className="rounded-lg border border-[#D8D0C4] px-4 py-2 text-sm font-medium text-[#1F2937] hover:bg-[#F7F4EE]"
+            style={{ minHeight: "44px" }}
+          >
+            Paste text instead
+          </button>
+        </div>
+        {fileName && (
+          <p className="mt-3 text-xs text-[#5F6B76]">
+            Loaded from {fileName}
+          </p>
+        )}
+        {uploadError && (
+          <p className="mt-3 text-sm text-[#B42318]">{uploadError}</p>
+        )}
+      </div>
 
       <textarea
         ref={textareaRef}

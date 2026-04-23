@@ -11,12 +11,22 @@ interface BrokenProfile {
   existing_fields: string[]
 }
 
+type AutoCompleteFeedback =
+  | {
+      tone: "pending"
+      message: string
+    }
+  | {
+    tone: "success"
+    message: string
+    }
+
 export default function BrokenProfilesTab() {
   const [broken, setBroken] = useState<BrokenProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [autocompleting, setAutocompleting] = useState<string | null>(null)
   const [error, setError] = useState("")
-  const [notice, setNotice] = useState("")
+  const [feedback, setFeedback] = useState<AutoCompleteFeedback | null>(null)
 
   async function loadBroken() {
     try {
@@ -24,8 +34,10 @@ export default function BrokenProfilesTab() {
       if (!res.ok) throw new Error("failed")
       const data: BrokenProfile[] = await res.json()
       setBroken(data)
+      return data
     } catch {
       setError("Could not load broken profiles.")
+      return null
     } finally {
       setLoading(false)
     }
@@ -36,7 +48,10 @@ export default function BrokenProfilesTab() {
   async function handleAutoComplete(slug: string) {
     setAutocompleting(slug)
     setError("")
-    setNotice("")
+    setFeedback({
+      tone: "pending",
+      message: `AI is extracting the missing fields for ${slug}. This can take a moment.`,
+    })
     try {
       const res = await fetch(`${API_URL}/api/kb/career-profiles/${slug}/auto-complete`, {
         method: "POST",
@@ -46,10 +61,15 @@ export default function BrokenProfilesTab() {
         throw new Error(err.detail || "Auto-complete failed")
       }
       const data = await res.json()
-      setNotice(`✓ ${slug}: filled ${data.completed_fields.length} field(s): ${data.completed_fields.join(", ")}. Profile is now active.`)
-      await loadBroken()
+      const refreshed = await loadBroken()
+      if (!refreshed) throw new Error("Could not confirm profile completion.")
+      setFeedback({
+        tone: "success",
+        message: `Completed ${slug}: filled ${data.completed_fields.length} field(s) and refreshed the profile list.`,
+      })
     } catch (err: any) {
       setError(err.message || "Could not auto-complete profile.")
+      setFeedback(null)
     } finally {
       setAutocompleting(null)
     }
@@ -79,9 +99,22 @@ export default function BrokenProfilesTab() {
           {error}
         </div>
       )}
-      {notice && (
-        <div className="mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {notice}
+      {feedback && (
+        <div
+          className={
+            feedback.tone === "success"
+              ? "mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
+              : "mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          }
+          role="status"
+          aria-live="polite"
+        >
+          <span className="inline-flex items-center gap-2">
+            {feedback.tone === "pending" && (
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+            )}
+            {feedback.message}
+          </span>
         </div>
       )}
 
@@ -123,7 +156,7 @@ export default function BrokenProfilesTab() {
                 className="shrink-0 rounded-lg bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40 transition-colors"
                 style={{ minHeight: "44px" }}
               >
-                {autocompleting === bp.slug ? "Completing…" : "Auto-complete with AI"}
+                {autocompleting === bp.slug ? "AI working…" : "Auto-complete with AI"}
               </button>
             </div>
           </div>

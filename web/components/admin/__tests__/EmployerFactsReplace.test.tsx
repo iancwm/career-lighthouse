@@ -31,6 +31,21 @@ const EMPLOYER = {
   completeness: "green",
 }
 
+const SECOND_EMPLOYER = {
+  slug: "morgan_stanley",
+  employer_name: "Morgan Stanley",
+  tracks: ["investment_banking"],
+  ep_requirement: "EP4 required",
+  intake_seasons: ["January"],
+  singapore_headcount_estimate: "10-15",
+  application_process: null,
+  counsellor_contact: null,
+  notes: null,
+  structured: { facts: [] },
+  last_updated: "2026-04-02T00:00:00Z",
+  completeness: "amber",
+}
+
 const ANALYSIS_RESULT = {
   interpretation_bullets: ["Goldman updated their EP requirement"],
   profile_updates: {},
@@ -99,6 +114,20 @@ async function renderAndOpenFacts() {
   await waitFor(() => screen.getByText("Goldman Sachs"))
   fireEvent.click(screen.getByText("Goldman Sachs"))
 
+  fireEvent.click(screen.getByRole("button", { name: /^Facts/i }))
+  return fetchMock
+}
+
+async function renderWithTwoEmployers() {
+  const fetchMock = makeFetch(
+    { ok: true, json: async () => [EMPLOYER, SECOND_EMPLOYER] },
+    { ok: true, json: async () => [] },
+  )
+  vi.stubGlobal("fetch", fetchMock)
+  render(<EmployerFactsTab />)
+
+  await waitFor(() => screen.getByText("Goldman Sachs"))
+  fireEvent.click(screen.getByText("Goldman Sachs"))
   fireEvent.click(screen.getByRole("button", { name: /^Facts/i }))
   return fetchMock
 }
@@ -319,5 +348,21 @@ describe("EmployerFactsTab — replace workflow", () => {
     fireEvent.click(screen.getByRole("button", { name: /Replace current content/i }))
 
     expect(screen.queryByRole("button", { name: /\+ New fact/i })).not.toBeInTheDocument()
+  })
+
+  it("blocks employer switching while a fact edit is unsaved", async () => {
+    await renderWithTwoEmployers()
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ New fact/i }))
+    fireEvent.change(screen.getByPlaceholderText(/e\.g\., Aditya Mehta/i), { target: { value: "Ariana Tan" } })
+    fireEvent.click(screen.getByRole("button", { name: /Add fact/i }))
+
+    fireEvent.click(screen.getByText("Morgan Stanley"))
+
+    expect(
+      screen.getAllByText((_, element) => element?.textContent?.includes("Save or discard before opening Morgan Stanley") ?? false)
+    ).not.toHaveLength(0)
+    expect(screen.getByRole("heading", { name: "Goldman Sachs" })).toBeInTheDocument()
+    expect(screen.queryByRole("heading", { name: "Morgan Stanley" })).not.toBeInTheDocument()
   })
 })

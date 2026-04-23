@@ -221,15 +221,14 @@ function resetToIdle() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold mb-1">Review New Knowledge Before Saving</h2>
+      <h2 className="text-lg font-semibold mb-1">Quick Update</h2>
       <p className="text-sm text-gray-500 mb-4 max-w-3xl">
-        Paste a counsellor note or upload a file. We will suggest searchable notes and structured fact updates for you to review before anything is saved.
+        Paste a note or upload a file to review one employer or track update before it is saved.
       </p>
 
       {/* Intake routing note — permanently visible, DESIGN.md tokens */}
       <div className="mb-4 rounded-lg bg-[#F6F1E8] border border-[#D8D0C4] px-4 py-3 text-sm text-[#5F6B76]">
-        <span className="font-medium text-[#1F2937]">For full memos:</span>{" "}
-        if your note covers multiple employers or tracks,{" "}
+        <span className="font-medium text-[#1F2937]">For full memos:</span> use{" "}
         {onNavigateToSession ? (
           <button
             onClick={onNavigateToSession}
@@ -242,8 +241,7 @@ function resetToIdle() {
         ) : (
           <span className="font-medium text-[#0F766E]">use Session Editor</span>
         )}{" "}
-        to extract per-entity update cards. Use this tab for targeted fact
-        corrections and employer updates.
+        for multi-employer or multi-track notes. This tab is for quick, single-record updates.
       </div>
 
       {state === "success" && (

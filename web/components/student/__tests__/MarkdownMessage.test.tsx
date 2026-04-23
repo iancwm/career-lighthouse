@@ -10,7 +10,10 @@ describe("MarkdownMessage", () => {
 - first item
 - second item
 
-**Bold** text with \`code\` and [docs](https://example.com)
+> quoted line
+> second line
+
+**Bold** text with *italics* and \`code\` and [docs](https://example.com)
 
 <script>alert("xss")</script>`}
       />
@@ -20,7 +23,9 @@ describe("MarkdownMessage", () => {
     expect(screen.getByText("first item")).toBeInTheDocument()
     expect(screen.getByText("second item")).toBeInTheDocument()
     expect(screen.getByText("Bold")).toBeInTheDocument()
+    expect(screen.getByText("italics").tagName).toBe("EM")
     expect(screen.getByText("code")).toBeInTheDocument()
+    expect(screen.getByText(/quoted line\s+second line/i)).toBeInTheDocument()
 
     const link = screen.getByRole("link", { name: "docs" })
     expect(link).toHaveAttribute("href", "https://example.com")

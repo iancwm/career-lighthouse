@@ -602,6 +602,37 @@ Keep the employer form stable and treat the Facts Dashboard as the read-side com
 
 ---
 
+## UI Clarity Mini-Sprint (2026-04-24)
+
+**Goal:** Reduce ambiguity, scrolling, and state confusion across counselor-facing admin surfaces.
+**Status:** Proposed
+
+### Task U1 — Remove the counselor brief from Career Wire Documents
+Career Wire currently shows a brief-generation surface under Documents even though Smart Counsellor already owns that job. Remove the duplicate counseling brief from the Documents lane so the user has one obvious place to start.
+
+### Task U2 — Tighten Review & Publish copy
+The current title and explanatory text are too wordy for a quick-update surface. Replace them with concise, direct copy that tells the user this is the fast review/update lane.
+
+### Task U3 — Employer Records save-state clarity
+Employer fact editing should keep the save action visible while scrolling, and navigation cues should be disabled while there are unsaved facts. If the user switches employers mid-edit, the selection state should not imply a new employer when the Facts panel is still editing the previous one.
+
+### Task U4 — Profile Repair pending state
+The current green success banner appears too early when Auto-complete with AI starts. Replace it with an in-progress / pending state until extraction actually finishes, then show success only when the model returns.
+
+### Task U5 — Student chat markdown rendering
+Blockquotes and italics need to render correctly in student chat markdown. Make sure `>` quote blocks and emphasis styling survive the render path instead of collapsing into plain text.
+
+### Task U6 — Resume upload-first landing
+Resume intake should happen before the chat window opens. Make the resume upload the first screen focus so the user starts with the document, not the conversation.
+
+### Task U7 — Smart Counsellor intake and file upload
+Smart Counsellor should support `.docx` and `.txt` uploads for text extraction into the input, move the “Have an upcoming student meeting?” prompt to the top as a heading, and place the resume review action after the document upload or pasted text area.
+
+### Task U8 — TBD
+The request was truncated at `8)`, so this sprint reserves one placeholder item for the final UI issue once it is supplied.
+
+---
+
 ## Definition of Done
 
 - All tests pass locally and in CI

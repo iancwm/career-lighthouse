@@ -8,6 +8,7 @@ interface SourceStateSummaryProps {
   supersededHitCount?: number | null
   loading?: boolean
   lastRefreshedAt?: string | null
+  onExplainStaleSources?: () => void
 }
 
 function formatCount(value: number | null | undefined): string {
@@ -33,12 +34,16 @@ function SummaryTile({
   helper,
   tone,
   loading,
+  actionLabel,
+  onAction,
 }: {
   label: string
   value: number | null | undefined
   helper: string
   tone: "active" | "superseded" | "stale"
   loading?: boolean
+  actionLabel?: string
+  onAction?: () => void
 }) {
   const toneClasses = {
     active: "border-[#0F766E]/20 bg-[#0F766E]/10 text-[#0F766E]",
@@ -59,6 +64,15 @@ function SummaryTile({
         {loading ? <span className="inline-block h-8 w-20 rounded bg-current/10 align-middle" /> : formatCount(value)}
       </p>
       <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">{helper}</p>
+      {actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="mt-3 inline-flex rounded-full border border-current/20 bg-white/70 px-3 py-1.5 text-xs font-medium text-current transition-colors hover:bg-white"
+        >
+          {actionLabel}
+        </button>
+      )}
     </article>
   )
 }
@@ -71,6 +85,7 @@ export default function SourceStateSummary({
   supersededHitCount,
   loading,
   lastRefreshedAt,
+  onExplainStaleSources,
 }: SourceStateSummaryProps) {
   const refreshedLabel = formatDate(lastRefreshedAt)
 
@@ -112,6 +127,8 @@ export default function SourceStateSummary({
           helper="Indexed chunks still point at old material."
           tone="stale"
           loading={loading}
+          actionLabel={staleCount && staleCount > 0 ? "Explain stale sources" : undefined}
+          onAction={onExplainStaleSources}
         />
       </div>
 

@@ -2,6 +2,16 @@
 
 import type { ReactNode } from "react"
 
+function findNextItalicMarker(text: string, start: number, marker: "*" | "_"): number {
+  for (let index = start; index < text.length; index += 1) {
+    if (text[index] !== marker) continue
+    if (text[index + 1] === marker) continue
+    if (text[index - 1] === marker) continue
+    return index
+  }
+  return -1
+}
+
 function parseInline(text: string): ReactNode[] {
   const nodes: ReactNode[] = []
   let index = 0
@@ -10,8 +20,9 @@ function parseInline(text: string): ReactNode[] {
     const boldStart = text.indexOf("**", index)
     const codeStart = text.indexOf("`", index)
     const linkStart = text.indexOf("[", index)
+    const italicStarStart = findNextItalicMarker(text, index, "*")
 
-    const candidates = [boldStart, codeStart, linkStart].filter((value) => value !== -1)
+    const candidates = [boldStart, codeStart, linkStart, italicStarStart].filter((value) => value !== -1)
     if (candidates.length === 0) {
       nodes.push(text.slice(index))
       break
@@ -30,6 +41,18 @@ function parseInline(text: string): ReactNode[] {
         nodes.push(<strong key={`${boldStart}-${end}`}>{text.slice(boldStart + 2, end)}</strong>)
         index = end + 2
         continue
+      }
+    }
+
+    if (next === italicStarStart) {
+      const end = findNextItalicMarker(text, next + 1, "*")
+      if (end !== -1) {
+        const content = text.slice(next + 1, end)
+        if (content.trim()) {
+          nodes.push(<em key={`${next}-${end}`}>{content}</em>)
+          index = end + 1
+          continue
+        }
       }
     }
 
@@ -145,6 +168,27 @@ export default function MarkdownMessage({ content }: { content: string }) {
         </pre>
       )
       if (!foundEnd) break
+      continue
+    }
+
+    if (trimmed.startsWith(">")) {
+      flushParagraphBuffer()
+      const quoteLines: string[] = []
+      while (index < lines.length) {
+        const quoteLine = lines[index].trim()
+        if (!quoteLine.startsWith(">")) break
+        quoteLines.push(quoteLine.replace(/^>\s?/, ""))
+        index += 1
+      }
+      index -= 1
+      blocks.push(
+        <blockquote
+          key={`quote-${index}`}
+          className="rounded-2xl border-l-4 border-[var(--cl-accent)] bg-[var(--cl-surface-2)] px-4 py-3 text-[var(--cl-ink)]"
+        >
+          <p className="whitespace-pre-wrap italic">{parseInline(quoteLines.join("\n"))}</p>
+        </blockquote>
+      )
       continue
     }
 

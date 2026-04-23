@@ -70,7 +70,7 @@ export const ADMIN_VIEWS: Record<AdminView, AdminViewDefinition> = {
   knowledge: {
     id: "knowledge",
     label: "Documents",
-    description: "Manage career-knowledge files and check retrieval quality before publishing decisions.",
+    description: "Upload career-knowledge files and check retrieval quality.",
     workstreamId: "career-wire",
     showInPrimaryNav: true,
     showInDrawer: true,
@@ -82,15 +82,15 @@ export const ADMIN_VIEWS: Record<AdminView, AdminViewDefinition> = {
   },
   update: {
     id: "update",
-    label: "Review & Publish",
-    description: "Review a single note or file update before committing it to trusted knowledge.",
+    label: "Quick Update",
+    description: "Review one note or file update before saving it.",
     workstreamId: "career-wire",
     showInPrimaryNav: true,
     showInDrawer: true,
     directive: {
-      label: "Review and publish updates",
-      whatYouDo: "Paste a short note targeting one employer or track when you already know the record to change.",
-      whatHappens: "The system proposes field-level changes for your review before publishing.",
+      label: "Quick update lane",
+      whatYouDo: "Paste a short note or upload a file for one employer or track.",
+      whatHappens: "You get a compact diff to review before saving it.",
     },
   },
   employers: {

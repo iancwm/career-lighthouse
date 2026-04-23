@@ -14,7 +14,6 @@ vi.mock("next/navigation", () => ({
 
 vi.mock("@/components/admin/KnowledgeUpload", () => ({ default: () => <div>knowledge-upload</div> }))
 vi.mock("@/components/admin/DocList", () => ({ default: () => <div>doc-list</div> }))
-vi.mock("@/components/admin/BriefGenerator", () => ({ default: () => <div>brief-generator</div> }))
 vi.mock("@/components/admin/StatCards", () => ({ default: () => <div>stat-cards</div> }))
 vi.mock("@/components/admin/TestQueryBox", () => ({ default: () => <div>test-query-box</div> }))
 vi.mock("@/components/admin/DocCoverageList", () => ({ default: () => <div>doc-coverage</div> }))
@@ -118,7 +117,18 @@ describe("AdminWorkspace", () => {
         headers: {},
       })
     )
+    expect(screen.queryByText("brief-generator")).not.toBeInTheDocument()
     expect(screen.getByRole("heading", { name: /KB Health/i })).toBeInTheDocument()
+  })
+
+  it("shows the quick update lane copy", async () => {
+    currentQuery = "view=update"
+
+    render(<AdminWorkspace />)
+
+    expect(screen.getByRole("button", { name: /^Quick Update$/i })).toBeInTheDocument()
+    expect(screen.getByText(/Review one note or file update before saving it\./i)).toBeInTheDocument()
+    expect(screen.getByRole("heading", { name: /Quick Update/i })).toBeInTheDocument()
   })
 
   it("renders the observability workspace when requested", async () => {

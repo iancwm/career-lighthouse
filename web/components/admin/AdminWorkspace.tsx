@@ -5,7 +5,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { adminFetch } from "@/lib/admin-api"
 import KnowledgeUpload from "@/components/admin/KnowledgeUpload"
 import DocList from "@/components/admin/DocList"
-import BriefGenerator from "@/components/admin/BriefGenerator"
 import StatCards from "@/components/admin/StatCards"
 import TestQueryBox from "@/components/admin/TestQueryBox"
 import DocCoverageList from "@/components/admin/DocCoverageList"
@@ -295,12 +294,9 @@ export default function AdminWorkspace() {
 
       {view === "knowledge" && (
         <section className="space-y-6">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(320px,0.95fr)]">
-            <div className="space-y-6">
-              <KnowledgeUpload onUploaded={() => setRefreshKey((value) => value + 1)} />
-              <DocList refreshKey={refreshKey} onDeleted={() => setRefreshKey((value) => value + 1)} />
-            </div>
-            <BriefGenerator />
+          <div className="space-y-6">
+            <KnowledgeUpload onUploaded={() => setRefreshKey((value) => value + 1)} />
+            <DocList refreshKey={refreshKey} onDeleted={() => setRefreshKey((value) => value + 1)} />
           </div>
 
           <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">

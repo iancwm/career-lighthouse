@@ -11,6 +11,20 @@ This backlog is ordered by execution priority:
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
 
+### UI Clarity Mini-Sprint
+**What:** Tighten the counselor-facing admin surfaces so the next action is obvious and the page state stays trustworthy.
+**Why:** Recent QA surfaced several UI friction points that slow counseling workflows and create unnecessary anxiety.
+**Includes:**
+- Remove the counselor brief from Career Wire Documents and keep that work in Smart Counsellor.
+- Shorten and rename the Review & Publish surface so users understand it is a quick update lane.
+- Make Employer Records saving sticky and lock navigation cues while unsaved facts are still pending.
+- Replace the immediate green Profile Repair banner with a proper in-progress state.
+- Fix student chat markdown rendering for quote blocks and italics.
+- Move resume upload to the first screen.
+- Add Smart Counsellor docx/txt intake, move the heading to the top, and place the action after file/text intake.
+- Item 8 is pending from the original request.
+**Depends on:** Current admin workspace UI surfaces and Playwright coverage.
+
 ### ~~Counsellor Trust Sprint 1: Fix FactCard delete button touch target~~ ✓ Done (2026-04-22)
 Shipped: delete affordance is now at least 44px on mobile and desktop in `web/components/admin/forms/FactCard.tsx`.
 

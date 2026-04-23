@@ -7,6 +7,7 @@ import DocCoverageList from "@/components/admin/DocCoverageList"
 import LowConfidenceLog from "@/components/admin/LowConfidenceLog"
 import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import SourceStateSummary from "@/components/admin/SourceStateSummary"
+import StaleSourceGuidanceModal from "@/components/admin/modals/StaleSourceGuidanceModal"
 
 interface LowConfidenceQuery {
   ts: string
@@ -292,6 +293,7 @@ export default function LLMObservabilityTab() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showStaleGuidance, setShowStaleGuidance] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -382,6 +384,7 @@ export default function LLMObservabilityTab() {
             supersededHitCount={health.sourceState.supersededHitCount}
             lastRefreshedAt={health.sourceState.lastRefreshedAt}
             loading={loading}
+            onExplainStaleSources={() => setShowStaleGuidance(true)}
           />
 
           <StatCards
@@ -410,6 +413,10 @@ export default function LLMObservabilityTab() {
       )}
       {!health && error && (
         <p className="text-sm text-[var(--cl-muted)]">Refresh once the backend is available again.</p>
+      )}
+
+      {showStaleGuidance && (
+        <StaleSourceGuidanceModal evidence={staleEvidence} onClose={() => setShowStaleGuidance(false)} />
       )}
     </section>
   )

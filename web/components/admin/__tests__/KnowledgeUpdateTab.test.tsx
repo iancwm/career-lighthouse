@@ -33,6 +33,10 @@ describe("KnowledgeUpdateTab", () => {
 
   it("renders idle state with disabled Analyse button", () => {
     render(<KnowledgeUpdateTab />)
+    expect(screen.getByRole("heading", { name: /Quick Update/i })).toBeInTheDocument()
+    expect(
+      screen.getByText(/Paste a note or upload a file to review one employer or track update before it is saved\./i)
+    ).toBeInTheDocument()
     const btn = screen.getByRole("button", { name: /Review proposed changes/i })
     expect(btn).toBeDisabled()
     expect(screen.getByText(/Your review summary will appear here/i)).toBeInTheDocument()

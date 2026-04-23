@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react"
 import { vi } from "vitest"
 import LLMObservabilityTab from "../LLMObservabilityTab"
 
@@ -86,7 +86,15 @@ describe("LLMObservabilityTab", () => {
     expect(screen.getByLabelText(/Active sources: 2/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Superseded sources: 1/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/Stale sources: 1/i)).toBeInTheDocument()
-    expect(screen.getByText("old-guide.pdf")).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Explain stale sources/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole("button", { name: /Explain stale sources/i }))
+
+    const dialog = await screen.findByRole("dialog", { name: /Stale sources guidance/i })
+    expect(dialog).toBeInTheDocument()
+    expect(screen.getByText(/Why this is red, and how to fix it/i)).toBeInTheDocument()
+    expect(within(dialog).getByText("old-guide.pdf")).toBeInTheDocument()
+    expect(within(dialog).getByText(/Re-ingest or delete the old indexed chunks/i)).toBeInTheDocument()
     expect(screen.getByText("What internships fit me?")).toBeInTheDocument()
     expect(screen.getByText("Completed")).toBeInTheDocument()
     expect(screen.getByText("gpt-5")).toBeInTheDocument()
