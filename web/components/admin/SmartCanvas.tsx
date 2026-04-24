@@ -1,7 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
-
-const API_URL = "/api/admin"
+import { adminFetch } from "@/lib/admin-api"
 
 interface IntentCard {
   card_id: string
@@ -81,7 +80,7 @@ function CreateTrackFromSession({ sessionId, rawInput, actionLoading, setActionL
     setError("")
     setNotice("")
     try {
-      const res = await fetch(`${API_URL}/api/kb/draft-tracks/generate`, {
+      const res = await adminFetch("/api/kb/draft-tracks/generate", {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams({
@@ -155,7 +154,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   async function loadSession() {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/api/sessions/${sessionId}`)
+      const res = await adminFetch(`/api/sessions/${sessionId}`)
       if (!res.ok) throw new Error("not found")
       const data: KnowledgeSession = await res.json()
       setSession(data)
@@ -197,7 +196,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
     setNotice("Analyzing your notes with AI…")
     setError("")
     try {
-      const res = await fetch(`${API_URL}/api/sessions/${sessionId}/analyze`, {
+      const res = await adminFetch(`/api/sessions/${sessionId}/analyze`, {
         method: "POST",
       })
       if (!res.ok) {
@@ -205,7 +204,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
         throw new Error(err.detail || "Analysis failed")
       }
       // Reload session to get the cards
-      const reloadRes = await fetch(`${API_URL}/api/sessions/${sessionId}`)
+      const reloadRes = await adminFetch(`/api/sessions/${sessionId}`)
       if (reloadRes.ok) {
         const data: KnowledgeSession = await reloadRes.json()
         setSession(data)
@@ -237,7 +236,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
     setNotice("")
     setError("")
     try {
-      const res = await fetch(`${API_URL}/api/sessions/${session.id}/cancel`, {
+      const res = await adminFetch(`/api/sessions/${session.id}/cancel`, {
         method: "POST",
       })
       if (res.status === 409) {
@@ -279,14 +278,11 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
     setError("")
     setNotice("")
     try {
-      const res = await fetch(
-        `${API_URL}/api/sessions/${session.id}/cards/${selectedCardId}/commit`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ diff: editingDiff }),
-        }
-      )
+      const res = await adminFetch(`/api/sessions/${session.id}/cards/${selectedCardId}/commit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ diff: editingDiff }),
+      })
       if (res.status === 409) {
         // Card already committed/discarded — reload to sync state
         await loadSession()
@@ -308,10 +304,9 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
     setError("")
     setNotice("")
     try {
-      const res = await fetch(
-        `${API_URL}/api/sessions/${session.id}/cards/${selectedCardId}/discard`,
-        { method: "POST" }
-      )
+      const res = await adminFetch(`/api/sessions/${session.id}/cards/${selectedCardId}/discard`, {
+        method: "POST",
+      })
       if (res.status === 409) {
         // Card already committed/discarded — reload to sync state
         await loadSession()

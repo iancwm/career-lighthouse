@@ -241,3 +241,27 @@ The function's signature carries all chunk-splitting configuration as individual
 
 ### CS-14 · `_merge_source_refs` in `kb_router.py` is defined once but called from three different flows
 The function deduplicates source reference lists. It is defined in the middle of `kb_router.py` (line 233) with no sibling helpers and is called from both track generation and alumni extraction paths. As a domain utility, it belongs in a shared service or model layer, not a router file.
+
+---
+
+## Part 5 — Code Smell Findings (rest of repo, 2026-04-24)
+
+Observed outside `api/routers/` and `api/services/`. These are maintenance smells, not runtime bugs.
+
+### RS-01 · `AdminWorkspace.tsx` is the frontend equivalent of a router megafile
+[`web/components/admin/AdminWorkspace.tsx`](/home/iancwm/git/career-lighthouse/web/components/admin/AdminWorkspace.tsx#L61) owns URL parsing, workstream routing, panel selection, health loading, drawer state, and the top-level workspace chrome for more than a dozen tabs. It is doing the job of a small front-end app shell, not a single component. Split URL/state orchestration into a hook or controller and move per-workstream rendering into smaller route-level pieces.
+
+### RS-02 · `StudentPage.tsx` combines persistence, flow control, and page composition
+[`web/app/student/page.tsx`](/home/iancwm/git/career-lighthouse/web/app/student/page.tsx#L10) manages `sessionStorage`, guided entry, intake, chat transitions, and resume state in one client component. The page is small today, but the state machine already has three distinct modes. Extract the storage sync and flow transitions into a dedicated hook so the page becomes a thin composition layer.
+
+### RS-03 · `admin-workspace.e2e.ts` hardcodes large fixture payloads inline
+[`web/e2e/admin-workspace.e2e.ts`](/home/iancwm/git/career-lighthouse/web/e2e/admin-workspace.e2e.ts#L1) embeds alumni, employer, and preview payloads directly in the test file. That makes the test a second source of truth for the same schemas the app already models elsewhere. Move these fixtures into shared test data builders so the smoke test only describes behavior.
+
+### RS-04 · `validate_profiles.py` reaches into app internals with `sys.path` surgery
+[`scripts/validate_profiles.py`](/home/iancwm/git/career-lighthouse/scripts/validate_profiles.py#L30) mutates `sys.path` to import `profile_to_context_block` from the API package. That keeps the script coupled to repository layout and makes it harder to invoke outside the repo root. A packaged CLI entrypoint or a small shared helper module would remove the path hack.
+
+### RS-05 · `models.py` is a catch-all transport schema bag
+[`api/models.py`](/home/iancwm/git/career-lighthouse/api/models.py#L14) mixes chat payloads, KB observability records, track guidance, employer diffs, and validation helpers in one large module, with many mutable list defaults along the way. It works, but the file is now the canonical home for too many unrelated contracts. Split it by domain (`chat`, `kb`, `tracks`, `employers`) so the API surface is easier to navigate and safer to change.
+
+### RS-06 · `terraform/main.tf` couples every runtime knob into one monolith
+[`terraform/main.tf`](/home/iancwm/git/career-lighthouse/terraform/main.tf#L1) defines EFS, ECS, SSM, Amplify, task definitions, and ALB wiring in one file while also baking runtime env strings like `NEXT_PUBLIC_API_URL` and `WEB_CONCURRENCY=1`. It is readable today, but it is already carrying enough concerns to justify module splits for network, compute, and frontend wiring.

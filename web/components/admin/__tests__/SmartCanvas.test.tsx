@@ -11,7 +11,7 @@ describe("SmartCanvas", () => {
     let sessionGetCount = 0
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input)
-      if (url.endsWith("/api/sessions/session-1") && (!init || init.method === undefined)) {
+      if (url.endsWith("/api/admin/api/sessions/session-1") && (!init || init.method === undefined)) {
         sessionGetCount += 1
         if (sessionGetCount === 1) {
           return {
@@ -50,7 +50,7 @@ describe("SmartCanvas", () => {
           }),
         } as Response
       }
-      if (url.endsWith("/api/sessions/session-1/analyze")) {
+      if (url.endsWith("/api/admin/api/sessions/session-1/analyze")) {
         return {
           ok: true,
           json: async () => ({ session_id: "session-1", cards: [], already_covered: [], track_guidance: null }),
@@ -74,7 +74,7 @@ describe("SmartCanvas", () => {
   it("shows stop controls while a session is analyzing", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.endsWith("/api/sessions/session-2")) {
+      if (url.endsWith("/api/admin/api/sessions/session-2")) {
         return {
           ok: true,
           json: async () => ({
@@ -103,7 +103,7 @@ describe("SmartCanvas", () => {
   it("renders nested follow-up data as readable json", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input)
-      if (url.endsWith("/api/sessions/session-3")) {
+      if (url.endsWith("/api/admin/api/sessions/session-3")) {
         return {
           ok: true,
           json: async () => ({

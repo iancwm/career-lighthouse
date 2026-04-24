@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
 import AlumniDetectionModal from "@/components/admin/modals/AlumniDetectionModal"
 
-const API_URL = "/api/admin"
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10MB
 const ACCEPTED_TYPES = [
   "application/pdf",
@@ -110,7 +109,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
   }
 
   async function createSessionWithText(noteText: string) {
-    const res = await fetch(`${API_URL}/api/sessions`, {
+    const res = await adminFetch("/api/sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ raw_input: noteText, counsellor_id: "counsellor" }),
@@ -142,7 +141,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
 
   async function loadSessions() {
     try {
-      const res = await fetch(`${API_URL}/api/sessions`)
+      const res = await adminFetch("/api/sessions")
       if (!res.ok) throw new Error("load failed")
       const data: KnowledgeSession[] = await res.json()
       setSessions(data.filter((s) => s.status !== "completed"))
@@ -203,7 +202,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
   async function stopSession(sessionId: string) {
     setActionSessionId(sessionId)
     try {
-      const res = await fetch(`${API_URL}/api/sessions/${sessionId}/cancel`, {
+      const res = await adminFetch(`/api/sessions/${sessionId}/cancel`, {
         method: "POST",
       })
       if (res.ok || res.status === 409) {
@@ -221,7 +220,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
   async function retrySession(sessionId: string) {
     setActionSessionId(sessionId)
     try {
-      const res = await fetch(`${API_URL}/api/sessions/${sessionId}/analyze`, {
+      const res = await adminFetch(`/api/sessions/${sessionId}/analyze`, {
         method: "POST",
       })
       if (res.ok || res.status === 409) {
@@ -263,7 +262,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
       const formData = new FormData()
       formData.append("file", file)
 
-      const res = await fetch(`${API_URL}/api/sessions/parse-file`, {
+      const res = await adminFetch("/api/sessions/parse-file", {
         method: "POST",
         body: formData,
       })

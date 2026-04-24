@@ -1,44 +1,22 @@
 "use client"
-import { useState, useEffect } from "react"
 import ResumeUpload from "@/components/student/ResumeUpload"
 import ChatInterface from "@/components/student/ChatInterface"
 import GuidedEntry from "@/components/student/GuidedEntry"
-import IntakeFlow, { type IntakeContext } from "@/components/student/IntakeFlow"
-
-type FlowState = "guided_entry" | "intake" | "chat"
+import IntakeFlow from "@/components/student/IntakeFlow"
+import { useStudentPage } from "./useStudentPage"
 
 export default function StudentPage() {
-  const [resumeText, setResumeText] = useState("")
-  const [flowState, setFlowState] = useState<FlowState>("guided_entry")
-  const [intakeContext, setIntakeContext] = useState<IntakeContext | null>(null)
-
-  useEffect(() => {
-    setResumeText(sessionStorage.getItem("resume_text") || "")
-  }, [])
-
-  function handleResume(text: string) {
-    setResumeText(text)
-    if (text) sessionStorage.setItem("resume_text", text)
-    else sessionStorage.removeItem("resume_text")
-  }
-
-  function handleEntryOption(_option: string) {
-    // All 4 options go through intake to resolve career type context
-    setFlowState("intake")
-  }
-
-  function handleSkip() {
-    setFlowState("chat")
-  }
-
-  function handleIntakeComplete(ctx: IntakeContext) {
-    setIntakeContext(ctx)
-    setFlowState("chat")
-  }
-
-  function handleBack() {
-    setFlowState("guided_entry")
-  }
+  const {
+    resumeText,
+    flowState,
+    intakeContext,
+    handleResume,
+    handleEntryOption,
+    handleSkip,
+    handleIntakeComplete,
+    handleBack,
+    setFlowState,
+  } = useStudentPage()
 
   return (
     <div className="max-w-2xl mx-auto p-6 space-y-6">

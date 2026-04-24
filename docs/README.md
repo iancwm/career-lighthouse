@@ -21,6 +21,7 @@ These docs are still maintained against the codebase:
 - `docs/schema/singapore_metadata.yaml` - supporting schema metadata sample
 - `docs/schema/structured_metadata.yaml` - supporting structured metadata sample
 - `docs/llm_hardening/llm_hardening.md` - LLM safety and hardening notes
+- `docs/code_smell_cleanup/` - cleanup specs for the non-router/service code-smell sprint
 
 ## Archived Specs And Plans
 
@@ -33,6 +34,17 @@ Completed or historical planning docs live under `docs/archived/`:
 - `docs/archived/implementer-prompt.md` - legacy implementation guidance
 - `docs/archived/spec-reviewer-prompt.md` - legacy spec review guidance
 
+## Active Cleanup Specs
+
+These docs break the repo-wide smell audit into separate lanes:
+
+- `docs/code_smell_cleanup/admin-workspace-shell.md`
+- `docs/code_smell_cleanup/student-page-shell.md`
+- `docs/code_smell_cleanup/admin-e2e-fixtures.md`
+- `docs/code_smell_cleanup/validate-profiles-cli.md`
+- `docs/code_smell_cleanup/api-models-split.md`
+- `docs/code_smell_cleanup/terraform-module-split.md`
+
 ## Navigation
 
 Start here:
@@ -42,6 +54,7 @@ Start here:
 - `TODOS.md` for the current backlog
 - `docs/schema/` for active schema work
 - `docs/llm_hardening/` for active LLM safety work
+- `docs/code_smell_cleanup/` for the cleanup sprint specs
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs
