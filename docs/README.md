@@ -1,56 +1,51 @@
 # Documentation Structure
 
-This directory contains specification documents and archived planning materials for career-lighthouse.
+This directory is the index for active specs, working notes, and archived planning material.
 
-## Active Documents (Root Level)
+## Active Documentation
 
-The root of the repo contains the active project documentation:
+The repo root holds the active project docs:
 
-- **AUDIT.md** — Production readiness audit; updated continuously as security/infrastructure work ships
-- **DESIGN.md** — Core system design and architecture rationale
-- **TODOS.md** — Active backlog; ordered by priority (Now, Next, Later, Done)
-- **CHANGELOG.md** — Release notes and version history
-- **README.md** — Getting started guide
+- `README.md` - product and setup overview
+- `DESIGN.md` - current design system and architecture rationale
+- `TODOS.md` - active backlog, ordered by priority
+- `CHANGELOG.md` - release notes and version history
+- `AUDIT.md` - production readiness and security review
 
-## Schema Documentation
+## Active Specs
 
-- **docs/schema/** — Data schema designs and standards
-  - `SCHEMA-FOUNDATION.md` — Structured schema foundation for career knowledge base (facts with metadata, timestamps, sourcing)
+These docs are still maintained against the codebase:
 
-## Counsellor Trust Documentation
+- `docs/schema/SCHEMA-FOUNDATION.md` - structured schema foundation for the knowledge base
+- `docs/schema/SPRINT-SCHEMA-FOUNDATION.md` - current schema execution plan and remaining work
+- `docs/schema/singapore_metadata.yaml` - supporting schema metadata sample
+- `docs/schema/structured_metadata.yaml` - supporting structured metadata sample
+- `docs/llm_hardening/llm_hardening.md` - LLM safety and hardening notes
 
-- **docs/counsellor_trust/** — Sprint specs and planning for counsellor-facing trust, provenance, and publishing surfaces
-  - `sprint_list.md` — High-level sprint sequence for the trust track
-  - `sprint_1_spec.md` — Sprint 1 spec for provenance, active/superseded state, and tool explanations
+## Archived Specs And Plans
 
-## Archived Materials
+Completed or historical planning docs live under `docs/archived/`:
 
-- **docs/archived/** — Historical documents and drafts
-  - `code-quality-reviewer-prompt.md` — Legacy code review guidelines (archived 2026-04-16)
-  - `implementer-prompt.md` — Legacy implementation guidance (archived 2026-04-16)
-  - `spec-reviewer-prompt.md` — Legacy spec review guidelines (archived 2026-04-16)
-  - **plans/** — Prior planning documents from earlier sessions
-    - All dated plans moved here to keep `/docs` clean while preserving history for reference
+- `docs/archived/counsellor_trust/` - completed counsellor-trust sprint specs and IA notes
+- `docs/archived/student_chat_qdrant_ingestion/` - completed student chat insight epic and sprint specs
+- `docs/archived/plans/` - dated planning docs from earlier sessions
+- `docs/archived/code-quality-reviewer-prompt.md` - legacy code review guidance
+- `docs/archived/implementer-prompt.md` - legacy implementation guidance
+- `docs/archived/spec-reviewer-prompt.md` - legacy spec review guidance
 
 ## Navigation
 
-**For understanding the current state:**
-- Start with README.md (getting started)
-- Read DESIGN.md (architecture)
-- Check TODOS.md (what's being worked on)
-- Review AUDIT.md (security/production status)
+Start here:
 
-**For implementation details:**
-- See `/docs/schema/` for data structure specifications
-- See `/docs/counsellor_trust/` for counsellor trust sprint specs
-
-**For historical context:**
-- See `/docs/archived/plans/` for prior session work
-- See `/docs/archived/` for legacy guidelines
+- `README.md` for the product and setup overview
+- `DESIGN.md` for architecture and UI direction
+- `TODOS.md` for the current backlog
+- `docs/schema/` for active schema work
+- `docs/llm_hardening/` for active LLM safety work
+- `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs
 
-- **Active specs** → root level (DESIGN.md, TODOS.md, etc.)
-- **Schema definitions** → docs/schema/
-- **Counsellor trust specs** → docs/counsellor_trust/
-- **Historical/archived material** → docs/archived/
+- Active specs and live working docs belong in the repo root or an active subfolder like `docs/schema/` or `docs/llm_hardening/`
+- Completed specs and planning docs should move into `docs/archived/`
+- Update this index whenever a docs folder changes status

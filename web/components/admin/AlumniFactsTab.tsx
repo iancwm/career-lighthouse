@@ -63,6 +63,8 @@ const EMPTY_PROFILE: AlumniProfile = {
   last_updated: null,
 }
 
+const ALUMNI_NOTE_STORAGE_KEY = "alumni_note_draft"
+
 function slugify(value: string): string {
   return value
     .toLowerCase()
@@ -276,6 +278,17 @@ export default function AlumniFactsTab() {
   }
 
   async function loadAlumni(preferredSlug?: string | null) {
+    const stagedNotes = typeof window !== "undefined" ? sessionStorage.getItem(ALUMNI_NOTE_STORAGE_KEY) : null
+    if (stagedNotes) {
+      sessionStorage.removeItem(ALUMNI_NOTE_STORAGE_KEY)
+      loadProfile(null, "create")
+      setForm({ ...EMPTY_PROFILE, notes: stagedNotes })
+      setCompanyLinks([])
+      setPreview(null)
+      setPreviewError("")
+      showBanner("Meeting note loaded from the Staging Area.")
+    }
+
     setLoadState("loading")
     setError("")
     try {
@@ -283,12 +296,14 @@ export default function AlumniFactsTab() {
       if (!res.ok) throw new Error("failed")
       const data = normalizeProfileList(await res.json())
       setAlumni(data)
-      const nextSlug = preferredSlug ?? selectedSlug ?? data[0]?.slug ?? null
-      const nextProfile = nextSlug ? data.find((item) => item.slug === nextSlug) ?? data[0] ?? null : null
-      if (nextProfile) {
-        loadProfile(nextProfile)
-      } else {
-        loadProfile(null)
+      if (!stagedNotes) {
+        const nextSlug = preferredSlug ?? selectedSlug ?? data[0]?.slug ?? null
+        const nextProfile = nextSlug ? data.find((item) => item.slug === nextSlug) ?? data[0] ?? null : null
+        if (nextProfile) {
+          loadProfile(nextProfile)
+        } else {
+          loadProfile(null)
+        }
       }
       setLoadState("loaded")
     } catch {

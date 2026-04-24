@@ -3,6 +3,7 @@ import { vi } from "vitest"
 import AlumniFactsTab from "../AlumniFactsTab"
 
 const ADMIN_KEY = "test-admin-key"
+const ALUMNI_NOTE_STORAGE_KEY = "alumni_note_draft"
 
 const ALUMNI_FIXTURE = [
   {
@@ -236,6 +237,24 @@ describe("AlumniFactsTab", () => {
     expect(screen.getByText(/Suggested profile changes/i)).toBeInTheDocument()
     expect(screen.getByText(/Suggested company links/i)).toBeInTheDocument()
     expect(screen.getByText(/Raw extracted facts/i)).toBeInTheDocument()
+    expectAllRequestsAuthenticated(fetchMock)
+  })
+
+  it("loads a staged meeting note from session storage into the alumni composer", async () => {
+    sessionStorage.setItem(ALUMNI_NOTE_STORAGE_KEY, "Aditya Mehta from Stripe Singapore can mentor compliance students.")
+    const fetchMock = setupFetch()
+
+    render(<AlumniFactsTab />)
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Counselor note/i)).toHaveValue(
+        "Aditya Mehta from Stripe Singapore can mentor compliance students."
+      )
+    )
+
+    expect(screen.getByText(/Meeting note loaded from the Staging Area/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Create alumni/i })).toBeInTheDocument()
+    expect(sessionStorage.getItem(ALUMNI_NOTE_STORAGE_KEY)).toBeNull()
     expectAllRequestsAuthenticated(fetchMock)
   })
 })

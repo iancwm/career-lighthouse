@@ -395,6 +395,7 @@ export default function AdminWorkspace() {
           <SessionInbox
             onSelectSession={(id) => navigate({ view: "sessions", sessionId: id })}
             onOpenTraces={(id) => navigate({ view: "traces", sessionId: id })}
+            onOpenAlumni={() => navigate({ view: "alumni" })}
           />
         )
       )}

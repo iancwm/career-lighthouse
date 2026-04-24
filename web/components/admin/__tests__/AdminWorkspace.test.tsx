@@ -27,9 +27,11 @@ vi.mock("@/components/admin/SessionInbox", () => ({
   default: ({
     onSelectSession,
     onOpenTraces,
+    onOpenAlumni,
   }: {
     onSelectSession: (sessionId: string) => void
     onOpenTraces: (sessionId: string) => void
+    onOpenAlumni: () => void
   }) => (
     <div>
       <button type="button" onClick={() => onSelectSession("session-1")}>
@@ -37,6 +39,9 @@ vi.mock("@/components/admin/SessionInbox", () => ({
       </button>
       <button type="button" onClick={() => onOpenTraces("session-1")}>
         open traces
+      </button>
+      <button type="button" onClick={onOpenAlumni}>
+        open alumni
       </button>
     </div>
   ),
@@ -219,6 +224,10 @@ describe("AdminWorkspace", () => {
     expect(push).toHaveBeenCalledWith("/admin?view=traces&sessionId=session-1", {
       scroll: false,
     })
+
+    fireEvent.click(screen.getByRole("button", { name: /open alumni/i }))
+
+    expect(push).toHaveBeenCalledWith("/admin?view=alumni", { scroll: false })
 
     currentQuery = "view=sessions&sessionId=session-1"
     render(<AdminWorkspace />)

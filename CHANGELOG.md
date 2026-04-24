@@ -12,6 +12,9 @@ All notable changes to this project will be documented in this file.
 - **Readable citation provenance in student chat**: citation badges now open a detail panel with source name, updated date, lifecycle state, and excerpt; backend citation responses now include `source_name`, `updated_at`, and `source_lifecycle`.
 - **Sprint 3 regression coverage**: added student-page flow coverage for guided entry -> intake -> chat -> reset restart, plus expanded chat-interface and citation disclosure tests.
 
+### Changed
+- Archived the completed counsellor-trust and student-chat sprint specs under `docs/archived/`, and refreshed the docs index plus root documentation links to match the current implementation status.
+
 ### Fixed
 - **Admin QA hardening**: stale `SourceType` casting in `FactEditor`, restrictive dev CSP in `next.config.js`, and duplicate trace keys in `LLMObservabilityTab` were fixed during browser QA.
 - **LLM fact extraction — JSON array parsing**: `_extract_json_block` now preserves the outermost `[...]` when Claude returns a JSON array. Previously, any array response was silently reduced to invalid JSON by incorrectly preferring the inner `{...}` boundaries.

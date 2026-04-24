@@ -65,22 +65,22 @@ Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/
 (5/min), and `POST /api/brief` (5/min). The `slowapi` infrastructure was already wired in `main.py`;
 per-endpoint decorators now enforce tighter budgets to protect Anthropic API quota and Fargate costs.
 
-### Student Chat Insights Sprint 1: Scaffold the insight collection
+### ~~Student Chat Insights Sprint 1: Scaffold the insight collection~~ ✓ Done (2026-04-24)
 **What:** Add 7 config fields to `api/config.py` (both the `BaseSettings` class and the fallback `@dataclass`), create `StudentChatInsightPayload` in `api/models_insights.py`, implement `StudentChatInsightStore` in `api/services/student_chat_insights.py` (`ensure_collection`, `index_message`, `build_payload`), and register `get_student_insight_store()` in `api/dependencies.py`.
 **Why:** Establishes the schema, privacy gates, and DI scaffolding before any data flows. This sprint ships no user-visible feature — it's the foundation Sprint 2 and Sprint 3 build on.
-**Context:** Full spec at `docs/student_chat_qdrant_ingestion/sprint_1_scaffold.md`. Key decisions: `message_id` is uuid4 generated at index time (pass as `p["id"]` to `VectorStore.upsert()`); `StudentChatInsightRecord` model removed as unused; `intake_context=None` with store flags True must return None gracefully (not AttributeError).
+**Context:** Full spec at `docs/archived/student_chat_qdrant_ingestion/sprint_1_scaffold.md`. Key decisions: `message_id` is uuid4 generated at index time (pass as `p["id"]` to `VectorStore.upsert()`); `StudentChatInsightRecord` model removed as unused; `intake_context=None` with store flags True must return None gracefully (not AttributeError).
 **Depends on:** Nothing.
 
-### Student Chat Insights Sprint 2: Index student messages from the chat flow
+### ~~Student Chat Insights Sprint 2: Index student messages from the chat flow~~ ✓ Done (2026-04-24)
 **What:** After each successful `POST /api/chat` response, write the student message into the student-chat insight collection. Feature-gated by `student_chat_insights_enabled`. Failure must be non-fatal (chat request must still return 200).
 **Why:** Produces the data corpus that Sprint 3's counsellor search needs. No user-visible change — silent indexing in the background.
-**Context:** Full spec at `docs/student_chat_qdrant_ingestion/sprint_2_indexing.md`. Key decisions: synchronous write (no `await`) mirroring the `_log_query()` pattern; test isolation via `app.dependency_overrides[dependencies.get_student_insight_store]`; `intake_context=None` integration test added (test 12a).
+**Context:** Full spec at `docs/archived/student_chat_qdrant_ingestion/sprint_2_indexing.md`. Key decisions: synchronous write (no `await`) mirroring the `_log_query()` pattern; test isolation via `app.dependency_overrides[dependencies.get_student_insight_store]`; `intake_context=None` integration test added (test 12a).
 **Depends on:** Sprint 1.
 
-### Student Chat Insights Sprint 3: Counsellor semantic search
+### ~~Student Chat Insights Sprint 3: Counsellor semantic search~~ ✓ Done (2026-04-24)
 **What:** Add `POST /api/insights/student-questions/search` (admin-protected via `require_admin_key`), implement `StudentChatInsightStore.search()` with Qdrant filters, and build `StudentInsightsTab.tsx` with all 8 AdminWorkspace/ToolsDrawer touch points.
 **Why:** First visible product value from the epic. Lets counsellors ask "what are students worried about with international hiring?" without reading raw chatlogs.
-**Context:** Full spec at `docs/student_chat_qdrant_ingestion/sprint_3_counsellor_search.md`. Key decisions: `DatetimeRange` (not `Range`) for timestamp filtering; `embedder.encode()` (not `embed()`); `build_filters()` gates background/region conditions on `student_chat_store_*` config flags; 8 AdminWorkspace touch points including ToolsDrawer.tsx.
+**Context:** Full spec at `docs/archived/student_chat_qdrant_ingestion/sprint_3_counsellor_search.md`. Key decisions: `DatetimeRange` (not `Range`) for timestamp filtering; `embedder.encode()` (not `embed()`); `build_filters()` gates background/region conditions on `student_chat_store_*` config flags; 8 AdminWorkspace touch points including ToolsDrawer.tsx.
 **Depends on:** Sprint 1 (service + DI). Can be parallelized with Sprint 2 after Sprint 1 ships.
 
 ### Student chat insight write — add Qdrant timeout cap
@@ -92,11 +92,6 @@ per-endpoint decorators now enforce tighter budgets to protect Anthropic API quo
 **What:** Tune `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` via env vars, and add a better non-blocking execution model when session analysis still exceeds the budget.
 **Why:** The timeout is now configurable, Langfuse confirms the request stays alive while it waits, and the structured JSON repair path now retries transient overloads. Long notes can still hit `504 Gateway Timeout` and occupy the user's session flow until they fail.
 **Depends on:** None.
-
-### FastAPI auth on KB endpoints
-**What:** Add `Depends()` auth guards to the read and write `/api/kb/*` endpoints.
-**Why:** Next.js middleware alone is not enough defense in depth; direct HTTP calls can bypass it.
-**Depends on:** The broader API auth strategy.
 
 ### ~~Validate profile field names in commit-analysis~~ ✓ Done (2026-04-12)
 Shipped: `ALLOWED_PROFILE_FIELDS` enforcement already existed with skip+warn; test coverage added

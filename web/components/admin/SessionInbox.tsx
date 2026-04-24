@@ -1,5 +1,7 @@
 "use client"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
+import { adminFetch } from "@/lib/admin-api"
+import AlumniDetectionModal from "@/components/admin/modals/AlumniDetectionModal"
 
 const API_URL = "/api/admin"
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10MB
@@ -27,12 +29,31 @@ interface ParsedFile {
   text: string
 }
 
+interface AlumniDetectionPreview {
+  summary_bullets?: string[]
+  profile_updates?: Record<string, unknown>
+  company_links?: Array<{
+    company_name?: string
+    company_slug?: string
+    relationship?: string
+    notes?: string
+  }>
+  facts?: Array<{
+    slug?: string
+    type?: string
+    confidence?: number
+    data?: Record<string, unknown>
+  }>
+}
+
 interface SessionInboxProps {
   onSelectSession: (sessionId: string) => void
   onOpenTraces: (sessionId: string) => void
+  onOpenAlumni: () => void
 }
 
 type UploadState = "idle" | "uploading" | "parsed" | "error"
+const ALUMNI_NOTE_STORAGE_KEY = "alumni_note_draft"
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -40,13 +61,17 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionInboxProps) {
+export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlumni }: SessionInboxProps) {
   const [sessions, setSessions] = useState<KnowledgeSession[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [rawInput, setRawInput] = useState("")
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
+  const [alumniPrompt, setAlumniPrompt] = useState<{
+    notes: string
+    preview: AlumniDetectionPreview
+  } | null>(null)
   const [showAllSessions, setShowAllSessions] = useState(false)
   const [uploadState, setUploadState] = useState<UploadState>("idle")
   const [parsedFile, setParsedFile] = useState<ParsedFile | null>(null)
@@ -74,6 +99,45 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
     if (status === "cancelled") return "bg-slate-100 text-slate-600"
     if (status === "analyzing") return "bg-amber-100 text-amber-800"
     return "bg-[#F0E7DB] text-[#5F6B76]"
+  }
+
+  function hasAlumniSignal(preview: AlumniDetectionPreview): boolean {
+    if (preview.summary_bullets?.length) return true
+    if (preview.profile_updates && Object.keys(preview.profile_updates).length > 0) return true
+    if (preview.company_links?.length) return true
+    if (preview.facts?.length) return true
+    return false
+  }
+
+  async function createSessionWithText(noteText: string) {
+    const res = await fetch(`${API_URL}/api/sessions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ raw_input: noteText, counsellor_id: "counsellor" }),
+    })
+    if (!res.ok) throw new Error("create failed")
+    const session: KnowledgeSession = await res.json()
+    setNotice("Session created.")
+    setRawInput("")
+    onSelectSession(session.id)
+  }
+
+  async function detectAlumniContacts(noteText: string): Promise<AlumniDetectionPreview | null> {
+    try {
+      const res = await adminFetch("/api/kb/alumni/extract-preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: noteText,
+          source_type: "note",
+          source_label: "counsellor_note",
+        }),
+      })
+      if (!res.ok) return null
+      return (await res.json()) as AlumniDetectionPreview
+    } catch {
+      return null
+    }
   }
 
   async function loadSessions() {
@@ -109,26 +173,31 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
   }, [hasActiveSessions])
 
   async function createSession() {
-    if (!rawInput.trim()) return
+    const noteText = rawInput.trim()
+    if (!noteText) return
     setCreating(true)
     setError("")
     setNotice("")
+    setAlumniPrompt(null)
     try {
-      const res = await fetch(`${API_URL}/api/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ raw_input: rawInput.trim(), counsellor_id: "counsellor" }),
-      })
-      if (!res.ok) throw new Error("create failed")
-      const session: KnowledgeSession = await res.json()
-      setNotice("Session created.")
-      setRawInput("")
-      onSelectSession(session.id)
+      const alumniPreview = await detectAlumniContacts(noteText)
+      if (alumniPreview && hasAlumniSignal(alumniPreview)) {
+        setAlumniPrompt({ notes: noteText, preview: alumniPreview })
+        return
+      }
+
+      await createSessionWithText(noteText)
     } catch {
       setError("Could not create session.")
     } finally {
       setCreating(false)
     }
+  }
+
+  function openAlumniRecords(noteText: string) {
+    sessionStorage.setItem(ALUMNI_NOTE_STORAGE_KEY, noteText)
+    setAlumniPrompt(null)
+    onOpenAlumni()
   }
 
   async function stopSession(sessionId: string) {
@@ -290,6 +359,30 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
         <div className="mb-4 rounded border border-success-200 bg-success-50 px-4 py-3 text-sm text-success">
           {notice}
         </div>
+      )}
+
+      {alumniPrompt && (
+        <AlumniDetectionModal
+          noteText={alumniPrompt.notes}
+          preview={alumniPrompt.preview}
+          onOpenAlumni={() => openAlumniRecords(alumniPrompt.notes)}
+          onContinue={async () => {
+            const noteText = alumniPrompt.notes
+            setAlumniPrompt(null)
+            setCreating(true)
+            setError("")
+            setNotice("")
+            try {
+              await createSessionWithText(noteText)
+            } catch {
+              setError("Could not create session.")
+            } finally {
+              setCreating(false)
+            }
+          }}
+          onClose={() => setAlumniPrompt(null)}
+          isLoading={creating}
+        />
       )}
 
       {/* New Session Form */}

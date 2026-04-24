@@ -88,6 +88,14 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | `just push-changes` | Analyze the current diff against TODOs/plans and summarize progress toward a goal |
 | `just ingest` | Ingest all `demo-data/` files into the running API |
 
+## Documentation
+
+`docs/README.md` is the index for the docs tree.
+
+- Active specs live in `docs/schema/` and `docs/llm_hardening/`
+- Completed sprint specs and dated plans live in `docs/archived/`
+- Root docs for the current project state are `AUDIT.md`, `DESIGN.md`, `TODOS.md`, and `CHANGELOG.md`
+
 ## Python Package Management
 
 The backend uses `uv` with [api/pyproject.toml](/home/iancwm/git/career-lighthouse/api/pyproject.toml) as the dependency manifest and [api/uv.lock](/home/iancwm/git/career-lighthouse/api/uv.lock) as the locked resolution.
