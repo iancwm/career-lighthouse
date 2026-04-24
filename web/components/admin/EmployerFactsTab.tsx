@@ -854,6 +854,12 @@ export default function EmployerFactsTab() {
 
           {listState === "loaded" && employers.length > 0 && (
             <>
+              {navigationLocked && (
+                <div className="px-3 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-700 flex items-center gap-1.5">
+                  <span className="shrink-0">⚠</span>
+                  <span>Unsaved changes — save or discard before switching.</span>
+                </div>
+              )}
               <div className="flex-1 overflow-y-auto">
                 {employers.map((emp) => {
                   const isSelected = selected?.slug === emp.slug && mode !== "create"
@@ -888,8 +894,8 @@ export default function EmployerFactsTab() {
                       className={`flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors border-b border-gray-100 group ${
                           isSelected
                             ? "bg-blue-50 border-l-2 border-l-blue-400"
-                            : saveState === "saving" && selected?.slug !== emp.slug
-                            ? "bg-gray-50 opacity-60 cursor-not-allowed pointer-events-none"
+                            : navigationLocked && selected?.slug !== emp.slug
+                            ? "bg-gray-50 opacity-50 cursor-not-allowed"
                             : "hover:bg-gray-50"
                       }`}
                     >
