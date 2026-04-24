@@ -12,14 +12,8 @@ interface BrokenProfile {
 }
 
 type AutoCompleteFeedback =
-  | {
-      tone: "pending"
-      message: string
-    }
-  | {
-    tone: "success"
-    message: string
-    }
+  | { tone: "pending"; message: string }
+  | { tone: "review"; message: string; fieldCount: number }
 
 export default function BrokenProfilesTab() {
   const [broken, setBroken] = useState<BrokenProfile[]>([])
@@ -61,11 +55,11 @@ export default function BrokenProfilesTab() {
         throw new Error(err.detail || "Auto-complete failed")
       }
       const data = await res.json()
-      const refreshed = await loadBroken()
-      if (!refreshed) throw new Error("Could not confirm profile completion.")
+      await loadBroken()
       setFeedback({
-        tone: "success",
-        message: `Completed ${slug}: filled ${data.completed_fields.length} field(s) and refreshed the profile list.`,
+        tone: "review",
+        message: `AI filled ${data.completed_fields.length} field(s) for ${slug}. Review the updated profile to confirm the values look correct before relying on them.`,
+        fieldCount: data.completed_fields.length,
       })
     } catch (err: any) {
       setError(err.message || "Could not auto-complete profile.")
@@ -101,20 +95,26 @@ export default function BrokenProfilesTab() {
       )}
       {feedback && (
         <div
-          className={
-            feedback.tone === "success"
-              ? "mb-4 rounded border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700"
-              : "mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-          }
+          className="mb-4 rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
           role="status"
           aria-live="polite"
         >
-          <span className="inline-flex items-center gap-2">
-            {feedback.tone === "pending" && (
-              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+          <span className="inline-flex items-start gap-2">
+            {feedback.tone === "pending" ? (
+              <span className="mt-0.5 inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
+            ) : (
+              <span className="shrink-0">⚠</span>
             )}
-            {feedback.message}
+            <span>{feedback.message}</span>
           </span>
+          {feedback.tone === "review" && (
+            <button
+              onClick={() => setFeedback(null)}
+              className="mt-2 block text-xs text-amber-600 underline underline-offset-2 hover:text-amber-800"
+            >
+              Dismiss
+            </button>
+          )}
         </div>
       )}
 

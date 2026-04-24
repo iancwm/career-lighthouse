@@ -21,8 +21,9 @@ function parseInline(text: string): ReactNode[] {
     const codeStart = text.indexOf("`", index)
     const linkStart = text.indexOf("[", index)
     const italicStarStart = findNextItalicMarker(text, index, "*")
+    const italicUnderStart = findNextItalicMarker(text, index, "_")
 
-    const candidates = [boldStart, codeStart, linkStart, italicStarStart].filter((value) => value !== -1)
+    const candidates = [boldStart, codeStart, linkStart, italicStarStart, italicUnderStart].filter((value) => value !== -1)
     if (candidates.length === 0) {
       nodes.push(text.slice(index))
       break
@@ -49,7 +50,19 @@ function parseInline(text: string): ReactNode[] {
       if (end !== -1) {
         const content = text.slice(next + 1, end)
         if (content.trim()) {
-          nodes.push(<em key={`${next}-${end}`}>{content}</em>)
+          nodes.push(<em key={`star-${next}-${end}`}>{content}</em>)
+          index = end + 1
+          continue
+        }
+      }
+    }
+
+    if (next === italicUnderStart) {
+      const end = findNextItalicMarker(text, next + 1, "_")
+      if (end !== -1) {
+        const content = text.slice(next + 1, end)
+        if (content.trim()) {
+          nodes.push(<em key={`under-${next}-${end}`}>{content}</em>)
           index = end + 1
           continue
         }
@@ -186,7 +199,11 @@ export default function MarkdownMessage({ content }: { content: string }) {
           key={`quote-${index}`}
           className="rounded-2xl border-l-4 border-[var(--cl-accent)] bg-[var(--cl-surface-2)] px-4 py-3 text-[var(--cl-ink)]"
         >
-          <p className="whitespace-pre-wrap italic">{parseInline(quoteLines.join("\n"))}</p>
+          {quoteLines.map((ql, qi) => (
+            <p key={qi} className="italic leading-relaxed">
+              {parseInline(ql)}
+            </p>
+          ))}
         </blockquote>
       )
       continue
