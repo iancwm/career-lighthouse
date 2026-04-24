@@ -193,3 +193,51 @@ The Next.js image embeds the API URL at `docker build` time via `ARG`. Changing 
 3. ~~**Missing Sprint 4 Field Support**~~ — **FIXED (2026-04-18)**: `salary_levels`, `visa_pathway_notes`, and `track_name` added to the unified allowlist in `api/constants/profile_fields.py`. All three write paths (Knowledge Update, Session Editor, Track Builder) can now update these fields.
 4. **Qdrant version pinned in Compose but not Terraform** — `docker-compose.yml` pins `qdrant/qdrant:v1.13.2`; Terraform has no equivalent pin for any sidecar or separate Qdrant service.
 5. **Counsellor contact placeholders** — `[TODO: Fill in SMU career centre contact…]` in YAML profiles will leak into LLM prompts if `counselor_contact` is ever injected. Add a startup warning that flags placeholder values.
+
+---
+
+## Part 4 — Code Smell Findings (docstring pass, 2026-04-24)
+
+Observations from `api/routers/` and `api/services/`. None of these are bugs; they are structural debt to address in a future cleanup sprint.
+
+### CS-01 · `_atomic_yaml_write` copy-pasted across 5+ files
+`employer_store.py`, `source_ledger.py`, `track_drafts.py`, `alumni_store.py`, and `session_store.py` (via `tmp_path.replace(path)`) all reimplement write-to-`.tmp`-then-rename. `services/shared_yaml.py` already exports `atomic_yaml_write` but is only imported in `alumni_store.py`. Consolidate all callers to use the shared version.
+
+### CS-02 · `_fact_payload` and `_fact_lifecycle` duplicated across `employer_store.py` and `fact_store.py`
+Both modules define nearly identical private helpers for extracting a fact's data dict and resolving its lifecycle enum. The employer-store versions exist because that file predates `fact_store.py`. Move the canonical implementations to `fact_store.py` (or a new `services/fact_utils.py`) and import them.
+
+### CS-03 · Singleton `__new__` pattern hand-rolled in every store class
+`AlumniEntityStore`, `EmployerEntityStore`, `CareerProfileStore`, `VectorStore`, `SourceLedgerStore`, `SessionStore`, and `TrackDraftStore` all copy-paste the same `_instance = None; __new__` idiom. Consider a shared `Singleton` base class or a `@singleton` decorator to eliminate the repetition and make the pattern explicit.
+
+### CS-04 · `_slug_is_safe` defined independently in at least 4 files
+`kb_router.py`, `alumni_router.py`, `alumni_store.py`, and `track_drafts.py` each define their own `_slug_is_safe` with minor variations in the character allowlist. Move a single authoritative implementation to `services/shared_yaml.py` (a `safe_slug_is_valid` function) and replace all copies.
+
+### CS-05 · `_version_stamp` defined independently in at least 4 files
+`employer_store.py`, `source_ledger.py`, `track_drafts.py`, and `shared_yaml.py` all define `_version_stamp()`. The `shared_yaml.py` export (`version_stamp`) is imported in `alumni_store.py` but unused in the others. Remove the duplicates and import from `shared_yaml`.
+
+### CS-06 · `_normalize_profile_payload` exists in both `alumni_router.py` and `alumni_store.py`
+The router-layer function (in `alumni_router.py`) strips `company_links` and aliases legacy field names. The service-layer function (in `alumni_store.py`) does the same, plus coerces enums and validates referral consent. The router version should be deleted; call the service version instead.
+
+### CS-07 · `kb_router.py` is ~2,000 lines with 40+ endpoints and unrelated concerns
+The file handles KB health metrics, diff analysis, track publishing, employer CRUD, alumni endpoints, structured facts, Langfuse trace explorer, and LLM trace parsing. Each concern should be a separate sub-router (e.g. `trace_router.py`, `employer_router.py`, `track_router.py`). The file is currently the single largest maintenance surface in the codebase.
+
+### CS-08 · `_observation_to_trace_entries` in `kb_router.py` is ~200 lines
+This single function handles 15+ Langfuse SDK response shapes with deeply nested attribute fallbacks. It mixes SDK shape normalization with domain-model construction. Should be extracted to a `services/trace_adapter.py` module so it can be tested independently.
+
+### CS-09 · `analyze_session` in `session_router.py` is a 150-line function mixing HTTP and business logic
+The endpoint loads profiles, calls LLM, logs traces, handles multi-pass chunking, writes JSONL, and updates session state — all in one function. The core analysis logic (profile context assembly + LLM invocation) should live in a service function so the router can stay thin.
+
+### CS-10 · `_safe_int` / `_safe_float` helpers are ad-hoc per file
+`kb_router.py` defines `_safe_int` and `_safe_float`. `alumni_store.py` and `fact_store.py` contain inline `try/except (TypeError, ValueError)` casts. A shared `services/type_coerce.py` (or addition to `shared_yaml.py`) would unify these.
+
+### CS-11 · `_collect_chunked_results` in `llm.py` takes 13 parameters
+The function's signature carries all chunk-splitting configuration as individual arguments. A small dataclass (`ChunkedExtractionConfig`) would reduce callsite complexity and make the grouping explicit.
+
+### CS-12 · `_latest_query_hits` in `source_ledger.py` is a pure analytics function on a stateful singleton
+`SourceLedgerStore._latest_query_hits` does not access `self._records` or any mutable state; it operates entirely on its arguments. Placing a pure function on a singleton class obscures testability. Move to a module-level helper.
+
+### CS-13 · LLM JSON repair retries have no circuit-breaker or escalation
+`llm.py` retries JSON parse failures up to 3 times with increasingly explicit "repair" prompts. There is no timeout budget shared across retry attempts — a slow model response on attempt 3 can triple the total elapsed time while silently consuming API credits. Consider a shared deadline that spans the full retry loop.
+
+### CS-14 · `_merge_source_refs` in `kb_router.py` is defined once but called from three different flows
+The function deduplicates source reference lists. It is defined in the middle of `kb_router.py` (line 233) with no sibling helpers and is called from both track generation and alumni extraction paths. As a domain utility, it belongs in a shared service or model layer, not a router file.

@@ -13,7 +13,6 @@ export default function ResumeReviewTab() {
   const [fileName, setFileName] = useState("")
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   async function handleGenerate() {
     if (!resume.trim()) return
@@ -42,7 +41,7 @@ export default function ResumeReviewTab() {
     try {
       const form = new FormData()
       form.append("file", file)
-      const res = await fetch(`${apiUrl}/api/sessions/parse-file`, {
+      const res = await adminFetch("/api/sessions/parse-file", {
         method: "POST",
         body: form,
       })

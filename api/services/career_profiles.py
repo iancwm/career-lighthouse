@@ -36,6 +36,13 @@ _INTAKE_INTEREST_MAP: dict[str, str] = career_profiles_cfg["intake_interest_map"
 _DEFAULT_CAREER_TYPE: str = career_profiles_cfg["default_career_type"]
 
 
+def _is_placeholder_counselor_contact(value: object) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    return bool(re.search(r"(?i)(^\[?todo\b|placeholder|fill in|^\s*tbd\b)", text))
+
+
 def _derive_structured_fields(profile: dict) -> dict:
     """Extract structured numeric fields from prose without overwriting manual values.
 
@@ -239,6 +246,13 @@ class CareerProfileStore:
                         yaml_path.name, sorted(missing),
                     )
                     continue
+                counselor_contact = profile.get("counselor_contact")
+                if _is_placeholder_counselor_contact(counselor_contact):
+                    logger.warning(
+                        "Career profile %s: placeholder counselor_contact detected; suppressing from prompts",
+                        yaml_path.name,
+                    )
+                    profile["counselor_contact"] = None
                 # Use match_description if present — richer keyword text produces
                 # more reliable cosine scores against full student messages.
                 # Falls back to career_type name if match_description is absent.
@@ -362,7 +376,7 @@ class CareerProfileStore:
         result = []
         for slug, profile in self._profiles.items():
             structured = profile.get("structured") or {}
-            counselor = str(profile.get("counselor_contact", ""))
+            counselor = profile.get("counselor_contact")
             result.append({
                 "slug": slug,
                 "career_type": profile.get("career_type", slug),
@@ -371,7 +385,7 @@ class CareerProfileStore:
                 "salary_min_sgd": structured.get("salary_min_sgd"),
                 "salary_max_sgd": structured.get("salary_max_sgd"),
                 "compass_points_typical": structured.get("compass_points_typical"),
-                "has_counselor_contact": bool(counselor and "TODO" not in counselor),
+                "has_counselor_contact": bool(counselor and not _is_placeholder_counselor_contact(counselor)),
             })
         return result
 

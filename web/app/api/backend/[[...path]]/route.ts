@@ -2,7 +2,7 @@ import { NextRequest } from "next/server"
 import { proxyRequest, type ProxyRouteContext } from "@/lib/api-proxy"
 
 async function proxy(request: NextRequest, context: ProxyRouteContext) {
-  return proxyRequest(request, context.params.path, true)
+  return proxyRequest(request, context.params.path, false)
 }
 
 export async function GET(request: NextRequest, context: ProxyRouteContext) {

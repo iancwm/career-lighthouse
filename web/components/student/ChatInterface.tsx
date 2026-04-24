@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import CitationBadge from "./CitationBadge"
 import type { IntakeContext } from "./IntakeFlow"
 import MarkdownMessage from "./MarkdownMessage"
+import { backendFetch } from "@/lib/backend-api"
 
 interface Citation {
   filename: string
@@ -77,7 +78,6 @@ export default function ChatInterface({ resumeText, intakeContext, onEditContext
   const [careerLabels, setCareerLabels] = useState<Record<string, string>>({})
   const [trustOpen, setTrustOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -96,7 +96,7 @@ export default function ChatInterface({ resumeText, intakeContext, onEditContext
   useEffect(() => {
     async function loadTracks() {
       try {
-        const res = await fetch(`${apiUrl}/api/tracks`)
+        const res = await backendFetch("/api/tracks")
         if (!res.ok) return
         const data = await res.json()
         const map: Record<string, string> = {}
@@ -110,7 +110,7 @@ export default function ChatInterface({ resumeText, intakeContext, onEditContext
     }
 
     loadTracks()
-  }, [apiUrl])
+  }, [])
 
   function clearChatState() {
     setMessages([])
@@ -145,7 +145,7 @@ export default function ChatInterface({ resumeText, intakeContext, onEditContext
         body.active_career_type = activeCareerType
       }
 
-      const res = await fetch(`${apiUrl}/api/chat`, {
+      const res = await backendFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

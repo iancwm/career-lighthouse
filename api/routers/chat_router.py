@@ -2,6 +2,10 @@
 import json
 import logging
 import os
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - non-POSIX fallback
+    fcntl = None
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
@@ -28,6 +32,31 @@ from limiter import limiter
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
+
+
+def _setting_bool(name: str, default: bool = False) -> bool:
+    """Read a settings attribute and coerce to bool, accepting string truthy values (1/true/yes/on)."""
+    value = getattr(settings, name, default)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"1", "true", "yes", "on"}:
+            return True
+        if normalized in {"0", "false", "no", "off"}:
+            return False
+    return default
+
+
+def _setting_int(name: str, default: int) -> int:
+    """Read a settings attribute and coerce to int, returning default on missing or non-numeric values."""
+    value = getattr(settings, name, default)
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
 
 
 @router.get("/ping")
@@ -80,9 +109,15 @@ def _log_query(message: str, chunks: list[dict],
             "career_type": None if active_career_type is None else str(active_career_type),
         }
         with open(settings.query_log_path, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
-            f.flush()
-            os.fsync(f.fileno())
+            if fcntl is not None:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                f.write(json.dumps(entry) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            finally:
+                if fcntl is not None:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except Exception:
         logger.warning("Failed to write query log entry — chat unaffected", exc_info=True)
 
@@ -131,6 +166,7 @@ def _resolve_career_type(
 
 
 def _humanize_source_name(filename: str) -> str:
+    """Convert a source filename to a title-cased display name by stripping extension and replacing separators."""
     stem = Path(filename).stem
     cleaned = stem.replace("_", " ").replace("-", " ").strip()
     if not cleaned:
@@ -139,6 +175,7 @@ def _humanize_source_name(filename: str) -> str:
 
 
 def _chunk_lifecycle(payload: dict) -> str:
+    """Resolve a chunk's lifecycle state from its payload, falling back to the source ledger if not embedded."""
     lifecycle = str(payload.get("lifecycle") or payload.get("status") or "").strip().lower()
     if lifecycle:
         return lifecycle
@@ -203,7 +240,7 @@ def chat(
         career_context=career_context,
         employer_context=employer_context,
     )
-    if settings.student_chat_insights_enabled and len(req.message) >= settings.student_chat_embedding_min_chars:
+    if _setting_bool("student_chat_insights_enabled") and len(req.message) >= _setting_int("student_chat_embedding_min_chars", 20):
         try:
             message_id = insight_store.index_message(
                 text=req.message,

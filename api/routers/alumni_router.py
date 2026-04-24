@@ -21,6 +21,7 @@ def _slug_is_safe(slug: str) -> bool:
 
 
 def _link_id_for_payload(alumni_slug: str, payload: dict[str, Any]) -> str:
+    """Build a deterministic link ID from alumni slug + company/relationship fields for idempotent link upserts."""
     company_slug = str(payload.get("company_slug") or "").strip()
     company_name = str(payload.get("company_name") or "").strip()
     relationship = str(payload.get("relationship") or payload.get("role_title") or "").strip()
@@ -39,6 +40,11 @@ def _link_id_for_payload(alumni_slug: str, payload: dict[str, Any]) -> str:
 
 
 def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
+    """Coerce heterogeneous company link payloads (raw string or multi-alias dict) into a canonical dict.
+
+    Handles camelCase/snake_case aliases from various frontend submissions. Returns None if company identity
+    (name or slug) is absent after normalization.
+    """
     if not isinstance(raw, dict):
         text = str(raw).strip()
         if not text:
@@ -95,6 +101,7 @@ def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
 
 
 def _normalize_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Alias legacy field names and strip company_links, which are managed as separate link events."""
     data = dict(payload)
     if not data.get("full_name") and data.get("name"):
         data["full_name"] = data["name"]
@@ -109,6 +116,7 @@ def _normalize_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def _serialize_company_link(link: dict[str, Any]) -> dict[str, Any]:
+    """Normalize a stored company link event for JSON serialization, ensuring relationship and role_title are always strings."""
     relationship = str(link.get("relationship") or link.get("role_title") or "").strip()
     notes = str(link.get("notes") or link.get("rationale") or "").strip()
     return {
@@ -121,6 +129,7 @@ def _serialize_company_link(link: dict[str, Any]) -> dict[str, Any]:
 
 
 def _serialize_profile(profile: dict[str, Any], links: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Assemble the full API response for an alumni profile, resolving field aliases and computing mentoring availability."""
     company_links = [_serialize_company_link(link) for link in (links or [])]
     available = profile.get("available_for_mentoring")
     if available is None:
@@ -148,6 +157,7 @@ def _serialize_profile(profile: dict[str, Any], links: list[dict[str, Any]] | No
 
 
 def _proposal_value_to_text(proposal: Any) -> str:
+    """Extract the text value from an LLM proposal dict (with a 'value' key) or a raw scalar."""
     if isinstance(proposal, dict):
         value = proposal.get("value")
     else:
@@ -158,6 +168,7 @@ def _proposal_value_to_text(proposal: Any) -> str:
 
 
 def _sync_company_links(store: AlumniEntityStore, slug: str, submitted_links: list[dict[str, Any]]) -> None:
+    """Reconcile submitted company links against stored links: upsert desired links and archive links absent from the submission."""
     desired_ids: list[str] = []
     seen_ids: set[str] = set()
     for raw in submitted_links:

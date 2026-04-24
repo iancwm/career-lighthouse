@@ -105,6 +105,7 @@ class SessionStore:
         return session
 
     def save_session(self, session: KnowledgeSession) -> None:
+        """Atomically persist a session to its counsellor-scoped JSON file, raising SessionStorageError on I/O failure."""
         path = self._get_path(session.id, session.created_by)
         _ensure_sessions_root()
         path.parent.mkdir(parents=True, exist_ok=True)

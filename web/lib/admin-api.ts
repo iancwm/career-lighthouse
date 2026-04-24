@@ -1,13 +1,11 @@
 /**
- * Admin API client — attaches the admin key header to all requests.
+ * Admin API client for same-origin proxy routes.
  *
- * The admin key is read from the URL query parameter (`?key=...`) and
- * forwarded to the backend as the `X-Admin-Key` header. This keeps the
- * key out of server-side logs (query params appear in access logs) while
- * still allowing the browser to authenticate with the API.
+ * The browser still reads `?key=...` and forwards it as `X-Admin-Key`,
+ * but the request now stays on the app origin and is proxied by
+ * `/api/admin/*`. That keeps the browser bundle free of backend origin
+ * configuration.
  */
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
 
 /**
  * Extract the admin key from the current URL's query parameters.
@@ -32,7 +30,7 @@ export async function adminFetch(
     headers["X-Admin-Key"] = key
   }
 
-  return fetch(`${API_URL}${path}`, {
+  return fetch(`/api/admin${path}`, {
     ...options,
     headers,
   })

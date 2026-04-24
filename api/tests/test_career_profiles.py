@@ -197,6 +197,29 @@ class TestProfileToContextBlock:
         # But max should still be derived
         assert derived["salary_max_sgd"] == 160000
 
+    def test_placeholder_counselor_contact_is_not_marked_present(self, tmp_path, monkeypatch):
+        from services.career_profiles import CareerProfileStore
+
+        profiles_dir = tmp_path / "profiles"
+        profiles_dir.mkdir()
+        write_profile(
+            profiles_dir,
+            "test_track",
+            {"counselor_contact": "[TODO: Fill in SMU career centre contact for test track]"},
+        )
+
+        monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
+        mock_emb = MagicMock()
+        mock_emb.encode.return_value = np.ones(384, dtype=np.float32)
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
+
+        store = CareerProfileStore()
+        profiles = store.list_profiles()
+        assert profiles[0]["has_counselor_contact"] is False
+
 
 # ---------------------------------------------------------------------------
 # CareerProfileStore — loading

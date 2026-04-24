@@ -326,6 +326,7 @@ def _coerce_sequence(value: object) -> list[object]:
 
 
 def _get_value(value: object, *names: str, default: Any = None) -> Any:
+    """Return the first non-None value found by trying each name as a dict key or object attribute."""
     if isinstance(value, dict):
         for name in names:
             if name in value and value[name] is not None:
@@ -339,6 +340,7 @@ def _get_value(value: object, *names: str, default: Any = None) -> Any:
 
 
 def _format_timestamp(value: object) -> str:
+    """Normalize a datetime or string timestamp value to an ISO-8601 UTC string, defaulting to now."""
     if isinstance(value, datetime):
         ts = value
         if ts.tzinfo is None:
@@ -350,6 +352,7 @@ def _format_timestamp(value: object) -> str:
 
 
 def _safe_int(value: object, default: int | None = None) -> int | None:
+    """Safe integer cast, returning default on None or conversion failure."""
     try:
         if value is None:
             return default
@@ -359,6 +362,7 @@ def _safe_int(value: object, default: int | None = None) -> int | None:
 
 
 def _safe_float(value: object, default: float = 0.0) -> float:
+    """Safe float cast, returning default on None or conversion failure."""
     try:
         if value is None:
             return default
@@ -368,6 +372,7 @@ def _safe_float(value: object, default: float = 0.0) -> float:
 
 
 def _estimate_input_chars(payload: object) -> int:
+    """Estimate the character length of an LLM call's input payload from structured metadata, falling back to raw stringify."""
     mapping = _coerce_mapping(payload)
     if not mapping:
         return len(str(payload or ""))
@@ -386,6 +391,7 @@ def _estimate_input_chars(payload: object) -> int:
 
 
 def _estimate_output_chars(payload: object) -> int:
+    """Estimate the character length of an LLM call's output payload, preferring the 'content' field over raw stringify."""
     if payload is None:
         return 0
     if isinstance(payload, str):
@@ -399,6 +405,7 @@ def _estimate_output_chars(payload: object) -> int:
 
 
 def _truncate_preview(text: str | None, limit: int = 500) -> str:
+    """Trim a string to at most `limit` characters, appending an ellipsis when truncated."""
     if not text:
         return ""
     clean = text.strip()
@@ -408,6 +415,11 @@ def _truncate_preview(text: str | None, limit: int = 500) -> str:
 
 
 def _preview_input(payload: object) -> str:
+    """Extract a human-readable preview of an LLM input payload.
+
+    Walks messages in reverse (most recent first) looking for content_preview,
+    then falls back to system_preview, then JSON-dumps the whole mapping.
+    """
     mapping = _coerce_mapping(payload)
     if not mapping:
         return _truncate_preview(str(payload or ""))
@@ -427,6 +439,7 @@ def _preview_input(payload: object) -> str:
 
 
 def _preview_output(payload: object) -> str:
+    """Extract a human-readable preview of an LLM output payload, probing common field names in priority order."""
     mapping = _coerce_mapping(payload)
     if mapping:
         for key in ("content_preview", "text", "output", "message", "content"):
@@ -443,6 +456,7 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
     metadata = _coerce_mapping(_get_value(observation, "metadata", default={})) or {}
     input_payload = _get_value(observation, "input", default={})
     output_payload = _get_value(observation, "output", default=None)
+    nested_observations = _coerce_sequence(_get_value(observation, "observations", default=[]))
 
     operation = str(
         _get_value(
@@ -452,6 +466,18 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
             default=metadata.get("feature") or metadata.get("operation") or "llm_call",
         )
     )
+    if operation == "llm_call" and nested_observations:
+        for nested in nested_observations:
+            nested_metadata = _coerce_mapping(_get_value(nested, "metadata", default={})) or {}
+            nested_operation = _get_value(
+                nested,
+                "name",
+                "operation",
+                default=nested_metadata.get("feature") or nested_metadata.get("operation") or "",
+            )
+            if nested_operation and str(nested_operation) != "llm_call":
+                operation = str(nested_operation)
+                break
     trace_id = str(
         metadata.get("traceId")
         or metadata.get("trace_id")
@@ -464,6 +490,17 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         )
     )
     session_id = _get_value(observation, "session_id", "sessionId", default=metadata.get("session_id") or metadata.get("sessionId"))
+    if session_id is None and nested_observations:
+        for nested in nested_observations:
+            nested_metadata = _coerce_mapping(_get_value(nested, "metadata", default={})) or {}
+            session_id = _get_value(
+                nested,
+                "session_id",
+                "sessionId",
+                default=nested_metadata.get("session_id") or nested_metadata.get("sessionId"),
+            )
+            if session_id is not None:
+                break
     model = str(_get_value(observation, "model", "provided_model_name", default=metadata.get("model") or metadata.get("providedModelName") or ""))
     if not model:
         nested_observations = _coerce_sequence(_get_value(observation, "observations", default=[]))
@@ -481,6 +518,23 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         raw_output_error = output_mapping.get("error")
         if raw_output_error:
             output_error = str(raw_output_error)
+
+    if not output_error and nested_observations:
+        for nested in nested_observations:
+            nested_metadata = _coerce_mapping(_get_value(nested, "metadata", default={})) or {}
+            nested_output = _coerce_mapping(_get_value(nested, "output", default=None))
+            nested_error = _get_value(nested, "status_message", "statusMessage", default=nested_metadata.get("error"))
+            if not nested_error and nested_output:
+                raw_nested_output_error = nested_output.get("error")
+                if raw_nested_output_error:
+                    nested_error = str(raw_nested_output_error)
+            if nested_error:
+                output_error = str(nested_error)
+                break
+            nested_level = str(_get_value(nested, "level", default="")).upper()
+            if nested_level == "ERROR":
+                output_error = nested_level
+                break
     error_text = str(status_message) if status_message else output_error
 
     start_value = _get_value(observation, "start_time", "startTime", "created_at", "createdAt", "timestamp", "ts", default=None)
@@ -849,7 +903,7 @@ def auto_complete_profile(
     try:
         filled = llm_service.call_structured_json(
             operation="auto_complete_profile",
-            model=llm_service._llm["model"],
+            model=llm_service.get_model_name(),
             max_tokens=1024,
             system=system,
             user=user,
@@ -1451,6 +1505,7 @@ def _fact_filters_payload(
     source_label: str | None,
     has_audit_url: bool | None,
 ) -> dict[str, Any]:
+    """Build the filters_applied echo dict for a fact query response, omitting None values."""
     payload: dict[str, Any] = {"include_deleted": include_deleted}
     for key, value in {
         "type": type,

@@ -28,6 +28,7 @@ from pydantic import BaseModel, ValidationError
 from config import settings
 from services.ingestion import chunk_text
 from models import KBAnalysisResult, DraftTrackDetail, Fact
+from utils.sanitization import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
 from cfg import model_cfg, kb_cfg, prompts_cfg
@@ -41,8 +42,8 @@ _langfuse_flush_executor: ThreadPoolExecutor | None = None
 _TRACE_PREVIEW_CHARS = 500
 _LANGFUSE_METADATA_VALUE_LIMIT = 200
 _LANGFUSE_EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
-_LANGFUSE_PHONE_RE = re.compile(r"\b(?:\+?\d[\d\s().-]{7,}\d)\b")
-_LANGFUSE_API_KEY_RE = re.compile(r"\b(?:sk|pk|key|secret)_[A-Za-z0-9_-]{8,}\b")
+_LANGFUSE_PHONE_RE = re.compile(r"(?<!\w)\+?(?:\d[\d\s().-]*[\s().-][\d\s().-]*\d)(?!\w)")
+_LANGFUSE_API_KEY_RE = re.compile(r"\b(?:sk|pk|key|secret)[_-][A-Za-z0-9_-]{8,}\b")
 _LANGFUSE_BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._-]+\b", re.IGNORECASE)
 
 _llm = model_cfg["llm"]
@@ -81,6 +82,10 @@ def _effective_session_multi_pass_setting(setting_name: str, model_key: str) -> 
     if value is not None:
         return int(value)
     return int(_llm[model_key])
+
+
+def get_model_name() -> str:
+    return getattr(settings, "anthropic_model", "") or _llm["model"]
 
 
 def _trace_metadata_int(metadata: dict[str, object], key: str, default: int | None = None) -> int | None:
@@ -262,6 +267,7 @@ def _schedule_langfuse_flush() -> None:
 
 
 def _langfuse_input_payload(system: str, messages: list[dict], metadata: dict[str, object], max_tokens: int, timeout_seconds: float | None) -> dict:
+    """Build the Langfuse input payload dict with content previews and char counts instead of full text."""
     message_summaries = []
     for message in messages:
         content = str(message.get("content", ""))
@@ -270,18 +276,24 @@ def _langfuse_input_payload(system: str, messages: list[dict], metadata: dict[st
             "content_preview": _truncate_preview(content),
             "content_chars": len(content),
         })
+    normalized_metadata: dict[str, object] = dict(metadata)
+    for key, value in metadata.items():
+        normalized_key = _langfuse_metadata_key(str(key))
+        if normalized_key:
+            normalized_metadata[normalized_key] = value
     return {
         "system_preview": _truncate_preview(system),
         "system_chars": len(system),
         "messages": message_summaries,
         "message_count": len(messages),
-        "metadata": metadata,
+        "metadata": normalized_metadata,
         "max_tokens": max_tokens,
         "timeout_seconds": timeout_seconds,
     }
 
 
 def _langfuse_trace_metadata(metadata: dict[str, object], trace_id: str) -> dict[str, str]:
+    """Convert internal trace metadata to the camelCase string dict expected by the Langfuse SDK, stripping None values and reserved keys."""
     out: dict[str, str] = {
         "traceId": trace_id,
         "environment": str(getattr(settings, "langfuse_tracing_environment", "development")),
@@ -640,6 +652,7 @@ def _call_with_trace(
     trace_metadata: dict[str, object] | None = None,
     **kwargs,
 ) -> object:
+    """Call the Anthropic API with full observability: emits started/ok/error JSONL trace entries and a Langfuse generation span."""
     start = perf_counter()
     input_chars = len(system) + sum(len(str(message.get("content", ""))) for message in messages)
     trace_id = uuid.uuid4().hex
@@ -669,7 +682,7 @@ def _call_with_trace(
             as_type="generation",
             name=operation,
             model=model,
-            input=_langfuse_input_payload(system, messages, {**trace_entry_metadata, "trace_id": trace_id}, max_tokens, timeout_seconds),
+            input=_langfuse_input_payload(system, messages, {**trace_entry_metadata, "traceId": trace_id, "trace_id": trace_id}, max_tokens, timeout_seconds),
         )
     _append_llm_trace({
         "trace_id": trace_id,
@@ -862,28 +875,31 @@ def chat_with_context(message: str, resume_text: str | None,
     raw_history_text = _budget_history(history, max_turns=history_window, max_chars=None) if history else "None"
     history_text = _budget_history(history, max_turns=history_window, max_chars=max_context_chars // 2 if max_context_chars else None) if history else "None"
 
+    safe_career_context = sanitize_for_prompt(career_context) if career_context else None
+    safe_employer_context = sanitize_for_prompt(employer_context) if employer_context else None
+
     # Injection order: career profile → employer facts → KB chunks
     # Employer facts always appear before KB chunks so authoritative YAML data
     # supersedes any stale chunk content about the same employers.
     raw_context_sections = []
-    if career_context:
-        raw_context_sections.append(career_context)
-    if employer_context:
-        if career_context:
-            raw_context_sections.insert(1, employer_context)
+    if safe_career_context:
+        raw_context_sections.append(safe_career_context)
+    if safe_employer_context:
+        if safe_career_context:
+            raw_context_sections.insert(1, safe_employer_context)
         else:
-            raw_context_sections.insert(0, employer_context)
+            raw_context_sections.insert(0, safe_employer_context)
     raw_context_sections.append(f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}")
     raw_combined_context = "\n\n".join(raw_context_sections)
 
     context_sections = []
-    if career_context:
-        context_sections.append(_trim_to_budget(career_context, max_context_chars))
-    if employer_context:
-        if career_context:
-            context_sections.insert(1, _trim_to_budget(employer_context, max_context_chars))
+    if safe_career_context:
+        context_sections.append(_trim_to_budget(safe_career_context, max_context_chars))
+    if safe_employer_context:
+        if safe_career_context:
+            context_sections.insert(1, _trim_to_budget(safe_employer_context, max_context_chars))
         else:
-            context_sections.insert(0, _trim_to_budget(employer_context, max_context_chars))
+            context_sections.insert(0, _trim_to_budget(safe_employer_context, max_context_chars))
     context_sections.append(f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}")
     combined_context = "\n\n".join(context_sections)
 
@@ -921,7 +937,7 @@ def chat_with_context(message: str, resume_text: str | None,
 
     response = _call_with_trace(
         operation="chat_with_context",
-        model=_llm["model"],
+        model=get_model_name(),
         max_tokens=_llm["max_tokens"],
         system=_prompts["chat_system"].format(school_name=SCHOOL_NAME) + disambiguation_note,
         messages=[{"role": "user", "content": user_content}],
@@ -1140,7 +1156,7 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
 
     response = _call_with_trace(
         operation="generate_brief",
-        model=_llm["model"],
+        model=get_model_name(),
         max_tokens=_llm["max_tokens"],
         system=_prompts["brief_system"].format(school_name=SCHOOL_NAME),
         messages=[{"role": "user", "content": user_content}],
@@ -1188,6 +1204,7 @@ def _merge_intents(results: list[dict]) -> dict:
 
 
 def _merge_analysis_results(results: list[dict]) -> dict:
+    """Merge KB analysis results from multiple chunks, deduplicating bullets, chunks, and already-covered items."""
     merged = {
         "interpretation_bullets": [],
         "profile_updates": {},
@@ -1237,6 +1254,7 @@ def _merge_analysis_results(results: list[dict]) -> dict:
 
 
 def _merge_track_drafts(results: list[dict]) -> dict:
+    """Merge track draft dicts from multiple extraction passes, combining list fields and updating scalar fields from later chunks."""
     merged: dict[str, Any] = {}
     list_fields = {
         "match_keywords",
@@ -1282,10 +1300,11 @@ def _collect_chunked_results(
     trace_metadata: dict[str, object] | None = None,
     validator: type[BaseModel] | None = None,
 ) -> tuple[list[dict], list[str]]:
+    """Run a structured-JSON extraction over raw_input, splitting into overlapping chunks when the input exceeds threshold_chars."""
     if not _staged_extraction_enabled() or len(raw_input) <= threshold_chars:
         result = call_structured_json(
             operation=operation,
-            model=_llm["model"],
+            model=get_model_name(),
             system=system,
             user=build_user(raw_input),
             schema_name=schema_name,
@@ -1311,7 +1330,7 @@ def _collect_chunked_results(
         try:
             result = call_structured_json(
                 operation=operation,
-                model=_llm["model"],
+                model=get_model_name(),
                 system=system,
                 user=build_user(chunk),
                 schema_name=schema_name,
@@ -1559,7 +1578,7 @@ Example:
     try:
         msg = _call_with_trace(
             operation="extract_facts_from_prose",
-            model=_llm["model"],
+            model=get_model_name(),
             max_tokens=2000,
             system="You are a fact extraction service for employer intelligence. Return only a raw JSON array. Do not use markdown fences or any text outside the JSON.",
             messages=[{"role": "user", "content": prompt}],
@@ -1583,7 +1602,7 @@ Example:
                 schema_name="Fact",
                 schema_hint="JSON array of fact objects with slug, type, timestamp, source, confidence, data fields",
                 operation="extract_facts_from_prose",
-                model=_llm["model"],
+                model=get_model_name(),
                 max_tokens=2000,
             )
             if not isinstance(facts_raw, list):

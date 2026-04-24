@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/insights", dependencies=[Depends(require_admin_k
 
 
 def build_filters(req: StudentQuestionSearchRequest) -> Filter | None:
+    """Convert a StudentQuestionSearchRequest into a Qdrant Filter, omitting fields disabled by feature flags."""
     must: list[FieldCondition] = []
     if req.career_type:
         must.append(FieldCondition(key="active_career_type", match=MatchValue(value=req.career_type)))
@@ -33,6 +34,7 @@ def build_filters(req: StudentQuestionSearchRequest) -> Filter | None:
 
 
 def _filters_applied(req: StudentQuestionSearchRequest) -> dict:
+    """Build the filters_applied echo dict for the search response, masking fields disabled by feature flags."""
     return {
         "career_type": req.career_type,
         "date_from": req.date_from,

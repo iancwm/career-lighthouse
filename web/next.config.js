@@ -21,14 +21,14 @@ module.exports = {
             key: "Content-Security-Policy",
             // 'unsafe-inline' is required for Next.js's inline hydration scripts
             // and Tailwind's inline styles. script-src also allows same-origin
-            // static chunks; connect-src allows browser → API calls.
+            // static chunks; connect-src stays same-origin because browser API
+            // calls now flow through Next.js proxy routes.
             value:
               "default-src 'self'; " +
               `script-src ${scriptSrc.join(" ")}; ` +
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
               "font-src 'self' https://fonts.gstatic.com; " +
-              "connect-src 'self' " +
-              (process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"),
+              "connect-src 'self'",
           },
           // HSTS is intentionally omitted here; enable in production via
           // a reverse-proxy or environment-specific next.config override.

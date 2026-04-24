@@ -147,6 +147,7 @@ def employer_to_context_block(employer: dict, max_notes: int = None, max_process
 
 
 def _fact_payload(fact: object) -> dict:
+    """Extract the data sub-dict from a structured fact, falling back to the fact dict itself."""
     if not isinstance(fact, dict):
         return {}
     payload = fact.get("data")
@@ -156,6 +157,7 @@ def _fact_payload(fact: object) -> dict:
 
 
 def _fact_lifecycle(fact: object) -> str:
+    """Resolve the lifecycle state of a raw fact dict, mapping deleted=True to 'superseded'."""
     if not isinstance(fact, dict):
         return "active"
     lifecycle = str(fact.get("lifecycle") or "").strip().lower()
@@ -171,6 +173,7 @@ def _fact_is_active(fact: object) -> bool:
 
 
 def _fact_key_field(fact: dict) -> str:
+    """Return the most human-readable identifying field value for a fact, based on its type."""
     payload = _fact_payload(fact)
     fact_type = str(fact.get("type") or payload.get("type") or "").strip()
     candidates: list[str] = []
@@ -197,6 +200,7 @@ def _fact_key_field(fact: dict) -> str:
 
 
 def _format_structured_fact(fact: object) -> str:
+    """Render a single structured fact as a truncated pipe-delimited preview string for LLM context blocks."""
     if not isinstance(fact, dict):
         return str(fact)
 
@@ -229,6 +233,7 @@ def _format_structured_fact(fact: object) -> str:
 
 
 def _format_structured_facts(structured: dict) -> list[str]:
+    """Return preview strings for active structured facts, capped at _FACTS_PREVIEW_LIMIT with a trailing count line."""
     facts = structured.get("facts") if isinstance(structured, dict) else None
     if not isinstance(facts, list) or not facts:
         return []

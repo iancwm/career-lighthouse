@@ -55,4 +55,20 @@ describe("admin proxy route", () => {
     expect((init.headers as Headers).get("x-admin-key")).toBe("admin-secret")
     expect(await response.json()).toEqual({ created: true })
   })
+
+  it("prefers the browser-provided admin key when present", async () => {
+    delete process.env.ADMIN_KEY
+    const fetchMock = vi.mocked(globalThis.fetch)
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }))
+
+    await GET(
+      new Request("http://localhost/api/admin/api/kb/health", {
+        headers: { "X-Admin-Key": "browser-secret" },
+      }) as never,
+      { params: { path: ["api", "kb", "health"] } }
+    )
+
+    const [, init] = fetchMock.mock.calls[0] as [URL, RequestInit]
+    expect((init.headers as Headers).get("x-admin-key")).toBe("browser-secret")
+  })
 })

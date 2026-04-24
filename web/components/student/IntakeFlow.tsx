@@ -1,7 +1,6 @@
 "use client"
 import { useState, useEffect } from "react"
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"
+import { backendFetch } from "@/lib/backend-api"
 
 export interface IntakeContext {
   background: string | null
@@ -77,7 +76,7 @@ export default function IntakeFlow({ onComplete, onBack, initialContext }: Props
         { id: "not_sure", label: "Not sure yet" },
       ]
       try {
-        const res = await fetch(`${API_URL}/api/tracks/active`)
+        const res = await backendFetch("/api/tracks/active")
         if (res.ok) {
           const data = await res.json()
           const options: InterestOption[] = data.map((t: { slug: string; label: string }) => ({

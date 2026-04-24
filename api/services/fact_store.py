@@ -47,6 +47,7 @@ def _yaml_mapping(path: Path) -> dict[str, Any] | None:
 
 
 def _leaf_strings(value: object) -> list[str]:
+    """Recursively collect all leaf scalar values from an arbitrary nested structure as strings."""
     if isinstance(value, str):
         cleaned = value.strip()
         return [cleaned] if cleaned else []
@@ -66,6 +67,7 @@ def _leaf_strings(value: object) -> list[str]:
 
 
 def _collect_matching_values(payload: object, key_names: set[str]) -> list[object]:
+    """Walk a nested payload and return all values whose key matches one of the given names (case-insensitive)."""
     values: list[object] = []
     if isinstance(payload, dict):
         for key, value in payload.items():
@@ -80,6 +82,7 @@ def _collect_matching_values(payload: object, key_names: set[str]) -> list[objec
 
 
 def _payload_for_fact(raw_fact: dict[str, Any]) -> dict[str, Any]:
+    """Unwrap the innermost data dict from a raw fact, handling single and double nesting."""
     payload = raw_fact.get("data")
     if not isinstance(payload, dict):
         return {}
@@ -95,6 +98,7 @@ def _build_fact(
     entity_slug: str,
     audit_url_template: str,
 ) -> Fact | None:
+    """Construct a typed Fact from a raw YAML dict, returning None if required fields are missing or invalid."""
     payload = raw_fact.get("data")
     payload_map = payload if isinstance(payload, dict) else {}
 
@@ -153,6 +157,7 @@ def _build_fact(
 
 
 def _read_fact_source(entity_kind: str, directory: Path, audit_url_template: str) -> list[Fact]:
+    """Load all valid facts from the structured.facts list in every YAML file under directory."""
     if not directory.exists():
         return []
 
@@ -182,6 +187,7 @@ def _fact_is_active(fact: Fact) -> bool:
 
 
 def _fact_string_matches(fact: Fact, query: str, *, include_nested: bool = False) -> bool:
+    """Return True if the normalized query appears in any of the fact's string fields (and optionally its data payload)."""
     needle = _normalize_text(query)
     if not needle:
         return True
@@ -216,6 +222,7 @@ def _fact_matches_filters(
     source_label: str | None = None,
     has_audit_url: bool | None = None,
 ) -> bool:
+    """Return True if the fact satisfies all provided filter criteria; None filters are skipped."""
     if not include_deleted and not _fact_is_active(fact):
         return False
     if type and fact.type != type:

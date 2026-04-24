@@ -22,7 +22,7 @@ from threading import Lock
 import yaml
 
 from models import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
-from services.career_profiles import _default_profiles_dir, _derive_structured_fields
+from services.career_profiles import _default_profiles_dir, _derive_structured_fields, _is_placeholder_counselor_contact
 
 logger = logging.getLogger(__name__)
 
@@ -125,6 +125,7 @@ def _atomic_text_write(path: Path, text: str) -> None:
 
 
 def _normalise_keywords(values: list[str]) -> list[str]:
+    """Deduplicate keyword strings case-insensitively while preserving original casing and order."""
     seen: set[str] = set()
     result: list[str] = []
     for value in values:
@@ -140,6 +141,7 @@ def _normalise_keywords(values: list[str]) -> list[str]:
 
 
 def _registry_payload(entries: list[TrackRegistryEntry]) -> dict:
+    """Serialize a list of TrackRegistryEntry objects into the career_tracks.yaml wire format."""
     return {
         "tracks": [
             {
@@ -169,6 +171,13 @@ def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
     )
 
 
+def _clean_counselor_contact(value: object) -> str | None:
+    text = str(value or "").strip()
+    if not text or _is_placeholder_counselor_contact(text):
+        return None
+    return text
+
+
 def _draft_from_profile(slug: str, profile: dict) -> DraftTrackDetail | None:
     """Build a draft-track copy from a valid published profile."""
     try:
@@ -186,7 +195,7 @@ def _draft_from_profile(slug: str, profile: dict) -> DraftTrackDetail | None:
             entry_paths=list(profile.get("entry_paths") or []),
             salary_range_2024=str(profile.get("salary_range_2024") or "").strip(),
             typical_background=str(profile.get("typical_background") or "").strip(),
-            counselor_contact=profile.get("counselor_contact"),
+            counselor_contact=_clean_counselor_contact(profile.get("counselor_contact")),
             notes=str(profile.get("notes") or "").strip(),
             source_refs=[SourceRef(type="seeded", label=f"published profile:{slug}")],
             structured=dict(profile.get("structured") or {}),
@@ -231,6 +240,7 @@ class TrackDraftStore:
         return cls._instance
 
     def _ensure_loaded(self) -> None:
+        """Lazily seed draft YAML files from published profiles and load them into memory on first access."""
         if self._loaded:
             return
         with self._lock:
@@ -276,6 +286,7 @@ class TrackDraftStore:
         return DraftTrackDetail(**payload) if payload else None
 
     def save_draft(self, detail: DraftTrackDetail) -> DraftTrackDetail:
+        """Persist a draft track to YAML, normalizing keywords and setting last_updated to today, then invalidate the in-memory cache."""
         if not _slug_is_safe(detail.slug):
             raise ValueError("Invalid slug format.")
         payload = detail.model_dump()
@@ -289,6 +300,7 @@ class TrackDraftStore:
         return DraftTrackDetail(**payload)
 
     def ensure_registry_exists(self) -> list[TrackRegistryEntry]:
+        """Bootstrap career_tracks.yaml from published profiles if the file does not yet exist."""
         path = _registry_path()
         if path.exists():
             return self.list_registry()
@@ -307,6 +319,7 @@ class TrackDraftStore:
         return entries
 
     def list_registry(self) -> list[TrackRegistryEntry]:
+        """Return all registry entries, auto-adding any published profiles not yet present and persisting the merge."""
         path = _registry_path()
         if not path.exists():
             return self.ensure_registry_exists()
@@ -347,6 +360,7 @@ class TrackDraftStore:
         return versions
 
     def publish_draft(self, slug: str, actor: str = "system") -> str:
+        """Atomically publish a draft to the active career profile directory, snapshot the previous version to history, and update the registry."""
         with self._lock:
             draft = self.get_draft(slug)
             if draft is None:
@@ -401,7 +415,7 @@ class TrackDraftStore:
                 "entry_paths": draft.entry_paths,
                 "salary_range_2024": draft.salary_range_2024,
                 "typical_background": draft.typical_background,
-                "counselor_contact": draft.counselor_contact,
+                "counselor_contact": _clean_counselor_contact(draft.counselor_contact),
                 "notes": draft.notes,
                 "salary_levels": [s.model_dump() for s in draft.salary_levels] if draft.salary_levels else [],
                 "visa_pathway_notes": draft.visa_pathway_notes or "",
@@ -455,6 +469,7 @@ class TrackDraftStore:
             return version
 
     def rollback_track(self, slug: str, actor: str = "system") -> str:
+        """Restore the most recent history snapshot as the active profile and append an audit log entry."""
         with self._lock:
             versions = self.list_history(slug)
             if not versions:

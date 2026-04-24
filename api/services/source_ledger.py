@@ -67,6 +67,7 @@ def _load_yaml(path: Path) -> dict[str, Any] | None:
 
 
 def _normalize_record(payload: dict[str, Any], filename: str | None = None) -> dict[str, Any]:
+    """Coerce a raw YAML ledger payload into a canonical record dict with all required keys present."""
     resolved_filename = str(payload.get("filename") or filename or "").strip()
     if not resolved_filename:
         resolved_filename = str(payload.get("doc_id") or payload.get("source_record_id") or "").strip()
@@ -128,6 +129,7 @@ class SourceLedgerStore:
         return _history_dir() / _safe_filename(filename) / f"{record_version}.yaml"
 
     def _snapshot_history(self, record: dict[str, Any], *, lifecycle: str | None = None, superseded_by: str | None = None) -> None:
+        """Write an immutable history snapshot of the given record under the history directory."""
         snapshot = dict(record)
         snapshot["lifecycle"] = lifecycle or snapshot.get("lifecycle") or "superseded"
         snapshot["superseded_by"] = superseded_by or snapshot.get("superseded_by")
@@ -139,6 +141,7 @@ class SourceLedgerStore:
         return sorted((dict(record) for record in self._records.values()), key=lambda item: item["filename"].lower())
 
     def list_history_records(self) -> list[dict[str, Any]]:
+        """Return all historical ledger snapshots sorted by filename then record_version."""
         history_dir = _history_dir()
         if not history_dir.exists():
             return []
@@ -181,6 +184,7 @@ class SourceLedgerStore:
         archived_at: str | None = None,
         uploaded_at: str | None = None,
     ) -> dict[str, Any]:
+        """Create or replace the current ledger record for a source file, snapshotting the previous version to history."""
         self._ensure_loaded()
         current = self._records.get(filename)
         now = uploaded_at or _now()
@@ -215,6 +219,7 @@ class SourceLedgerStore:
         chunk_count: int | None = None,
         archived_at: str | None = None,
     ) -> dict[str, Any]:
+        """Set a source record's lifecycle to 'archived', snapshotting the prior state. Creates the record if absent."""
         current = self.get_record(filename)
         if current is None:
             return self.upsert_record(
@@ -253,6 +258,7 @@ class SourceLedgerStore:
         return added
 
     def _latest_query_hits(self, query_entries: list[dict[str, Any]] | None = None) -> dict[str, str]:
+        """Build a filename→latest_ts map from query log entries, keeping only the most recent hit per source."""
         latest: dict[str, str] = {}
         if not query_entries:
             return latest
@@ -272,6 +278,7 @@ class SourceLedgerStore:
         docs: list[dict[str, Any]],
         query_entries: list[dict[str, Any]] | None = None,
     ) -> SourceStateSummary:
+        """Compute aggregate KB health metrics: active/superseded counts, stale-source evidence, and recent query hit attribution."""
         current_by_filename = {doc["filename"]: doc for doc in docs}
         history_records = self.list_history_records()
 

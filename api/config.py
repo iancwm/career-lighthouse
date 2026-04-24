@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     query_log_path: str = str(default_query_log_path())
     llm_trace_log_path: str = str(default_llm_trace_log_path())
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
+    anthropic_model: str = ""  # ANTHROPIC_MODEL env var; empty falls back to cfg/model.yaml
     # Student-chat semantic insight collection (counsellor-only, non-canonical)
     student_chat_insights_enabled: bool = False
     student_chat_collection_name: str = "student_chat_insights"
@@ -76,6 +77,7 @@ if SettingsConfigDict is None:
         query_log_path: str = str(default_query_log_path())
         llm_trace_log_path: str = str(default_llm_trace_log_path())
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
+        anthropic_model: str = ""  # ANTHROPIC_MODEL env var; empty falls back to cfg/model.yaml
         student_chat_insights_enabled: bool = False
         student_chat_collection_name: str = "student_chat_insights"
         student_chat_top_k_default: int = 10

@@ -39,9 +39,9 @@ async def lifespan(app: FastAPI):
     workers = int(os.environ.get("WEB_CONCURRENCY", "1"))
     if workers > 1:
         logger.warning(
-            "WEB_CONCURRENCY=%d detected — query log file writes are not safe for "
-            "multi-worker deployments. Set WEB_CONCURRENCY=1 or mount a per-worker "
-            "QUERY_LOG_PATH to avoid log corruption.",
+            "WEB_CONCURRENCY=%d detected — multi-worker mode is not fully validated "
+            "with the embedded Qdrant client and file-backed session/track flows. "
+            "Keep WEB_CONCURRENCY=1 unless you have explicitly verified the full stack.",
             workers,
         )
 

@@ -118,7 +118,7 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith("http://localhost:8000/api/kb/health", {
+      expect(fetchMock).toHaveBeenCalledWith("/api/admin/api/kb/health", {
         headers: {},
       })
     )

@@ -16,6 +16,14 @@ def _make_claude_response(text: str):
     return mock_resp
 
 
+def test_anthropic_model_env_override_wins():
+    import services.llm as llm_module
+
+    fake_settings = SimpleNamespace(anthropic_model="claude-opus-4-1")
+    with patch.object(llm_module, "settings", fake_settings):
+        assert llm_module.get_model_name() == "claude-opus-4-1"
+
+
 @patch("services.llm.get_client")
 def test_generate_brief_writes_structured_trace(mock_client, tmp_path):
     import services.llm as llm_module

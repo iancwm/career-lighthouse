@@ -121,6 +121,12 @@ def _normalize_bool(value: Any) -> bool | None:
 
 
 def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Merge and normalize an alumni profile payload over an optional existing record.
+
+    Handles field aliases (name→full_name, degree→graduation_program), coerces
+    enums (can_refer, network_strength, lifecycle), validates referral consent rules,
+    and strips transient display fields (company_links, completeness, company_link_count).
+    """
     data = dict(existing or {})
     data.update({k: v for k, v in payload.items() if v is not None})
 
@@ -232,6 +238,7 @@ def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, A
 
 
 def _compute_completeness(profile: dict[str, Any], *, company_link_count: int = 0) -> str:
+    """Return 'green' when all required fields are populated, referral consent is set, and at least one company link exists; else 'amber'."""
     for field in _COMPLETENESS_REQUIRED:
         value = profile.get(field)
         if value is None:
@@ -325,6 +332,7 @@ def _normalise_name_key(value: str) -> str:
 
 
 def _resolve_company(company_slug: str | None = None, company_name: str | None = None) -> tuple[str, str | None]:
+    """Derive a canonical (slug, display_name) pair for a company, cross-referencing the EmployerEntityStore for known slugs."""
     slug = _normalize_text(company_slug)
     name = _normalize_text(company_name)
     if slug:
@@ -366,6 +374,7 @@ def _load_profile_file(path: Path) -> dict[str, Any] | None:
 
 
 def _current_active_link_for_id(events: list[dict[str, Any]], link_id: str) -> dict[str, Any] | None:
+    """Return the first event matching link_id with lifecycle='active', or None if archived/absent."""
     for event in events:
         if str(event.get("link_id") or "") != link_id:
             continue
@@ -392,6 +401,7 @@ def _profile_response(profile: dict[str, Any], *, company_link_count: int) -> di
 
 
 def _preferred_profile_slug(full_name: str, existing: dict[str, str]) -> str:
+    """Derive a unique YAML-safe slug for an alumni profile, appending a disambiguating suffix when the base slug is already taken by a different person."""
     base = safe_slug(full_name)
     if not base:
         base = safe_slug(full_name.replace(" ", "_")) or "alumni"
@@ -940,9 +950,7 @@ class AlumniEntityStore:
 
 
 def _llm_model() -> str:
-    from cfg import model_cfg as _model_cfg
-
-    return _model_cfg["llm"]["model"]
+    return llm_service.get_model_name()
 
 
 def get_alumni_store() -> "AlumniEntityStore":
