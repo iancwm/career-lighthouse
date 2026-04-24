@@ -54,3 +54,28 @@ def safe_slug(value: str) -> str:
     """Convert text to a conservative filesystem-safe slug."""
     text = re.sub(r"[^a-z0-9]+", "_", (value or "").strip().lower())
     return re.sub(r"_+", "_", text).strip("_")
+
+
+def safe_slug_is_valid(slug: str) -> bool:
+    """Return True if slug is non-empty, alphanumeric+dash+underscore only, and contains no path traversal."""
+    return bool(slug) and slug.replace("_", "").replace("-", "").isalnum() and "/" not in slug and ".." not in slug
+
+
+def safe_int(value: object, default: int | None = None) -> int | None:
+    """Cast value to int, returning default on None or conversion failure."""
+    try:
+        if value is None:
+            return default
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def safe_float(value: object, default: float = 0.0) -> float:
+    """Cast value to float, returning default on None or conversion failure."""
+    try:
+        if value is None:
+            return default
+        return float(value)
+    except (TypeError, ValueError):
+        return default
