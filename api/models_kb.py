@@ -1,0 +1,271 @@
+from typing import Any, Literal, Optional
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class DocInfo(BaseModel):
+    doc_id: str
+    filename: str
+    chunk_count: int
+    uploaded_at: str
+    lifecycle: Literal["active", "superseded", "archived"] = "active"
+    uploaded_by: Optional[str] = None
+    superseded_by: Optional[str] = None
+    linked_knowledge_object: Optional[str] = None
+    archived_at: Optional[str] = None
+    source_record_id: Optional[str] = None
+
+
+class IngestResponse(BaseModel):
+    doc_id: str
+    chunk_count: int
+    status: str
+    similarity_warning: Optional[str] = None
+    overlap_pct: float = 0.0
+    overlapping_docs: list[str] = []
+
+
+class DeleteResponse(BaseModel):
+    status: str  # "deleted" | "not_found"
+
+
+# KB Observability models
+
+class TestQueryResult(BaseModel):
+    source_filename: str
+    excerpt: str
+    score: float
+
+
+class DocCoverageItem(BaseModel):
+    filename: str
+    chunk_count: int
+    coverage_status: str  # "good" | "thin"
+    has_overlap_warning: bool = False
+
+
+class LowConfidenceQuery(BaseModel):
+    ts: str
+    query_text: str
+    max_score: float
+    doc_matched: Optional[str] = None
+
+
+class LLMTraceEntry(BaseModel):
+    trace_id: str
+    ts: str
+    operation: str
+    status: str
+    model: str
+    feature: str | None = None
+    session_id: str | None = None
+    phase: str | None = None
+    chunk_index: int | None = None
+    chunk_count: int | None = None
+    multi_pass_threshold_chars: int | None = None
+    multi_pass_chunk_tokens: int | None = None
+    multi_pass_overlap_tokens: int | None = None
+    input_chars_pre_trim: int | None = None
+    input_chars_sent: int | None = None
+    kb_chunks_retrieved: int | None = None
+    kb_chunks_sent: int | None = None
+    parse_attempt: int | None = None
+    repair_attempt: int | None = None
+    partial_result: bool | None = None
+    timeout_seconds: float | None = None
+    max_tokens: int
+    latency_ms: float
+    input_chars: int
+    output_chars: int = 0
+    input_preview: str = ""
+    output_preview: str = ""
+    error: str | None = None
+
+
+class OverlapPair(BaseModel):
+    doc_a: str
+    doc_b: str
+    overlap_pct: float
+    recommendation: str = "merge or remove one"
+
+
+class SourceStateEvidence(BaseModel):
+    filename: str
+    reason: str
+    chunk_count: int = 0
+    last_seen_at: Optional[str] = None
+
+
+class SourceStateSummary(BaseModel):
+    active_source_count: int = 0
+    superseded_source_count: int = 0
+    stale_source_count: int = 0
+    active_hit_count: int = 0
+    superseded_hit_count: int = 0
+    last_refreshed_at: Optional[str] = None
+    stale_source_evidence: list[SourceStateEvidence] = []
+
+
+class KBHealthResponse(BaseModel):
+    total_docs: int
+    total_chunks: int
+    avg_match_score: Optional[float] = None
+    retrieval_diversity_score: Optional[float] = None
+    low_confidence_queries: list[LowConfidenceQuery] = []
+    doc_coverage: list[DocCoverageItem] = []
+    high_overlap_pairs: list[OverlapPair] = []
+    source_state: Optional[SourceStateSummary] = None
+    active_sources: Optional[int] = None
+    active_source_count: Optional[int] = None
+    superseded_sources: Optional[int] = None
+    superseded_source_count: Optional[int] = None
+    stale_sources: Optional[int] = None
+    stale_source_count: Optional[int] = None
+    active_hits: Optional[int] = None
+    active_hit_count: Optional[int] = None
+    superseded_hits: Optional[int] = None
+    superseded_hit_count: Optional[int] = None
+    last_refreshed_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    stale_source_evidence: list[SourceStateEvidence] = []
+
+
+# Sprint 3 — diff-first KB ingestion models
+
+class ProfileFieldChange(BaseModel):
+    old: Optional[str] = None   # current value in YAML (None if field is new)
+    new: str                    # proposed replacement value (counsellor-editable)
+    source_type: str | None = None
+    source_label: str | None = None
+    source_timestamp: str | None = None
+
+
+class NewChunk(BaseModel):
+    text: str
+    source_type: str            # "note" | "file"
+    source_label: str           # "counsellor_note" for notes; filename for uploads
+    source_timestamp: str | None = None
+    career_type: Optional[str] = None
+    chunk_id: str = ""          # filled by server after Claude returns
+
+
+class AlreadyCovered(BaseModel):
+    content: str | None = None  # session-intent wording
+    reason: str = ""  # why no action is needed
+    excerpt: str | None = None  # KB-analysis wording
+    source_doc: str | None = None  # KB-analysis wording
+
+
+class TrackCandidate(BaseModel):
+    slug: str
+    label: str
+    score: float
+
+
+class TrackGuidance(BaseModel):
+    status: str  # "safe_update" | "clustered_uncertainty" | "emerging_taxonomy_signal"
+    recommendation: str
+    nearest_tracks: list[TrackCandidate] = []
+    recurrence_count: int = 0
+    cluster_key: str | None = None
+
+
+class EmployerCardDiff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    employer_name: str | None = None
+    tracks: list[str] | None = None
+    ep_requirement: str | None = None
+    intake_seasons: list[str] | None = None
+    application_process: str | None = None
+    headcount_estimate: str | int | None = None
+    counselor_contact: str | None = None
+    notes: str | None = None
+
+
+class TrackCardDiff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    track_name: str | None = None
+    match_description: str | None = None
+    match_keywords: list[str] | None = None
+    ep_sponsorship: str | None = None
+    compass_score_typical: str | None = None
+    top_employers_smu: list[str] | None = None
+    recruiting_timeline: str | None = None
+    international_realistic: bool | str | None = None
+    entry_paths: list[str] | None = None
+    salary_range_2024: str | None = None
+    typical_background: str | None = None
+    counselor_contact: str | None = None
+    notes: str | None = None
+
+
+def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
+    validator = getattr(model_cls, "model_validate", None)
+    if callable(validator):
+        return validator(data)
+    return model_cls.parse_obj(data)
+
+
+def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
+    """Validate a session-intent diff against the domain-specific schema."""
+    if domain == "employer":
+        validated = _model_validate(EmployerCardDiff, diff)
+    elif domain == "track":
+        validated = _model_validate(TrackCardDiff, diff)
+    else:
+        raise ValueError(f"Unknown intent card domain: {domain!r}")
+    return validated.model_dump(exclude_none=True)
+
+
+class IntentCard(BaseModel):
+    card_id: str
+    domain: Literal["employer", "track"]
+    summary: str
+    diff: dict[str, Any]  # structured representation of the proposed change
+    raw_input_ref: str  # reference back to the originating text chunk
+    status: Literal["pending", "committed", "discarded"] = "pending"
+
+    @field_validator("diff", mode="before")
+    @classmethod
+    def _validate_diff(cls, value: Any, info):
+        domain = info.data.get("domain")
+        return validate_intent_card_diff(domain, value)
+
+
+class KBAnalysisResult(BaseModel):
+    """Result from LLM analysis of counsellor input (diff-first review)."""
+    interpretation_bullets: list[str] = []
+    new_chunks: list[NewChunk] = []
+    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    already_covered: list[AlreadyCovered] = []
+
+
+class SessionAnalysisResponse(BaseModel):
+    session_id: str
+    cards: list[IntentCard]
+    already_covered: list[AlreadyCovered] = []
+    track_guidance: TrackGuidance | None = None
+
+
+class MultiIntentAnalysisResult(BaseModel):
+    session_id: str
+    cards: list[IntentCard]
+    already_covered: list[AlreadyCovered] = []
+
+
+class KBCommitRequest(BaseModel):
+    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
+    new_chunks: list[NewChunk] = []
+
+
+class KBCommitResponse(BaseModel):
+    status: str
+    chunks_added: int
+    profiles_updated: list[str] = []
+    employers_updated: list[str] = []

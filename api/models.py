@@ -1,605 +1,144 @@
-# api/models.py
+# api/models.py — Compatibility barrel for domain-specific model modules
+# Re-exports all models for backward compatibility while allowing new imports from domain modules
+
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
-
-
-def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
-    validator = getattr(model_cls, "model_validate", None)
-    if callable(validator):
-        return validator(data)
-    return model_cls.parse_obj(data)
-
-
-class ChatMessage(BaseModel):
-    role: str  # "user" | "assistant"
-    content: str
-
-
-class IntakeContext(BaseModel):
-    """Transient intake answers passed with the first chat message.
-
-    Never persisted — used only to resolve the initial career type slug,
-    then discarded. PDPA: no personal identity data collected here.
-    """
-    background: Optional[str] = None   # "undergrad" | "masters" | "professional"
-    region: Optional[str] = None       # "sea" | "south_asia" | "east_asia" | "other"
-    interest: Optional[str] = None     # "finance" | "consulting" | "tech" | "public_sector" | "not_sure"
-
-
-class ChatRequest(BaseModel):
-    message: str
-    resume_text: Optional[str] = None
-    history: list[ChatMessage] = []
-    # Sprint 2: guided entry + career profile injection
-    intake_context: Optional[IntakeContext] = None   # message 1 only; server resolves career type then discards
-    active_career_type: Optional[str] = None         # client echoes back slug from previous response
-
-
-class Citation(BaseModel):
-    filename: str
-    excerpt: str
-    source_name: Optional[str] = None
-    updated_at: Optional[str] = None
-    source_lifecycle: Optional[str] = None
-
-
-class ChatResponse(BaseModel):
-    response: str
-    citations: list[Citation]
-    active_career_type: Optional[str] = None  # resolved career type slug; client stores and echoes on next request
-
-class BriefRequest(BaseModel):
-    resume_text: str
-
-class BriefResponse(BaseModel):
-    brief: str
-
-class DocInfo(BaseModel):
-    doc_id: str
-    filename: str
-    chunk_count: int
-    uploaded_at: str
-    lifecycle: Literal["active", "superseded", "archived"] = "active"
-    uploaded_by: Optional[str] = None
-    superseded_by: Optional[str] = None
-    linked_knowledge_object: Optional[str] = None
-    archived_at: Optional[str] = None
-    source_record_id: Optional[str] = None
-
-class IngestResponse(BaseModel):
-    doc_id: str
-    chunk_count: int
-    status: str
-    similarity_warning: Optional[str] = None
-    overlap_pct: float = 0.0
-    overlapping_docs: list[str] = []
-
-
-class DeleteResponse(BaseModel):
-    status: str  # "deleted" | "not_found"
-
-
-# KB Observability models
-
-class TestQueryResult(BaseModel):
-    source_filename: str
-    excerpt: str
-    score: float
-
-
-class DocCoverageItem(BaseModel):
-    filename: str
-    chunk_count: int
-    coverage_status: str  # "good" | "thin"
-    has_overlap_warning: bool = False
-
-
-class LowConfidenceQuery(BaseModel):
-    ts: str
-    query_text: str
-    max_score: float
-    doc_matched: Optional[str] = None
-
-
-class LLMTraceEntry(BaseModel):
-    trace_id: str
-    ts: str
-    operation: str
-    status: str
-    model: str
-    feature: str | None = None
-    session_id: str | None = None
-    phase: str | None = None
-    chunk_index: int | None = None
-    chunk_count: int | None = None
-    multi_pass_threshold_chars: int | None = None
-    multi_pass_chunk_tokens: int | None = None
-    multi_pass_overlap_tokens: int | None = None
-    input_chars_pre_trim: int | None = None
-    input_chars_sent: int | None = None
-    kb_chunks_retrieved: int | None = None
-    kb_chunks_sent: int | None = None
-    parse_attempt: int | None = None
-    repair_attempt: int | None = None
-    partial_result: bool | None = None
-    timeout_seconds: float | None = None
-    max_tokens: int
-    latency_ms: float
-    input_chars: int
-    output_chars: int = 0
-    input_preview: str = ""
-    output_preview: str = ""
-    error: str | None = None
-
-
-class OverlapPair(BaseModel):
-    doc_a: str
-    doc_b: str
-    overlap_pct: float
-    recommendation: str = "merge or remove one"
-
-
-class SourceStateEvidence(BaseModel):
-    filename: str
-    reason: str
-    chunk_count: int = 0
-    last_seen_at: Optional[str] = None
-
-
-class SourceStateSummary(BaseModel):
-    active_source_count: int = 0
-    superseded_source_count: int = 0
-    stale_source_count: int = 0
-    active_hit_count: int = 0
-    superseded_hit_count: int = 0
-    last_refreshed_at: Optional[str] = None
-    stale_source_evidence: list[SourceStateEvidence] = []
-
-
-class KBHealthResponse(BaseModel):
-    total_docs: int
-    total_chunks: int
-    avg_match_score: Optional[float] = None
-    retrieval_diversity_score: Optional[float] = None
-    low_confidence_queries: list[LowConfidenceQuery] = []
-    doc_coverage: list[DocCoverageItem] = []
-    high_overlap_pairs: list[OverlapPair] = []
-    source_state: Optional[SourceStateSummary] = None
-    active_sources: Optional[int] = None
-    active_source_count: Optional[int] = None
-    superseded_sources: Optional[int] = None
-    superseded_source_count: Optional[int] = None
-    stale_sources: Optional[int] = None
-    stale_source_count: Optional[int] = None
-    active_hits: Optional[int] = None
-    active_hit_count: Optional[int] = None
-    superseded_hits: Optional[int] = None
-    superseded_hit_count: Optional[int] = None
-    last_refreshed_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    stale_source_evidence: list[SourceStateEvidence] = []
-
-
-# Sprint 3 — diff-first KB ingestion models
-
-class ProfileFieldChange(BaseModel):
-    old: Optional[str] = None   # current value in YAML (None if field is new)
-    new: str                    # proposed replacement value (counsellor-editable)
-    source_type: str | None = None
-    source_label: str | None = None
-    source_timestamp: str | None = None
-
-
-class NewChunk(BaseModel):
-    text: str
-    source_type: str            # "note" | "file"
-    source_label: str           # "counsellor_note" for notes; filename for uploads
-    source_timestamp: str | None = None
-    career_type: Optional[str] = None
-    chunk_id: str = ""          # filled by server after Claude returns
-
-
-class AlreadyCovered(BaseModel):
-    content: str | None = None  # session-intent wording
-    reason: str = ""  # why no action is needed
-    excerpt: str | None = None  # KB-analysis wording
-    source_doc: str | None = None  # KB-analysis wording
-
-
-class TrackCandidate(BaseModel):
-    slug: str
-    label: str
-    score: float
-
-
-class TrackGuidance(BaseModel):
-    status: str  # "safe_update" | "clustered_uncertainty" | "emerging_taxonomy_signal"
-    recommendation: str
-    nearest_tracks: list[TrackCandidate] = []
-    recurrence_count: int = 0
-    cluster_key: str | None = None
-
-
-class EmployerCardDiff(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    slug: str
-    employer_name: str | None = None
-    tracks: list[str] | None = None
-    ep_requirement: str | None = None
-    intake_seasons: list[str] | None = None
-    application_process: str | None = None
-    headcount_estimate: str | int | None = None
-    counselor_contact: str | None = None
-    notes: str | None = None
-
-
-class TrackCardDiff(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    slug: str
-    track_name: str | None = None
-    match_description: str | None = None
-    match_keywords: list[str] | None = None
-    ep_sponsorship: str | None = None
-    compass_score_typical: str | None = None
-    top_employers_smu: list[str] | None = None
-    recruiting_timeline: str | None = None
-    international_realistic: bool | str | None = None
-    entry_paths: list[str] | None = None
-    salary_range_2024: str | None = None
-    typical_background: str | None = None
-    counselor_contact: str | None = None
-    notes: str | None = None
-
-
-def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
-    """Validate a session-intent diff against the domain-specific schema."""
-    if domain == "employer":
-        validated = _model_validate(EmployerCardDiff, diff)
-    elif domain == "track":
-        validated = _model_validate(TrackCardDiff, diff)
-    else:
-        raise ValueError(f"Unknown intent card domain: {domain!r}")
-    return validated.model_dump(exclude_none=True)
-
-
-class IntentCard(BaseModel):
-    card_id: str
-    domain: Literal["employer", "track"]
-    summary: str
-    diff: dict[str, Any]  # structured representation of the proposed change
-    raw_input_ref: str  # reference back to the originating text chunk
-    status: Literal["pending", "committed", "discarded"] = "pending"
-
-    @field_validator("diff", mode="before")
-    @classmethod
-    def _validate_diff(cls, value: Any, info):
-        domain = info.data.get("domain")
-        return validate_intent_card_diff(domain, value)
-
-
-class KBAnalysisResult(BaseModel):
-    """Result from LLM analysis of counsellor input (diff-first review)."""
-    interpretation_bullets: list[str] = []
-    new_chunks: list[NewChunk] = []
-    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
-    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
-    already_covered: list[AlreadyCovered] = []
-
-
-class SessionAnalysisResponse(BaseModel):
-    session_id: str
-    cards: list[IntentCard]
-    already_covered: list[AlreadyCovered] = []
-    track_guidance: TrackGuidance | None = None
-
-
-class MultiIntentAnalysisResult(BaseModel):
-    session_id: str
-    cards: list[IntentCard]
-    already_covered: list[AlreadyCovered] = []
-
-
-class KBCommitRequest(BaseModel):
-    profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}
-    employer_updates: dict[str, dict[str, ProfileFieldChange]] = {}
-    new_chunks: list[NewChunk] = []
-
-
-class KBCommitResponse(BaseModel):
-    status: str
-    chunks_added: int
-    profiles_updated: list[str] = []
-    employers_updated: list[str] = []
-
-
-# Sprint 5 — Structured facts schema
-
-class Fact(BaseModel):
-    """Structured fact about employer or career track: timeline, alumni, interview, compensation, skills."""
-    slug: str  # stripe-aditya-mehta or stripe-aditya-mehta-20260420 on collision
-    type: Literal["timeline_phase", "alumni", "interview_stage", "compensation", "skill_requirement"]
-    timestamp: str  # ISO-8601 datetime
-    source: Literal["counselor", "inferred", "direct_from_alumni"]  # provenance
-    confidence: int  # 1–100; confidence in this fact
-    trace_id: Optional[str] = None  # Langfuse trace ID if extracted by LLM
-    lifecycle: Literal["active", "superseded", "archived"] = "active"
-    deleted: bool = False  # soft delete; queries filter out by default
-    last_updated: str | None = None
-    source_timestamp: str | None = None
-    source_label: str | None = None
-    source_type: str | None = None
-    superseded_by: str | None = None
-    audit_url: str | None = None
-    data: dict[str, Any] = {}  # Type-specific fields (name, degree, school, etc.)
-
-
-class ExtractFactsRequest(BaseModel):
-    """Request to extract facts from employer/track notes."""
-    pass  # Notes read from employer entity; endpoint handles reading
-
-
-class FactQueryResponse(BaseModel):
-    """Response from /api/kb/facts endpoint."""
-    facts: list[Fact]
-    total: int
-    filters_applied: dict[str, Any] = {}
-
-
-class FactGroupResponse(BaseModel):
-    """Response from /api/kb/facts/grouped endpoint."""
-    by: Literal["employer", "type"]
-    groups: dict[str, list[Fact]] = Field(default_factory=dict)
-    total: int
-    filters_applied: dict[str, Any] = Field(default_factory=dict)
-
-
-# Sprint 3 Addendum — Employer Entity YAML models
-
-class EmployerDetail(BaseModel):
-    """Single employer entity. Persisted as knowledge/employers/{slug}.yaml."""
-    slug: str
-    employer_name: str
-    tracks: list[str] = []
-    ep_requirement: str | None = None
-    intake_seasons: list[str] = []
-    singapore_headcount_estimate: str | None = None
-    application_process: str | None = None
-    counsellor_contact: str | None = None
-    notes: str | None = None
-    structured: dict[str, Any] = {}
-    source_documents: list[dict[str, Any]] = []
-    last_updated: str | None = None
-    completeness: str = "amber"  # computed by server: "green" | "amber"
-
-    @field_validator("singapore_headcount_estimate", mode="before")
-    @classmethod
-    def _coerce_singapore_headcount_estimate(cls, value: Any) -> Any:
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
-            return str(value)
-        return value
-
-
-class EmployerHistoryVersion(BaseModel):
-    version: str
-    recorded_at: str
-    filename: str
-
-
-class AlumniFieldProposal(BaseModel):
-    value: Any = None
-    confidence: int = 0
-    evidence: list[str] = Field(default_factory=list)
-    rationale: str | None = None
-
-
-class AlumniCompanyLinkInput(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    company_slug: str | None = None
-    company_name: str | None = None
-    relationship: str | None = None
-    role_title: str | None = None
-    notes: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
-    link_type: Literal["current", "former", "advisory"] = "current"
-    confidence: int | None = None
-    evidence: list[str] = Field(default_factory=list)
-    rationale: str | None = None
-    source_type: str | None = None
-    source_label: str | None = None
-    source_timestamp: str | None = None
-
-
-class AlumniCompanyLink(BaseModel):
-    link_id: str
-    alumni_slug: str
-    company_slug: str
-    company_name: str | None = None
-    relationship: str | None = None
-    role_title: str | None = None
-    notes: str | None = None
-    start_date: str | None = None
-    end_date: str | None = None
-    link_type: Literal["current", "former", "advisory"] = "current"
-    confidence: int | None = None
-    evidence: list[str] = Field(default_factory=list)
-    rationale: str | None = None
-    source_type: str | None = None
-    source_label: str | None = None
-    source_timestamp: str | None = None
-    source_signature: str | None = None
-    lifecycle: Literal["active", "superseded", "archived"] = "active"
-    deleted: bool = False
-    superseded_by: str | None = None
-    recorded_at: str | None = None
-    last_updated: str | None = None
-    archived_at: str | None = None
-
-
-class AlumniDetail(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    slug: str
-    full_name: str
-    name: str | None = None
-    degree: str | None = None
-    graduation_school: str | None = None
-    school: str | None = None
-    graduation_program: str | None = None
-    graduation_year: str | int | None = None
-    current_title: str | None = None
-    current_company: str | None = None
-    available_for_mentoring: bool | None = None
-    notes: str | None = None
-    career_goals_domains: list[str] = Field(default_factory=list)
-    help_capacity: str | None = None
-    can_refer: Literal["yes", "maybe", "no"] = "maybe"
-    can_refer_confidence: int | None = None
-    can_refer_evidence: list[str] = Field(default_factory=list)
-    can_refer_rationale: str | None = None
-    network_strength: Literal["low", "medium", "high"] | None = None
-    mentoring_modes: list[str] = Field(default_factory=list)
-    communication_style: str | None = None
-    preferred_student_traits: list[str] = Field(default_factory=list)
-    common_interests: list[str] = Field(default_factory=list)
-    consent_for_referrals: bool | None = None
-    consent_scope_notes: str | None = None
-    source_type: str | None = None
-    source_label: str | None = None
-    source_timestamp: str | None = None
-    trace_id: str | None = None
-    lifecycle: Literal["active", "superseded", "archived"] = "active"
-    deleted: bool = False
-    superseded_by: str | None = None
-    archived_at: str | None = None
-    last_confirmed_at: str | None = None
-    last_updated: str | None = None
-    company_links: list[AlumniCompanyLink] = Field(default_factory=list)
-    company_link_count: int = 0
-    completeness: str = "amber"
-
-
-class AlumniHistoryVersion(BaseModel):
-    version: str
-    recorded_at: str
-    filename: str
-
-
-class AlumniLinkVersion(BaseModel):
-    version: str
-    recorded_at: str
-    filename: str
-    link_id: str
-    lifecycle: Literal["active", "superseded", "archived"] = "active"
-
-
-class AlumniExtractionRequest(BaseModel):
-    notes: str
-    source_type: str = "note"
-    source_label: str = "counsellor_note"
-    alumni_slug: str | None = None
-
-
-class AlumniExtractionPreview(BaseModel):
-    summary_bullets: list[str] = Field(default_factory=list)
-    profile_proposals: dict[str, AlumniFieldProposal] = Field(default_factory=dict)
-    company_link_proposals: list[AlumniCompanyLinkInput] = Field(default_factory=list)
-    fit_triad: dict[str, AlumniFieldProposal] = Field(default_factory=dict)
-    source_label: str | None = None
-    source_type: str | None = None
-
-
-# Sprint 4 — Track publishing workflow models
-
-class SourceRef(BaseModel):
-    type: str
-    label: str
-
-
-class SalaryLevel(BaseModel):
-    """Per-stage salary breakdown extracted from counsellor research."""
-    stage: str        # e.g. "Junior Analyst"
-    range_sgd: str    # e.g. "80–110K"
-    notes: str = ""   # e.g. "Base + 15-20% bonus"
-
-
-class DraftTrackDetail(BaseModel):
-    slug: str
-    track_name: str
-    status: str = "draft"
-    match_description: str = ""
-    match_keywords: list[str] = []
-    ep_sponsorship: str = ""
-    compass_score_typical: str = ""
-    top_employers_smu: list[str] = []
-    recruiting_timeline: str = ""
-    international_realistic: bool = True
-    entry_paths: list[str] = []
-    salary_range_2024: str = ""
-    typical_background: str = ""
-    counselor_contact: str | None = None
-    notes: str = ""
-    source_refs: list[SourceRef] = []
-    structured: dict = {}
-    last_updated: str | None = None
-    archived_at: str | None = None
-
-    # Optional: per-stage salary breakdown extracted from counsellor research.
-    salary_levels: list[SalaryLevel] | None = None
-
-    # Optional: visa and international pathway notes beyond the ep_sponsorship headline.
-    visa_pathway_notes: str | None = None
-
-
-class TrackRegistryEntry(BaseModel):
-    slug: str
-    label: str
-    status: str = "active"
-    last_published: str | None = None
-
-
-class TrackReferenceDetail(BaseModel):
-    slug: str
-    label: str
-    status: str = "active"
-    last_published: str | None = None
-    track_name: str = ""
-    match_description: str = ""
-    match_keywords: list[str] = []
-    ep_sponsorship: str = ""
-    compass_score_typical: str = ""
-    top_employers_smu: list[str] = []
-    recruiting_timeline: str = ""
-    international_realistic: bool = True
-    entry_paths: list[str] = []
-    salary_range_2024: str = ""
-    typical_background: str = ""
-    counselor_contact: str | None = None
-    notes: str = ""
-
-    # Optional: per-stage salary breakdown (published).
-    salary_levels: list[SalaryLevel] | None = None
-
-    # Optional: visa/international pathway notes (published).
-    visa_pathway_notes: str | None = None
-
-
-class TrackVersionInfo(BaseModel):
-    version: str
-    published_at: str
-    filename: str
-
-
-class TrackPublishResponse(BaseModel):
-    status: str
-    slug: str
-    version: str
-    registry_updated: bool = True
-
+from pydantic import BaseModel, Field
+
+# Try relative imports first (when imported as api.models), fall back to absolute (when api is in path)
+try:
+    from .models_chat import (
+        BriefRequest,
+        BriefResponse,
+        ChatMessage,
+        ChatRequest,
+        ChatResponse,
+        Citation,
+        IntakeContext,
+    )
+    from .models_kb import (
+        AlreadyCovered,
+        DeleteResponse,
+        DocCoverageItem,
+        DocInfo,
+        EmployerCardDiff,
+        IntentCard,
+        KBAnalysisResult,
+        KBCommitRequest,
+        KBCommitResponse,
+        KBHealthResponse,
+        LLMTraceEntry,
+        LowConfidenceQuery,
+        NewChunk,
+        OverlapPair,
+        ProfileFieldChange,
+        SessionAnalysisResponse,
+        SourceStateEvidence,
+        SourceStateSummary,
+        TestQueryResult,
+        TrackCandidate,
+        TrackCardDiff,
+        TrackGuidance,
+        _model_validate,
+        validate_intent_card_diff,
+        MultiIntentAnalysisResult,
+        IngestResponse,
+    )
+    from .models_employers import (
+        AlumniCompanyLink,
+        AlumniCompanyLinkInput,
+        AlumniDetail,
+        AlumniExtractionPreview,
+        AlumniExtractionRequest,
+        AlumniFieldProposal,
+        AlumniHistoryVersion,
+        AlumniLinkVersion,
+        EmployerDetail,
+        EmployerHistoryVersion,
+    )
+    from .models_tracks import (
+        DraftTrackDetail,
+        SalaryLevel,
+        SourceRef,
+        TrackPublishResponse,
+        TrackReferenceDetail,
+        TrackRegistryEntry,
+        TrackVersionInfo,
+    )
+    from .models_facts import (
+        Fact,
+        ExtractFactsRequest,
+        FactGroupResponse,
+        FactQueryResponse,
+    )
+except ImportError:
+    # Fallback: absolute imports when api is in path
+    from models_chat import (
+        BriefRequest,
+        BriefResponse,
+        ChatMessage,
+        ChatRequest,
+        ChatResponse,
+        Citation,
+        IntakeContext,
+    )
+    from models_kb import (
+        AlreadyCovered,
+        DeleteResponse,
+        DocCoverageItem,
+        DocInfo,
+        EmployerCardDiff,
+        IntentCard,
+        KBAnalysisResult,
+        KBCommitRequest,
+        KBCommitResponse,
+        KBHealthResponse,
+        LLMTraceEntry,
+        LowConfidenceQuery,
+        NewChunk,
+        OverlapPair,
+        ProfileFieldChange,
+        SessionAnalysisResponse,
+        SourceStateEvidence,
+        SourceStateSummary,
+        TestQueryResult,
+        TrackCandidate,
+        TrackCardDiff,
+        TrackGuidance,
+        _model_validate,
+        validate_intent_card_diff,
+        MultiIntentAnalysisResult,
+        IngestResponse,
+    )
+    from models_employers import (
+        AlumniCompanyLink,
+        AlumniCompanyLinkInput,
+        AlumniDetail,
+        AlumniExtractionPreview,
+        AlumniExtractionRequest,
+        AlumniFieldProposal,
+        AlumniHistoryVersion,
+        AlumniLinkVersion,
+        EmployerDetail,
+        EmployerHistoryVersion,
+    )
+    from models_tracks import (
+        DraftTrackDetail,
+        SalaryLevel,
+        SourceRef,
+        TrackPublishResponse,
+        TrackReferenceDetail,
+        TrackRegistryEntry,
+        TrackVersionInfo,
+    )
+    from models_facts import (
+        Fact,
+        ExtractFactsRequest,
+        FactGroupResponse,
+        FactQueryResponse,
+    )
+
+# Session and shared models (kept in barrel)
 
 class KnowledgeSession(BaseModel):
     id: str
@@ -632,3 +171,75 @@ class CardCommitResponse(BaseModel):
 class CardDiscardResponse(BaseModel):
     card_id: str
     status: str = "discarded"
+
+
+# For backward compatibility, re-export the utility
+__all__ = [
+    # Chat
+    "ChatMessage",
+    "IntakeContext",
+    "ChatRequest",
+    "Citation",
+    "ChatResponse",
+    "BriefRequest",
+    "BriefResponse",
+    # KB observability
+    "DocInfo",
+    "IngestResponse",
+    "DeleteResponse",
+    "TestQueryResult",
+    "DocCoverageItem",
+    "LowConfidenceQuery",
+    "LLMTraceEntry",
+    "OverlapPair",
+    "SourceStateEvidence",
+    "SourceStateSummary",
+    "KBHealthResponse",
+    # KB analysis
+    "ProfileFieldChange",
+    "NewChunk",
+    "AlreadyCovered",
+    "TrackCandidate",
+    "TrackGuidance",
+    "EmployerCardDiff",
+    "TrackCardDiff",
+    "IntentCard",
+    "KBAnalysisResult",
+    "SessionAnalysisResponse",
+    "MultiIntentAnalysisResult",
+    "KBCommitRequest",
+    "KBCommitResponse",
+    "validate_intent_card_diff",
+    # Employers
+    "EmployerDetail",
+    "EmployerHistoryVersion",
+    "AlumniFieldProposal",
+    "AlumniCompanyLinkInput",
+    "AlumniCompanyLink",
+    "AlumniDetail",
+    "AlumniHistoryVersion",
+    "AlumniLinkVersion",
+    "AlumniExtractionRequest",
+    "AlumniExtractionPreview",
+    # Tracks
+    "SourceRef",
+    "SalaryLevel",
+    "DraftTrackDetail",
+    "TrackRegistryEntry",
+    "TrackReferenceDetail",
+    "TrackVersionInfo",
+    "TrackPublishResponse",
+    # Facts
+    "Fact",
+    "ExtractFactsRequest",
+    "FactQueryResponse",
+    "FactGroupResponse",
+    # Session
+    "KnowledgeSession",
+    "CreateSessionRequest",
+    "CardCommitRequest",
+    "CardCommitResponse",
+    "CardDiscardResponse",
+    # Utilities
+    "_model_validate",
+]
