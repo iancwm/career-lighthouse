@@ -32,7 +32,9 @@ from services.shared_yaml import (
     atomic_yaml_write,
     normalize_list,
     read_yaml,
+    safe_int,
     safe_slug,
+    safe_slug_is_valid,
     utc_now_iso,
     version_stamp,
 )
@@ -94,8 +96,6 @@ def _manifest_path() -> Path:
     return Path(os.environ.get("ALUMNI_BACKFILL_MANIFEST_PATH", str(_default_backfill_manifest_path())))
 
 
-def _slug_is_safe(slug: str) -> bool:
-    return bool(slug) and slug.replace("_", "").replace("-", "").isalnum() and "/" not in slug and ".." not in slug
 
 
 def _normalize_text(value: Any) -> str | None:
@@ -191,10 +191,7 @@ def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, A
     data["can_refer"] = can_refer
 
     confidence = data.get("can_refer_confidence")
-    try:
-        confidence = int(confidence) if confidence is not None and str(confidence).strip() else None
-    except (TypeError, ValueError):
-        confidence = None
+    confidence = safe_int(confidence) if confidence is not None and str(confidence).strip() else None
     data["can_refer_confidence"] = confidence
 
     if can_refer == "yes":
@@ -503,7 +500,7 @@ class AlumniEntityStore:
 
     def create_alumni(self, payload: dict[str, Any]) -> dict[str, Any]:
         slug = _normalize_text(payload.get("slug")) or ""
-        if not _slug_is_safe(slug):
+        if not safe_slug_is_valid(slug):
             raise ValueError("Invalid alumni slug")
         profile_path = _profile_path(slug)
         disabled_path = _disabled_profile_path(slug)
@@ -523,7 +520,7 @@ class AlumniEntityStore:
         return profile
 
     def update_alumni(self, slug: str, payload: dict[str, Any]) -> dict[str, Any]:
-        if not _slug_is_safe(slug):
+        if not safe_slug_is_valid(slug):
             raise ValueError("Invalid alumni slug")
         profile_path = _profile_path(slug)
         if not profile_path.exists():
@@ -545,7 +542,7 @@ class AlumniEntityStore:
         return merged
 
     def delete_alumni(self, slug: str) -> None:
-        if not _slug_is_safe(slug):
+        if not safe_slug_is_valid(slug):
             raise ValueError("Invalid alumni slug")
         profile_path = _profile_path(slug)
         if not profile_path.exists():
@@ -590,7 +587,7 @@ class AlumniEntityStore:
         return None
 
     def append_link(self, slug: str, payload: dict[str, Any], link_id: str | None = None) -> dict[str, Any]:
-        if not _slug_is_safe(slug):
+        if not safe_slug_is_valid(slug):
             raise ValueError("Invalid alumni slug")
         profile = self.get_alumni(slug)
         if profile is None:
@@ -647,10 +644,7 @@ class AlumniEntityStore:
             ])
             link_id = safe_slug(signature_seed) or f"{slug}-{company_slug}-{version_stamp()}"
         confidence = data.get("confidence")
-        try:
-            confidence = int(confidence) if confidence is not None and str(confidence).strip() else None
-        except (TypeError, ValueError):
-            confidence = None
+        confidence = safe_int(confidence) if confidence is not None and str(confidence).strip() else None
 
         evidence = [str(item).strip() for item in normalize_list(data.get("evidence")) if str(item).strip()]
         link_type = _normalize_text(data.get("link_type")) or "current"

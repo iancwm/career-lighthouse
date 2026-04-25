@@ -18,6 +18,7 @@ import yaml
 
 from models import SourceStateEvidence, SourceStateSummary
 from services.runtime_paths import default_source_ledger_dir, default_source_ledger_history_dir
+from services.shared_yaml import atomic_yaml_write, version_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +33,6 @@ def _history_dir() -> Path:
     return Path(os.environ.get("SOURCE_LEDGER_HISTORY_DIR", str(default_source_ledger_history_dir())))
 
 
-def _version_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
-
-
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -43,14 +40,6 @@ def _now() -> str:
 def _safe_filename(filename: str) -> str:
     clean = _SAFE_KEY_RE.sub("_", str(filename).strip()).strip("._")
     return clean or "source"
-
-
-def _atomic_yaml_write(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as handle:
-        yaml.safe_dump(payload, handle, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    tmp.replace(path)
 
 
 def _load_yaml(path: Path) -> dict[str, Any] | None:
@@ -83,8 +72,25 @@ def _normalize_record(payload: dict[str, Any], filename: str | None = None) -> d
     record["linked_knowledge_object"] = record.get("linked_knowledge_object")
     record["chunk_count"] = int(record.get("chunk_count") or 0)
     record["archived_at"] = record.get("archived_at")
-    record["record_version"] = str(record.get("record_version") or _version_stamp())
+    record["record_version"] = str(record.get("record_version") or version_stamp())
     return record
+
+
+def _latest_query_hits(query_entries: list[dict[str, Any]] | None = None) -> dict[str, str]:
+    """Build a filename→latest_ts map from query log entries, keeping only the most recent hit per source."""
+    latest: dict[str, str] = {}
+    if not query_entries:
+        return latest
+    for entry in query_entries:
+        ts = str(entry.get("ts") or "")
+        for doc_name in entry.get("top_docs") or []:
+            filename = str(doc_name).strip()
+            if not filename:
+                continue
+            current = latest.get(filename)
+            if current is None or ts > current:
+                latest[filename] = ts
+    return latest
 
 
 class SourceLedgerStore:
@@ -133,8 +139,8 @@ class SourceLedgerStore:
         snapshot = dict(record)
         snapshot["lifecycle"] = lifecycle or snapshot.get("lifecycle") or "superseded"
         snapshot["superseded_by"] = superseded_by or snapshot.get("superseded_by")
-        snapshot["record_version"] = str(snapshot.get("record_version") or _version_stamp())
-        _atomic_yaml_write(self._history_path(snapshot["filename"], snapshot["record_version"]), snapshot)
+        snapshot["record_version"] = str(snapshot.get("record_version") or version_stamp())
+        atomic_yaml_write(self._history_path(snapshot["filename"], snapshot["record_version"]), snapshot)
 
     def list_records(self) -> list[dict[str, Any]]:
         self._ensure_loaded()
@@ -188,7 +194,7 @@ class SourceLedgerStore:
         self._ensure_loaded()
         current = self._records.get(filename)
         now = uploaded_at or _now()
-        record_version = _version_stamp()
+        record_version = version_stamp()
         record = {
             "doc_id": filename,
             "source_record_id": filename,
@@ -208,7 +214,7 @@ class SourceLedgerStore:
             if current.get("record_version") != record_version:
                 self._snapshot_history(current, lifecycle="superseded", superseded_by=record_version)
 
-        _atomic_yaml_write(self._current_path(filename), record)
+        atomic_yaml_write(self._current_path(filename), record)
         self._records[filename] = dict(record)
         return dict(record)
 
@@ -233,8 +239,8 @@ class SourceLedgerStore:
             current["chunk_count"] = int(chunk_count)
         current["lifecycle"] = "archived"
         current["archived_at"] = archived_at or _now()
-        current["record_version"] = _version_stamp()
-        _atomic_yaml_write(self._current_path(filename), current)
+        current["record_version"] = version_stamp()
+        atomic_yaml_write(self._current_path(filename), current)
         self._records[filename] = dict(current)
         self._snapshot_history(current, lifecycle="archived")
         return dict(current)
@@ -256,22 +262,6 @@ class SourceLedgerStore:
             )
             added += 1
         return added
-
-    def _latest_query_hits(self, query_entries: list[dict[str, Any]] | None = None) -> dict[str, str]:
-        """Build a filename→latest_ts map from query log entries, keeping only the most recent hit per source."""
-        latest: dict[str, str] = {}
-        if not query_entries:
-            return latest
-        for entry in query_entries:
-            ts = str(entry.get("ts") or "")
-            for doc_name in entry.get("top_docs") or []:
-                filename = str(doc_name).strip()
-                if not filename:
-                    continue
-                current = latest.get(filename)
-                if current is None or ts > current:
-                    latest[filename] = ts
-        return latest
 
     def summarize_source_state(
         self,
@@ -323,7 +313,7 @@ class SourceLedgerStore:
 
         active_hit_count = 0
         superseded_hit_count = 0
-        latest_hits = self._latest_query_hits(query_entries)
+        latest_hits = _latest_query_hits(query_entries)
         for entry in query_entries or []:
             for doc_name in entry.get("top_docs") or []:
                 filename = str(doc_name).strip()

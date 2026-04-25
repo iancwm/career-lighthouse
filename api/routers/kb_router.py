@@ -59,6 +59,7 @@ from services.employer_store import (
     get_employer_store,
 )
 from services.fact_store import group_facts, list_facts
+from services.shared_yaml import safe_int, safe_float, safe_slug_is_valid
 from constants.profile_fields import ALLOWED_PROFILE_FIELDS
 from services.embedder import Embedder
 from services.ingestion import chunk_text, parse_file
@@ -152,16 +153,6 @@ def _employers_dir() -> Path:
         "EMPLOYERS_DIR",
         str(_default_employers_dir()),
     ))
-
-
-def _slug_is_safe(slug: str) -> bool:
-    """Return True if slug is safe for filesystem use (no path traversal)."""
-    return (
-        bool(slug)
-        and slug.replace("_", "").isalnum()
-        and "/" not in slug
-        and ".." not in slug
-    )
 
 
 def _build_employer_summary(store: EmployerEntityStore) -> str:
@@ -351,40 +342,20 @@ def _format_timestamp(value: object) -> str:
     return str(value)
 
 
-def _safe_int(value: object, default: int | None = None) -> int | None:
-    """Safe integer cast, returning default on None or conversion failure."""
-    try:
-        if value is None:
-            return default
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _safe_float(value: object, default: float = 0.0) -> float:
-    """Safe float cast, returning default on None or conversion failure."""
-    try:
-        if value is None:
-            return default
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
 def _estimate_input_chars(payload: object) -> int:
     """Estimate the character length of an LLM call's input payload from structured metadata, falling back to raw stringify."""
     mapping = _coerce_mapping(payload)
     if not mapping:
         return len(str(payload or ""))
 
-    system_chars = _safe_int(mapping.get("system_chars"), 0) or 0
+    system_chars = safe_int(mapping.get("system_chars"), 0) or 0
     messages = mapping.get("messages")
     message_chars = 0
     if isinstance(messages, list):
         for message in messages:
             if not isinstance(message, dict):
                 continue
-            message_chars += _safe_int(message.get("content_chars"), 0) or 0
+            message_chars += safe_int(message.get("content_chars"), 0) or 0
     if system_chars or message_chars:
         return system_chars + message_chars
     return len(str(payload or ""))
@@ -539,14 +510,14 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
 
     start_value = _get_value(observation, "start_time", "startTime", "created_at", "createdAt", "timestamp", "ts", default=None)
     end_value = _get_value(observation, "end_time", "endTime", "updated_at", "updatedAt", default=None)
-    latency_seconds = _safe_float(_get_value(observation, "latency", default=None), default=0.0)
+    latency_seconds = safe_float(_get_value(observation, "latency", default=None), default=0.0)
     start_ts = _format_timestamp(start_value)
     if isinstance(start_value, datetime) and end_value is None and latency_seconds:
         end_ts = _format_timestamp(start_value + timedelta(seconds=latency_seconds))
     else:
         end_ts = _format_timestamp(end_value)
 
-    latency_ms = _safe_float(
+    latency_ms = safe_float(
         _get_value(
             observation,
             "latency_ms",
@@ -563,11 +534,11 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         elif isinstance(start_dt, datetime) and latency_seconds:
             latency_ms = round(latency_seconds * 1000, 1)
 
-    input_chars = _safe_int(metadata.get("input_chars"), None)
+    input_chars = safe_int(metadata.get("input_chars"), None)
     if input_chars is None:
         input_chars = _estimate_input_chars(input_payload)
 
-    output_chars = _safe_int(metadata.get("output_chars"), None)
+    output_chars = safe_int(metadata.get("output_chars"), None)
     if output_chars is None:
         output_chars = _estimate_output_chars(output_payload)
 
@@ -575,17 +546,17 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         "feature": metadata.get("feature") or operation,
         "session_id": session_id,
         "phase": phase or None,
-        "chunk_index": _safe_int(_get_value(metadata, "chunkIndex", "chunk_index")),
-        "chunk_count": _safe_int(_get_value(metadata, "chunkCount", "chunk_count")),
-        "multi_pass_threshold_chars": _safe_int(_get_value(metadata, "multiPassThresholdChars", "multi_pass_threshold_chars")),
-        "multi_pass_chunk_tokens": _safe_int(_get_value(metadata, "multiPassChunkTokens", "multi_pass_chunk_tokens")),
-        "multi_pass_overlap_tokens": _safe_int(_get_value(metadata, "multiPassOverlapTokens", "multi_pass_overlap_tokens")),
-        "input_chars_pre_trim": _safe_int(_get_value(metadata, "inputCharsPreTrim", "input_chars_pre_trim")),
-        "input_chars_sent": _safe_int(_get_value(metadata, "inputCharsSent", "input_chars_sent")),
-        "kb_chunks_retrieved": _safe_int(_get_value(metadata, "kbChunksRetrieved", "kb_chunks_retrieved")),
-        "kb_chunks_sent": _safe_int(_get_value(metadata, "kbChunksSent", "kb_chunks_sent")),
-        "parse_attempt": _safe_int(_get_value(metadata, "parseAttempt", "parse_attempt")),
-        "repair_attempt": _safe_int(_get_value(metadata, "repairAttempt", "repair_attempt")),
+        "chunk_index": safe_int(_get_value(metadata, "chunkIndex", "chunk_index")),
+        "chunk_count": safe_int(_get_value(metadata, "chunkCount", "chunk_count")),
+        "multi_pass_threshold_chars": safe_int(_get_value(metadata, "multiPassThresholdChars", "multi_pass_threshold_chars")),
+        "multi_pass_chunk_tokens": safe_int(_get_value(metadata, "multiPassChunkTokens", "multi_pass_chunk_tokens")),
+        "multi_pass_overlap_tokens": safe_int(_get_value(metadata, "multiPassOverlapTokens", "multi_pass_overlap_tokens")),
+        "input_chars_pre_trim": safe_int(_get_value(metadata, "inputCharsPreTrim", "input_chars_pre_trim")),
+        "input_chars_sent": safe_int(_get_value(metadata, "inputCharsSent", "input_chars_sent")),
+        "kb_chunks_retrieved": safe_int(_get_value(metadata, "kbChunksRetrieved", "kb_chunks_retrieved")),
+        "kb_chunks_sent": safe_int(_get_value(metadata, "kbChunksSent", "kb_chunks_sent")),
+        "parse_attempt": safe_int(_get_value(metadata, "parseAttempt", "parse_attempt")),
+        "repair_attempt": safe_int(_get_value(metadata, "repairAttempt", "repair_attempt")),
         "partial_result": _get_value(metadata, "partialResult", "partial_result", default=None),
     }
 
@@ -610,8 +581,8 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         parse_attempt=trace_meta["parse_attempt"],
         repair_attempt=trace_meta["repair_attempt"],
         partial_result=trace_meta["partial_result"],
-        timeout_seconds=_safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
-        max_tokens=_safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
+        timeout_seconds=safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
+        max_tokens=safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
         latency_ms=0.0,
         input_chars=input_chars,
         output_chars=0,
@@ -642,8 +613,8 @@ def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
         parse_attempt=trace_meta["parse_attempt"],
         repair_attempt=trace_meta["repair_attempt"],
         partial_result=trace_meta["partial_result"],
-        timeout_seconds=_safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
-        max_tokens=_safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
+        timeout_seconds=safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
+        max_tokens=safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
         latency_ms=latency_ms,
         input_chars=input_chars,
         output_chars=output_chars,
@@ -973,7 +944,7 @@ def get_track_reference(
     slug: str,
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
 
     registry = {item.slug: item for item in draft_store.list_registry()}
@@ -1018,7 +989,7 @@ def list_track_history(
     slug: str,
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     return draft_store.list_history(slug)
 
@@ -1036,7 +1007,7 @@ def get_draft_track(
     slug: str,
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     draft = draft_store.get_draft(slug)
     if draft is None:
@@ -1049,7 +1020,7 @@ def create_draft_track(
     detail: DraftTrackDetail,
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
-    if not _slug_is_safe(detail.slug):
+    if not safe_slug_is_valid(detail.slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     if not detail.track_name or not detail.track_name.strip():
         raise HTTPException(status_code=422, detail="track_name is required.")
@@ -1069,7 +1040,7 @@ def update_draft_track(
     detail: DraftTrackDetail,
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     existing = draft_store.get_draft(slug)
     if existing is None:
@@ -1095,7 +1066,7 @@ def generate_draft_track(
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
     """Generate and save a draft track from counsellor research input."""
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     if not track_name or not track_name.strip():
         raise HTTPException(status_code=422, detail="track_name is required.")
@@ -1151,7 +1122,7 @@ def refresh_draft_track_from_research(
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
 ):
     """Refresh an existing draft track using additional counsellor research."""
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     existing = draft_store.get_draft(slug)
     if existing is None:
@@ -1200,7 +1171,7 @@ def publish_draft_track(
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     draft = draft_store.get_draft(slug)
     if draft is None:
@@ -1224,7 +1195,7 @@ def rollback_track(
     draft_store: TrackDraftStore = Depends(get_track_draft_store),
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     try:
         version = draft_store.rollback_track(slug, actor="admin")
@@ -1267,7 +1238,7 @@ def get_employer(
 
     Auth note: protected by the router-level `require_admin_key` dependency.
     """
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     emp = employer_store.get_employer(slug)
     if emp is None:
@@ -1281,7 +1252,7 @@ def get_employer_history(
     employer_store: EmployerEntityStore = Depends(get_employer_store),
 ):
     """Return employer YAML history snapshots, newest first."""
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     return employer_store.list_history(slug)
 
@@ -1297,7 +1268,7 @@ def create_employer(
     Auth note: protected by the router-level `require_admin_key` dependency.
     """
     slug = detail.slug
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     if not detail.employer_name or not detail.employer_name.strip():
         raise HTTPException(status_code=422, detail="employer_name is required.")
@@ -1361,7 +1332,7 @@ def update_employer(
     The 'completeness' field in the request body is ignored (server-computed).
     Auth note: protected by the router-level `require_admin_key` dependency.
     """
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
 
     edir = _employers_dir()
@@ -1428,7 +1399,7 @@ def delete_employer(
     Auth note: protected by the router-level `require_admin_key` dependency.
     TODO: Add PATCH restore endpoint — see TODOS.md "Restore path for disabled employer entities".
     """
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
 
     edir = _employers_dir()
@@ -1463,7 +1434,7 @@ async def extract_facts_from_employer_notes(
 
     Auth note: protected by the router-level `require_admin_key` dependency.
     """
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
 
     emp = employer_store.get_employer(slug)
@@ -1854,7 +1825,7 @@ def commit_analysis(
     employers_updated: list[str] = []
     edir = _employers_dir()
     for slug, field_changes in req.employer_updates.items():
-        if not _slug_is_safe(slug):
+        if not safe_slug_is_valid(slug):
             logger.warning("commit-analysis: unsafe employer slug %r — skipping", slug)
             continue
         yaml_path = edir / f"{slug}.yaml"

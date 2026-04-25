@@ -79,3 +79,25 @@ def safe_float(value: object, default: float = 0.0) -> float:
         return float(value)
     except (TypeError, ValueError):
         return default
+
+
+def fact_payload(fact: object) -> dict:
+    """Extract the data sub-dict from a raw fact dict, falling back to the fact dict itself."""
+    if not isinstance(fact, dict):
+        return {}
+    payload = fact.get("data")
+    if isinstance(payload, dict):
+        return payload
+    return fact
+
+
+def fact_lifecycle(fact: object) -> str:
+    """Resolve the lifecycle state of a raw fact dict, mapping deleted=True to 'superseded'."""
+    if not isinstance(fact, dict):
+        return "active"
+    lifecycle = str(fact.get("lifecycle") or "").strip().lower()
+    if lifecycle in {"active", "superseded", "archived"}:
+        return lifecycle
+    if fact.get("deleted"):
+        return "superseded"
+    return "active"

@@ -21,6 +21,7 @@ from typing import Optional
 import yaml
 
 from cfg import kb_cfg
+from services.shared_yaml import atomic_yaml_write, fact_lifecycle, fact_payload, version_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -69,18 +70,6 @@ def _default_employers_dir() -> Path:
 
 def _history_dir() -> Path:
     return Path(os.environ.get("EMPLOYER_HISTORY_DIR", str(_default_employer_history_dir())))
-
-
-def _version_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
-
-
-def _atomic_yaml_write(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    tmp.replace(path)
 
 
 def _compute_completeness(employer: dict) -> str:
@@ -146,35 +135,13 @@ def employer_to_context_block(employer: dict, max_notes: int = None, max_process
     return "\n".join(lines)
 
 
-def _fact_payload(fact: object) -> dict:
-    """Extract the data sub-dict from a structured fact, falling back to the fact dict itself."""
-    if not isinstance(fact, dict):
-        return {}
-    payload = fact.get("data")
-    if isinstance(payload, dict):
-        return payload
-    return fact
-
-
-def _fact_lifecycle(fact: object) -> str:
-    """Resolve the lifecycle state of a raw fact dict, mapping deleted=True to 'superseded'."""
-    if not isinstance(fact, dict):
-        return "active"
-    lifecycle = str(fact.get("lifecycle") or "").strip().lower()
-    if lifecycle in {"active", "superseded", "archived"}:
-        return lifecycle
-    if fact.get("deleted"):
-        return "superseded"
-    return "active"
-
-
 def _fact_is_active(fact: object) -> bool:
-    return _fact_lifecycle(fact) == "active"
+    return fact_lifecycle(fact) == "active"
 
 
 def _fact_key_field(fact: dict) -> str:
     """Return the most human-readable identifying field value for a fact, based on its type."""
-    payload = _fact_payload(fact)
+    payload = fact_payload(fact)
     fact_type = str(fact.get("type") or payload.get("type") or "").strip()
     candidates: list[str] = []
     if fact_type == "alumni":
@@ -204,8 +171,8 @@ def _format_structured_fact(fact: object) -> str:
     if not isinstance(fact, dict):
         return str(fact)
 
-    slug = str(fact.get("slug") or _fact_payload(fact).get("slug") or "").strip()
-    fact_type = str(fact.get("type") or _fact_payload(fact).get("type") or "fact").strip()
+    slug = str(fact.get("slug") or fact_payload(fact).get("slug") or "").strip()
+    fact_type = str(fact.get("type") or fact_payload(fact).get("type") or "fact").strip()
     key_field = _fact_key_field(fact)
     preview_parts = [fact_type]
     if slug:
@@ -215,7 +182,7 @@ def _format_structured_fact(fact: object) -> str:
     else:
         preview_parts.append("(unnamed)")
 
-    payload = _fact_payload(fact)
+    payload = fact_payload(fact)
     detail_candidates = [
         payload.get("value"),
         payload.get("notes"),
@@ -408,9 +375,9 @@ class EmployerEntityStore:
 
     def snapshot_history(self, slug: str, payload: dict) -> str:
         """Persist the current employer YAML into the history directory."""
-        version = _version_stamp()
+        version = version_stamp()
         history_path = _history_dir() / slug / f"{version}.yaml"
-        _atomic_yaml_write(history_path, payload)
+        atomic_yaml_write(history_path, payload)
         return version
 
     def to_context_block(

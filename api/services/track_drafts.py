@@ -23,6 +23,7 @@ import yaml
 
 from models import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields, _is_placeholder_counselor_contact
+from services.shared_yaml import atomic_yaml_write, safe_slug_is_valid, version_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -88,16 +89,8 @@ def _profiles_dir() -> Path:
     return Path(os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir())))
 
 
-def _slug_is_safe(slug: str) -> bool:
-    return bool(slug) and slug.replace("_", "").isalnum() and "/" not in slug and ".." not in slug
-
-
 def _today() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-def _version_stamp() -> str:
-    return datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
 
 
 def _append_jsonl(path: Path, payload: dict) -> None:
@@ -106,14 +99,6 @@ def _append_jsonl(path: Path, payload: dict) -> None:
         f.write(json.dumps(payload) + "\n")
         f.flush()
         os.fsync(f.fileno())
-
-
-def _atomic_yaml_write(path: Path, payload: dict) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        yaml.safe_dump(payload, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-    tmp.replace(path)
 
 
 def _atomic_text_write(path: Path, text: str) -> None:
@@ -257,7 +242,7 @@ class TrackDraftStore:
                 detail = _draft_from_profile(slug, profile)
                 if detail is None:
                     continue
-                _atomic_yaml_write(draft_path, detail.model_dump())
+                atomic_yaml_write(draft_path, detail.model_dump())
 
             if drafts_dir.exists():
                 for yaml_path in sorted(drafts_dir.glob("*.yaml")):
@@ -287,7 +272,7 @@ class TrackDraftStore:
 
     def save_draft(self, detail: DraftTrackDetail) -> DraftTrackDetail:
         """Persist a draft track to YAML, normalizing keywords and setting last_updated to today, then invalidate the in-memory cache."""
-        if not _slug_is_safe(detail.slug):
+        if not safe_slug_is_valid(detail.slug):
             raise ValueError("Invalid slug format.")
         payload = detail.model_dump()
         payload["slug"] = detail.slug
@@ -295,7 +280,7 @@ class TrackDraftStore:
         payload["status"] = detail.status or "draft"
         payload["match_keywords"] = _normalise_keywords(detail.match_keywords)
         payload["last_updated"] = _today()
-        _atomic_yaml_write(_drafts_dir() / f"{detail.slug}.yaml", payload)
+        atomic_yaml_write(_drafts_dir() / f"{detail.slug}.yaml", payload)
         self.invalidate()
         return DraftTrackDetail(**payload)
 
@@ -315,7 +300,7 @@ class TrackDraftStore:
             for slug, profile in _valid_published_profiles()
         ]
         entries.sort(key=lambda item: item.slug)
-        _atomic_yaml_write(path, _registry_payload(entries))
+        atomic_yaml_write(path, _registry_payload(entries))
         return entries
 
     def list_registry(self) -> list[TrackRegistryEntry]:
@@ -341,7 +326,7 @@ class TrackDraftStore:
             updated = True
         if updated:
             result.sort(key=lambda item: item.slug)
-            _atomic_yaml_write(path, _registry_payload(result))
+            atomic_yaml_write(path, _registry_payload(result))
         result.sort(key=lambda item: item.slug)
         return result
 
@@ -366,7 +351,7 @@ class TrackDraftStore:
             if draft is None:
                 raise FileNotFoundError(f"Draft '{slug}' not found.")
 
-            version = _version_stamp()
+            version = version_stamp()
             journal_path = _publish_journal_path()
             _append_jsonl(journal_path, {
                 "ts": datetime.now(timezone.utc).isoformat(),
@@ -382,7 +367,7 @@ class TrackDraftStore:
                 with open(published_path, encoding="utf-8") as f:
                     previous_payload = yaml.safe_load(f) or {}
                 history_path = _history_dir() / slug / f"{version}.yaml"
-                _atomic_yaml_write(history_path, previous_payload)
+                atomic_yaml_write(history_path, previous_payload)
 
             # Build structured block from draft, then derive from prose as fallback
             base_structured = draft.structured or {
@@ -421,7 +406,7 @@ class TrackDraftStore:
                 "visa_pathway_notes": draft.visa_pathway_notes or "",
             }
 
-            _atomic_yaml_write(published_path, published_payload)
+            atomic_yaml_write(published_path, published_payload)
 
             registry = self.list_registry()
             updated = False
@@ -440,13 +425,13 @@ class TrackDraftStore:
                     last_published=version,
                 ))
             registry.sort(key=lambda item: item.slug)
-            _atomic_yaml_write(_registry_path(), _registry_payload(registry))
+            atomic_yaml_write(_registry_path(), _registry_payload(registry))
 
             draft_payload = draft.model_dump()
             draft_payload["status"] = "published"
             draft_payload["archived_at"] = _today()
             draft_payload["last_updated"] = _today()
-            _atomic_yaml_write(_drafts_dir() / f"{slug}.yaml", draft_payload)
+            atomic_yaml_write(_drafts_dir() / f"{slug}.yaml", draft_payload)
 
             _append_jsonl(_publish_audit_log_path(), {
                 "ts": datetime.now(timezone.utc).isoformat(),
@@ -478,7 +463,7 @@ class TrackDraftStore:
             history_path = _history_dir() / slug / target.filename
             with open(history_path, encoding="utf-8") as f:
                 payload = yaml.safe_load(f) or {}
-            _atomic_yaml_write(_profiles_dir() / f"{slug}.yaml", payload)
+            atomic_yaml_write(_profiles_dir() / f"{slug}.yaml", payload)
             _append_jsonl(_publish_audit_log_path(), {
                 "ts": datetime.now(timezone.utc).isoformat(),
                 "actor": actor,

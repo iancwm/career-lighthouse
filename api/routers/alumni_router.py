@@ -10,14 +10,10 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from dependencies import require_admin_key
-from services.alumni_store import AlumniEntityStore, get_alumni_store
-from services.shared_yaml import safe_slug
+from services.alumni_store import AlumniEntityStore, _normalize_profile_payload, get_alumni_store
+from services.shared_yaml import safe_slug, safe_slug_is_valid
 
 router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
-
-
-def _slug_is_safe(slug: str) -> bool:
-    return bool(slug) and slug.replace("_", "").replace("-", "").isalnum() and "/" not in slug and ".." not in slug
 
 
 def _link_id_for_payload(alumni_slug: str, payload: dict[str, Any]) -> str:
@@ -100,21 +96,6 @@ def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
     }
 
 
-def _normalize_profile_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    """Alias legacy field names and strip company_links, which are managed as separate link events."""
-    data = dict(payload)
-    if not data.get("full_name") and data.get("name"):
-        data["full_name"] = data["name"]
-    if not data.get("graduation_program") and data.get("degree"):
-        data["graduation_program"] = data["degree"]
-    if not data.get("graduation_school") and data.get("school"):
-        data["graduation_school"] = data["school"]
-    if "consent_for_referrals" not in data and "available_for_mentoring" in data:
-        data["consent_for_referrals"] = data["available_for_mentoring"]
-    data.pop("company_links", None)
-    return data
-
-
 def _serialize_company_link(link: dict[str, Any]) -> dict[str, Any]:
     """Normalize a stored company link event for JSON serialization, ensuring relationship and role_title are always strings."""
     relationship = str(link.get("relationship") or link.get("role_title") or "").strip()
@@ -194,7 +175,7 @@ def list_alumni(store: AlumniEntityStore = Depends(get_alumni_store)):
 
 @router.get("/alumni/{slug}")
 def get_alumni(slug: str, store: AlumniEntityStore = Depends(get_alumni_store)):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     profile = store.get_alumni(slug)
     if profile is None:
@@ -204,7 +185,7 @@ def get_alumni(slug: str, store: AlumniEntityStore = Depends(get_alumni_store)):
 
 @router.get("/alumni/{slug}/history")
 def get_alumni_history(slug: str, store: AlumniEntityStore = Depends(get_alumni_store)):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     profile = store.get_alumni(slug)
     if profile is None:
@@ -217,7 +198,7 @@ def create_alumni(payload: dict[str, Any] = Body(default_factory=dict), store: A
     normalized = _normalize_profile_payload(payload)
     slug = str(normalized.get("slug") or normalized.get("full_name") or normalized.get("name") or "").strip()
     slug = safe_slug(slug)
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid or missing slug.")
     if not normalized.get("full_name"):
         raise HTTPException(status_code=422, detail="full_name is required.")
@@ -240,7 +221,7 @@ def update_alumni(
     payload: dict[str, Any] = Body(default_factory=dict),
     store: AlumniEntityStore = Depends(get_alumni_store),
 ):
-    if not _slug_is_safe(slug):
+    if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
     if store.get_alumni(slug) is None:
         raise HTTPException(status_code=404, detail=f"Alumni '{slug}' not found.")

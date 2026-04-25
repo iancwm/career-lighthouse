@@ -2,14 +2,13 @@
 """
 Sprint 2 pre-validation: test whether YAML career profiles improve answer quality.
 
-Usage:
-    cd /home/iancwm/git/career-lighthouse/api
-    uv run python ../scripts/validate_profiles.py investment_banking
-    uv run python ../scripts/validate_profiles.py consulting
-    uv run python ../scripts/validate_profiles.py tech_product
+Usage (run from the repo root):
+    PYTHONPATH=api python scripts/validate_profiles.py investment_banking
+    PYTHONPATH=api python scripts/validate_profiles.py consulting
+    PYTHONPATH=api python scripts/validate_profiles.py tech_product
 
     # Compare with/without profile side-by-side:
-    uv run python ../scripts/validate_profiles.py investment_banking --compare
+    PYTHONPATH=api python scripts/validate_profiles.py investment_banking --compare
 
 The script calls Claude directly (no Qdrant, no KB chunks) to isolate the
 profile's contribution. The question is: does structured YAML context alone
@@ -27,10 +26,7 @@ from pathlib import Path
 
 import yaml
 
-# Import canonical formatter from the API service layer so the validation script
-# and production code use identical context block formatting.
-sys.path.insert(0, str(Path(__file__).parent.parent / "api"))
-from services.career_profiles import profile_to_context_block  # noqa: E402
+from services.career_profiles import profile_to_context_block
 
 # ---------------------------------------------------------------------------
 # Questions — realistic messages a target student would actually send
