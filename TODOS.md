@@ -11,19 +11,8 @@ This backlog is ordered by execution priority:
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
 
-### UI Clarity Mini-Sprint
-**What:** Tighten the counselor-facing admin surfaces so the next action is obvious and the page state stays trustworthy.
-**Why:** Recent QA surfaced several UI friction points that slow counseling workflows and create unnecessary anxiety.
-**Includes:**
-- Remove the counselor brief from Career Wire Documents and keep that work in Smart Counsellor.
-- Shorten and rename the Review & Publish surface so users understand it is a quick update lane.
-- Make Employer Records saving sticky and lock navigation cues while unsaved facts are still pending.
-- Replace the immediate green Profile Repair banner with a proper in-progress state.
-- Fix student chat markdown rendering for quote blocks and italics.
-- Move resume upload to the first screen.
-- Add Smart Counsellor docx/txt intake, move the heading to the top, and place the action after file/text intake.
-- Item 8 is pending from the original request.
-**Depends on:** Current admin workspace UI surfaces and Playwright coverage.
+### ~~UI Clarity Mini-Sprint (items 1–7)~~ ✓ Done (2026-04-24)
+Shipped: BriefGenerator removed from Career Wire Documents; Review & Publish renamed and shortened; navigation locked while unsaved employer facts are pending; Profile Repair banner replaced with proper in-progress state; student chat markdown fixed for quote blocks and italics; resume upload moved to first screen; Smart Counsellor docx/txt intake added with heading and action repositioned. Item 8 from the original request remains outstanding.
 
 ### ~~Counsellor Trust Sprint 1: Fix FactCard delete button touch target~~ ✓ Done (2026-04-22)
 Shipped: delete affordance is now at least 44px on mobile and desktop in `web/components/admin/forms/FactCard.tsx`.
@@ -64,6 +53,21 @@ Shipped: manual facts confirmed writing correctly to employer and career profile
 Shipped: explicit `@limiter.limit()` decorators applied to `POST /api/chat` (10/min), `POST /api/ingest`
 (5/min), and `POST /api/brief` (5/min). The `slowapi` infrastructure was already wired in `main.py`;
 per-endpoint decorators now enforce tighter budgets to protect Anthropic API quota and Fargate costs.
+
+### ~~Admin workspace IA: manifest-driven navigation and workstreams~~ ✓ Done (2026-04-23)
+Shipped: `adminNavManifest.ts` defines all tabs/tools declaratively; `AdminWorkspace.tsx` and `ToolsDrawer.tsx` drive routing from the manifest; Playwright config, E2E fixtures, and Vitest config aligned to the new structure.
+
+### ~~Alumni first-class admin workflow~~ ✓ Done (2026-04-23)
+Shipped: `api/routers/alumni_router.py` with LLM-backed extraction and CRUD endpoints; `api/services/alumni_store.py` managing alumni YAML files; `AlumniFactsTab.tsx` full admin UI with detection modal, staging, and handoff to SessionInbox; `AlumniDetectionModal.tsx`; test coverage across store and router.
+
+### ~~Facts dashboard: `/api/kb/facts` query endpoint and admin UI~~ ✓ Done (2026-04-24)
+Shipped: `api/services/fact_store.py` loads employer and career-profile facts; `GET /api/kb/facts` and `GET /api/kb/facts/grouped` endpoints with type/employer/school/year/source/confidence filters; `FactsDashboardTab.tsx` admin view; 248 lines of new test coverage.
+
+### ~~Admin shell split and session auth hardening~~ ✓ Done (2026-04-24)
+Shipped: `AdminWorkspace.tsx` split into shell + `AdminWorkspaceContent.tsx` + `AdminWorkspaceHeader.tsx`; `useAdminWorkspace.ts` hook extracted; `web/app/student/useStudentPage.ts` extracted; E2E fixtures separated into `admin-workspace.fixtures.ts`; code smell docs added in `docs/code_smell_cleanup/`.
+
+### ~~Harden audit paths and same-origin proxies~~ ✓ Done (2026-04-24)
+Shipped: `web/lib/api-proxy.ts` and both Next.js route handlers hardened against path traversal and SSRF; session timeout propagated; alumni, chat, insights, and KB routers patched with traversal guards; career profile and service docstrings added.
 
 ### ~~Student Chat Insights Sprint 1: Scaffold the insight collection~~ ✓ Done (2026-04-24)
 **What:** Add 7 config fields to `api/config.py` (both the `BaseSettings` class and the fallback `@dataclass`), create `StudentChatInsightPayload` in `api/models_insights.py`, implement `StudentChatInsightStore` in `api/services/student_chat_insights.py` (`ensure_collection`, `index_message`, `build_payload`), and register `get_student_insight_store()` in `api/dependencies.py`.

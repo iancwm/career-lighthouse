@@ -1,79 +1,105 @@
 # Cleanup Sprint Implementation Plan
 
-**Status:** proposed
+## Sprint 1 — Frontend Shell Cleanup ✓ Done (2026-04-24)
 
-## Sprint Focus
+All three frontend lanes shipped in the `refactor: split admin shell and harden session auth` commit.
 
-This sprint covers the highest-value, lowest-coupling cleanup lane first:
+| Lane | Outcome |
+|---|---|
+| `admin-workspace-shell.md` | `AdminWorkspace.tsx` reduced to 42 lines; `AdminWorkspaceContent.tsx`, `AdminWorkspaceHeader.tsx`, and `useAdminWorkspace.ts` extracted |
+| `student-page-shell.md` | `page.tsx` reduced to 64 lines; `useStudentPage.ts` extracted with all storage and flow logic |
+| `admin-e2e-fixtures.md` | Fixtures moved to `web/e2e/fixtures/admin-workspace.fixtures.ts`; E2E spec imports from shared builders |
 
-1. `admin-workspace-shell.md`
-2. `student-page-shell.md`
-3. `admin-e2e-fixtures.md`
+---
 
-The remaining docs in this folder are real work, but they are better treated as separate follow-up PRs because they cross deeper backend or infra boundaries.
+## Sprint 2 — Backend Shared Utility Consolidation (proposed)
 
-## Why This Order
+**Focus:** eliminate copy-paste across service files by consolidating to `shared_yaml.py` and a new coercion helper. Each item is a narrow, safe change — no router or endpoint logic is touched.
 
-### 1. Admin workspace shell first
+### Items
 
-[`web/components/admin/AdminWorkspace.tsx`](../../web/components/admin/AdminWorkspace.tsx) is the largest and riskiest frontend shell. Cleaning it first gives the biggest maintainability win and creates a better boundary for the rest of the admin UI.
+#### S2-1 · Consolidate `_atomic_yaml_write` (CS-01)
+Five files (`employer_store.py`, `source_ledger.py`, `track_drafts.py`, `session_store.py`, and any new stores) reimplement write-to-`.tmp`-then-rename. `shared_yaml.py` already exports `atomic_yaml_write`. Replace all local copies with the shared import.
 
-### 2. Student page shell second
+**Files:** `api/services/employer_store.py`, `source_ledger.py`, `track_drafts.py`, `session_store.py`
+**Risk:** low — pure mechanical swap, no behavior change.
 
-[`web/app/student/page.tsx`](../../web/app/student/page.tsx) is smaller, but it already has a state machine. Extracting the page logic after the admin shell keeps the frontend cleanup focused while the team is already thinking about shell/state boundaries.
+#### S2-2 · Consolidate `_slug_is_safe` (CS-04)
+`kb_router.py`, `alumni_router.py`, `alumni_store.py`, and `track_drafts.py` each define their own slug allowlist. Add a single `safe_slug_is_valid(slug: str) -> bool` to `shared_yaml.py` and replace all copies.
 
-### 3. Admin E2E fixtures third
+**Files:** `api/routers/kb_router.py`, `alumni_router.py`, `api/services/alumni_store.py`, `track_drafts.py`
+**Risk:** low — consolidation only; test all four call sites.
 
-[`web/e2e/admin-workspace.e2e.ts`](../../web/e2e/admin-workspace.e2e.ts) should be cleaned once the shell boundaries are stable. That makes it easier to align the test fixtures with the new component structure instead of refactoring them against a moving target.
+#### S2-3 · Consolidate `_version_stamp` (CS-05)
+`employer_store.py`, `source_ledger.py`, and `track_drafts.py` each define `_version_stamp()`. `shared_yaml.py` already exports `version_stamp` (imported only in `alumni_store.py`). Delete the private copies and add the shared import.
 
-## What Not To Do In This Sprint
+**Files:** `api/services/employer_store.py`, `source_ledger.py`, `track_drafts.py`
+**Risk:** low.
 
-- Do not split `api/models.py` yet.
-- Do not module-split `terraform/main.tf` yet.
-- Do not refactor `scripts/validate_profiles.py` unless a change in the frontend work makes it obviously necessary.
-- Do not redesign any user-facing workflows while extracting the shell and state logic.
+#### S2-4 · Centralize `_safe_int` / `_safe_float` type coercions (CS-10)
+`kb_router.py` defines `_safe_int` and `_safe_float`; `alumni_store.py` and `fact_store.py` use inline `try/except` casts. Add `safe_int` and `safe_float` to `shared_yaml.py` (or a new `api/services/type_coerce.py`) and replace all ad-hoc casts.
 
-## Suggested Work Phases
+**Files:** `api/routers/kb_router.py`, `api/services/alumni_store.py`, `fact_store.py`
+**Risk:** low — pure utility consolidation.
 
-### Phase 1: Admin workspace extraction
+#### S2-5 · Delete duplicate `_normalize_profile_payload` from alumni router (CS-06)
+`alumni_router.py` has a router-layer normalizer that duplicates the fuller version in `alumni_store.py`. Delete the router copy; call the service version directly before passing data to the store.
 
-- Extract URL and routing state into a hook or controller.
-- Keep the current URL behavior unchanged.
-- Preserve existing unit test coverage and add tests for the extracted logic if needed.
+**Files:** `api/routers/alumni_router.py`, `api/services/alumni_store.py`
+**Risk:** low-medium — verify the router version wasn't stripping fields the service version keeps.
 
-### Phase 2: Student page extraction
+#### S2-6 · Move `_latest_query_hits` to module-level (CS-12)
+`SourceLedgerStore._latest_query_hits` is a pure function with no `self` access. Move it to module level in `source_ledger.py` so it is testable without constructing the singleton.
 
-- Move session storage hydration and the flow state machine into hooks.
-- Keep the page as a thin composition component.
-- Verify the resume restore and reset paths still pass.
+**Files:** `api/services/source_ledger.py`
+**Risk:** low.
 
-### Phase 3: E2E fixture cleanup
+#### S2-7 · Fix `validate_profiles.py` sys.path hack (RS-04)
+Remove the `sys.path.insert(...)` in `scripts/validate_profiles.py`. Export a stable `profile_to_context_block` helper from `api/services/career_profiles.py` as a module-level import, and invoke the script via `python -m api.services.career_profiles` or a `pyproject.toml` console-script entry so it works without path surgery.
 
-- Move repeated payloads into shared test-data builders.
-- Keep the Playwright spec focused on behavior.
-- Make sure the builders match the current app schemas.
+**Files:** `scripts/validate_profiles.py`, `api/services/career_profiles.py`
+**Risk:** low — no user-facing change; verify exit codes and output are unchanged.
 
-## Definition Of Done
+#### S2-8 · Consolidate `_fact_payload` / `_fact_lifecycle` helpers (CS-02)
+`employer_store.py` and `fact_store.py` both define nearly identical helpers for extracting a fact's data dict and resolving its lifecycle enum. Move canonical versions to `fact_store.py` (or `services/fact_utils.py`) and import them into `employer_store.py`.
 
-- Each of the first three lane docs is reflected in code or test structure.
-- The admin shell is smaller and easier to extend.
-- The student page is thinner and easier to reason about.
-- The admin E2E file no longer owns fixture payloads as inline source-of-truth data.
-- Existing tests still pass, and no user-visible behavior changes were introduced.
+**Files:** `api/services/employer_store.py`, `fact_store.py`
+**Risk:** low — same logic, different modules.
 
-## Test Gates
+### Suggested Order
 
-- `web/components/admin/__tests__/AdminWorkspace.test.tsx`
-- `web/app/student/page.test.tsx`
-- `web/app/student/__tests__/StudentPage.test.tsx`
-- `web/e2e/admin-workspace.e2e.ts`
+1. S2-3 (version_stamp) — simplest, already 90% done in `shared_yaml.py`
+2. S2-1 (atomic_yaml_write) — same pattern, five files
+3. S2-2 (slug_is_safe) — needs one new export to shared_yaml, then four replacements
+4. S2-4 (safe_int/safe_float) — needs the export, then three call sites
+5. S2-5 (normalize_profile_payload) — needs a quick diff before deleting
+6. S2-6 (latest_query_hits) — one-file move
+7. S2-8 (fact_payload/fact_lifecycle) — two-file change
+8. S2-7 (validate_profiles) — separate from the service changes, do last
 
-## Follow-Up Queue
+### Definition Of Done
 
-After this sprint, the next likely refactors are:
+- `shared_yaml.py` is the single canonical home for slug safety, atomic writes, version stamps, and coercion helpers.
+- No private `_atomic_yaml_write`, `_slug_is_safe`, or `_version_stamp` definitions remain outside `shared_yaml.py`.
+- `alumni_router.py`'s duplicate normalizer is deleted.
+- `_latest_query_hits` is a module-level function.
+- `validate_profiles.py` runs without `sys.path` mutation.
+- All existing backend tests pass. No public API or CLI behavior changes.
 
-1. `validate-profiles-cli.md`
-2. `api-models-split.md`
-3. `terraform-module-split.md`
+---
 
-Those should each be handled as separate tasks so the review surface stays manageable.
+## Sprint 3 — Router and Service Decomposition (follow-up)
+
+These are the high-effort, high-value structural changes. Each should be a separate PR.
+
+| Lane | Smell | Scope |
+|---|---|---|
+| `api-models-split.md` | RS-05: `api/models.py` is 634 lines / 57 classes | Split into `models_chat.py`, `models_kb.py`, `models_tracks.py`, `models_employers.py`; keep barrel for compat |
+| `kb_router` sub-split | CS-07: `kb_router.py` is ~2,000 lines | Extract `trace_router.py`, `employer_router.py`, `track_router.py` as sub-routers |
+| `trace_adapter` extract | CS-08: `_observation_to_trace_entries` is ~200 lines | Move to `services/trace_adapter.py` so it is independently testable |
+| `analyze_session` extract | CS-09: 150-line endpoint mixes HTTP and business logic | Move core analysis logic to a service function; keep router thin |
+| Singleton base class | CS-03: hand-rolled `__new__` in 7+ stores | Add `Singleton` base class or `@singleton` decorator to `shared_yaml.py` |
+| LLM repair circuit-breaker | CS-13: no shared deadline across retry attempts | Add a deadline budget shared across all repair attempts in `llm.py` |
+| `terraform-module-split.md` | RS-06: `main.tf` is only 156 lines now — lower priority | Defer until the infra surface grows or a resource replacement risk is acceptable |
+
+Sprint 3 should not start until Sprint 2 is done — the shared utility consolidation makes it safer to touch the routers.

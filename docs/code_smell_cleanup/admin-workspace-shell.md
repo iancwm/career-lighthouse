@@ -1,6 +1,6 @@
 # Admin Workspace Shell Cleanup Spec
 
-**Status:** proposed
+**Status:** done (2026-04-24)
 
 ## Problem
 

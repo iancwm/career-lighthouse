@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Alumni first-class admin workflow**: `AlumniFactsTab` provides full CRUD for alumni records backed by `api/services/alumni_store.py`; LLM-backed extraction via `POST /api/alumni/extract`; `AlumniDetectionModal` lets counsellors route detected alumni mentions from `SessionInbox` directly into the alumni store; test coverage across store and router.
+- **Admin workspace IA — manifest-driven navigation**: `adminNavManifest.ts` defines all tabs and tools declaratively; `AdminWorkspace.tsx` and `ToolsDrawer.tsx` route from the manifest; `AdminWorkspaceContent.tsx` and `AdminWorkspaceHeader.tsx` extracted from the monolith; `useAdminWorkspace.ts` hook owns URL/state orchestration; Playwright and Vitest configs aligned.
+- **Student Chat Insights Sprints 1–3**: `StudentChatInsightStore` in `api/services/student_chat_insights.py` indexes every student message into Qdrant; `POST /api/insights/student-questions/search` (admin-protected) exposes semantic search with employer/region/date filters; `StudentInsightsTab.tsx` surfaces results in the admin workspace; 580+ lines of new test coverage.
+- **Facts dashboard**: `api/services/fact_store.py` loads employer and career-profile facts across the full knowledge base; `GET /api/kb/facts` and `GET /api/kb/facts/grouped` endpoints apply type/employer/school/year/source/confidence filters and exclude deleted records by default; `FactsDashboardTab.tsx` renders an admin overview with grouping and filter controls.
+- **UI Clarity Mini-Sprint (items 1–7)**: `BriefGenerator` removed from Career Wire Documents; Review & Publish surface renamed and shortened; employer facts navigation locked while unsaved edits are pending; Profile Repair banner replaced with a proper in-progress state; student chat markdown rendering fixed for quote blocks and italics; resume upload moved to the intake first screen; Smart Counsellor gained docx/txt intake with repositioned heading and action.
+- **Admin shell split**: `AdminWorkspace.tsx` decomposed into shell, `AdminWorkspaceContent.tsx`, and `AdminWorkspaceHeader.tsx`; `useAdminWorkspace.ts` extracted; student page shell extracted into `useStudentPage.ts`; E2E fixtures moved to `web/e2e/fixtures/admin-workspace.fixtures.ts`; code smell registry started in `docs/code_smell_cleanup/`.
 - **Counsellor Trust Sprint 4**: source-ledger-backed document lifecycle tracking, active-only chat retrieval and citations, source-state summaries in KB health, and ledger-aware document inventory in the admin UI.
 - **8 new employer profiles**: A&O Shearman, Freshfields Bruckhaus Deringer, OCBC, Revolut Singapore, Stripe Singapore, UOB, Wise Singapore added; DBS and Crypto.com updated with extracted facts. Fintech compliance career track extended with richer salary data, LLM/JD guidance, match keywords, and career trajectory notes.
 - **Legal Ops career profile**: new `legal_ops.yaml` covering legal operations roles in corporate, fintech, and in-house legal teams.
@@ -13,9 +19,10 @@ All notable changes to this project will be documented in this file.
 - **Sprint 3 regression coverage**: added student-page flow coverage for guided entry -> intake -> chat -> reset restart, plus expanded chat-interface and citation disclosure tests.
 
 ### Changed
-- Archived the completed counsellor-trust and student-chat sprint specs under `docs/archived/`, and refreshed the docs index plus root documentation links to match the current implementation status.
+- Archived completed counsellor-trust (sprints 1–4), student-chat Qdrant ingestion (sprints 1–3), and admin workspace IA specs under `docs/archived/`; refreshed docs index and root documentation links.
 
 ### Fixed
+- **Same-origin proxy hardening**: `web/lib/api-proxy.ts` and both Next.js catch-all route handlers (`/api/admin/[...path]` and `/api/backend/[...path]`) now block path traversal and SSRF; session timeout propagated through chat router; alumni, insights, and KB routers patched with path traversal guards.
 - **Admin QA hardening**: stale `SourceType` casting in `FactEditor`, restrictive dev CSP in `next.config.js`, and duplicate trace keys in `LLMObservabilityTab` were fixed during browser QA.
 - **LLM fact extraction — JSON array parsing**: `_extract_json_block` now preserves the outermost `[...]` when Claude returns a JSON array. Previously, any array response was silently reduced to invalid JSON by incorrectly preferring the inner `{...}` boundaries.
 - **LLM fact extraction — repair path**: `_repair_json_output` now returns JSON arrays in addition to objects, so the extraction repair loop works correctly when Claude repairs a list of facts.

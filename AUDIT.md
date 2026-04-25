@@ -248,14 +248,14 @@ The function deduplicates source reference lists. It is defined in the middle of
 
 Observed outside `api/routers/` and `api/services/`. These are maintenance smells, not runtime bugs.
 
-### RS-01 · `AdminWorkspace.tsx` is the frontend equivalent of a router megafile
-[`web/components/admin/AdminWorkspace.tsx`](/home/iancwm/git/career-lighthouse/web/components/admin/AdminWorkspace.tsx#L61) owns URL parsing, workstream routing, panel selection, health loading, drawer state, and the top-level workspace chrome for more than a dozen tabs. It is doing the job of a small front-end app shell, not a single component. Split URL/state orchestration into a hook or controller and move per-workstream rendering into smaller route-level pieces.
+### RS-01 · ~~`AdminWorkspace.tsx` is the frontend equivalent of a router megafile~~ ✓ Fixed (2026-04-24)
+Split into `AdminWorkspaceContent.tsx`, `AdminWorkspaceHeader.tsx`, and `useAdminWorkspace.ts`. `AdminWorkspace.tsx` is now 42 lines of composition-only shell.
 
-### RS-02 · `StudentPage.tsx` combines persistence, flow control, and page composition
-[`web/app/student/page.tsx`](/home/iancwm/git/career-lighthouse/web/app/student/page.tsx#L10) manages `sessionStorage`, guided entry, intake, chat transitions, and resume state in one client component. The page is small today, but the state machine already has three distinct modes. Extract the storage sync and flow transitions into a dedicated hook so the page becomes a thin composition layer.
+### RS-02 · ~~`StudentPage.tsx` combines persistence, flow control, and page composition~~ ✓ Fixed (2026-04-24)
+`useStudentPage.ts` extracted with all storage hydration and flow-transition logic. `page.tsx` is now 64 lines.
 
-### RS-03 · `admin-workspace.e2e.ts` hardcodes large fixture payloads inline
-[`web/e2e/admin-workspace.e2e.ts`](/home/iancwm/git/career-lighthouse/web/e2e/admin-workspace.e2e.ts#L1) embeds alumni, employer, and preview payloads directly in the test file. That makes the test a second source of truth for the same schemas the app already models elsewhere. Move these fixtures into shared test data builders so the smoke test only describes behavior.
+### RS-03 · ~~`admin-workspace.e2e.ts` hardcodes large fixture payloads inline~~ ✓ Fixed (2026-04-24)
+Fixtures moved to `web/e2e/fixtures/admin-workspace.fixtures.ts`. The Playwright spec imports from the shared builders and describes behavior only.
 
 ### RS-04 · `validate_profiles.py` reaches into app internals with `sys.path` surgery
 [`scripts/validate_profiles.py`](/home/iancwm/git/career-lighthouse/scripts/validate_profiles.py#L30) mutates `sys.path` to import `profile_to_context_block` from the API package. That keeps the script coupled to repository layout and makes it harder to invoke outside the repo root. A packaged CLI entrypoint or a small shared helper module would remove the path hack.
