@@ -12,7 +12,7 @@ All three frontend lanes shipped in the `refactor: split admin shell and harden 
 
 ---
 
-## Sprint 2 — Backend Shared Utility Consolidation (proposed)
+## Sprint 2 — Backend Shared Utility Consolidation ✓ Done (2026-04-25)
 
 **Focus:** eliminate copy-paste across service files by consolidating to `shared_yaml.py` and a new coercion helper. Each item is a narrow, safe change — no router or endpoint logic is touched.
 
@@ -61,9 +61,9 @@ Remove the `sys.path.insert(...)` in `scripts/validate_profiles.py`. Export a st
 **Risk:** low — no user-facing change; verify exit codes and output are unchanged.
 
 #### S2-8 · Consolidate `_fact_payload` / `_fact_lifecycle` helpers (CS-02)
-`employer_store.py` and `fact_store.py` both define nearly identical helpers for extracting a fact's data dict and resolving its lifecycle enum. Move canonical versions to `fact_store.py` (or `services/fact_utils.py`) and import them into `employer_store.py`.
+`employer_store.py` and `fact_store.py` both define nearly identical helpers for extracting a fact's data dict and resolving its lifecycle enum. Canonical versions landed in `shared_yaml.py` (not `fact_store.py` — `fact_store.py` imports `_default_employers_dir` from `employer_store.py`, which would create a circular import). `employer_store.py` now imports `fact_payload` and `fact_lifecycle` from `shared_yaml`.
 
-**Files:** `api/services/employer_store.py`, `fact_store.py`
+**Files:** `api/services/employer_store.py`, `api/services/shared_yaml.py`
 **Risk:** low — same logic, different modules.
 
 ### Suggested Order
@@ -77,14 +77,14 @@ Remove the `sys.path.insert(...)` in `scripts/validate_profiles.py`. Export a st
 7. S2-8 (fact_payload/fact_lifecycle) — two-file change
 8. S2-7 (validate_profiles) — separate from the service changes, do last
 
-### Definition Of Done
+### Definition Of Done ✓ All criteria met
 
-- `shared_yaml.py` is the single canonical home for slug safety, atomic writes, version stamps, and coercion helpers.
+- `shared_yaml.py` is the single canonical home for slug safety, atomic writes, version stamps, coercion helpers, and fact dict helpers.
 - No private `_atomic_yaml_write`, `_slug_is_safe`, or `_version_stamp` definitions remain outside `shared_yaml.py`.
 - `alumni_router.py`'s duplicate normalizer is deleted.
 - `_latest_query_hits` is a module-level function.
-- `validate_profiles.py` runs without `sys.path` mutation.
-- All existing backend tests pass. No public API or CLI behavior changes.
+- `validate_profiles.py` runs without `sys.path` mutation (use `PYTHONPATH=api python scripts/validate_profiles.py`).
+- 276 backend tests pass. No public API or CLI behavior changes.
 
 ---
 

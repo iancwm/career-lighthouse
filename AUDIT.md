@@ -257,8 +257,8 @@ Split into `AdminWorkspaceContent.tsx`, `AdminWorkspaceHeader.tsx`, and `useAdmi
 ### RS-03 · ~~`admin-workspace.e2e.ts` hardcodes large fixture payloads inline~~ ✓ Fixed (2026-04-24)
 Fixtures moved to `web/e2e/fixtures/admin-workspace.fixtures.ts`. The Playwright spec imports from the shared builders and describes behavior only.
 
-### RS-04 · `validate_profiles.py` reaches into app internals with `sys.path` surgery
-[`scripts/validate_profiles.py`](/home/iancwm/git/career-lighthouse/scripts/validate_profiles.py#L30) mutates `sys.path` to import `profile_to_context_block` from the API package. That keeps the script coupled to repository layout and makes it harder to invoke outside the repo root. A packaged CLI entrypoint or a small shared helper module would remove the path hack.
+### RS-04 · ~~`validate_profiles.py` reaches into app internals with `sys.path` surgery~~ ✓ Fixed (2026-04-25)
+The `sys.path.insert(0, ...)` was removed. Run the script with `PYTHONPATH=api python scripts/validate_profiles.py` — no path mutation needed.
 
 ### RS-05 · `models.py` is a catch-all transport schema bag
 [`api/models.py`](/home/iancwm/git/career-lighthouse/api/models.py#L14) mixes chat payloads, KB observability records, track guidance, employer diffs, and validation helpers in one large module, with many mutable list defaults along the way. It works, but the file is now the canonical home for too many unrelated contracts. Split it by domain (`chat`, `kb`, `tracks`, `employers`) so the API surface is easier to navigate and safer to change.

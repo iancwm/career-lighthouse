@@ -4,6 +4,8 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.1.5.4] - 2026-04-25
+
 ### Added
 - **Alumni first-class admin workflow**: `AlumniFactsTab` provides full CRUD for alumni records backed by `api/services/alumni_store.py`; LLM-backed extraction via `POST /api/alumni/extract`; `AlumniDetectionModal` lets counsellors route detected alumni mentions from `SessionInbox` directly into the alumni store; test coverage across store and router.
 - **Admin workspace IA — manifest-driven navigation**: `adminNavManifest.ts` defines all tabs and tools declaratively; `AdminWorkspace.tsx` and `ToolsDrawer.tsx` route from the manifest; `AdminWorkspaceContent.tsx` and `AdminWorkspaceHeader.tsx` extracted from the monolith; `useAdminWorkspace.ts` hook owns URL/state orchestration; Playwright and Vitest configs aligned.
@@ -19,6 +21,7 @@ All notable changes to this project will be documented in this file.
 - **Sprint 3 regression coverage**: added student-page flow coverage for guided entry -> intake -> chat -> reset restart, plus expanded chat-interface and citation disclosure tests.
 
 ### Changed
+- **Backend utility consolidation (Sprint 2)**: `_atomic_yaml_write`, `_version_stamp`, `_slug_is_safe`, `_safe_int`, `_safe_float`, `fact_payload`, and `fact_lifecycle` are now canonical exports of `api/services/shared_yaml.py`; private copies removed from `employer_store`, `source_ledger`, `track_drafts`, `kb_router`, `alumni_router`, and `alumni_store`. Duplicate `_normalize_profile_payload` removed from `alumni_router`. `SourceLedgerStore._latest_query_hits` moved to module level. `scripts/validate_profiles.py` no longer mutates `sys.path` — invoke with `PYTHONPATH=api`.
 - Archived completed counsellor-trust (sprints 1–4), student-chat Qdrant ingestion (sprints 1–3), and admin workspace IA specs under `docs/archived/`; refreshed docs index and root documentation links.
 
 ### Fixed

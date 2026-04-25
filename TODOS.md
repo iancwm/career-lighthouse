@@ -69,6 +69,9 @@ Shipped: `AdminWorkspace.tsx` split into shell + `AdminWorkspaceContent.tsx` + `
 ### ~~Harden audit paths and same-origin proxies~~ ✓ Done (2026-04-24)
 Shipped: `web/lib/api-proxy.ts` and both Next.js route handlers hardened against path traversal and SSRF; session timeout propagated; alumni, chat, insights, and KB routers patched with traversal guards; career profile and service docstrings added.
 
+### ~~Backend utility consolidation (Sprint 2)~~ ✓ Done (2026-04-25)
+Shipped: 8 copy-pasted helper families consolidated into `api/services/shared_yaml.py` — `atomic_yaml_write`, `version_stamp`, `safe_slug_is_valid`, `safe_int`, `safe_float`, `fact_payload`, `fact_lifecycle`. Private copies removed from `employer_store`, `source_ledger`, `track_drafts`, `kb_router`, `alumni_router`, and `alumni_store`. Duplicate `_normalize_profile_payload` deleted from `alumni_router`. `SourceLedgerStore._latest_query_hits` moved to module level. `scripts/validate_profiles.py` sys.path surgery removed. 276 backend tests green.
+
 ### ~~Student Chat Insights Sprint 1: Scaffold the insight collection~~ ✓ Done (2026-04-24)
 **What:** Add 7 config fields to `api/config.py` (both the `BaseSettings` class and the fallback `@dataclass`), create `StudentChatInsightPayload` in `api/models_insights.py`, implement `StudentChatInsightStore` in `api/services/student_chat_insights.py` (`ensure_collection`, `index_message`, `build_payload`), and register `get_student_insight_store()` in `api/dependencies.py`.
 **Why:** Establishes the schema, privacy gates, and DI scaffolding before any data flows. This sprint ships no user-visible feature — it's the foundation Sprint 2 and Sprint 3 build on.

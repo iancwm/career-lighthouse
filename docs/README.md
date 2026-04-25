@@ -34,16 +34,13 @@ Completed or historical planning docs live under `docs/archived/`:
 - `docs/archived/implementer-prompt.md` - legacy implementation guidance
 - `docs/archived/spec-reviewer-prompt.md` - legacy spec review guidance
 
-## Active Cleanup Specs
+## Cleanup Specs
 
-These docs break the repo-wide smell audit into separate lanes:
+Sprint status is tracked in `docs/code_smell_cleanup/README.md`. Sprint 3 items are next:
 
-- `docs/code_smell_cleanup/admin-workspace-shell.md`
-- `docs/code_smell_cleanup/student-page-shell.md`
-- `docs/code_smell_cleanup/admin-e2e-fixtures.md`
-- `docs/code_smell_cleanup/validate-profiles-cli.md`
-- `docs/code_smell_cleanup/api-models-split.md`
-- `docs/code_smell_cleanup/terraform-module-split.md`
+- `docs/code_smell_cleanup/api-models-split.md` — split `models.py` by domain
+- `docs/code_smell_cleanup/terraform-module-split.md` — low-priority infra split
+- `docs/code_smell_cleanup/` — `kb_router` sub-split, `analyze_session` extract, singleton base class
 
 ## Navigation
 
