@@ -6,9 +6,128 @@ tracks:
 - fintech_compliance
 ep_requirement: Not confirmed. Verify EP sponsorship policy before advising international
   candidates.
-singapore_headcount_estimate: Large; expanding data teams 10–20 new analysts/year (2024–2025)
+singapore_headcount_estimate: Large; expanding data teams 10–20 new analysts/year
+  (2024–2025)
 notes: 'Identified as active fintech/superapp data analyst hirer in Singapore (alongside
   Stripe, Wise, Instacart). Preferences: MITB specialized tracks or bootcamp + portfolio
   > MBA or MSc. Domain knowledge in payments/fintech valued. Source: Alumni call with
   Jane Teoh (Stripe), April 2025.'
-last_updated: '2026-04-22'
+last_updated: '2026-04-25'
+intake_seasons: []
+application_process: null
+counsellor_contact: null
+structured:
+  facts:
+  - slug: grab-active-data-analyst-hirer-sg
+    type: timeline_phase
+    timestamp: '2025-04-01T00:00:00Z'
+    source: inferred
+    confidence: 80
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-04-01T00:00:00Z'
+    source_timestamp: '2025-04-01T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: grab-active-data-analyst-hirer-sg
+      type: timeline_phase
+      timestamp: '2025-04-01T00:00:00Z'
+      source: inferred
+      confidence: 80
+      data:
+        phase_name: Active hiring period
+        value: Active fintech/superapp data analyst hirer in Singapore
+        role_type: data_analyst
+        location: Singapore
+        peer_employers:
+        - Stripe
+        - Wise
+        - Instacart
+  - slug: grab-credential-preference-mitb-bootcamp
+    type: skill_requirement
+    timestamp: '2025-04-01T00:00:00Z'
+    source: inferred
+    confidence: 78
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-04-01T00:00:00Z'
+    source_timestamp: '2025-04-01T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: grab-credential-preference-mitb-bootcamp
+      type: skill_requirement
+      timestamp: '2025-04-01T00:00:00Z'
+      source: inferred
+      confidence: 78
+      data:
+        requirement: Credential preference
+        preferred:
+        - MITB specialized tracks
+        - bootcamp with portfolio
+        less_preferred:
+        - MBA
+        - MSc
+        notes: MITB specialized tracks or bootcamp + portfolio valued over MBA or
+          MSc
+  - slug: grab-domain-knowledge-payments-fintech
+    type: skill_requirement
+    timestamp: '2025-04-01T00:00:00Z'
+    source: inferred
+    confidence: 82
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-04-01T00:00:00Z'
+    source_timestamp: '2025-04-01T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: grab-domain-knowledge-payments-fintech
+      type: skill_requirement
+      timestamp: '2025-04-01T00:00:00Z'
+      source: inferred
+      confidence: 82
+      data:
+        requirement: Domain knowledge
+        domain:
+        - payments
+        - fintech
+        value: Domain knowledge in payments/fintech is valued
+  - slug: jane-teoh-stripe-alumni-call-april-2025
+    type: alumni
+    timestamp: '2025-04-01T00:00:00Z'
+    source: inferred
+    confidence: 85
+    trace_id: null
+    lifecycle: active
+    deleted: false
+    last_updated: '2025-04-01T00:00:00Z'
+    source_timestamp: '2025-04-01T00:00:00Z'
+    source_label: null
+    source_type: null
+    superseded_by: null
+    audit_url: null
+    data:
+      slug: jane-teoh-stripe-alumni-call-april-2025
+      type: alumni
+      timestamp: '2025-04-01T00:00:00Z'
+      source: inferred
+      confidence: 85
+      data:
+        name: Jane Teoh
+        current_company: Stripe
+        event_type: alumni call
+        event_date: April 2025
+        notes: Source of employer intelligence on Grab, Stripe, Wise, Instacart hiring
+          in Singapore
+source_documents: []
