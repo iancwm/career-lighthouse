@@ -62,7 +62,7 @@ export default function AlumniDetectionModal({
           <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Alumni detected</p>
           <h2 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">This meeting note mentions alumni</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-            We can move the note text into Alumni Records so it opens prefilled for extraction, or keep it in the staging lane.
+            We can move the note text into Alumni Records so it opens prefilled for extraction, or stay here and create the session anyway if this is a false positive.
           </p>
         </div>
 
@@ -146,7 +146,22 @@ export default function AlumniDetectionModal({
           </aside>
         </div>
 
+        <div className="border-t border-[var(--cl-line)] px-6 py-4">
+          <p className="text-xs leading-5 text-[var(--cl-muted)]">
+            If the alumni signal is wrong, choose <span className="font-medium text-[var(--cl-ink)]">Create Session Anyway</span> to keep moving in this flow.
+          </p>
+        </div>
+
         <div className="flex gap-3 border-t border-[var(--cl-line)] px-6 py-5">
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={isLoading}
+            autoFocus
+            className="flex-1 rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
+          >
+            Create Session Anyway
+          </button>
           <button
             type="button"
             onClick={onClose}
@@ -162,14 +177,6 @@ export default function AlumniDetectionModal({
             className="flex-1 rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
           >
             Open Alumni Records
-          </button>
-          <button
-            type="button"
-            onClick={onContinue}
-            disabled={isLoading}
-            className="flex-1 rounded-full border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-2.5 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white disabled:opacity-60"
-          >
-            Continue anyway
           </button>
         </div>
       </div>

@@ -78,4 +78,58 @@ describe("SessionInbox", () => {
     expect(onSelectSession).not.toHaveBeenCalled()
     expect(onOpenTraces).not.toHaveBeenCalled()
   })
+
+  it("lets the user create the session anyway from the alumni modal", async () => {
+    const onSelectSession = vi.fn()
+    const onOpenTraces = vi.fn()
+    const onOpenAlumni = vi.fn()
+    const sessionId = "session-123"
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response([])
+      }
+
+      if (url.endsWith("/api/kb/alumni/extract-preview") && method === "POST") {
+        return response({
+          summary_bullets: ["The note mentions an alumnus at Stripe Singapore."],
+        })
+      }
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "POST") {
+        return response({
+          id: sessionId,
+          status: "pending",
+          raw_input: "Met Aditya Mehta from Stripe Singapore to discuss referrals.",
+          intent_cards: [],
+          created_by: "counsellor",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, 201)
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={onOpenTraces} onOpenAlumni={onOpenAlumni} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Create Session/i })).toBeInTheDocument())
+
+    fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
+      target: { value: "Met Aditya Mehta from Stripe Singapore to discuss referrals." },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /Create Session/i }))
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /This meeting note mentions alumni/i })).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole("button", { name: /Create Session Anyway/i }))
+
+    await waitFor(() => expect(onSelectSession).toHaveBeenCalledWith(sessionId))
+    expect(onOpenAlumni).not.toHaveBeenCalled()
+    expect(onOpenTraces).not.toHaveBeenCalled()
+  })
 })
