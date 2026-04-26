@@ -1,6 +1,6 @@
 # API Models Split Spec
 
-**Status:** proposed
+**Status:** done
 
 ## Problem
 
@@ -11,6 +11,12 @@ That makes the API surface harder to navigate and increases the chance that unre
 ## Goal
 
 Split the transport models by domain while preserving import compatibility during the transition.
+
+## Implementation
+
+- Added `api/models_session.py` for session transport models.
+- Kept `api/models.py` as a compatibility barrel and migrated router/service call sites to domain modules.
+- Added `api/tests/test_model_split_imports.py` to smoke-test the split modules and barrel compatibility.
 
 ## In Scope
 
@@ -46,6 +52,7 @@ Split the transport models by domain while preserving import compatibility durin
 - Run the backend test suite against the new module layout.
 - Add import smoke tests so the split does not break packaging.
 - Verify the serialized request and response payloads remain unchanged.
+- Verified with the full API suite and split import smoke tests.
 
 ## Risks
 

@@ -35,7 +35,7 @@ Detailed specs in `validate-profiles-cli.md` and `implementation_plan.md`.
 
 ### Sprint 3 (follow-up)
 Larger structural refactors — each should be a separate PR after Sprint 2 ships:
-- `api-models-split.md` — split `models.py` (634 lines, 57 classes) by domain
+- `api-models-split.md` — ✓ split `models.py` by domain into `models_chat.py`, `models_kb.py`, `models_tracks.py`, `models_employers.py` and kept a compatibility barrel
 - `terraform-module-split.md` — low priority; `main.tf` is only 156 lines today
 - `kb_router.py` sub-split (CS-07) — extract `trace_router.py`, `employer_router.py`, `track_router.py`
 - `analyze_session` service extract (CS-09)

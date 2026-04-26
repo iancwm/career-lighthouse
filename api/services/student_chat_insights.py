@@ -13,7 +13,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.models import Filter
 
 from config import settings
-from models import IntakeContext
+from models_chat import IntakeContext
 from models_insights import StudentChatInsightPayload
 from services.embedder import Embedder
 from services.vector_store import VectorStore

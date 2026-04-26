@@ -94,7 +94,7 @@ These are the high-effort, high-value structural changes. Each should be a separ
 
 | Lane | Smell | Scope |
 |---|---|---|
-| `api-models-split.md` | RS-05: `api/models.py` is 634 lines / 57 classes | Split into `models_chat.py`, `models_kb.py`, `models_tracks.py`, `models_employers.py`; keep barrel for compat |
+| `api-models-split.md` | RS-05: `api/models.py` is 634 lines / 57 classes | ✓ Split into `models_chat.py`, `models_kb.py`, `models_tracks.py`, `models_employers.py`; keep barrel for compat |
 | `kb_router` sub-split | CS-07: `kb_router.py` is ~2,000 lines | Extract `trace_router.py`, `employer_router.py`, `track_router.py` as sub-routers |
 | `trace_adapter` extract | CS-08: `_observation_to_trace_entries` is ~200 lines | Move to `services/trace_adapter.py` so it is independently testable |
 | `analyze_session` extract | CS-09: 150-line endpoint mixes HTTP and business logic | Move core analysis logic to a service function; keep router thin |
@@ -103,3 +103,15 @@ These are the high-effort, high-value structural changes. Each should be a separ
 | `terraform-module-split.md` | RS-06: `main.tf` is only 156 lines now — lower priority | Defer until the infra surface grows or a resource replacement risk is acceptable |
 
 Sprint 3 should not start until Sprint 2 is done — the shared utility consolidation makes it safer to touch the routers.
+
+### Sprint 3 lane shipped
+
+`api-models-split.md` is now implemented. The monolithic `api/models.py` barrel stays in place for compatibility, but the actual domain models now live in:
+
+- `api/models_chat.py`
+- `api/models_kb.py`
+- `api/models_tracks.py`
+- `api/models_employers.py`
+- `api/models_session.py`
+
+The migration also added `api/tests/test_model_split_imports.py` to catch accidental re-monolithing.

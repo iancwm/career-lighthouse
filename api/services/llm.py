@@ -27,7 +27,9 @@ from pydantic import BaseModel, ValidationError
 
 from config import settings
 from services.ingestion import chunk_text
-from models import KBAnalysisResult, DraftTrackDetail, Fact
+from models_facts import Fact
+from models_kb import KBAnalysisResult
+from models_tracks import DraftTrackDetail
 from utils.sanitization import sanitize_for_prompt
 
 logger = logging.getLogger(__name__)
@@ -1299,6 +1301,7 @@ def _collect_chunked_results(
     timeout_seconds: float | None = None,
     trace_metadata: dict[str, object] | None = None,
     validator: type[BaseModel] | None = None,
+    max_retries: int | None = 2,
 ) -> tuple[list[dict], list[str]]:
     """Run a structured-JSON extraction over raw_input, splitting into overlapping chunks when the input exceeds threshold_chars."""
     if not _staged_extraction_enabled() or len(raw_input) <= threshold_chars:
@@ -1316,6 +1319,7 @@ def _collect_chunked_results(
                 "input_chars_pre_trim": len(raw_input),
             },
             validator=validator,
+            max_retries=max_retries,
         )
         if isinstance(result, BaseModel):
             result = result.model_dump()
@@ -1348,6 +1352,7 @@ def _collect_chunked_results(
                     "input_chars_pre_trim": len(raw_input),
                 },
                 validator=validator,
+                max_retries=max_retries,
             )
             if isinstance(result, BaseModel):
                 result = result.model_dump()
@@ -1456,6 +1461,7 @@ def generate_session_intents(
                 build_user=build_user,
                 max_tokens=_llm["max_tokens_session_extraction"],
                 timeout_seconds=settings.llm_session_timeout_seconds,
+                max_retries=0,
                 trace_metadata={
                     "feature": "generate_session_intents",
                     **(trace_metadata or {}),

@@ -1,10 +1,6 @@
 # api/models.py — Compatibility barrel for domain-specific model modules
 # Re-exports all models for backward compatibility while allowing new imports from domain modules
 
-from typing import Any, Literal, Optional
-
-from pydantic import BaseModel, Field
-
 # Try relative imports first (when imported as api.models), fall back to absolute (when api is in path)
 try:
     from .models_chat import (
@@ -70,6 +66,13 @@ try:
         ExtractFactsRequest,
         FactGroupResponse,
         FactQueryResponse,
+    )
+    from .models_session import (
+        CardCommitRequest,
+        CardCommitResponse,
+        CardDiscardResponse,
+        CreateSessionRequest,
+        KnowledgeSession,
     )
 except ImportError:
     # Fallback: absolute imports when api is in path
@@ -137,40 +140,13 @@ except ImportError:
         FactGroupResponse,
         FactQueryResponse,
     )
-
-# Session and shared models (kept in barrel)
-
-class KnowledgeSession(BaseModel):
-    id: str
-    status: str  # "in-progress" | "analyzing" | "analyzed" | "completed" | "failed" | "cancelled"
-    raw_input: str
-    intent_cards: list[dict] = []
-    track_guidance: TrackGuidance | None = None
-    analysis_error: Optional[str] = None
-    created_by: str = "counsellor"
-    created_at: str
-    updated_at: str
-
-
-class CreateSessionRequest(BaseModel):
-    raw_input: str
-    counsellor_id: str = "counsellor"
-
-
-class CardCommitRequest(BaseModel):
-    diff: dict | None = None  # Optional override for edited values
-
-
-class CardCommitResponse(BaseModel):
-    card_id: str
-    domain: str
-    status: str
-    message: str
-
-
-class CardDiscardResponse(BaseModel):
-    card_id: str
-    status: str = "discarded"
+    from models_session import (
+        CardCommitRequest,
+        CardCommitResponse,
+        CardDiscardResponse,
+        CreateSessionRequest,
+        KnowledgeSession,
+    )
 
 
 # For backward compatibility, re-export the utility

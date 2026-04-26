@@ -637,7 +637,7 @@ class TestTrackBuilderEndpoints:
 
     def test_draft_backwards_compat_missing_salary_and_visa_fields(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
         """Old draft YAMLs without salary_levels or visa_pathway_notes should deserialise cleanly."""
-        from models import DraftTrackDetail
+        from models_tracks import DraftTrackDetail
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 

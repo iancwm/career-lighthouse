@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from cfg import model_cfg, prompts_cfg
 from config import settings
-from models import (
+from models_employers import (
     AlumniCompanyLink,
     AlumniCompanyLinkInput,
     AlumniDetail,

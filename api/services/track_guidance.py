@@ -17,7 +17,7 @@ from threading import Lock
 import numpy as np
 
 from cfg import track_guidance_cfg
-from models import TrackCandidate, TrackGuidance
+from models_kb import TrackCandidate, TrackGuidance
 from services.career_profiles import CareerProfileStore
 from services.runtime_paths import default_emerging_track_signals_path
 

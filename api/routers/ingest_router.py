@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 from dependencies import get_embedder, get_vector_store
 from config import settings
-from models import IngestResponse
+from models_kb import IngestResponse
 from services import health_cache
 from services.career_profiles import get_career_profile_store
 from services.embedder import Embedder

@@ -1,6 +1,6 @@
 # api/routers/brief_router.py
 from fastapi import APIRouter, Depends, Request
-from models import BriefRequest, BriefResponse
+from models_chat import BriefRequest, BriefResponse
 from services.embedder import Embedder
 from services.vector_store import VectorStore
 from services import llm

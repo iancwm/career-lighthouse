@@ -2,7 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from config import settings
-from models import IntakeContext
+from models_chat import IntakeContext
 from services.student_chat_insights import StudentChatInsightStore
 
 

@@ -21,7 +21,7 @@ from threading import Lock
 
 import yaml
 
-from models import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
+from models_tracks import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields, _is_placeholder_counselor_contact
 from services.shared_yaml import atomic_yaml_write, safe_slug_is_valid, version_stamp
 

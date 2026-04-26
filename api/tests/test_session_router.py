@@ -85,7 +85,7 @@ def _make_session(**overrides):
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
     defaults.update(overrides)
-    from models import KnowledgeSession
+    from models_session import KnowledgeSession
     return KnowledgeSession(**defaults)
 
 
@@ -273,30 +273,30 @@ class TestModelsExist:
     """Verify the new request/response models can be imported and instantiated."""
 
     def test_create_session_request_model(self):
-        from models import CreateSessionRequest
+        from models_session import CreateSessionRequest
         req = CreateSessionRequest(raw_input="test notes")
         assert req.raw_input == "test notes"
         assert req.counsellor_id == "counsellor"  # default
 
     def test_create_session_request_custom_counsellor(self):
-        from models import CreateSessionRequest
+        from models_session import CreateSessionRequest
         req = CreateSessionRequest(raw_input="notes", counsellor_id="bob")
         assert req.counsellor_id == "bob"
 
     def test_card_commit_response_model(self):
-        from models import CardCommitResponse
+        from models_session import CardCommitResponse
         resp = CardCommitResponse(card_id="c1", domain="employer", status="committed", message="done")
         assert resp.card_id == "c1"
         assert resp.domain == "employer"
 
     def test_card_discard_response_model(self):
-        from models import CardDiscardResponse
+        from models_session import CardDiscardResponse
         resp = CardDiscardResponse(card_id="c1")
         assert resp.card_id == "c1"
         assert resp.status == "discarded"
 
     def test_intent_card_accepts_list_fields(self):
-        from models import IntentCard
+        from models_kb import IntentCard
 
         card = IntentCard(
             card_id="c1",
@@ -308,7 +308,7 @@ class TestModelsExist:
         assert card.diff["entry_paths"] == ["analyst", "associate"]
 
     def test_intent_card_rejects_list_in_scalar_field(self):
-        from models import IntentCard
+        from models_kb import IntentCard
         from pydantic import ValidationError
 
         with pytest.raises(ValidationError):
@@ -418,7 +418,7 @@ def test_analyze_extracts_intents_and_stores_on_session(mock_client, app_with_se
             "card_id": "card-abc",
             "domain": "employer",
             "summary": "Update Goldman EP",
-            "diff": {"ep_requirement": "EP4"},
+            "diff": {"slug": "goldman-sachs", "ep_requirement": "EP4"},
             "raw_input_ref": "Goldman raised EP"
         }],
         "already_covered": []
@@ -578,7 +578,7 @@ def test_commit_completed_session_returns_409(mock_client, app_with_session_rout
 
     # Create session with two cards, both already committed
     from services.session_store import SessionStore
-    from models import KnowledgeSession
+    from models_session import KnowledgeSession
     from datetime import datetime, timezone
 
     Store = SessionStore()

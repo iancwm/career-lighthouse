@@ -18,7 +18,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Optional
 
-from models import KnowledgeSession
+from models_session import KnowledgeSession
 from services.runtime_paths import default_sessions_dir, ensure_writable_directory
 
 # Storage directory within the API root or repo checkout.

@@ -1,15 +1,8 @@
 from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
 from pydantic import ValidationError
 from dependencies import require_admin_key
-from models import (
-    AlreadyCovered,
-    CardCommitRequest,
-    CreateSessionRequest,
-    IntentCard,
-    KnowledgeSession,
-    SessionAnalysisResponse,
-    validate_intent_card_diff,
-)
+from models_session import CardCommitRequest, CreateSessionRequest, KnowledgeSession
+from models_kb import AlreadyCovered, IntentCard, SessionAnalysisResponse, validate_intent_card_diff
 from services.session_store import SessionStore
 from services.track_guidance import build_track_guidance
 from typing import List

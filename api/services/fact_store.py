@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from models import Fact
+from models_facts import Fact
 from services.career_profiles import _default_profiles_dir
 from services.employer_store import _default_employers_dir
 

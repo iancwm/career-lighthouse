@@ -14,7 +14,8 @@ from fastapi import APIRouter, Depends, Request
 
 from config import settings
 from dependencies import get_embedder, get_student_insight_store, get_vector_store
-from models import ChatRequest, ChatResponse, Citation, TrackRegistryEntry
+from models_chat import ChatRequest, ChatResponse, Citation
+from models_tracks import TrackRegistryEntry
 from services import llm
 from services.career_profiles import (
     CareerProfileStore,

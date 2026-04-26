@@ -7,6 +7,7 @@ layer for source lifecycle state, while Qdrant keeps the semantic chunks.
 from __future__ import annotations
 
 import logging
+import hashlib
 import os
 import re
 from datetime import datetime, timezone
@@ -16,7 +17,7 @@ from typing import Any
 
 import yaml
 
-from models import SourceStateEvidence, SourceStateSummary
+from models_kb import SourceStateEvidence, SourceStateSummary
 from services.runtime_paths import default_source_ledger_dir, default_source_ledger_history_dir
 from services.shared_yaml import atomic_yaml_write, version_stamp
 
@@ -39,7 +40,16 @@ def _now() -> str:
 
 def _safe_filename(filename: str) -> str:
     clean = _SAFE_KEY_RE.sub("_", str(filename).strip()).strip("._")
-    return clean or "source"
+    if not clean:
+        return "source"
+    max_len = 120
+    if len(clean) <= max_len:
+        return clean
+    digest = hashlib.sha1(clean.encode("utf-8")).hexdigest()[:12]
+    prefix = clean[: max_len - 13].rstrip("._- ")
+    if not prefix:
+        return digest
+    return f"{prefix}-{digest}"
 
 
 def _load_yaml(path: Path) -> dict[str, Any] | None:
