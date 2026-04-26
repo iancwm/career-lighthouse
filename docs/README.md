@@ -20,13 +20,14 @@ These docs are still maintained against the codebase:
 - `docs/schema/SPRINT-SCHEMA-FOUNDATION.md` - current schema execution plan and remaining work
 - `docs/schema/singapore_metadata.yaml` - supporting schema metadata sample
 - `docs/schema/structured_metadata.yaml` - supporting structured metadata sample
-- `docs/llm_hardening/llm_hardening.md` - LLM safety and hardening notes
 - `docs/code_smell_cleanup/` - cleanup specs for the non-router/service code-smell sprint
+- `docs/alumni_schema/SPRINT-ALUMNI-CARDS.md` - card-native alumni integration sprint plan
 
 ## Archived Specs And Plans
 
 Completed or historical planning docs live under `docs/archived/`:
 
+- `docs/archived/llm_hardening/` - completed LLM safety and hardening specs
 - `docs/archived/counsellor_trust/` - completed counsellor-trust sprint specs and IA notes
 - `docs/archived/student_chat_qdrant_ingestion/` - completed student chat insight epic and sprint specs
 - `docs/archived/plans/` - dated planning docs from earlier sessions
@@ -50,12 +51,11 @@ Start here:
 - `DESIGN.md` for architecture and UI direction
 - `TODOS.md` for the current backlog
 - `docs/schema/` for active schema work
-- `docs/llm_hardening/` for active LLM safety work
 - `docs/code_smell_cleanup/` for the cleanup sprint specs
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs
 
-- Active specs and live working docs belong in the repo root or an active subfolder like `docs/schema/` or `docs/llm_hardening/`
+- Active specs and live working docs belong in the repo root or an active subfolder like `docs/schema/`
 - Completed specs and planning docs should move into `docs/archived/`
 - Update this index whenever a docs folder changes status

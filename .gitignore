@@ -15,6 +15,7 @@ venv/
 .agents/plugins
 .playwright-cli/*
 logs/
+logs/llm_trace_log.jsonl
 .playwright/cli.config.json
 
 .playwright/cli.config.json

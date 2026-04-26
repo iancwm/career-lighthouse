@@ -136,6 +136,14 @@ ranges in session card commits now populate `salary_min_sgd`/`salary_max_sgd` vi
 **Why:** Last-write-wins breaks trust fast, especially in a small office where two people can edit the same entity in one day.
 **Depends on:** Revision metadata on structured facts.
 
+### Install frontend test framework (vitest + react-testing-library)
+**What:** Install `vitest` + `@testing-library/react` for the `web/` workspace, set up `web/__tests__/`, write a baseline component test, wire it into CI.
+**Why:** No frontend test framework exists today (no `jest.config`, no `vitest.config`, no test directories). Every frontend PR ships without component-level coverage — relies on manual QA only. Surfaced by `/plan-eng-review` of the alumni cards design 2026-04-26: SmartCanvas alumni variant, AlumniDetectionModal, and admin components have no path to regression tests.
+**Pros:** Unlocks regression tests for SmartCanvas, modal flows, all admin/. Would catch UI bugs before counsellors do.
+**Cons:** Infrastructure decision benefits the whole frontend, not just one feature — needs its own focused PR. Wrong pick (Jest vs Vitest for Next.js) is hard to undo.
+**Context:** Next.js 14 app, Tailwind, `web/` workspace. Vitest is the modern default for Next; @testing-library/react for component tests. Playwright optional for later E2E.
+**Depends on:** Nothing structural.
+
 ## Next
 
 ### ~~Normalize employer YAMLs: headcount_estimate → singapore_headcount_estimate~~ ✓ Done (2026-04-23)
@@ -224,6 +232,22 @@ stale API build issue that initially hid traces was fixed during verification.
 **What:** Replace "anonymised aggregates" with "query aggregates" in docs and UI copy.
 **Why:** The digest contains raw student query text, which is not anonymised.
 **Depends on:** None.
+
+### Extend AlumniDetail with deferred career-trajectory fields
+**What:** Add `career_trajectory_pattern`, `seniority_level`, `salary_band_estimate`, `experience_diversity` to `AlumniDetail` (and `ALLOWED_ALUMNI_FIELDS` + the alumni extraction prompt). Reconcile `profile_tier` with the existing `completeness` field — pick one.
+**Why:** Scope reduction in `/plan-eng-review` 2026-04-26 cut 5 of the 7 fields proposed in the alumni cards design, shipping only `career_trajectory_summary` and `home_country` on day 1. The user identified career trajectory as the highest-value field; the rest were "would also be useful." Wait for real counsellor sessions to surface which fields they actually want.
+**Pros:** Avoids overengineering; fields land with proven demand. Each field is a ~10-line schema bump once the wiring is in place.
+**Cons:** If a counsellor wants seniority or salary data on day 1, they're blocked. Salary bands are often the question students ask first.
+**Context:** Office-hours design [iancwm-main-design-20260426-130438.md](/home/iancwm/.gstack/projects/iancwm-career-lighthouse/iancwm-main-design-20260426-130438.md) section 1. After the day-1 ALLOWED_ALUMNI_FIELDS extension, this is purely additive — model + constant + prompt's allowed-fields render.
+**Depends on:** Day-1 alumni card flow shipping; ≥3 counsellor sessions using it.
+
+### Migrate alumni tab to card-shaped data + remove AlumniDetectionModal
+**What:** Migrate `web/components/admin/AlumniFactsTab.tsx` to call a new `POST /api/kb/alumni/extract` endpoint that returns card-shaped data, render through the same `SmartCanvas` component used by sessions, then remove `AlumniDetectionModal` from `SessionInbox`.
+**Why:** Office-hours called for a single UI for all knowledge editing. Day-1 satisfies the "shared extraction prompt for modularity" requirement (`generate_alumni_extraction()` in `llm.py`). UI consolidation is value-add but not required for the wedge — better to wait until the card flow has proven itself with real counsellor usage.
+**Pros:** One UI for all knowledge editing. Less code (modal is ~600 lines of duplicate). Fewer paths to maintain.
+**Cons:** Migration risk if alumni-tab users have muscle memory for the existing modal.
+**Context:** Modal at `web/components/admin/modals/AlumniDetectionModal.tsx`, used in [SessionInbox.tsx:364](web/components/admin/SessionInbox.tsx#L364). Tab at [AlumniFactsTab.tsx](web/components/admin/AlumniFactsTab.tsx). Existing endpoint [alumni_router.py:242](api/routers/alumni_router.py#L242) `extract-preview` stays in place during migration.
+**Depends on:** Day-1 card flow shipping; ≥2 weeks of counsellor usage to confirm card flow is the preferred path.
 
 ## Later
 
