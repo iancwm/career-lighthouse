@@ -5,16 +5,27 @@ from models_session import CardCommitRequest, CreateSessionRequest, KnowledgeSes
 from models_kb import AlreadyCovered, IntentCard, SessionAnalysisResponse, validate_intent_card_diff
 from services.session_store import SessionStore
 from services.track_guidance import build_track_guidance
-from typing import List
+from typing import Any, List
 from pathlib import Path
 from starlette.requests import Request
 import yaml
 import logging
 from datetime import datetime, timezone
+from time import perf_counter
+import re
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/sessions", dependencies=[Depends(require_admin_key)])
+_ALUMNI_KEYWORD_RE = re.compile(
+    r"\b("
+    r"graduated|worked at|joined|promoted|company|role|current|alumni|mentor|"
+    r"analyst|associate|manager|director|vice president|vp|md"
+    r")\b",
+    re.IGNORECASE,
+)
+_ALUMNI_NAME_RE = re.compile(r"\b[A-Z][a-z]+ [A-Z][a-z]+\b")
 
 
 # ---------------------------------------------------------------------------
@@ -53,7 +64,7 @@ def _check_session_ownership(session: KnowledgeSession, counsellor_id: str | Non
 from config import settings
 from routers.ingest_router import _sanitize_filename
 from services.ingestion import parse_file
-from constants.profile_fields import ALLOWED_PROFILE_FIELDS, ALLOWED_EMPLOYER_FIELDS
+from constants.profile_fields import ALLOWED_ALUMNI_FIELDS, ALLOWED_EMPLOYER_FIELDS, ALLOWED_PROFILE_FIELDS
 
 def get_session_store():
     return SessionStore()
@@ -69,6 +80,150 @@ def _slug_is_safe(slug: str) -> bool:
     if not slug or "/" in slug or ".." in slug or " " in slug:
         return False
     return all(c.isalnum() or c in "-_" for c in slug)
+
+
+def _is_alumni_heavy(text: str) -> bool:
+    if not text or not text.strip():
+        return False
+    keyword_hits = _ALUMNI_KEYWORD_RE.findall(text)
+    return len(keyword_hits) >= 3 and bool(_ALUMNI_NAME_RE.search(text))
+
+
+def _default_alumni_confidence(source_type: str | None) -> int:
+    normalized = (source_type or "").strip().lower()
+    if normalized == "direct_from_alumni":
+        return 95
+    if normalized == "counselor":
+        return 85
+    return 75
+
+
+def _proposal_value(proposal: Any) -> Any:
+    if isinstance(proposal, dict):
+        return proposal.get("value")
+    return proposal
+
+
+def _proposal_confidence(proposal: Any, source_type: str | None) -> int:
+    if isinstance(proposal, dict):
+        raw = proposal.get("confidence")
+        try:
+            if raw is not None:
+                return int(raw)
+        except (TypeError, ValueError):
+            pass
+    return _default_alumni_confidence(source_type)
+
+
+def _iter_alumni_extractions(extraction: Any) -> list[dict[str, Any]]:
+    if isinstance(extraction, dict):
+        alumni_items = extraction.get("alumni")
+        if isinstance(alumni_items, list):
+            return [item for item in alumni_items if isinstance(item, dict)]
+        if extraction.get("profile_proposals") or extraction.get("company_link_proposals") or extraction.get("summary_bullets"):
+            return [extraction]
+    if isinstance(extraction, list):
+        return [item for item in extraction if isinstance(item, dict)]
+    return []
+
+
+def _build_alumni_cards(
+    extraction: dict[str, Any],
+    session_id: str,
+    existing_alumni: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    from services.shared_yaml import safe_slug
+
+    existing_slug_map: dict[str, str] = {}
+    for item in existing_alumni:
+        slug = str(item.get("slug") or "").strip()
+        if not slug:
+            continue
+        existing_slug_map[slug] = slug
+        canonical_slug = safe_slug(slug)
+        if canonical_slug:
+            existing_slug_map.setdefault(canonical_slug, slug)
+
+    cards: list[dict[str, Any]] = []
+    date_suffix = datetime.now(timezone.utc).strftime("%Y%m%d")
+
+    for alumnus in _iter_alumni_extractions(extraction):
+        proposals_payload = alumnus.get("profile_proposals") or {}
+        if not isinstance(proposals_payload, dict):
+            proposals_payload = {}
+        company_links = alumnus.get("company_link_proposals")
+        if not isinstance(company_links, list):
+            company_links = alumnus.get("company_links") if isinstance(alumnus.get("company_links"), list) else []
+
+        source_type = (
+            alumnus.get("source")
+            or alumnus.get("source_type")
+            or extraction.get("source")
+            or extraction.get("source_type")
+        )
+        diff: dict[str, Any] = {}
+        proposals: dict[str, dict[str, Any]] = {}
+        for field, proposal in proposals_payload.items():
+            value = _proposal_value(proposal)
+            if value is None or value == "":
+                continue
+            diff[field] = value
+            if isinstance(proposal, dict):
+                proposals[field] = {
+                    "confidence": _proposal_confidence(proposal, source_type),
+                    "evidence": proposal.get("evidence") or [],
+                    "rationale": proposal.get("rationale"),
+                }
+            else:
+                proposals[field] = {
+                    "confidence": _default_alumni_confidence(source_type),
+                    "evidence": [],
+                    "rationale": None,
+                }
+
+        full_name = str(diff.get("full_name") or diff.get("name") or alumnus.get("full_name") or "").strip()
+        matched_slug = str(alumnus.get("matched_slug") or "").strip() or None
+        resolved_matched_slug = None
+        if matched_slug:
+            resolved_matched_slug = existing_slug_map.get(matched_slug) or existing_slug_map.get(safe_slug(matched_slug))
+        is_update = bool(alumnus.get("is_update")) and bool(resolved_matched_slug)
+        if is_update and not resolved_matched_slug:
+            is_update = False
+        matched_slug = resolved_matched_slug
+
+        slug = matched_slug or str(alumnus.get("slug") or "").strip()
+        if not slug:
+            slug = safe_slug(full_name) or f"alumni-{uuid4().hex[:8]}"
+        canonical_slug = safe_slug(slug) or slug
+        if not is_update and (slug in existing_slug_map or canonical_slug in existing_slug_map):
+            slug = f"{canonical_slug}-{date_suffix}"
+
+        diff["slug"] = slug
+        if company_links:
+            diff["company_links"] = company_links
+
+        summary_bullets = alumnus.get("summary_bullets")
+        if not isinstance(summary_bullets, list):
+            summary_bullets = extraction.get("summary_bullets") if isinstance(extraction.get("summary_bullets"), list) else []
+        source_excerpt = str(alumnus.get("source_excerpt") or "").strip()
+        if not source_excerpt:
+            source_excerpt = str(next((bullet for bullet in summary_bullets if isinstance(bullet, str) and bullet.strip()), "")).strip()
+
+        display_name = full_name or slug.replace("-", " ").title()
+        summary = f"Update alumni profile for {display_name}" if is_update else f"Create alumni profile for {display_name}"
+        cards.append(
+            {
+                "card_id": f"alumni-{slug}-{uuid4().hex[:8]}",
+                "domain": "alumni",
+                "summary": summary,
+                "diff": diff,
+                "raw_input_ref": source_excerpt or display_name,
+                "proposals": proposals,
+                "is_update": is_update,
+                "matched_slug": matched_slug,
+            }
+        )
+    return cards
 
 
 def _apply_field_updates_to_profile(slug: str, diff: dict) -> tuple[list[str], bool]:
@@ -168,6 +323,53 @@ def _apply_field_updates_to_employer(slug: str, diff: dict) -> tuple[list[str], 
         except Exception:
             pass
     return changed, is_new
+
+
+def _apply_field_updates_to_alumni(slug: str, diff: dict[str, Any]) -> tuple[list[str], bool]:
+    from models_employers import AlumniDetail
+    from services.alumni_store import _normalize_profile_payload, get_alumni_store
+
+    if not _slug_is_safe(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format")
+
+    store = get_alumni_store()
+    existing = store.get_alumni(slug)
+    has_company_links = "company_links" in diff
+    company_links = diff.get("company_links") if has_company_links else None
+
+    candidate_fields = {field: value for field, value in diff.items() if field != "slug" and field != "company_links"}
+    unknown_fields = sorted(field for field in candidate_fields if field not in ALLOWED_ALUMNI_FIELDS)
+    if unknown_fields:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Invalid alumni card diff: unknown fields {', '.join(unknown_fields)}",
+        )
+
+    normalized = _normalize_profile_payload({"slug": slug, **candidate_fields}, existing=existing)
+    normalized["slug"] = slug
+    normalized["company_links"] = store.list_links(slug) if existing else []
+    normalized["company_link_count"] = len(normalized["company_links"])
+    normalized["completeness"] = existing.get("completeness", "amber") if existing else "amber"
+    try:
+        AlumniDetail.model_validate(normalized)
+    except ValidationError as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid alumni profile: {exc}") from exc
+
+    changed_fields = list(candidate_fields.keys())
+    if existing is None:
+        if not normalized.get("full_name"):
+            raise HTTPException(status_code=422, detail="Invalid alumni profile: full_name is required")
+        store.create_alumni({"slug": slug, **candidate_fields})
+        is_new = True
+    else:
+        store.update_alumni(slug, candidate_fields)
+        is_new = False
+
+    if has_company_links:
+        store.sync_company_links(slug, company_links or [])
+        changed_fields.append("company_links")
+
+    return changed_fields, is_new
 
 
 def _check_session_completion(session: KnowledgeSession) -> None:
@@ -361,6 +563,34 @@ def analyze_session(
         _touch_session(session)
         raise HTTPException(status_code=422, detail="Invalid intent card payload from analysis service")
 
+    if _is_alumni_heavy(session.raw_input):
+        try:
+            from services.alumni_store import get_alumni_store
+            from services.llm import generate_alumni_extraction
+
+            alumni_store = get_alumni_store()
+            existing_alumni = [
+                {
+                    "slug": item.get("slug"),
+                    "full_name": item.get("full_name"),
+                    "current_company": item.get("current_company"),
+                }
+                for item in alumni_store.list_alumni()
+            ]
+            started = perf_counter()
+            alumni_extraction = generate_alumni_extraction(
+                text=session.raw_input,
+                existing_alumni=existing_alumni,
+                session_id=session.id,
+            )
+            for alumni_card in _build_alumni_cards(alumni_extraction, session.id, existing_alumni):
+                cards.append(IntentCard(**alumni_card))
+            logger.info("analyze: alumni extraction took %dms", round((perf_counter() - started) * 1000))
+        except HTTPException:
+            logger.warning("analyze: alumni extraction skipped after upstream HTTP error", exc_info=True)
+        except Exception:
+            logger.warning("analyze: alumni extraction skipped after parse/validation error", exc_info=True)
+
     # Build AlreadyCovered objects
     already_covered = []
     for ac_data in result.get("already_covered", []):
@@ -427,7 +657,7 @@ def commit_card(
         raise HTTPException(status_code=409, detail=f"Card already {card.get('status')}")
 
     domain = card.get("domain", "")
-    if domain not in ("track", "employer"):
+    if domain not in ("track", "employer", "alumni"):
         raise HTTPException(status_code=400, detail=f"Unknown domain: {domain}")
 
     # Use edited diff if provided, otherwise use card's stored diff
@@ -440,7 +670,11 @@ def commit_card(
         raise HTTPException(status_code=422, detail=f"Invalid {domain} card diff: {exc}")
 
     # Strip empty values to avoid writing blank fields
-    effective_diff = {k: v for k, v in effective_diff.items() if v}
+    effective_diff = {
+        k: v
+        for k, v in effective_diff.items()
+        if v is not None and v != "" and v != [] and v != {}
+    }
 
     target_slug = effective_diff.get("slug")
     if not target_slug:
@@ -455,6 +689,8 @@ def commit_card(
         changed_fields, is_new = _apply_field_updates_to_profile(target_slug, effective_diff)
     elif domain == "employer":
         changed_fields, is_new = _apply_field_updates_to_employer(target_slug, effective_diff)
+    else:
+        changed_fields, is_new = _apply_field_updates_to_alumni(target_slug, effective_diff)
 
     card["status"] = "committed"
     _check_session_completion(session)

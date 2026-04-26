@@ -268,6 +268,106 @@ class TestAnalyzeSession:
         assert resp.json()["status"] == "cancelled"
         assert saved_statuses[-1] == "cancelled"
 
+    @patch("services.alumni_store.get_alumni_store")
+    @patch("services.llm.generate_alumni_extraction")
+    @patch("services.llm.generate_session_intents")
+    def test_analyze_appends_alumni_cards_for_alumni_heavy_notes(
+        self,
+        mock_generate_session_intents,
+        mock_generate_alumni_extraction,
+        mock_get_alumni_store,
+        app,
+        mock_session_store,
+    ):
+        mock_generate_session_intents.return_value = {
+            "cards": [],
+            "already_covered": [],
+        }
+        mock_generate_alumni_extraction.return_value = {
+            "alumni": [
+                {
+                    "source": "counselor",
+                    "source_excerpt": "Maya Lim graduated from SMU and joined Grab as an analyst.",
+                    "profile_proposals": {
+                        "name": {"value": "Maya Lim"},
+                        "full_name": {"value": "Maya Lim"},
+                        "graduation_school": {"value": "SMU"},
+                        "current_company": {"value": "Grab"},
+                        "consent_for_referrals": {"value": True},
+                        "lifecycle": {"value": "active"},
+                    },
+                }
+            ]
+        }
+        fake_alumni_store = MagicMock()
+        fake_alumni_store.list_alumni.return_value = []
+        mock_get_alumni_store.return_value = fake_alumni_store
+
+        session = _make_session(
+            id="abc-123",
+            status="in-progress",
+            raw_input="Maya Lim graduated from SMU, joined Grab, and is currently an analyst there.",
+        )
+        mock_session_store.get_session.return_value = session
+        mock_session_store.save_session.side_effect = lambda current: None
+
+        client = TestClient(app)
+        resp = client.post("/api/sessions/abc-123/analyze")
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert len(body["cards"]) == 1
+        assert body["cards"][0]["domain"] == "alumni"
+        assert body["cards"][0]["diff"]["full_name"] == "Maya Lim"
+        assert body["cards"][0]["diff"]["graduation_school"] == "SMU"
+        assert body["cards"][0]["diff"]["current_company"] == "Grab"
+
+    def test_commit_alumni_card_dispatches_and_preserves_false_values(self, app, mock_session_store):
+        session = _make_session(
+            id="abc-123",
+            status="analyzed",
+            intent_cards=[
+                {
+                    "card_id": "card-alumni-1",
+                    "domain": "alumni",
+                    "summary": "Update Maya Lim",
+                    "diff": {
+                        "slug": "maya_lim",
+                        "full_name": "Maya Lim",
+                        "available_for_mentoring": False,
+                    },
+                    "raw_input_ref": "Maya is not available for mentoring right now.",
+                    "status": "pending",
+                }
+            ],
+        )
+        mock_session_store.get_session.return_value = session
+        mock_session_store.save_session.side_effect = lambda current: None
+
+        module = sys.modules["session_router"]
+        with patch.object(module, "_apply_field_updates_to_alumni", return_value=(["available_for_mentoring"], False)) as mock_apply:
+            client = TestClient(app)
+            resp = client.post(
+                "/api/sessions/abc-123/cards/card-alumni-1/commit",
+                json={
+                    "diff": {
+                        "slug": "maya_lim",
+                        "full_name": "Maya Lim",
+                        "available_for_mentoring": False,
+                    }
+                },
+            )
+
+        assert resp.status_code == 200
+        mock_apply.assert_called_once_with(
+            "maya_lim",
+            {
+                "slug": "maya_lim",
+                "full_name": "Maya Lim",
+                "available_for_mentoring": False,
+            },
+        )
+
 
 class TestModelsExist:
     """Verify the new request/response models can be imported and instantiated."""

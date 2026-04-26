@@ -15,15 +15,11 @@ from pathlib import Path
 from typing import Any, Optional
 
 import yaml
-from pydantic import BaseModel
 
-from cfg import model_cfg, prompts_cfg
-from config import settings
 from models_employers import (
     AlumniCompanyLink,
     AlumniCompanyLinkInput,
     AlumniDetail,
-    AlumniExtractionPreview,
     AlumniHistoryVersion,
     AlumniLinkVersion,
 )
@@ -41,9 +37,6 @@ from services.shared_yaml import (
 from services import llm as llm_service
 
 logger = logging.getLogger(__name__)
-
-SCHOOL_NAME = model_cfg["school"]["name"]
-_prompts = prompts_cfg.get("prompts", {})
 
 _COMPLETENESS_REQUIRED: frozenset[str] = frozenset([
     "full_name",
@@ -397,6 +390,82 @@ def _profile_response(profile: dict[str, Any], *, company_link_count: int) -> di
     return response
 
 
+def _link_id_for_payload(alumni_slug: str, payload: dict[str, Any]) -> str:
+    """Build a deterministic link ID from alumni slug + company/relationship fields for idempotent link upserts."""
+    company_slug = str(payload.get("company_slug") or "").strip()
+    company_name = str(payload.get("company_name") or "").strip()
+    relationship = str(payload.get("relationship") or payload.get("role_title") or "").strip()
+    start_date = str(payload.get("start_date") or "").strip()
+    end_date = str(payload.get("end_date") or "").strip()
+    link_type = str(payload.get("link_type") or "current").strip().lower() or "current"
+    seed = "|".join([
+        alumni_slug,
+        company_slug or safe_slug(company_name),
+        relationship,
+        link_type,
+        start_date,
+        end_date,
+    ])
+    return safe_slug(seed) or f"{alumni_slug}-{company_slug or safe_slug(company_name) or 'link'}"
+
+
+def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
+    """Coerce heterogeneous company link payloads into a canonical dict."""
+    if not isinstance(raw, dict):
+        text = str(raw).strip()
+        if not text:
+            return None
+        return {
+            "company_name": text,
+            "company_slug": safe_slug(text),
+            "relationship": "",
+            "role_title": "",
+            "notes": "",
+            "link_type": "current",
+        }
+
+    company_name = str(
+        raw.get("company_name")
+        or raw.get("companyName")
+        or raw.get("employer_name")
+        or raw.get("name")
+        or ""
+    ).strip()
+    company_slug = str(
+        raw.get("company_slug")
+        or raw.get("companySlug")
+        or raw.get("employer_slug")
+        or raw.get("slug")
+        or ""
+    ).strip() or safe_slug(company_name)
+    relationship = str(raw.get("relationship") or raw.get("role") or raw.get("connection") or raw.get("link_type") or "").strip()
+    role_title = str(raw.get("role_title") or raw.get("position") or "").strip() or relationship
+    notes = str(raw.get("notes") or raw.get("note") or raw.get("summary") or raw.get("rationale") or "").strip()
+    link_type = str(raw.get("link_type") or "current").strip().lower() or "current"
+    if link_type not in _ALLOWED_LINK_TYPES:
+        link_type = "current"
+
+    if not company_name and not company_slug:
+        return None
+
+    return {
+        "company_name": company_name or company_slug.replace("_", " ").title(),
+        "company_slug": company_slug,
+        "relationship": relationship,
+        "role_title": role_title,
+        "notes": notes,
+        "start_date": str(raw.get("start_date") or "").strip() or None,
+        "end_date": str(raw.get("end_date") or "").strip() or None,
+        "link_type": link_type,
+        "confidence": raw.get("confidence"),
+        "evidence": raw.get("evidence") or [],
+        "rationale": notes or str(raw.get("rationale") or "").strip() or None,
+        "source_type": str(raw.get("source_type") or "").strip() or None,
+        "source_label": str(raw.get("source_label") or "").strip() or None,
+        "source_timestamp": str(raw.get("source_timestamp") or "").strip() or None,
+    }
+
+
 def _preferred_profile_slug(full_name: str, existing: dict[str, str]) -> str:
     """Derive a unique YAML-safe slug for an alumni profile, appending a disambiguating suffix when the base slug is already taken by a different person."""
     base = safe_slug(full_name)
@@ -622,6 +691,29 @@ class AlumniEntityStore:
         payload.pop("version", None)
         payload.pop("filename", None)
         return self.append_link(slug, payload, link_id=link_id)
+
+    def sync_company_links(self, slug: str, submitted_links: list[dict[str, Any]]) -> None:
+        """Reconcile submitted company links against stored links."""
+        desired_ids: list[str] = []
+        seen_ids: set[str] = set()
+        for raw in submitted_links:
+            normalized = _normalize_company_link(raw)
+            if not normalized:
+                continue
+            link_id = _link_id_for_payload(slug, normalized)
+            if link_id in seen_ids:
+                continue
+            seen_ids.add(link_id)
+            desired_ids.append(link_id)
+            self.append_link(slug, normalized, link_id=link_id)
+
+        existing_ids = {
+            str(link.get("link_id") or "").strip()
+            for link in self.list_links(slug)
+            if str(link.get("link_id") or "").strip()
+        }
+        for link_id in sorted(existing_ids - set(desired_ids)):
+            self.delete_link(slug, link_id)
 
     def _normalize_link_payload(self, slug: str, payload: dict[str, Any], *, link_id: str | None = None) -> dict[str, Any]:
         data = dict(payload)
@@ -859,93 +951,16 @@ class AlumniEntityStore:
 
         current_profile = self.get_alumni(alumni_slug) if alumni_slug else None
         current_links = self.list_links(alumni_slug) if alumni_slug else []
-
-        system = _prompts["alumni_extraction"].format(
-            school_name=SCHOOL_NAME,
-            allowed_alumni_fields=", ".join(sorted([
-                "full_name",
-                "graduation_school",
-                "graduation_program",
-                "graduation_year",
-                "current_title",
-                "current_company",
-                "career_goals_domains",
-                "help_capacity",
-                "can_refer",
-                "can_refer_confidence",
-                "can_refer_evidence",
-                "can_refer_rationale",
-                "network_strength",
-                "mentoring_modes",
-                "communication_style",
-                "preferred_student_traits",
-                "common_interests",
-                "consent_for_referrals",
-                "consent_scope_notes",
-                "source_type",
-                "source_label",
-                "source_timestamp",
-                "trace_id",
-                "lifecycle",
-                "deleted",
-                "superseded_by",
-                "archived_at",
-                "last_confirmed_at",
-            ])),
-            allowed_alumni_link_fields=", ".join(sorted([
-                "company_slug",
-                "company_name",
-                "role_title",
-                "start_date",
-                "end_date",
-                "link_type",
-                "confidence",
-                "evidence",
-                "rationale",
-                "source_type",
-                "source_label",
-                "source_timestamp",
-            ])),
+        result = llm_service.generate_alumni_extraction(
+            notes,
+            self.list_alumni(),
+            None,
+            source_label=source_label,
+            source_type=source_type,
+            alumni_slug=alumni_slug,
+            current_profile=current_profile,
+            current_links=current_links,
         )
-        profile_context = json.dumps(current_profile or {}, ensure_ascii=False, indent=2)
-        link_context = json.dumps(current_links or [], ensure_ascii=False, indent=2)
-        user = (
-            f"MEETING NOTES:\n{notes.strip()}\n\n"
-            f"CURRENT ALUMNI PROFILE (if editing existing alumni):\n{profile_context}\n\n"
-            f"CURRENT COMPANY LINKS:\n{link_context}\n\n"
-            f"SOURCE LABEL: {source_label}\n"
-            f"SOURCE TYPE: {source_type}\n"
-        )
-        schema_hint = (
-            "JSON object with summary_bullets, profile_proposals, company_link_proposals, "
-            "and fit_triad. Each proposal includes value, confidence, evidence, and rationale."
-        )
-        result = llm_service.call_structured_json(
-            operation="extract_alumni_preview",
-            model=_llm_model(),
-            system=system,
-            user=user,
-            schema_name="AlumniExtractionPreview",
-            schema_hint=schema_hint,
-            max_tokens=3000,
-            timeout_seconds=settings.llm_timeout_seconds,
-            trace_metadata={
-                "feature": "extract_alumni_preview",
-                "source_type": source_type,
-                "source_label": source_label,
-                "alumni_slug": alumni_slug,
-                "input_chars_pre_trim": len(notes),
-            },
-            validator=AlumniExtractionPreview,
-        )
-        if isinstance(result, BaseModel):
-            return result.model_dump()
         return result
-
-
-def _llm_model() -> str:
-    return llm_service.get_model_name()
-
-
 def get_alumni_store() -> "AlumniEntityStore":
     return AlumniEntityStore()

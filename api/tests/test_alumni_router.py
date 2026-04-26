@@ -1,7 +1,7 @@
 """Integration tests for the alumni admin router."""
 from __future__ import annotations
 
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -111,6 +111,28 @@ def test_create_update_and_list_round_trip(alumni_env):
 def test_extract_preview_returns_ui_friendly_shape(alumni_env):
     client = _client()
 
+    create_resp = client.post(
+        "/api/kb/alumni",
+        json={
+            "name": "Maya Lim",
+            "degree": "BSc Economics",
+            "school": "SMU",
+            "graduation_year": 2021,
+            "current_company": "Grab",
+            "current_title": "Product Lead",
+            "available_for_mentoring": True,
+            "company_links": [
+                {
+                    "company_name": "Grab",
+                    "company_slug": "grab",
+                    "relationship": "Mentor contact",
+                    "notes": "Current mentor link",
+                }
+            ],
+        },
+    )
+    assert create_resp.status_code == 200
+
     mock_preview = {
         "summary_bullets": [
             "The alumnus can mentor product students.",
@@ -154,7 +176,7 @@ def test_extract_preview_returns_ui_friendly_shape(alumni_env):
         },
     }
 
-    with patch("services.alumni_store.llm_service.call_structured_json", return_value=mock_preview):
+    with patch("services.alumni_store.llm_service.generate_alumni_extraction", return_value=mock_preview) as mock_generate:
         resp = client.post(
             "/api/kb/alumni/extract-preview",
             json={
@@ -173,3 +195,21 @@ def test_extract_preview_returns_ui_friendly_shape(alumni_env):
         "technical_depth",
         "character_compatibility",
     }
+    mock_generate.assert_called_once()
+    args, kwargs = mock_generate.call_args
+    assert args[0] == "Maya can mentor product students at Grab."
+    assert any(candidate.get("slug") == "maya_lim" for candidate in args[1])
+    assert kwargs["alumni_slug"] == "maya_lim"
+    assert kwargs["current_profile"]["full_name"] == "Maya Lim"
+    assert kwargs["current_links"][0]["company_slug"] == "grab"
+
+
+def test_sync_company_links_wrapper_delegates_to_store():
+    from routers.alumni_router import _sync_company_links
+
+    store = Mock()
+    payload = [{"company_name": "Grab"}]
+
+    _sync_company_links(store, "maya_lim", payload)
+
+    store.sync_company_links.assert_called_once_with("maya_lim", payload)

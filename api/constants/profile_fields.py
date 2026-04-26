@@ -52,6 +52,8 @@ ALLOWED_ALUMNI_FIELDS: frozenset = frozenset([
     "graduation_year",
     "current_title",
     "current_company",
+    "home_country",
+    "career_trajectory_summary",
     "available_for_mentoring",
     "notes",
     "career_goals_domains",

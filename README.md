@@ -92,7 +92,7 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 
 `docs/README.md` is the index for the docs tree.
 
-- Active specs live in `docs/schema/` and `docs/llm_hardening/`
+- Active specs live in `docs/schema/` and `docs/alumni_schema/`
 - Completed sprint specs and dated plans live in `docs/archived/`
 - Root docs for the current project state are `AUDIT.md`, `DESIGN.md`, `TODOS.md`, and `CHANGELOG.md`
 
@@ -113,10 +113,11 @@ Use `uv lock` after editing `api/pyproject.toml`, then commit both the manifest 
 
 The career office dashboard (`/admin`) includes:
 
-- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Session extraction now emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so scalar fields stay scalar and bad payloads fail fast instead of leaking into YAML writes.
+- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Alumni-heavy Staging Area notes now emit `alumni` cards alongside track and employer cards, and SmartCanvas renders an alumni-specific review surface with confidence, evidence, trajectory, and company-history context. Session extraction emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so bad payloads fail fast instead of leaking into YAML writes.
 - **Knowledge Review** — structured review of proposed KB edits before anything is written.
 - **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
 - **Employer Facts** — maintain employer YAMLs, review track coverage for employer context, and inspect the full extracted fact `data` payload before saving structured updates.
+- **Alumni Records** — maintain canonical alumni YAMLs plus append-only company-link history, while the Staging Area alumni-card flow feeds the same store through reviewed commits instead of a separate modal workflow.
 - **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile. If a published track exists but the draft copy is missing, the builder now seeds the draft and registry automatically so the track stays editable instead of disappearing from the editor.
 - **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection.
 - **LLM Observability** — session and prompt traces, live run state, a dedicated Trace Explorer that reads Langfuse first, and optional Langfuse-backed debugging for model calls.
@@ -149,7 +150,7 @@ The career office dashboard (`/admin`) includes:
 - **Career profiles**: YAML files in `knowledge/career_profiles/` injected into the LLM context at query time; editable without code. Legacy slugs are canonicalized on read and write, so old `data_science` payloads migrate to `dsai` automatically.
 - **Employer facts**: YAML files in `knowledge/employers/` injected into the LLM context at query time; editable from the admin UI. Structured fact previews from `structured.facts` are also rendered in the admin UI and included in the employer context block so extracted data can influence answers immediately.
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)
-- **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, Langfuse is the primary observability source for trace exploration, and the admin Trace Explorer reads Langfuse sessions first with JSONL fallback only when Langfuse is unavailable. Session runs group correctly once `session_id` is propagated. In Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path. Session intents are now JSON-only, with the old `<thought>` response plumbing removed from the backend contract.
+- **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, Langfuse is the primary observability source for trace exploration, and the admin Trace Explorer reads Langfuse sessions first with JSONL fallback only when Langfuse is unavailable. Session runs group correctly once `session_id` is propagated. In Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path. Session intents are now JSON-only, with the old `<thought>` response plumbing removed from the backend contract, and unexpected client exceptions now record a matching `error` trace instead of leaving orphaned `started` rows.
 - **Live timeout visibility**: session analysis and brief generation can still hit the Anthropic timeout under long or expensive requests, but the request now shows a `started` trace immediately and a matching `error` trace if the model times out. The repair path also retries transient overloads, so a one-off 529 no longer turns into a blank session. Wildly better than staring at a blank spinner.
 - **Data stays local**: only Anthropic Claude API call leaves the deployment (PDPA-compliant)
 

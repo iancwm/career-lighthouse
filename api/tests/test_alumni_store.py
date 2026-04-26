@@ -126,3 +126,69 @@ def test_backfill_legacy_alumni_migrates_employer_facts(alumni_env, tmp_path, mo
     assert migrated is not None
     assert migrated["full_name"] == "Aditya Mehta"
     assert len(store.list_links("aditya_mehta")) == 1
+
+
+def test_sync_company_links_upserts_and_archives_missing_links(alumni_env):
+    from services.alumni_store import get_alumni_store
+
+    store = get_alumni_store()
+    store.create_alumni(
+        {
+            "slug": "maya_lim",
+            "name": "Maya Lim",
+            "degree": "BSc Economics",
+            "school": "SMU",
+            "graduation_year": 2021,
+            "current_company": "Grab",
+            "current_title": "Product Lead",
+        }
+    )
+
+    store.sync_company_links(
+        "maya_lim",
+        [
+            {
+                "companyName": "Grab",
+                "relationship": "Mentor contact",
+                "notes": "Can refer product students",
+            },
+            {
+                "company_slug": "grab",
+                "relationship": "Mentor contact",
+                "notes": "Duplicate should be ignored",
+            },
+            "Google",
+            "",
+        ],
+    )
+
+    initial_links = sorted(store.list_links("maya_lim"), key=lambda link: link["company_slug"])
+    assert [link["company_slug"] for link in initial_links] == ["google", "grab"]
+    assert len(store.list_link_events("maya_lim")) == 2
+
+    grab_link_id = next(link["link_id"] for link in initial_links if link["company_slug"] == "grab")
+    google_link_id = next(link["link_id"] for link in initial_links if link["company_slug"] == "google")
+
+    store.sync_company_links(
+        "maya_lim",
+        [
+            {
+                "company_slug": "grab",
+                "relationship": "Mentor contact",
+                "notes": "Updated note",
+            }
+        ],
+    )
+
+    active_links = store.list_links("maya_lim")
+    assert len(active_links) == 1
+    assert active_links[0]["link_id"] == grab_link_id
+    assert active_links[0]["notes"] == "Updated note"
+
+    archived_events = [
+        event for event in store.list_link_events("maya_lim")
+        if event.get("link_id") == google_link_id
+    ]
+    assert archived_events[0]["lifecycle"] == "archived"
+    assert all(link["link_id"] != google_link_id for link in active_links)
+    assert len(store.list_link_events("maya_lim")) == 4

@@ -100,6 +100,8 @@ class AlumniDetail(BaseModel):
     graduation_year: str | int | None = None
     current_title: str | None = None
     current_company: str | None = None
+    home_country: str | None = None
+    career_trajectory_summary: str | None = None
     available_for_mentoring: bool | None = None
     notes: str | None = None
     career_goals_domains: list[str] = Field(default_factory=list)

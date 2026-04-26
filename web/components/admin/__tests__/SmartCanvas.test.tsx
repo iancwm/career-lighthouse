@@ -2,6 +2,10 @@ import { render, screen, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 import SmartCanvas from "../SmartCanvas"
 
+function expectNodeBefore(left: HTMLElement, right: HTMLElement) {
+  expect(left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+}
+
 describe("SmartCanvas", () => {
   afterEach(() => {
     vi.resetAllMocks()
@@ -149,5 +153,98 @@ describe("SmartCanvas", () => {
     const followUpField = screen.getByDisplayValue(/Review EP evidence/) as HTMLTextAreaElement
     expect(followUpField.value).toContain('"action": "Review EP evidence"')
     expect(followUpField.value).not.toContain("[object Object]")
+  })
+
+  it("renders the alumni card variant with update metadata and chronological company history", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/api/admin/api/sessions/session-4")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-4",
+            status: "analyzed",
+            raw_input: "Aditya Mehta moved from Morgan Stanley to Goldman Sachs and now mentors students.",
+            intent_cards: [
+              {
+                card_id: "card-alumni-1",
+                domain: "alumni",
+                summary: "Update Aditya Mehta's alumni profile",
+                raw_input_ref: "Aditya Mehta is now Managing Director at Goldman Sachs after earlier roles at Morgan Stanley.",
+                status: "pending",
+                is_update: true,
+                matched_slug: "aditya_mehta",
+                proposals: {
+                  current_title: {
+                    confidence: 94,
+                    evidence: ["now Managing Director at Goldman Sachs"],
+                    rationale: "Title is stated directly in the note.",
+                  },
+                  current_company: {
+                    confidence: 96,
+                    evidence: ["at Goldman Sachs"],
+                  },
+                  career_trajectory_summary: {
+                    confidence: 89,
+                    evidence: ["earlier roles at Morgan Stanley"],
+                    rationale: "The note includes a before-and-after career path.",
+                  },
+                },
+                diff: {
+                  slug: "aditya_mehta",
+                  full_name: "Aditya Mehta",
+                  current_title: "Managing Director",
+                  current_company: "Goldman Sachs",
+                  career_trajectory_summary: "Started in markets at Morgan Stanley before moving into leadership at Goldman Sachs, and now mentors students exploring finance careers.",
+                  company_links: [
+                    {
+                      company_name: "Goldman Sachs",
+                      company_slug: "goldman_sachs",
+                      title: "Managing Director",
+                      relationship: "Current employer",
+                      start_year: "2023",
+                      is_current: true,
+                      notes: "Mentors students on finance hiring.",
+                    },
+                    {
+                      company_name: "Morgan Stanley",
+                      company_slug: "morgan_stanley",
+                      title: "Vice President",
+                      relationship: "Previous employer",
+                      start_year: "2018",
+                      end_year: "2022",
+                    },
+                  ],
+                },
+              },
+            ],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-4" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Aditya Mehta" })).toBeInTheDocument())
+
+    expect(screen.getAllByText("Alumni").length).toBeGreaterThan(0)
+    expect(screen.getByText(/Managing Director @ Goldman Sachs/i)).toBeInTheDocument()
+    expect(screen.getByText(/Updating existing Aditya Mehta/i)).toBeInTheDocument()
+    expect(screen.getByText("Confidence 94%")).toBeInTheDocument()
+    expect(screen.getByText("Confidence 89%")).toBeInTheDocument()
+    expect(screen.getByText("now Managing Director at Goldman Sachs", { selector: "li" })).toBeInTheDocument()
+    expect(screen.getByText(/The note includes a before-and-after career path/i)).toBeInTheDocument()
+    expect(screen.getByText(/Started in markets at Morgan Stanley/i, { selector: "p" })).toBeInTheDocument()
+    expect(screen.getByText("Chronological")).toBeInTheDocument()
+
+    const morganStanley = screen.getByText("Morgan Stanley", { selector: "p" })
+    const goldmanSachs = screen.getByText("Goldman Sachs", { selector: "p" })
+    expectNodeBefore(morganStanley, goldmanSachs)
   })
 })

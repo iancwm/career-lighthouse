@@ -16,86 +16,6 @@ from services.shared_yaml import safe_slug, safe_slug_is_valid
 router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
 
 
-def _link_id_for_payload(alumni_slug: str, payload: dict[str, Any]) -> str:
-    """Build a deterministic link ID from alumni slug + company/relationship fields for idempotent link upserts."""
-    company_slug = str(payload.get("company_slug") or "").strip()
-    company_name = str(payload.get("company_name") or "").strip()
-    relationship = str(payload.get("relationship") or payload.get("role_title") or "").strip()
-    start_date = str(payload.get("start_date") or "").strip()
-    end_date = str(payload.get("end_date") or "").strip()
-    link_type = str(payload.get("link_type") or "current").strip().lower() or "current"
-    seed = "|".join([
-        alumni_slug,
-        company_slug or safe_slug(company_name),
-        relationship,
-        link_type,
-        start_date,
-        end_date,
-    ])
-    return safe_slug(seed) or f"{alumni_slug}-{company_slug or safe_slug(company_name) or 'link'}"
-
-
-def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
-    """Coerce heterogeneous company link payloads (raw string or multi-alias dict) into a canonical dict.
-
-    Handles camelCase/snake_case aliases from various frontend submissions. Returns None if company identity
-    (name or slug) is absent after normalization.
-    """
-    if not isinstance(raw, dict):
-        text = str(raw).strip()
-        if not text:
-            return None
-        return {
-            "company_name": text,
-            "company_slug": safe_slug(text),
-            "relationship": "",
-            "role_title": "",
-            "notes": "",
-            "link_type": "current",
-        }
-
-    company_name = str(
-        raw.get("company_name")
-        or raw.get("companyName")
-        or raw.get("employer_name")
-        or raw.get("name")
-        or ""
-    ).strip()
-    company_slug = str(
-        raw.get("company_slug")
-        or raw.get("companySlug")
-        or raw.get("employer_slug")
-        or raw.get("slug")
-        or ""
-    ).strip() or safe_slug(company_name)
-    relationship = str(raw.get("relationship") or raw.get("role") or raw.get("connection") or raw.get("link_type") or "").strip()
-    role_title = str(raw.get("role_title") or raw.get("position") or "").strip() or relationship
-    notes = str(raw.get("notes") or raw.get("note") or raw.get("summary") or raw.get("rationale") or "").strip()
-    link_type = str(raw.get("link_type") or "current").strip().lower() or "current"
-    if link_type not in {"current", "former", "advisory"}:
-        link_type = "current"
-
-    if not company_name and not company_slug:
-        return None
-
-    return {
-        "company_name": company_name or company_slug.replace("_", " ").title(),
-        "company_slug": company_slug,
-        "relationship": relationship,
-        "role_title": role_title,
-        "notes": notes,
-        "start_date": str(raw.get("start_date") or "").strip() or None,
-        "end_date": str(raw.get("end_date") or "").strip() or None,
-        "link_type": link_type,
-        "confidence": raw.get("confidence"),
-        "evidence": raw.get("evidence") or [],
-        "rationale": notes or str(raw.get("rationale") or "").strip() or None,
-        "source_type": str(raw.get("source_type") or "").strip() or None,
-        "source_label": str(raw.get("source_label") or "").strip() or None,
-        "source_timestamp": str(raw.get("source_timestamp") or "").strip() or None,
-    }
-
-
 def _serialize_company_link(link: dict[str, Any]) -> dict[str, Any]:
     """Normalize a stored company link event for JSON serialization, ensuring relationship and role_title are always strings."""
     relationship = str(link.get("relationship") or link.get("role_title") or "").strip()
@@ -149,23 +69,8 @@ def _proposal_value_to_text(proposal: Any) -> str:
 
 
 def _sync_company_links(store: AlumniEntityStore, slug: str, submitted_links: list[dict[str, Any]]) -> None:
-    """Reconcile submitted company links against stored links: upsert desired links and archive links absent from the submission."""
-    desired_ids: list[str] = []
-    seen_ids: set[str] = set()
-    for raw in submitted_links:
-        normalized = _normalize_company_link(raw)
-        if not normalized:
-            continue
-        link_id = _link_id_for_payload(slug, normalized)
-        if link_id in seen_ids:
-            continue
-        seen_ids.add(link_id)
-        desired_ids.append(link_id)
-        store.append_link(slug, normalized, link_id=link_id)
-
-    existing_ids = {str(link.get("link_id") or "").strip() for link in store.list_links(slug) if str(link.get("link_id") or "").strip()}
-    for link_id in sorted(existing_ids - set(desired_ids)):
-        store.delete_link(slug, link_id)
+    """Compatibility wrapper around the store-owned link reconciliation logic."""
+    store.sync_company_links(slug, submitted_links)
 
 
 @router.get("/alumni")

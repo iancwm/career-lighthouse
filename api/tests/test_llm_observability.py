@@ -182,6 +182,143 @@ def test_llm_traces_endpoint_filters_by_session_and_status(tmp_path):
     assert data[0].status == "ok"
 
 
+@patch("services.llm.get_client")
+def test_generate_alumni_extraction_writes_structured_trace(mock_client, tmp_path):
+    import services.llm as llm_module
+
+    trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        json.dumps(
+            {
+                "summary_bullets": ["Maya mentors product students from Grab."],
+                "profile_proposals": {
+                    "current_title": {
+                        "value": "Senior Product Lead",
+                        "confidence": 91,
+                        "evidence": ["Senior Product Lead at Grab"],
+                        "rationale": "Explicitly stated in the note.",
+                    }
+                },
+                "company_link_proposals": [
+                    {
+                        "company_slug": "grab",
+                        "company_name": "Grab",
+                        "role_title": "Senior Product Lead",
+                        "link_type": "current",
+                        "confidence": 91,
+                        "evidence": ["Senior Product Lead at Grab"],
+                        "rationale": "Current employer relationship.",
+                    }
+                ],
+                "fit_triad": {},
+                "source_label": "counsellor_note",
+                "source_type": "note",
+                "is_update": True,
+                "matched_slug": "maya_lim",
+                "source_excerpt": "Maya is a Senior Product Lead at Grab and can mentor product students.",
+                "alumni": [
+                    {
+                        "summary_bullets": ["Maya mentors product students from Grab."],
+                        "profile_proposals": {
+                            "current_title": {
+                                "value": "Senior Product Lead",
+                                "confidence": 91,
+                                "evidence": ["Senior Product Lead at Grab"],
+                                "rationale": "Explicitly stated in the note.",
+                            }
+                        },
+                        "company_link_proposals": [
+                            {
+                                "company_slug": "grab",
+                                "company_name": "Grab",
+                                "role_title": "Senior Product Lead",
+                                "link_type": "current",
+                                "confidence": 91,
+                                "evidence": ["Senior Product Lead at Grab"],
+                                "rationale": "Current employer relationship.",
+                            }
+                        ],
+                        "fit_triad": {},
+                        "source_label": "counsellor_note",
+                        "source_type": "note",
+                        "is_update": True,
+                        "matched_slug": "maya_lim",
+                        "source_excerpt": "Maya is a Senior Product Lead at Grab and can mentor product students.",
+                    }
+                ],
+            }
+        )
+    )
+
+    fake_settings = SimpleNamespace(
+        anthropic_api_key="fake",
+        llm_timeout_seconds=30.0,
+        llm_trace_log_path=str(trace_path),
+    )
+
+    with patch.object(llm_module, "settings", fake_settings):
+        result = llm_module.generate_alumni_extraction(
+            "Maya is a Senior Product Lead at Grab and can mentor product students.",
+            [{"slug": "maya_lim", "full_name": "Maya Lim", "current_company": "Grab"}],
+            "session-123",
+        )
+
+    assert result["matched_slug"] == "maya_lim"
+    assert result["alumni"][0]["source_excerpt"].startswith("Maya is a Senior Product Lead")
+    with open(trace_path, encoding="utf-8") as handle:
+        entries = [json.loads(line) for line in handle if line.strip()]
+
+    assert len(entries) == 2
+    assert entries[0]["operation"] == "generate_alumni_extraction"
+    assert entries[1]["operation"] == "generate_alumni_extraction"
+    assert entries[1]["feature"] == "generate_alumni_extraction"
+    assert entries[1]["session_id"] == "session-123"
+    assert entries[1]["existing_alumni_count"] == 1
+
+
+def test_call_with_trace_writes_error_row_for_unexpected_exception(tmp_path):
+    import services.llm as llm_module
+
+    trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
+    fake_settings = SimpleNamespace(
+        anthropic_api_key="fake",
+        llm_timeout_seconds=30.0,
+        llm_trace_log_path=str(trace_path),
+        langfuse_public_key="",
+        langfuse_secret_key="",
+        langfuse_base_url="",
+        langfuse_host="",
+    )
+
+    with patch.object(llm_module, "settings", fake_settings), patch.object(
+        llm_module,
+        "_safe_create",
+        side_effect=RuntimeError("client blew up"),
+    ):
+        try:
+            llm_module._call_with_trace(
+                operation="generate_alumni_extraction",
+                model="claude-sonnet-4-6",
+                max_tokens=512,
+                system="Return JSON",
+                messages=[{"role": "user", "content": "hello"}],
+                trace_metadata={"session_id": "session-123", "feature": "generate_alumni_extraction"},
+            )
+        except RuntimeError:
+            pass
+        else:
+            assert False, "Expected RuntimeError to be re-raised"
+
+    with open(trace_path, encoding="utf-8") as handle:
+        entries = [json.loads(line) for line in handle if line.strip()]
+
+    assert len(entries) == 2
+    assert entries[0]["status"] == "started"
+    assert entries[1]["status"] == "error"
+    assert entries[1]["error"] == "client blew up"
+    assert entries[1]["session_id"] == "session-123"
+
+
 def test_llm_traces_endpoint_reads_langfuse_sessions():
     from routers.kb_router import _read_llm_trace_log
     import routers.kb_router as kb_router

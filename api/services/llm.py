@@ -25,7 +25,9 @@ import anthropic
 from fastapi import HTTPException
 from pydantic import BaseModel, ValidationError
 
+from constants.profile_fields import ALLOWED_ALUMNI_FIELDS, ALLOWED_ALUMNI_LINK_FIELDS
 from config import settings
+from models_employers import AlumniExtractionPreview
 from services.ingestion import chunk_text
 from models_facts import Fact
 from models_kb import KBAnalysisResult
@@ -634,6 +636,46 @@ def _join_budgeted_sections(sections: list[str], *, max_context_chars: int | Non
     return "\n\n".join(out)
 
 
+def _normalize_existing_alumni_candidates(existing_alumni: list[dict[str, Any]] | None) -> list[dict[str, str | None]]:
+    candidates: list[dict[str, str | None]] = []
+    for raw in existing_alumni or []:
+        if not isinstance(raw, dict):
+            continue
+        slug = str(raw.get("slug") or "").strip() or None
+        full_name = str(raw.get("full_name") or raw.get("name") or "").strip() or None
+        current_company = str(raw.get("current_company") or "").strip() or None
+        current_title = str(raw.get("current_title") or "").strip() or None
+        if not slug and not full_name:
+            continue
+        candidates.append({
+            "slug": slug,
+            "full_name": full_name,
+            "current_company": current_company,
+            "current_title": current_title,
+        })
+    return candidates
+
+
+def _validated_alumni_preview_payload(
+    payload: dict[str, Any],
+    *,
+    source_label: str,
+    source_type: str,
+) -> dict[str, Any]:
+    preview = _model_validate(
+        AlumniExtractionPreview,
+        {
+            "summary_bullets": payload.get("summary_bullets") or [],
+            "profile_proposals": payload.get("profile_proposals") or {},
+            "company_link_proposals": payload.get("company_link_proposals") or [],
+            "fit_triad": payload.get("fit_triad") or {},
+            "source_label": payload.get("source_label") or source_label,
+            "source_type": payload.get("source_type") or source_type,
+        },
+    )
+    return preview.model_dump()
+
+
 def _budget_history(history: list[dict], *, max_turns: int, max_chars: int | None) -> str:
     lines = []
     for message in history[-max_turns:]:
@@ -732,6 +774,41 @@ def _call_with_trace(
             except HTTPException as exc:
                 elapsed_ms = round((perf_counter() - start) * 1000, 1)
                 error_message = str(exc.detail)
+                _append_llm_trace({
+                    "trace_id": trace_id,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "operation": operation,
+                    "status": "error",
+                    "model": model,
+                    **trace_entry_metadata,
+                    "timeout_seconds": timeout_seconds,
+                    "max_tokens": max_tokens,
+                    "latency_ms": elapsed_ms,
+                    "input_chars": input_chars,
+                    "output_chars": 0,
+                    "input_preview": input_preview,
+                    "output_preview": "",
+                    "error": error_message,
+                })
+                if lf_observation is not None:
+                    lf_observation.update(
+                        level="ERROR",
+                        status_message=error_message,
+                        metadata=_langfuse_trace_metadata(
+                            {
+                                **trace_entry_metadata,
+                                "timeout_seconds": timeout_seconds,
+                                "max_tokens": max_tokens,
+                                "error": error_message,
+                            },
+                            trace_id,
+                        ),
+                )
+                _schedule_langfuse_flush()
+                raise
+            except Exception as exc:
+                elapsed_ms = round((perf_counter() - start) * 1000, 1)
+                error_message = str(exc) or exc.__class__.__name__
                 _append_llm_trace({
                     "trace_id": trace_id,
                     "ts": datetime.now(timezone.utc).isoformat(),
@@ -1170,6 +1247,132 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
         },
     )
     return response.content[0].text
+
+
+def generate_alumni_extraction(
+    text: str,
+    existing_alumni: list[dict[str, Any]] | None,
+    session_id: str | None = None,
+    *,
+    source_label: str = "counsellor_note",
+    source_type: str = "note",
+    alumni_slug: str | None = None,
+    current_profile: dict[str, Any] | None = None,
+    current_links: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Extract alumni proposals for preview flows now and card-native flows next.
+
+    Returns the legacy preview fields at top level for `/extract-preview`, plus
+    an `alumni` list whose items also include `is_update`, `matched_slug`, and
+    `source_excerpt` for the upcoming session-card pipeline.
+    """
+    notes = str(text or "").strip()
+    if not notes:
+        raise ValueError("notes are required")
+
+    normalized_candidates = _normalize_existing_alumni_candidates(existing_alumni)
+    current_profile_payload = current_profile if isinstance(current_profile, dict) else {}
+    current_link_payload = current_links if isinstance(current_links, list) else []
+
+    system = _prompts["alumni_extraction"].format(
+        school_name=SCHOOL_NAME,
+        allowed_alumni_fields=", ".join(sorted(ALLOWED_ALUMNI_FIELDS)),
+        allowed_alumni_link_fields=", ".join(sorted(ALLOWED_ALUMNI_LINK_FIELDS)),
+    )
+    user = (
+        f"MEETING NOTES:\n{sanitize_for_prompt(notes)}\n\n"
+        f"CURRENT ALUMNI PROFILE (if editing existing alumni):\n"
+        f"{json.dumps(current_profile_payload, ensure_ascii=False, indent=2)}\n\n"
+        f"CURRENT COMPANY LINKS:\n{json.dumps(current_link_payload, ensure_ascii=False, indent=2)}\n\n"
+        f"EXISTING ALUMNI CANDIDATES FOR MATCHING:\n"
+        f"{json.dumps(normalized_candidates, ensure_ascii=False, indent=2)}\n\n"
+        f"SOURCE LABEL: {source_label}\n"
+        f"SOURCE TYPE: {source_type}\n"
+        f"ALUMNI SLUG (when editing a known alumnus): {alumni_slug or ''}\n"
+    )
+    schema_hint = (
+        "JSON object with top-level summary_bullets, profile_proposals, "
+        "company_link_proposals, fit_triad, source_label, source_type, and an "
+        "alumni array. Each alumni item repeats the preview fields and includes "
+        "is_update, matched_slug, and source_excerpt."
+    )
+
+    result = call_structured_json(
+        operation="generate_alumni_extraction",
+        model=get_model_name(),
+        system=system,
+        user=user,
+        schema_name="AlumniExtractionPreview",
+        schema_hint=schema_hint,
+        max_tokens=3000,
+        timeout_seconds=settings.llm_timeout_seconds,
+        trace_metadata={
+            "feature": "generate_alumni_extraction",
+            "session_id": session_id,
+            "source_type": source_type,
+            "source_label": source_label,
+            "alumni_slug": alumni_slug,
+            "existing_alumni_count": len(normalized_candidates),
+            "input_chars_pre_trim": len(text or ""),
+        },
+        validator=None,
+    )
+
+    payload = dict(result) if isinstance(result, dict) else {}
+    preview_payload = _validated_alumni_preview_payload(
+        payload,
+        source_label=source_label,
+        source_type=source_type,
+    )
+
+    alumni_items_raw = payload.get("alumni")
+    alumni_items: list[dict[str, Any]] = []
+    if isinstance(alumni_items_raw, list):
+        for item in alumni_items_raw:
+            if not isinstance(item, dict):
+                continue
+            item_preview = _validated_alumni_preview_payload(
+                item,
+                source_label=source_label,
+                source_type=source_type,
+            )
+            alumni_items.append(
+                {
+                    **item_preview,
+                    "is_update": bool(item.get("is_update")),
+                    "matched_slug": str(item.get("matched_slug") or "").strip() or None,
+                    "source_excerpt": str(item.get("source_excerpt") or "").strip(),
+                }
+            )
+
+    if not alumni_items:
+        alumni_items.append(
+            {
+                **preview_payload,
+                "is_update": bool(payload.get("is_update")),
+                "matched_slug": str(payload.get("matched_slug") or "").strip() or None,
+                "source_excerpt": str(payload.get("source_excerpt") or "").strip(),
+            }
+        )
+
+    if not preview_payload.get("summary_bullets") and alumni_items:
+        primary = alumni_items[0]
+        preview_payload = _validated_alumni_preview_payload(
+            primary,
+            source_label=source_label,
+            source_type=source_type,
+        )
+
+    primary_item = alumni_items[0]
+    return {
+        **preview_payload,
+        "source_label": preview_payload.get("source_label") or source_label,
+        "source_type": preview_payload.get("source_type") or source_type,
+        "is_update": bool(payload.get("is_update", primary_item.get("is_update"))),
+        "matched_slug": str(payload.get("matched_slug") or primary_item.get("matched_slug") or "").strip() or None,
+        "source_excerpt": str(payload.get("source_excerpt") or primary_item.get("source_excerpt") or "").strip(),
+        "alumni": alumni_items,
+    }
 
 
 def _merge_intents(results: list[dict]) -> dict:

@@ -203,6 +203,49 @@ class TrackCardDiff(BaseModel):
     notes: str | None = None
 
 
+class AlumniCardDiff(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    slug: str
+    full_name: str | None = None
+    name: str | None = None
+    degree: str | None = None
+    graduation_school: str | None = None
+    school: str | None = None
+    current_title: str | None = None
+    current_company: str | None = None
+    graduation_year: str | int | None = None
+    graduation_program: str | None = None
+    home_country: str | None = None
+    career_trajectory_summary: str | None = None
+    available_for_mentoring: bool | str | None = None
+    notes: str | None = None
+    career_goals_domains: list[str] | str | None = None
+    help_capacity: str | None = None
+    can_refer: Literal["yes", "maybe", "no"] | None = None
+    can_refer_confidence: int | str | None = None
+    can_refer_evidence: list[str] | str | None = None
+    can_refer_rationale: str | None = None
+    network_strength: Literal["low", "medium", "high"] | None = None
+    mentoring_modes: list[str] | str | None = None
+    communication_style: str | None = None
+    preferred_student_traits: list[str] | str | None = None
+    common_interests: list[str] | str | None = None
+    consent_for_referrals: bool | str | None = None
+    consent_scope_notes: str | None = None
+    source_type: str | None = None
+    source_label: str | None = None
+    source_timestamp: str | None = None
+    trace_id: str | None = None
+    lifecycle: Literal["active", "superseded", "archived"] | None = None
+    deleted: bool | str | None = None
+    superseded_by: str | None = None
+    archived_at: str | None = None
+    last_confirmed_at: str | None = None
+    last_updated: str | None = None
+    company_links: list[dict[str, Any]] | None = None
+
+
 def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
     validator = getattr(model_cls, "model_validate", None)
     if callable(validator):
@@ -216,6 +259,8 @@ def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
         validated = _model_validate(EmployerCardDiff, diff)
     elif domain == "track":
         validated = _model_validate(TrackCardDiff, diff)
+    elif domain == "alumni":
+        validated = _model_validate(AlumniCardDiff, diff)
     else:
         raise ValueError(f"Unknown intent card domain: {domain!r}")
     return validated.model_dump(exclude_none=True)
@@ -223,11 +268,14 @@ def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
 
 class IntentCard(BaseModel):
     card_id: str
-    domain: Literal["employer", "track"]
+    domain: Literal["employer", "track", "alumni"]
     summary: str
     diff: dict[str, Any]  # structured representation of the proposed change
     raw_input_ref: str  # reference back to the originating text chunk
     status: Literal["pending", "committed", "discarded"] = "pending"
+    proposals: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    is_update: bool = False
+    matched_slug: str | None = None
 
     @field_validator("diff", mode="before")
     @classmethod

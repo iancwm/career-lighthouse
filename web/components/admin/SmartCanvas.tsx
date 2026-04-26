@@ -2,13 +2,18 @@
 import { useEffect, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
 
+type CardDomain = "employer" | "track" | "alumni" | string
+
 interface IntentCard {
   card_id: string
-  domain: string
+  domain: CardDomain
   summary: string
   diff: Record<string, unknown>
   raw_input_ref: string
   status: string
+  proposals?: Record<string, FieldProposal>
+  is_update?: boolean
+  matched_slug?: string | null
 }
 
 interface AlreadyCovered {
@@ -43,6 +48,27 @@ interface KnowledgeSession {
   updated_at: string
 }
 
+interface FieldProposal {
+  confidence?: number | null
+  evidence?: unknown
+  rationale?: string | null
+}
+
+interface AlumniCompanyLink {
+  company_name?: string
+  company_slug?: string
+  relationship?: string
+  notes?: string
+  title?: string
+  role?: string
+  start_date?: string
+  end_date?: string
+  start_year?: string | number
+  end_year?: string | number
+  is_current?: boolean
+  current?: boolean
+}
+
 interface SmartCanvasProps {
   sessionId: string
   onBack: () => void
@@ -66,6 +92,109 @@ function formatDiffValue(value: unknown): string {
   } catch {
     return String(value)
   }
+}
+
+function formatFieldLabel(value: string): string {
+  return value.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+function toDisplayText(value: unknown): string {
+  if (typeof value === "string") return value.trim()
+  if (typeof value === "number" || typeof value === "boolean") return String(value)
+  return ""
+}
+
+function normalizeEvidence(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+  if (typeof value === "string" && value.trim()) return [value.trim()]
+  return []
+}
+
+function parseStructuredValue(value: unknown): unknown {
+  if (typeof value !== "string") return value
+  const trimmed = value.trim()
+  if (!trimmed) return value
+  if ((trimmed.startsWith("{") && trimmed.endsWith("}")) || (trimmed.startsWith("[") && trimmed.endsWith("]"))) {
+    try {
+      return JSON.parse(trimmed)
+    } catch {
+      return value
+    }
+  }
+  return value
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function coerceEditedValue(originalValue: unknown, editedValue: unknown): unknown {
+  if (typeof editedValue !== "string") return editedValue
+
+  if (typeof originalValue === "boolean") {
+    const lowered = editedValue.trim().toLowerCase()
+    if (["true", "yes", "1"].includes(lowered)) return true
+    if (["false", "no", "0"].includes(lowered)) return false
+    return editedValue
+  }
+
+  if (typeof originalValue === "number") {
+    const parsed = Number(editedValue)
+    return Number.isNaN(parsed) ? editedValue : parsed
+  }
+
+  if (Array.isArray(originalValue) || isRecord(originalValue)) {
+    return parseStructuredValue(editedValue)
+  }
+
+  return editedValue
+}
+
+function getBadgeClasses(domain: CardDomain): string {
+  if (domain === "employer") return "bg-purple-100 text-purple-700"
+  if (domain === "alumni") return "bg-emerald-100 text-emerald-700"
+  return "bg-blue-100 text-blue-700"
+}
+
+function getLinkDateValue(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value
+  if (typeof value !== "string" || !value.trim()) return Number.NaN
+
+  const timestamp = Date.parse(value)
+  if (!Number.isNaN(timestamp)) return timestamp
+
+  if (/^\d{4}$/.test(value.trim())) return Number(value.trim())
+  return Number.NaN
+}
+
+function formatLinkDateLabel(link: AlumniCompanyLink): string {
+  const start = toDisplayText(link.start_date) || toDisplayText(link.start_year)
+  const end = toDisplayText(link.end_date) || toDisplayText(link.end_year)
+  const isCurrent = Boolean(link.is_current ?? link.current)
+
+  if (start && (end || isCurrent)) return `${start} - ${isCurrent ? "Present" : end}`
+  if (start) return start
+  if (end) return end
+  if (isCurrent) return "Current"
+  return ""
+}
+
+function normalizeCompanyLinks(value: unknown): AlumniCompanyLink[] {
+  const parsed = parseStructuredValue(value)
+  if (!Array.isArray(parsed)) return []
+
+  return parsed
+    .filter((item): item is AlumniCompanyLink => isRecord(item))
+    .map((item) => ({ ...item }))
+    .sort((left, right) => {
+      const leftStart = getLinkDateValue(left.start_date ?? left.start_year ?? left.end_date ?? left.end_year)
+      const rightStart = getLinkDateValue(right.start_date ?? right.start_year ?? right.end_date ?? right.end_year)
+
+      if (Number.isNaN(leftStart) && Number.isNaN(rightStart)) return 0
+      if (Number.isNaN(leftStart)) return 1
+      if (Number.isNaN(rightStart)) return -1
+      return leftStart - rightStart
+    })
 }
 
 /** Sub-component: generates a draft track from session raw input and navigates to Track Builder. */
@@ -278,10 +407,15 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
     setError("")
     setNotice("")
     try {
+      const nextDiff = selectedCard
+        ? Object.fromEntries(
+            Object.entries(editingDiff).map(([key, value]) => [key, coerceEditedValue(selectedCard.diff[key], value)])
+          )
+        : editingDiff
       const res = await adminFetch(`/api/sessions/${session.id}/cards/${selectedCardId}/commit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ diff: editingDiff }),
+        body: JSON.stringify({ diff: nextDiff }),
       })
       if (res.status === 409) {
         // Card already committed/discarded — reload to sync state
@@ -346,6 +480,12 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   const hasNoCards = session.intent_cards.length === 0
   const guidance = session.track_guidance
   const showGuidance = guidance && guidance.status !== "safe_update"
+  const isAlumniCard = selectedCard?.domain === "alumni"
+  const selectedCardName = toDisplayText(editingDiff.full_name) || toDisplayText(selectedCard?.diff.full_name) || selectedCard?.summary || ""
+  const selectedCardTitle = toDisplayText(editingDiff.current_title) || toDisplayText(selectedCard?.diff.current_title)
+  const selectedCardCompany = toDisplayText(editingDiff.current_company) || toDisplayText(selectedCard?.diff.current_company)
+  const selectedCardHeadline = [selectedCardTitle, selectedCardCompany].filter(Boolean).join(" @ ")
+  const companyLinks = isAlumniCard ? normalizeCompanyLinks(editingDiff.company_links) : []
 
   return (
     <div>
@@ -537,13 +677,9 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-                      card.domain === "employer"
-                        ? "bg-purple-100 text-purple-700"
-                        : "bg-blue-100 text-blue-700"
-                    }`}
+                    className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${getBadgeClasses(card.domain)}`}
                   >
-                    {card.domain}
+                    {formatFieldLabel(card.domain)}
                   </span>
                   <span
                     className={`text-xs ${
@@ -567,10 +703,34 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
         <div className="rounded-xl border border-gray-200 p-5">
           {selectedCard ? (
             <>
-              <h3 className="text-sm font-semibold text-gray-800 mb-1">{selectedCard.summary}</h3>
-              <p className="text-xs text-gray-500 mb-4">
-                Domain: {selectedCard.domain}
-              </p>
+              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getBadgeClasses(selectedCard.domain)}`}>
+                      {formatFieldLabel(selectedCard.domain)}
+                    </span>
+                    {selectedCard.is_update && (
+                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                        Update
+                      </span>
+                    )}
+                  </div>
+                  <h3 className="mt-3 text-sm font-semibold text-gray-800">
+                    {isAlumniCard ? selectedCardName : selectedCard.summary}
+                  </h3>
+                  <p className="mt-1 text-xs text-gray-500">
+                    {isAlumniCard
+                      ? selectedCardHeadline || `Domain: ${selectedCard.domain}`
+                      : `Domain: ${selectedCard.domain}`}
+                  </p>
+                </div>
+              </div>
+
+              {isAlumniCard && selectedCard.is_update && (
+                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  Updating existing {selectedCardName || selectedCard.matched_slug || "alumni record"}
+                </div>
+              )}
 
               {/* Raw input reference */}
               {selectedCard.raw_input_ref && (
@@ -580,19 +740,109 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                 </div>
               )}
 
+              {isAlumniCard && companyLinks.length > 0 && (
+                <div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <h4 className="text-sm font-semibold text-emerald-900">Company history</h4>
+                    <span className="text-xs text-emerald-700">Chronological</span>
+                  </div>
+                  <div className="mt-3 space-y-3">
+                    {companyLinks.map((link, index) => {
+                      const companyName = toDisplayText(link.company_name) || toDisplayText(link.company_slug) || "Linked company"
+                      const role = toDisplayText(link.title) || toDisplayText(link.role)
+                      const relationship = toDisplayText(link.relationship)
+                      const notes = toDisplayText(link.notes)
+                      const dateLabel = formatLinkDateLabel(link)
+
+                      return (
+                        <div key={`${companyName}-${dateLabel}-${index}`} className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{companyName}</p>
+                              {(role || relationship) && (
+                                <p className="mt-1 text-xs text-gray-600">
+                                  {[role, relationship].filter(Boolean).join(" · ")}
+                                </p>
+                              )}
+                            </div>
+                            {dateLabel && (
+                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                                {dateLabel}
+                              </span>
+                            )}
+                          </div>
+                          {notes && <p className="mt-2 text-sm text-gray-700">{notes}</p>}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Diff fields */}
-              {Object.entries(editingDiff).map(([key, value]) => (
-                <label key={key} className="block text-sm text-gray-700 mb-4">
-                  {key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  <textarea
-                    value={formatDiffValue(value)}
-                    onChange={(e) =>
-                      setEditingDiff((prev) => ({ ...prev, [key]: e.target.value }))
-                    }
-                    className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
-                  />
-                </label>
-              ))}
+              {Object.entries(editingDiff).map(([key, value]) => {
+                const proposal = selectedCard.proposals?.[key]
+                const evidence = normalizeEvidence(proposal?.evidence)
+                const rationale = toDisplayText(proposal?.rationale)
+                const isTrajectoryField = isAlumniCard && key === "career_trajectory_summary"
+
+                return (
+                  <div key={key} className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <label className="text-sm font-medium text-gray-700" htmlFor={`smart-canvas-field-${key}`}>
+                        {formatFieldLabel(key)}
+                      </label>
+                      {isAlumniCard && proposal?.confidence != null && (
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                          Confidence {proposal.confidence}%
+                        </span>
+                      )}
+                    </div>
+
+                    {isTrajectoryField && (
+                      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-medium text-slate-700">
+                          Trajectory preview
+                        </summary>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                          {formatDiffValue(value) || "No trajectory summary yet."}
+                        </p>
+                      </details>
+                    )}
+
+                    {(evidence.length > 0 || rationale) && isAlumniCard && (
+                      <details className="mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-medium text-gray-600">
+                          Evidence
+                        </summary>
+                        {evidence.length > 0 && (
+                          <ul className="mt-2 space-y-2 text-sm text-gray-700">
+                            {evidence.map((item, index) => (
+                              <li key={`${key}-evidence-${index}`} className="rounded bg-white px-3 py-2">
+                                {item}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {rationale && (
+                          <p className="mt-2 text-xs leading-5 text-gray-500">
+                            {rationale}
+                          </p>
+                        )}
+                      </details>
+                    )}
+
+                    <textarea
+                      id={`smart-canvas-field-${key}`}
+                      value={formatDiffValue(value)}
+                      onChange={(e) =>
+                        setEditingDiff((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      className="mt-3 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
+                    />
+                  </div>
+                )
+              })}
 
               {/* Actions */}
               <div className="flex gap-3 pt-3 border-t border-gray-100">
