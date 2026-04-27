@@ -24,7 +24,9 @@ from models_employers import (
     AlumniLinkVersion,
 )
 from services.employer_store import _default_employers_dir
+from services.runtime_paths import knowledge_dir
 from services.shared_yaml import (
+    Singleton,
     atomic_yaml_write,
     normalize_list,
     read_yaml,
@@ -51,14 +53,7 @@ _ALLOWED_LINK_TYPES = {"current", "former", "advisory"}
 
 
 def _default_alumni_dir() -> Path:
-    candidates = [
-        Path(__file__).resolve().parent.parent.parent / "knowledge" / "alumni",
-        Path(__file__).resolve().parent.parent.parent.parent / "knowledge" / "alumni",
-    ]
-    for path in candidates:
-        if path.parent.exists():
-            return path
-    return candidates[0]
+    return knowledge_dir("alumni")
 
 
 def _default_alumni_history_dir() -> Path:
@@ -484,16 +479,13 @@ def _preferred_profile_slug(full_name: str, existing: dict[str, str]) -> str:
     return candidate
 
 
-class AlumniEntityStore:
+class AlumniEntityStore(Singleton):
     """Singleton YAML store for alumni profiles and append-only company links."""
 
     _instance = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._loaded = False
-        return cls._instance
+    def _init_singleton(self) -> None:
+        self._loaded = False
 
     def _ensure_loaded(self) -> None:
         if self._loaded:

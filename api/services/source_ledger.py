@@ -19,7 +19,7 @@ import yaml
 
 from models_kb import SourceStateEvidence, SourceStateSummary
 from services.runtime_paths import default_source_ledger_dir, default_source_ledger_history_dir
-from services.shared_yaml import atomic_yaml_write, version_stamp
+from services.shared_yaml import Singleton, atomic_yaml_write, version_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -103,18 +103,14 @@ def _latest_query_hits(query_entries: list[dict[str, Any]] | None = None) -> dic
     return latest
 
 
-class SourceLedgerStore:
+class SourceLedgerStore(Singleton):
     """Singleton file-backed ledger for source lifecycle metadata."""
 
     _instance = None
     _lock = Lock()
 
-    def __new__(cls):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                cls._instance._loaded = False
-        return cls._instance
+    def _init_singleton(self) -> None:
+        self._loaded = False
 
     def _ensure_loaded(self) -> None:
         if self._loaded:

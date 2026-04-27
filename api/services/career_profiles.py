@@ -27,6 +27,8 @@ import numpy as np
 import yaml
 
 from cfg import career_profiles_cfg
+from services.runtime_paths import default_tracks_version_path, knowledge_dir
+from services.shared_yaml import Singleton
 
 logger = logging.getLogger(__name__)
 
@@ -72,18 +74,11 @@ def _derive_structured_fields(profile: dict) -> dict:
 
 def _default_profiles_dir() -> Path:
     """Resolve the default profiles dir across local repo and Docker layouts."""
-    candidates = [
-        Path(__file__).resolve().parent.parent / "knowledge" / "career_profiles",
-        Path(__file__).resolve().parent.parent.parent / "knowledge" / "career_profiles",
-    ]
-    for path in candidates:
-        if path.exists():
-            return path
-    return candidates[0]
+    return knowledge_dir("career_profiles")
 
 
 def _default_tracks_version_path() -> Path:
-    return _default_profiles_dir().parent / ".tracks-version"
+    return default_tracks_version_path()
 
 
 def resolve_career_type_from_intake(interest: Optional[str]) -> str:
@@ -168,7 +163,7 @@ def profile_to_context_block(profile: dict) -> str:
     return "\n".join(lines)
 
 
-class CareerProfileStore:
+class CareerProfileStore(Singleton):
     """Singleton that loads career profile YAMLs and pre-computes career type name embeddings.
 
     Profiles are loaded lazily on first access. Invalid profiles are skipped with a
@@ -186,11 +181,8 @@ class CareerProfileStore:
     """
     _instance = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._loaded = False
-        return cls._instance
+    def _init_singleton(self) -> None:
+        self._loaded = False
 
     def _ensure_loaded(self) -> None:
         version_path = Path(os.environ.get("TRACKS_VERSION_PATH", str(_default_tracks_version_path())))

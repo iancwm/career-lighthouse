@@ -23,7 +23,15 @@ import yaml
 
 from models_tracks import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields, _is_placeholder_counselor_contact
-from services.shared_yaml import atomic_yaml_write, safe_slug_is_valid, version_stamp
+from services.runtime_paths import (
+    default_drafts_dir,
+    default_history_dir,
+    default_publish_journal_path,
+    default_publish_log_path,
+    default_registry_path,
+    default_tracks_version_path,
+)
+from services.shared_yaml import Singleton, atomic_yaml_write, safe_slug_is_valid, version_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -34,15 +42,15 @@ def _default_knowledge_root() -> Path:
 
 
 def _default_drafts_dir() -> Path:
-    return _default_knowledge_root() / "draft_tracks"
+    return default_drafts_dir()
 
 
 def _default_registry_path() -> Path:
-    return _default_knowledge_root() / "career_tracks.yaml"
+    return default_registry_path()
 
 
 def _default_history_dir() -> Path:
-    return _default_knowledge_root() / "career_profiles_history"
+    return default_history_dir()
 
 
 def _default_logs_dir() -> Path:
@@ -50,15 +58,15 @@ def _default_logs_dir() -> Path:
 
 
 def _default_publish_journal_path() -> Path:
-    return _default_logs_dir() / "track_publish_journal.jsonl"
+    return default_publish_journal_path()
 
 
 def _default_publish_audit_log_path() -> Path:
-    return _default_logs_dir() / "track_publish_log.jsonl"
+    return default_publish_log_path()
 
 
 def _default_tracks_version_path() -> Path:
-    return _default_knowledge_root() / ".tracks-version"
+    return default_tracks_version_path()
 
 
 def _drafts_dir() -> Path:
@@ -212,17 +220,14 @@ def _valid_published_profiles() -> list[tuple[str, dict]]:
     return result
 
 
-class TrackDraftStore:
+class TrackDraftStore(Singleton):
     """Singleton for draft tracks and registry-backed publish helpers."""
 
     _instance = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._loaded = False
-            cls._instance._lock = Lock()
-        return cls._instance
+    def _init_singleton(self) -> None:
+        self._loaded = False
+        self._lock = Lock()
 
     def _ensure_loaded(self) -> None:
         """Lazily seed draft YAML files from published profiles and load them into memory on first access."""

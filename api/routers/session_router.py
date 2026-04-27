@@ -5,10 +5,9 @@ from models_session import CardCommitRequest, CreateSessionRequest, KnowledgeSes
 from models_kb import AlreadyCovered, IntentCard, SessionAnalysisResponse, validate_intent_card_diff
 from services.session_store import SessionStore
 from services.track_guidance import build_track_guidance
+from services.kb_writer import apply_alumni_diff, apply_employer_diff, apply_profile_diff
 from typing import Any, List
-from pathlib import Path
 from starlette.requests import Request
-import yaml
 import logging
 from datetime import datetime, timezone
 from time import perf_counter
@@ -64,7 +63,6 @@ def _check_session_ownership(session: KnowledgeSession, counsellor_id: str | Non
 from config import settings
 from routers.ingest_router import _sanitize_filename
 from services.ingestion import parse_file
-from constants.profile_fields import ALLOWED_ALUMNI_FIELDS, ALLOWED_EMPLOYER_FIELDS, ALLOWED_PROFILE_FIELDS
 
 def get_session_store():
     return SessionStore()
@@ -227,149 +225,18 @@ def _build_alumni_cards(
 
 
 def _apply_field_updates_to_profile(slug: str, diff: dict) -> tuple[list[str], bool]:
-    """Apply diff dict to a career profile YAML. Creates new file if missing.
-    Returns (changed_fields, is_new)."""
-    from services.career_profiles import _default_profiles_dir
-    if not _slug_is_safe(slug):
-        raise HTTPException(status_code=422, detail="Invalid slug format")
-    pdir = _default_profiles_dir()
-    yaml_path = pdir / f"{slug}.yaml"
-
-    # Create new profile if it doesn't exist
-    is_new = not yaml_path.exists()
-    profile = {}
-    if not is_new:
-        with open(yaml_path, encoding="utf-8") as f:
-            profile = yaml.safe_load(f) or {}
-
-    changed = []
-    for field, value in diff.items():
-        if field == "slug":
-            continue  # skip slug, it's the identifier
-        if field not in ALLOWED_PROFILE_FIELDS:
-            logger.warning("Card commit: profile field %r not in allowlist — skipping", field)
-            continue
-        profile[field] = value
-        changed.append(field)
-
-    # Sync structured: fields from prose after edits
-    from services.career_profiles import _derive_structured_fields
-    derived = _derive_structured_fields(profile)
-    if derived:
-        existing_structured = profile.get("structured") or {}
-        for key, value in derived.items():
-            existing_structured.setdefault(key, value)
-        profile["structured"] = existing_structured
-
-    if changed:
-        tmp = yaml_path.with_suffix(".tmp")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-            tmp.replace(yaml_path)
-        except Exception as exc:
-            tmp.unlink(missing_ok=True)
-            logger.error("_apply_field_updates_to_profile: failed to write %r: %s", yaml_path, exc)
-            raise HTTPException(status_code=500, detail=f"Failed to write profile '{slug}'")
-        # Invalidate profile store cache
-        try:
-            from services.career_profiles import CareerProfileStore
-            CareerProfileStore().invalidate()
-        except Exception:
-            pass
-    return changed, is_new
+    result = apply_profile_diff(slug, diff, create_missing=True, source="Card commit")
+    return result.changed_fields, result.is_new
 
 
 def _apply_field_updates_to_employer(slug: str, diff: dict) -> tuple[list[str], bool]:
-    """Apply diff dict to an employer YAML. Creates new file if missing.
-    Returns (changed_fields, is_new)."""
-    from services.employer_store import _default_employers_dir
-    if not _slug_is_safe(slug):
-        raise HTTPException(status_code=422, detail="Invalid slug format")
-    edir = _default_employers_dir()
-    yaml_path = edir / f"{slug}.yaml"
-
-    # Create new employer if it doesn't exist
-    is_new = not yaml_path.exists()
-    employer = {"slug": slug}
-    if not is_new:
-        with open(yaml_path, encoding="utf-8") as f:
-            employer = yaml.safe_load(f) or {}
-    changed = []
-    for field, value in diff.items():
-        if field == "slug":
-            continue
-        if field not in ALLOWED_EMPLOYER_FIELDS:
-            logger.warning("Card commit: employer field %r not in allowlist — skipping", field)
-            continue
-        employer[field] = value
-        changed.append(field)
-    if changed:
-        from datetime import datetime, timezone
-        employer["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        tmp = yaml_path.with_suffix(".tmp")
-        try:
-            with open(tmp, "w", encoding="utf-8") as f:
-                yaml.safe_dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-            tmp.replace(yaml_path)
-        except Exception as exc:
-            tmp.unlink(missing_ok=True)
-            logger.error("_apply_field_updates_to_employer: failed to write %r: %s", yaml_path, exc)
-            raise HTTPException(status_code=500, detail=f"Failed to write employer '{slug}'")
-        # Invalidate employer store cache
-        try:
-            from services.employer_store import EmployerEntityStore
-            EmployerEntityStore().invalidate()
-        except Exception:
-            pass
-    return changed, is_new
+    result = apply_employer_diff(slug, diff, create_missing=True, snapshot=False, source="Card commit")
+    return result.changed_fields, result.is_new
 
 
 def _apply_field_updates_to_alumni(slug: str, diff: dict[str, Any]) -> tuple[list[str], bool]:
-    from models_employers import AlumniDetail
-    from services.alumni_store import _normalize_profile_payload, get_alumni_store
-
-    if not _slug_is_safe(slug):
-        raise HTTPException(status_code=422, detail="Invalid slug format")
-
-    store = get_alumni_store()
-    existing = store.get_alumni(slug)
-    has_company_links = "company_links" in diff
-    company_links = diff.get("company_links") if has_company_links else None
-
-    candidate_fields = {field: value for field, value in diff.items() if field != "slug" and field != "company_links"}
-    unknown_fields = sorted(field for field in candidate_fields if field not in ALLOWED_ALUMNI_FIELDS)
-    if unknown_fields:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Invalid alumni card diff: unknown fields {', '.join(unknown_fields)}",
-        )
-
-    normalized = _normalize_profile_payload({"slug": slug, **candidate_fields}, existing=existing)
-    normalized["slug"] = slug
-    normalized["company_links"] = store.list_links(slug) if existing else []
-    normalized["company_link_count"] = len(normalized["company_links"])
-    normalized["completeness"] = existing.get("completeness", "amber") if existing else "amber"
-    try:
-        AlumniDetail.model_validate(normalized)
-    except ValidationError as exc:
-        raise HTTPException(status_code=422, detail=f"Invalid alumni profile: {exc}") from exc
-
-    changed_fields = list(candidate_fields.keys())
-    if existing is None:
-        if not normalized.get("full_name"):
-            raise HTTPException(status_code=422, detail="Invalid alumni profile: full_name is required")
-        store.create_alumni({"slug": slug, **candidate_fields})
-        is_new = True
-    else:
-        store.update_alumni(slug, candidate_fields)
-        is_new = False
-
-    if has_company_links:
-        store.sync_company_links(slug, company_links or [])
-        changed_fields.append("company_links")
-
-    return changed_fields, is_new
+    result = apply_alumni_diff(slug, diff, source="Card commit")
+    return result.changed_fields, result.is_new
 
 
 def _check_session_completion(session: KnowledgeSession) -> None:

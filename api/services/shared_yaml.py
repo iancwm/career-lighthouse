@@ -9,6 +9,29 @@ from typing import Any
 import yaml
 
 
+class Singleton:
+    """Small base for lazily-created process-local service singletons."""
+
+    _instance = None
+
+    def __new__(cls, *args: Any, **kwargs: Any):
+        lock = getattr(cls, "_lock", None)
+        if lock is None:
+            return cls._get_or_create_instance()
+        with lock:
+            return cls._get_or_create_instance()
+
+    @classmethod
+    def _get_or_create_instance(cls):
+        if cls._instance is None:
+            cls._instance = super(Singleton, cls).__new__(cls)
+            cls._instance._init_singleton()
+        return cls._instance
+
+    def _init_singleton(self) -> None:
+        """Hook for subclasses to initialize state exactly once."""
+
+
 def atomic_yaml_write(path: Path, payload: Any) -> None:
     """Atomically write a YAML document."""
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -20,7 +20,8 @@ These docs are still maintained against the codebase:
 - `docs/schema/SPRINT-SCHEMA-FOUNDATION.md` - current schema execution plan and remaining work
 - `docs/schema/singapore_metadata.yaml` - supporting schema metadata sample
 - `docs/schema/structured_metadata.yaml` - supporting structured metadata sample
-- `docs/code_smell_cleanup/` - cleanup specs for the non-router/service code-smell sprint
+- `docs/code_quality_sprint/` - active structural cleanup plan for routers,
+  YAML write services, trace adapters, and `services/llm.py`
 - `docs/alumni_schema/SPRINT-ALUMNI-CARDS.md` - card-native alumni integration sprint plan
 
 ## Archived Specs And Plans
@@ -37,11 +38,10 @@ Completed or historical planning docs live under `docs/archived/`:
 
 ## Cleanup Specs
 
-Sprint status is tracked in `docs/code_smell_cleanup/README.md`. Sprint 3 items are next:
-
-- `docs/code_smell_cleanup/api-models-split.md` — split `models.py` by domain
-- `docs/code_smell_cleanup/terraform-module-split.md` — low-priority infra split
-- `docs/code_smell_cleanup/` — `kb_router` sub-split, `analyze_session` extract, singleton base class
+Sprint status is tracked in `docs/code_quality_sprint/README.md`. The current
+slice shipped Phase 0 plus the `trace_adapter` and `kb_writer` service
+extractions. Remaining work is tracked in
+`docs/code_quality_sprint/implementation_plan.md`.
 
 ## Navigation
 
@@ -51,7 +51,7 @@ Start here:
 - `DESIGN.md` for architecture and UI direction
 - `TODOS.md` for the current backlog
 - `docs/schema/` for active schema work
-- `docs/code_smell_cleanup/` for the cleanup sprint specs
+- `docs/code_quality_sprint/` for the active cleanup sprint specs
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs

@@ -20,6 +20,7 @@ from typing import Optional
 
 from models_session import KnowledgeSession
 from services.runtime_paths import default_sessions_dir, ensure_writable_directory
+from services.shared_yaml import Singleton
 
 # Storage directory within the API root or repo checkout.
 _SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", str(default_sessions_dir())))
@@ -53,7 +54,7 @@ def _safe_counsellor_dir(counsellor_id: str) -> str:
     return safe
 
 
-class SessionStore:
+class SessionStore(Singleton):
     """Singleton for persisting counsellor knowledge publishing sessions.
 
     Sessions are stored in counsellor-scoped sub-directories:
@@ -67,12 +68,8 @@ class SessionStore:
     _instance = None
     _lock = Lock()
 
-    def __new__(cls):
-        with cls._lock:
-            if cls._instance is None:
-                cls._instance = super().__new__(cls)
-                _ensure_sessions_root()
-            return cls._instance
+    def _init_singleton(self) -> None:
+        _ensure_sessions_root()
 
     # ------------------------------------------------------------------
     # Path helpers

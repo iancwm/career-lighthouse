@@ -96,7 +96,7 @@ export default function ChatInterface({ resumeText, intakeContext, onEditContext
   useEffect(() => {
     async function loadTracks() {
       try {
-        const res = await backendFetch("/api/tracks")
+        const res = await backendFetch("/api/tracks/active")
         if (!res.ok) return
         const data = await res.json()
         const map: Record<string, string> = {}

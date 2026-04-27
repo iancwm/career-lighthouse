@@ -39,9 +39,7 @@ from models_kb import (
     IngestResponse,
     LLMTraceEntry,
     LowConfidenceQuery,
-    NewChunk,
     OverlapPair,
-    ProfileFieldChange,
     TestQueryResult,
 )
 from models_facts import FactGroupResponse, FactQueryResponse
@@ -57,14 +55,17 @@ from services import health_cache
 from services.career_profiles import CareerProfileStore, get_career_profile_store
 from services.employer_store import (
     EmployerEntityStore,
-    ALLOWED_EMPLOYER_FIELDS,
     _default_employers_dir,
     _as_list,
     get_employer_store,
 )
 from services.fact_store import group_facts, list_facts
-from services.shared_yaml import safe_int, safe_float, safe_slug_is_valid
-from constants.profile_fields import ALLOWED_PROFILE_FIELDS
+from services.shared_yaml import safe_slug_is_valid
+from services import trace_adapter
+from services.trace_adapter import (
+    _observation_to_trace_entries,
+    list_recent as list_recent_llm_traces,
+)
 from services.embedder import Embedder
 from services.ingestion import chunk_text, parse_file
 from services.source_ledger import get_source_ledger_store
@@ -75,6 +76,7 @@ from config import settings
 from cfg import kb_cfg
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields
 from services.track_drafts import TrackDraftStore, get_track_draft_store, read_publish_journal
+from services.kb_writer import apply_employer_diff, apply_profile_diff, upsert_kb_chunks
 
 router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
 logger = logging.getLogger(__name__)
@@ -86,6 +88,15 @@ _OVERLAP_SCORE_THRESHOLD = _thresholds["overlap_score"]
 _OVERLAP_PCT_THRESHOLD = _thresholds["overlap_pct"]
 _LOG_WINDOW_DAYS = kb_cfg["log_window_days"]
 _MAX_LOW_CONF_QUERIES = kb_cfg["max_low_conf_queries"]
+
+
+def _read_langfuse_trace_log(*args, **kwargs):
+    return trace_adapter.read_langfuse_trace_log(*args, **kwargs)
+
+
+def _read_llm_trace_log(*args, **kwargs):
+    kwargs.setdefault("trace_path", getattr(settings, "llm_trace_log_path", ""))
+    return trace_adapter.read_llm_trace_log(*args, **kwargs)
 
 
 class TestQueryRequest(BaseModel):
@@ -280,453 +291,6 @@ def _read_query_log(since: datetime) -> list[dict]:
     except Exception:
         logger.warning("Failed to read query log", exc_info=True)
     return entries
-
-
-def _coerce_mapping(value: object) -> dict[str, Any] | None:
-    """Best-effort conversion of SDK objects into plain dicts."""
-    if isinstance(value, dict):
-        return value
-    for method_name in ("model_dump", "dict", "to_dict"):
-        method = getattr(value, method_name, None)
-        if callable(method):
-            try:
-                dumped = method()
-            except Exception:
-                continue
-            if isinstance(dumped, dict):
-                return dumped
-    return None
-
-
-def _coerce_sequence(value: object) -> list[object]:
-    """Best-effort conversion of SDK collections into plain lists."""
-    if value is None:
-        return []
-    if isinstance(value, list):
-        return value
-    if isinstance(value, tuple):
-        return list(value)
-    mapping = _coerce_mapping(value)
-    if mapping:
-        for key in ("data", "items", "traces", "observations"):
-            candidate = mapping.get(key)
-            if isinstance(candidate, list):
-                return candidate
-    for name in ("data", "items", "traces", "observations"):
-        if hasattr(value, name):
-            candidate = getattr(value, name)
-            if isinstance(candidate, list):
-                return candidate
-    return [value]
-
-
-def _get_value(value: object, *names: str, default: Any = None) -> Any:
-    """Return the first non-None value found by trying each name as a dict key or object attribute."""
-    if isinstance(value, dict):
-        for name in names:
-            if name in value and value[name] is not None:
-                return value[name]
-    for name in names:
-        if hasattr(value, name):
-            candidate = getattr(value, name)
-            if candidate is not None:
-                return candidate
-    return default
-
-
-def _format_timestamp(value: object) -> str:
-    """Normalize a datetime or string timestamp value to an ISO-8601 UTC string, defaulting to now."""
-    if isinstance(value, datetime):
-        ts = value
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=timezone.utc)
-        return ts.astimezone(timezone.utc).isoformat()
-    if value is None:
-        return datetime.now(timezone.utc).isoformat()
-    return str(value)
-
-
-def _estimate_input_chars(payload: object) -> int:
-    """Estimate the character length of an LLM call's input payload from structured metadata, falling back to raw stringify."""
-    mapping = _coerce_mapping(payload)
-    if not mapping:
-        return len(str(payload or ""))
-
-    system_chars = safe_int(mapping.get("system_chars"), 0) or 0
-    messages = mapping.get("messages")
-    message_chars = 0
-    if isinstance(messages, list):
-        for message in messages:
-            if not isinstance(message, dict):
-                continue
-            message_chars += safe_int(message.get("content_chars"), 0) or 0
-    if system_chars or message_chars:
-        return system_chars + message_chars
-    return len(str(payload or ""))
-
-
-def _estimate_output_chars(payload: object) -> int:
-    """Estimate the character length of an LLM call's output payload, preferring the 'content' field over raw stringify."""
-    if payload is None:
-        return 0
-    if isinstance(payload, str):
-        return len(payload)
-    mapping = _coerce_mapping(payload)
-    if mapping and "content" in mapping:
-        content = mapping.get("content")
-        if isinstance(content, str):
-            return len(content)
-    return len(str(payload))
-
-
-def _truncate_preview(text: str | None, limit: int = 500) -> str:
-    """Trim a string to at most `limit` characters, appending an ellipsis when truncated."""
-    if not text:
-        return ""
-    clean = text.strip()
-    if len(clean) <= limit:
-        return clean
-    return clean[:limit] + "…"
-
-
-def _preview_input(payload: object) -> str:
-    """Extract a human-readable preview of an LLM input payload.
-
-    Walks messages in reverse (most recent first) looking for content_preview,
-    then falls back to system_preview, then JSON-dumps the whole mapping.
-    """
-    mapping = _coerce_mapping(payload)
-    if not mapping:
-        return _truncate_preview(str(payload or ""))
-
-    messages = mapping.get("messages")
-    if isinstance(messages, list):
-        for message in reversed(messages):
-            if not isinstance(message, dict):
-                continue
-            preview = message.get("content_preview")
-            if preview:
-                return _truncate_preview(str(preview))
-    system_preview = mapping.get("system_preview")
-    if system_preview:
-        return _truncate_preview(str(system_preview))
-    return _truncate_preview(json.dumps(mapping, ensure_ascii=False))
-
-
-def _preview_output(payload: object) -> str:
-    """Extract a human-readable preview of an LLM output payload, probing common field names in priority order."""
-    mapping = _coerce_mapping(payload)
-    if mapping:
-        for key in ("content_preview", "text", "output", "message", "content"):
-            value = mapping.get(key)
-            if isinstance(value, str) and value.strip():
-                return _truncate_preview(value)
-    if isinstance(payload, str):
-        return _truncate_preview(payload)
-    return _truncate_preview(str(payload or ""))
-
-
-def _observation_to_trace_entries(observation: object) -> list[LLMTraceEntry]:
-    """Convert a Langfuse observation into started and terminal admin rows."""
-    metadata = _coerce_mapping(_get_value(observation, "metadata", default={})) or {}
-    input_payload = _get_value(observation, "input", default={})
-    output_payload = _get_value(observation, "output", default=None)
-    nested_observations = _coerce_sequence(_get_value(observation, "observations", default=[]))
-
-    operation = str(
-        _get_value(
-            observation,
-            "name",
-            "operation",
-            default=metadata.get("feature") or metadata.get("operation") or "llm_call",
-        )
-    )
-    if operation == "llm_call" and nested_observations:
-        for nested in nested_observations:
-            nested_metadata = _coerce_mapping(_get_value(nested, "metadata", default={})) or {}
-            nested_operation = _get_value(
-                nested,
-                "name",
-                "operation",
-                default=nested_metadata.get("feature") or nested_metadata.get("operation") or "",
-            )
-            if nested_operation and str(nested_operation) != "llm_call":
-                operation = str(nested_operation)
-                break
-    trace_id = str(
-        metadata.get("traceId")
-        or metadata.get("trace_id")
-        or _get_value(
-            observation,
-            "id",
-            "trace_id",
-            "traceId",
-            default="",
-        )
-    )
-    session_id = _get_value(observation, "session_id", "sessionId", default=metadata.get("session_id") or metadata.get("sessionId"))
-    if session_id is None and nested_observations:
-        for nested in nested_observations:
-            nested_metadata = _coerce_mapping(_get_value(nested, "metadata", default={})) or {}
-            session_id = _get_value(
-                nested,
-                "session_id",
-                "sessionId",
-                default=nested_metadata.get("session_id") or nested_metadata.get("sessionId"),
-            )
-            if session_id is not None:
-                break
-    model = str(_get_value(observation, "model", "provided_model_name", default=metadata.get("model") or metadata.get("providedModelName") or ""))
-    if not model:
-        nested_observations = _coerce_sequence(_get_value(observation, "observations", default=[]))
-        for nested in nested_observations:
-            hinted_model = _get_value(nested, "model", "provided_model_name", default=None)
-            if hinted_model:
-                model = str(hinted_model)
-                break
-    phase = str(metadata.get("phase") or metadata.get("phaseName") or "")
-    status_message = _get_value(observation, "status_message", "statusMessage", default=metadata.get("error"))
-    level = str(_get_value(observation, "level", default="")).upper()
-    output_error = None
-    output_mapping = _coerce_mapping(output_payload)
-    if output_mapping:
-        raw_output_error = output_mapping.get("error")
-        if raw_output_error:
-            output_error = str(raw_output_error)
-
-    if not output_error and nested_observations:
-        for nested in nested_observations:
-            nested_metadata = _coerce_mapping(_get_value(nested, "metadata", default={})) or {}
-            nested_output = _coerce_mapping(_get_value(nested, "output", default=None))
-            nested_error = _get_value(nested, "status_message", "statusMessage", default=nested_metadata.get("error"))
-            if not nested_error and nested_output:
-                raw_nested_output_error = nested_output.get("error")
-                if raw_nested_output_error:
-                    nested_error = str(raw_nested_output_error)
-            if nested_error:
-                output_error = str(nested_error)
-                break
-            nested_level = str(_get_value(nested, "level", default="")).upper()
-            if nested_level == "ERROR":
-                output_error = nested_level
-                break
-    error_text = str(status_message) if status_message else output_error
-
-    start_value = _get_value(observation, "start_time", "startTime", "created_at", "createdAt", "timestamp", "ts", default=None)
-    end_value = _get_value(observation, "end_time", "endTime", "updated_at", "updatedAt", default=None)
-    latency_seconds = safe_float(_get_value(observation, "latency", default=None), default=0.0)
-    start_ts = _format_timestamp(start_value)
-    if isinstance(start_value, datetime) and end_value is None and latency_seconds:
-        end_ts = _format_timestamp(start_value + timedelta(seconds=latency_seconds))
-    else:
-        end_ts = _format_timestamp(end_value)
-
-    latency_ms = safe_float(
-        _get_value(
-            observation,
-            "latency_ms",
-            "latencyMs",
-            default=None,
-        ),
-        default=0.0,
-    )
-    if not latency_ms:
-        start_dt = _get_value(observation, "start_time", "startTime", "created_at", "createdAt", "timestamp", default=None)
-        end_dt = _get_value(observation, "end_time", "endTime", "updated_at", "updatedAt", default=None)
-        if isinstance(start_dt, datetime) and isinstance(end_dt, datetime):
-            latency_ms = round((end_dt - start_dt).total_seconds() * 1000, 1)
-        elif isinstance(start_dt, datetime) and latency_seconds:
-            latency_ms = round(latency_seconds * 1000, 1)
-
-    input_chars = safe_int(metadata.get("input_chars"), None)
-    if input_chars is None:
-        input_chars = _estimate_input_chars(input_payload)
-
-    output_chars = safe_int(metadata.get("output_chars"), None)
-    if output_chars is None:
-        output_chars = _estimate_output_chars(output_payload)
-
-    trace_meta = {
-        "feature": metadata.get("feature") or operation,
-        "session_id": session_id,
-        "phase": phase or None,
-        "chunk_index": safe_int(_get_value(metadata, "chunkIndex", "chunk_index")),
-        "chunk_count": safe_int(_get_value(metadata, "chunkCount", "chunk_count")),
-        "multi_pass_threshold_chars": safe_int(_get_value(metadata, "multiPassThresholdChars", "multi_pass_threshold_chars")),
-        "multi_pass_chunk_tokens": safe_int(_get_value(metadata, "multiPassChunkTokens", "multi_pass_chunk_tokens")),
-        "multi_pass_overlap_tokens": safe_int(_get_value(metadata, "multiPassOverlapTokens", "multi_pass_overlap_tokens")),
-        "input_chars_pre_trim": safe_int(_get_value(metadata, "inputCharsPreTrim", "input_chars_pre_trim")),
-        "input_chars_sent": safe_int(_get_value(metadata, "inputCharsSent", "input_chars_sent")),
-        "kb_chunks_retrieved": safe_int(_get_value(metadata, "kbChunksRetrieved", "kb_chunks_retrieved")),
-        "kb_chunks_sent": safe_int(_get_value(metadata, "kbChunksSent", "kb_chunks_sent")),
-        "parse_attempt": safe_int(_get_value(metadata, "parseAttempt", "parse_attempt")),
-        "repair_attempt": safe_int(_get_value(metadata, "repairAttempt", "repair_attempt")),
-        "partial_result": _get_value(metadata, "partialResult", "partial_result", default=None),
-    }
-
-    started = LLMTraceEntry(
-        trace_id=trace_id,
-        ts=start_ts,
-        operation=operation,
-        status="started",
-        model=model,
-        feature=trace_meta["feature"],
-        session_id=str(session_id) if session_id is not None else None,
-        phase=trace_meta["phase"],
-        chunk_index=trace_meta["chunk_index"],
-        chunk_count=trace_meta["chunk_count"],
-        multi_pass_threshold_chars=trace_meta["multi_pass_threshold_chars"],
-        multi_pass_chunk_tokens=trace_meta["multi_pass_chunk_tokens"],
-        multi_pass_overlap_tokens=trace_meta["multi_pass_overlap_tokens"],
-        input_chars_pre_trim=trace_meta["input_chars_pre_trim"],
-        input_chars_sent=trace_meta["input_chars_sent"],
-        kb_chunks_retrieved=trace_meta["kb_chunks_retrieved"],
-        kb_chunks_sent=trace_meta["kb_chunks_sent"],
-        parse_attempt=trace_meta["parse_attempt"],
-        repair_attempt=trace_meta["repair_attempt"],
-        partial_result=trace_meta["partial_result"],
-        timeout_seconds=safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
-        max_tokens=safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
-        latency_ms=0.0,
-        input_chars=input_chars,
-        output_chars=0,
-        input_preview=_preview_input(input_payload),
-        output_preview="",
-        error=None,
-    )
-
-    terminal_status = "error" if (level == "ERROR" or error_text) else "ok"
-    terminal = LLMTraceEntry(
-        trace_id=trace_id,
-        ts=end_ts,
-        operation=operation,
-        status=terminal_status,
-        model=model,
-        feature=trace_meta["feature"],
-        session_id=str(session_id) if session_id is not None else None,
-        phase=trace_meta["phase"],
-        chunk_index=trace_meta["chunk_index"],
-        chunk_count=trace_meta["chunk_count"],
-        multi_pass_threshold_chars=trace_meta["multi_pass_threshold_chars"],
-        multi_pass_chunk_tokens=trace_meta["multi_pass_chunk_tokens"],
-        multi_pass_overlap_tokens=trace_meta["multi_pass_overlap_tokens"],
-        input_chars_pre_trim=trace_meta["input_chars_pre_trim"],
-        input_chars_sent=trace_meta["input_chars_sent"],
-        kb_chunks_retrieved=trace_meta["kb_chunks_retrieved"],
-        kb_chunks_sent=trace_meta["kb_chunks_sent"],
-        parse_attempt=trace_meta["parse_attempt"],
-        repair_attempt=trace_meta["repair_attempt"],
-        partial_result=trace_meta["partial_result"],
-        timeout_seconds=safe_float(_get_value(metadata, "timeoutSeconds", "timeout_seconds"), None),
-        max_tokens=safe_int(_get_value(metadata, "maxTokens", "max_tokens"), 0) or 0,
-        latency_ms=latency_ms,
-        input_chars=input_chars,
-        output_chars=output_chars,
-        input_preview=_preview_input(input_payload),
-        output_preview=_preview_output(output_payload),
-        error=error_text if terminal_status == "error" else None,
-    )
-
-    return [started, terminal]
-
-
-def _read_langfuse_trace_log(
-    limit: int = 50,
-    session_id: str | None = None,
-    operation: str | None = None,
-    status: str | None = None,
-) -> list[LLMTraceEntry]:
-    """Read recent LLM trace entries from Langfuse sessions if configured."""
-    langfuse_client = llm_service._get_langfuse_client()
-    if langfuse_client is None:
-        return []
-
-    sessions_api = getattr(getattr(langfuse_client, "api", None), "sessions", None)
-    if sessions_api is None:
-        return []
-
-    session_objects: list[object] = []
-    try:
-        if session_id:
-            session_objects = [_get_value(sessions_api.get(session_id), "traces", default=[])]
-        else:
-            sessions_response = sessions_api.list(limit=max(1, min(limit, 50)))
-            session_items = _coerce_sequence(_get_value(sessions_response, "data", "items", default=[]))
-            for item in session_items:
-                item_id = _get_value(item, "id", default=None)
-                if not item_id:
-                    continue
-                try:
-                    session_objects.append(_get_value(sessions_api.get(str(item_id)), "traces", default=[]))
-                except Exception:
-                    logger.warning("Skipping unreadable Langfuse session %r", item_id, exc_info=True)
-    except Exception as exc:
-        logger.warning("Failed to read Langfuse sessions; falling back to JSONL log", exc_info=exc)
-        return []
-
-    entries: list[LLMTraceEntry] = []
-    for trace_group in session_objects:
-        traces = _coerce_sequence(trace_group)
-        for trace in traces:
-            try:
-                for entry in _observation_to_trace_entries(trace):
-                    if session_id and entry.session_id != session_id:
-                        continue
-                    if operation and entry.operation != operation and entry.feature != operation:
-                        continue
-                    if status and entry.status != status:
-                        continue
-                    entries.append(entry)
-            except Exception:
-                logger.warning("Skipping malformed Langfuse trace", exc_info=True)
-
-    entries.sort(key=lambda entry: entry.ts)
-    return entries[-limit:]
-
-
-def _read_llm_trace_log(
-    limit: int = 50,
-    session_id: str | None = None,
-    operation: str | None = None,
-    status: str | None = None,
-) -> list[LLMTraceEntry]:
-    """Read recent LLM trace entries from Langfuse, falling back to JSONL."""
-    langfuse_entries = _read_langfuse_trace_log(
-        limit=limit,
-        session_id=session_id,
-        operation=operation,
-        status=status,
-    )
-    if langfuse_entries:
-        return langfuse_entries
-
-    entries: list[LLMTraceEntry] = []
-    try:
-        trace_path = getattr(settings, "llm_trace_log_path", "")
-        if not trace_path or not os.path.exists(trace_path):
-            return []
-        with open(trace_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                raw = json.loads(line)
-                entries.append(LLMTraceEntry(**raw))
-            except Exception:
-                logger.warning("Skipping malformed LLM trace line: %r", line[:120])
-    except Exception:
-        logger.warning("Failed to read LLM trace log", exc_info=True)
-        return []
-
-    if session_id:
-        entries = [entry for entry in entries if entry.session_id == session_id]
-    if operation:
-        entries = [entry for entry in entries if entry.operation == operation]
-    if status:
-        entries = [entry for entry in entries if entry.status == status]
-    return entries[-limit:]
 
 
 def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
@@ -1727,143 +1291,40 @@ def commit_analysis(
         if len(chunk.text) > _MAX_CHUNK_TEXT:
             raise HTTPException(status_code=422, detail=f"Chunk text exceeds {_MAX_CHUNK_TEXT} chars.")
 
-    profiles_updated: list[str] = []
-
-    # --- 1. Upsert new chunks ---
-    timestamp = datetime.now(timezone.utc).isoformat()
-    points = []
-    # Track file source_filenames that need dedup-delete before upsert
-    file_source_filenames: set[str] = set()
-    for chunk in req.new_chunks:
-        if not chunk.text.strip():
-            continue
-        if not chunk.chunk_id:
-            chunk.chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{chunk.source_label}-{id(chunk)}"))
-        # Derive source_filename from source_label (matches list_docs() convention)
-        if chunk.source_type == "note":
-            date_suffix = datetime.now(timezone.utc).strftime("%Y%m%d")
-            source_filename = f"counsellor_note_{date_suffix}"
-        else:
-            source_filename = chunk.source_label
-            file_source_filenames.add(source_filename)
-
-        try:
-            vector = embedder.encode(chunk.text)
-        except Exception as exc:
-            logger.warning("commit-analysis: embed failed for chunk %r: %s", chunk.chunk_id, exc)
-            raise HTTPException(status_code=503, detail="Embedding service unavailable")
-
-        points.append({
-            "id": chunk.chunk_id,
-            "vector": vector,
-            "payload": {
-                "source_filename": source_filename,
-                "chunk_index": 0,
-                "upload_timestamp": timestamp,
-                "text": chunk.text,
-                "career_type": chunk.career_type,
-            },
-        })
-
-    if points:
-        # Delete previous version of any re-submitted files before upserting
-        for fn in file_source_filenames:
-            try:
-                store.delete_by_filename(fn)
-            except Exception as exc:
-                logger.warning("commit-analysis: delete_by_filename(%r) failed: %s", fn, exc)
-        try:
-            store.upsert(points)
-        except Exception as exc:
-            logger.error("commit-analysis: Qdrant upsert failed: %s", exc)
-            raise HTTPException(status_code=503, detail="KB unavailable")
+    chunk_result = upsert_kb_chunks(req.new_chunks, vector_store=store, embedder=embedder, source="commit-analysis")
 
     # --- 2. Write profile YAML updates ---
-    pdir = _profiles_dir()
+    profiles_updated: list[str] = []
     for slug, field_changes in req.profile_updates.items():
-        # Reject non-alphanumeric slugs to prevent path traversal via crafted keys.
-        # Valid slugs are lowercase_with_underscores (e.g. investment_banking).
-        if not slug.replace("_", "").isalnum() or "/" in slug or ".." in slug:
-            logger.warning("commit-analysis: unsafe slug %r — skipping (path traversal guard)", slug)
-            continue
-        yaml_path = pdir / f"{slug}.yaml"
-        if not yaml_path.exists():
-            logger.warning("commit-analysis: profile %r not found on disk — skipping", slug)
-            continue
-        try:
-            with open(yaml_path, encoding="utf-8") as f:
-                profile = yaml.safe_load(f) or {}
-            changed_fields: list[str] = []
-            for field_name, change in field_changes.items():
-                if field_name not in ALLOWED_PROFILE_FIELDS:
-                    logger.warning(
-                        "commit-analysis: profile field %r not in allowlist — skipping", field_name
-                    )
-                    continue
-                profile[field_name] = change.new
-                changed_fields.append(field_name)
-            if not changed_fields:
-                logger.info("commit-analysis: profile %r had no valid field updates", slug)
-                continue
-
-            # Sync structured: fields from prose after edits
-            derived = _derive_structured_fields(profile)
-            if derived:
-                existing_structured = profile.get("structured") or {}
-                for key, value in derived.items():
-                    existing_structured.setdefault(key, value)
-                profile["structured"] = existing_structured
-
-            # Atomic write: write to temp file then rename
-            tmp = yaml_path.with_suffix(".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
-                yaml.safe_dump(profile, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-            tmp.replace(yaml_path)
+        result = apply_profile_diff(
+            slug,
+            field_changes,
+            create_missing=False,
+            skip_invalid=True,
+            source="commit-analysis",
+        )
+        if result.changed_fields:
             profiles_updated.append(slug)
-            logger.info("commit-analysis: updated profile %r fields: %s", slug, changed_fields)
-        except Exception as exc:
-            logger.error("commit-analysis: failed to write profile %r: %s", slug, exc)
-            raise HTTPException(status_code=500, detail=f"Failed to write profile '{slug}'")
+            logger.info("commit-analysis: updated profile %r fields: %s", slug, result.changed_fields)
+        elif not result.skipped_missing:
+            logger.info("commit-analysis: profile %r had no valid field updates", slug)
 
     # --- 3. Write employer YAML updates ---
     employers_updated: list[str] = []
-    edir = _employers_dir()
     for slug, field_changes in req.employer_updates.items():
-        if not safe_slug_is_valid(slug):
-            logger.warning("commit-analysis: unsafe employer slug %r — skipping", slug)
-            continue
-        yaml_path = edir / f"{slug}.yaml"
-        if not yaml_path.exists():
-            logger.warning("commit-analysis: employer %r not found on disk — skipping", slug)
-            continue
-        try:
-            with open(yaml_path, encoding="utf-8") as f:
-                employer = yaml.safe_load(f) or {}
-            employer_store.snapshot_history(slug, employer)
-            changed_fields: list[str] = []
-            for field_name, change in field_changes.items():
-                if field_name not in ALLOWED_EMPLOYER_FIELDS:
-                    logger.warning(
-                        "commit-analysis: employer field %r not in allowlist — skipping", field_name
-                    )
-                    continue
-                employer[field_name] = change.new
-                changed_fields.append(field_name)
-            if not changed_fields:
-                logger.info("commit-analysis: employer %r had no valid field updates", slug)
-                continue
-            employer["last_updated"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-            tmp = yaml_path.with_suffix(".tmp")
-            with open(tmp, "w", encoding="utf-8") as f:
-                yaml.safe_dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-            tmp.replace(yaml_path)
+        result = apply_employer_diff(
+            slug,
+            field_changes,
+            create_missing=False,
+            snapshot=True,
+            skip_invalid=True,
+            source="commit-analysis",
+        )
+        if result.changed_fields:
             employers_updated.append(slug)
-            logger.info(
-                "commit-analysis: updated employer %r fields: %s", slug, changed_fields
-            )
-        except Exception as exc:
-            logger.error("commit-analysis: failed to write employer %r: %s", slug, exc)
-            raise HTTPException(status_code=500, detail=f"Failed to write employer '{slug}'")
+            logger.info("commit-analysis: updated employer %r fields: %s", slug, result.changed_fields)
+        elif not result.skipped_missing:
+            logger.info("commit-analysis: employer %r had no valid field updates", slug)
 
     # --- 4. Invalidate caches ---
     health_cache.invalidate_overlap_cache()
@@ -1872,7 +1333,7 @@ def commit_analysis(
 
     return KBCommitResponse(
         status="ok",
-        chunks_added=len(points),
+        chunks_added=chunk_result.chunks_added,
         profiles_updated=profiles_updated,
         employers_updated=employers_updated,
     )
@@ -2026,4 +1487,10 @@ def llm_traces(
         raise HTTPException(status_code=422, detail="limit must be at least 1")
     if limit > 200:
         limit = 200
-    return _read_llm_trace_log(limit=limit, session_id=session_id, operation=operation, status=status)
+    return list_recent_llm_traces(
+        limit=limit,
+        session_id=session_id,
+        operation=operation,
+        status=status,
+        trace_path=getattr(settings, "llm_trace_log_path", ""),
+    )

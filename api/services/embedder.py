@@ -18,25 +18,23 @@ except ImportError:  # pragma: no cover - lightweight fallback for test envs
     SentenceTransformer = None
 
 from cfg import model_cfg
+from services.shared_yaml import Singleton
 
 _MODEL_NAME = model_cfg["embedding"]["model"]
 _EMBEDDING_DIM = model_cfg["embedding"]["dim"]
 
 
-class Embedder:
+class Embedder(Singleton):
     _instance = None
 
-    def __new__(cls):
+    def _init_singleton(self) -> None:
         # Singleton — model loads once per process
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            if SentenceTransformer is not None:
-                cls._instance._model = SentenceTransformer(_MODEL_NAME)
-                cls._instance._fallback = False
-            else:
-                cls._instance._model = None
-                cls._instance._fallback = True
-        return cls._instance
+        if SentenceTransformer is not None:
+            self._model = SentenceTransformer(_MODEL_NAME)
+            self._fallback = False
+        else:
+            self._model = None
+            self._fallback = True
 
     def _fallback_vector(self, text: str) -> np.ndarray:
         """Generate a deterministic normalized vector from text hash when sentence-transformers is unavailable.

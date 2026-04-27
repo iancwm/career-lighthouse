@@ -21,7 +21,8 @@ from typing import Optional
 import yaml
 
 from cfg import kb_cfg
-from services.shared_yaml import atomic_yaml_write, fact_lifecycle, fact_payload, version_stamp
+from services.runtime_paths import knowledge_dir
+from services.shared_yaml import Singleton, atomic_yaml_write, fact_lifecycle, fact_payload, version_stamp
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +59,7 @@ def _as_list(value) -> list:
 
 def _default_employers_dir() -> Path:
     """Resolve the default employers dir across local repo and Docker layouts."""
-    candidates = [
-        Path(__file__).resolve().parent.parent / "knowledge" / "employers",
-        Path(__file__).resolve().parent.parent.parent / "knowledge" / "employers",
-    ]
-    for path in candidates:
-        if path.exists():
-            return path
-    return candidates[0]
+    return knowledge_dir("employers")
 
 
 def _history_dir() -> Path:
@@ -267,7 +261,7 @@ def _employer_matches_query(employer: dict, query_text: str) -> bool:
     return False
 
 
-class EmployerEntityStore:
+class EmployerEntityStore(Singleton):
     """Singleton that loads employer entity YAMLs from knowledge/employers/.
 
     Disabled employers (*.yaml.disabled) are excluded from active lists.
@@ -284,11 +278,8 @@ class EmployerEntityStore:
     """
     _instance = None
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._loaded = False
-        return cls._instance
+    def _init_singleton(self) -> None:
+        self._loaded = False
 
     def _ensure_loaded(self) -> None:
         if self._loaded:

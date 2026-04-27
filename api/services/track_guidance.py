@@ -20,6 +20,7 @@ from cfg import track_guidance_cfg
 from models_kb import TrackCandidate, TrackGuidance
 from services.career_profiles import CareerProfileStore
 from services.runtime_paths import default_emerging_track_signals_path
+from services.shared_yaml import Singleton
 
 logger = logging.getLogger(__name__)
 
@@ -49,17 +50,14 @@ def _cluster_key(candidates: list[dict]) -> str:
     return "|".join(sorted(slugs))
 
 
-class EmergingTrackSignalStore:
+class EmergingTrackSignalStore(Singleton):
     """Append-only recurrence log with a tiny derived index."""
 
     _instance = None
     _lock = Lock()
 
-    def __new__(cls):
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._loaded = False
-        return cls._instance
+    def _init_singleton(self) -> None:
+        self._loaded = False
 
     def _ensure_loaded(self) -> None:
         """Reload the signal log if the file has changed."""

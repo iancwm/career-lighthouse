@@ -23,16 +23,21 @@ def default_data_path() -> Path:
     return repo_root() / "data" / "qdrant"
 
 
+def knowledge_dir(name: str) -> Path:
+    """Return a subdirectory under the repository knowledge root."""
+    return repo_root() / "knowledge" / name
+
+
 def default_profiles_dir() -> Path:
-    return repo_root() / "knowledge" / "career_profiles"
+    return knowledge_dir("career_profiles")
 
 
 def default_employers_dir() -> Path:
-    return repo_root() / "knowledge" / "employers"
+    return knowledge_dir("employers")
 
 
 def default_drafts_dir() -> Path:
-    return repo_root() / "knowledge" / "draft_tracks"
+    return knowledge_dir("draft_tracks")
 
 
 def default_registry_path() -> Path:
@@ -40,7 +45,7 @@ def default_registry_path() -> Path:
 
 
 def default_history_dir() -> Path:
-    return repo_root() / "knowledge" / "career_profiles_history"
+    return knowledge_dir("career_profiles_history")
 
 
 def default_query_log_path() -> Path:
@@ -64,11 +69,11 @@ def default_emerging_track_signals_path() -> Path:
 
 
 def default_source_ledger_dir() -> Path:
-    return repo_root() / "knowledge" / "source_ledger"
+    return knowledge_dir("source_ledger")
 
 
 def default_source_ledger_history_dir() -> Path:
-    return repo_root() / "knowledge" / "source_ledger_history"
+    return knowledge_dir("source_ledger_history")
 
 
 def default_tracks_version_path() -> Path:
