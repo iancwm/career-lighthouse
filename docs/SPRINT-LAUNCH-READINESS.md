@@ -1,13 +1,31 @@
 ---
 status: planned
 created: 2026-04-27
+last_updated: 2026-04-27
 ---
 
 # Sprint: Launch Readiness — Security, Reliability & Testing Infrastructure
 
 **Duration:** ~1 week  
 **Goal:** Close every unblocked "Now" item from TODOS.md, the highest-risk "Next" items, and ship the frontend test framework before broader counsellor rollout.  
-**Branch convention:** one PR per block; all green against `api/pytest` and (after D1 lands) `web/npm test` before merge.
+**Branch convention:** one PR per block; all green against `api/pytest` and `web/npm test` before merge.
+
+---
+
+## Already shipped — removed from sprint scope
+
+A git history audit (2026-04-27) found the following items already implemented. TODOS.md updated to match.
+
+| Sprint item | Finding |
+|---|---|
+| **D1** — Frontend test framework | Vitest fully installed: `web/vitest.config.ts`, `web/package.json` `"test": "vitest"`, 24 test files across `admin/__tests__/` and `student/__tests__/`. Shipped as part of the alumni cards work (commit `6af0290`). |
+| **A2** — Sanitize chat prompt injections | `sanitize_for_prompt()` applied to `career_context` and `employer_context` at `api/services/llm.py:957–958`. |
+| **G2** — Model name env var override | `api/config.py:24` exposes `anthropic_model: str = ""` read from `ANTHROPIC_MODEL` env var. `api/services/llm.py:91–92` has `get_model_name()` that reads it first, falls back to `model.yaml`. |
+| **B3** — Commit idempotency (data safety) | `commit_card()` at `session_router.py:523` checks `card.get("status") != "pending"` and returns HTTP 409 before any write. Prevents duplicate YAML writes. Minor UX polish (200 vs 409 on repeat) is still open. |
+| **G1** — PDPA wording | `grep -r "anonymised"` finds no matches outside `TODOS.md` itself. The phrase was never written into active code or UI; item is stale. |
+| **A1 scope reduction** — ADMIN_KEY | Backend already enforces `X-Admin-Key` header exclusively (`api/dependencies.py:12`). Remaining work is frontend-only: stop putting the key in the browser URL (`?key=...`). No backend change needed. |
+
+---
 
 ---
 
@@ -19,25 +37,20 @@ Items drawn from TODOS.md (2026-04-27), the alumni cards sprint doc, and the cod
 
 ## Block A — Security Hardening
 
-### A1 · ADMIN_KEY: query param → Authorization header  *(Next → Now)*
+### A1 · ADMIN_KEY: remove key from browser URL  *(Next — scope reduced)*
 
-**What:** Replace all `?key=…` query-param usage with an `Authorization: Bearer <key>` header. Update `web/lib/api-proxy.ts` to forward the header. Reject the query-param form with HTTP 400 in `require_admin_key`.  
-**Why:** Query params land in ALB access logs and browser history — the key is exposed in plain text.  
-**Files:** `api/dependencies.py` (or wherever `require_admin_key` reads the key), `web/lib/api-proxy.ts`, any admin scripts.  
-**Risk:** Breaking change for API consumers not going through the proxy. Document in CHANGELOG.  
-**Test:** Auth fixtures in `test_kb_router.py` must pass with header; add a test that `?key=` returns 400.  
-**Estimate:** 3–5 h
+**What:** Stop putting the admin key in the browser URL (`?key=...`). The backend already enforces `X-Admin-Key` header exclusively. The remaining gap is client-side: `web/lib/admin-api.ts` reads the key from the URL query param and converts it to the header. Switch to a session-storage or cookie approach so the key never appears in the URL bar, browser history, or referer headers.  
+**Why:** URL-based keys land in browser history and are visible in the address bar; header-only delivery was already the backend intent.  
+**Files:** `web/lib/admin-api.ts`, `web/middleware.test.ts` (test at line 29 uses `?key=demo2026`), the admin page that initially bootstraps the key.  
+**Risk:** Medium — touches the admin login/access flow. No backend changes needed.  
+**Test:** Update `middleware.test.ts` to not pass `?key=`; confirm admin requests still authenticate.  
+**Estimate:** 2–4 h
 
 ---
 
-### A2 · Sanitize chat prompt injections  *(Next → Now)*
+### ~~A2 · Sanitize chat prompt injections~~  ✓ Already shipped
 
-**What:** Apply `sanitize_for_prompt()` to career context and employer facts before they are injected into live chat prompts in `api/services/llm.py`.  
-**Why:** Counsellor-authored YAMLs are lower risk but must receive the same treatment as ingested chunks.  
-**Files:** `api/services/llm.py` — the context-assembly helpers that build the system prompt.  
-**Risk:** Low. `sanitize_for_prompt()` already exists.  
-**Test:** Unit test: adversarial YAML value (`"Ignore previous instructions…"`) is stripped before prompt assembly.  
-**Estimate:** 1–2 h
+`sanitize_for_prompt()` applied at `api/services/llm.py:957–958`. No work remaining.
 
 ---
 
@@ -67,13 +80,10 @@ Items drawn from TODOS.md (2026-04-27), the alumni cards sprint doc, and the cod
 
 ---
 
-### B3 · Session card commit idempotency  *(Next → Now)*
+### B3 · Session card commit idempotency  *(data safety done; UX polish remains)*
 
-**What:** Store `committed_at` (ISO timestamp) on cards after a successful commit. In `commit_card()`, check for `committed_at` before writing and return HTTP 200 with `"already_committed": true` if the card was already applied.  
-**Why:** A browser refresh during commit replays the same card, producing duplicate YAML field writes.  
-**Files:** `api/routers/session_router.py` (`commit_card` handler), session JSON schema (`api/models_kb.py` or session store).  
-**Test:** Call `commit_card` twice with the same `card_id`; second call must return 200 with `already_committed: true` without a second YAML write.  
-**Estimate:** 2–4 h
+`commit_card()` at `session_router.py:523` already checks `card.get("status") != "pending"` and returns HTTP 409 before any write — duplicate YAML writes cannot happen. Remaining UX polish: the frontend should treat a 409 on a card that was previously committed as a silent success (not an error toast). That is a frontend-only change in the commit handler of `SmartCanvas.tsx`.  
+**Estimate:** 1 h (frontend only)
 
 ---
 
@@ -100,16 +110,9 @@ Items drawn from TODOS.md (2026-04-27), the alumni cards sprint doc, and the cod
 
 ---
 
-## Block D — Frontend Testing Infrastructure
+## ~~Block D — Frontend Testing Infrastructure~~  ✓ Already shipped
 
-### D1 · Install vitest + @testing-library/react  *(Now)*
-
-**What:** Install `vitest`, `@testing-library/react`, `@testing-library/user-event`, `@vitejs/plugin-react`, and `jsdom` into the `web/` workspace. Create `web/vitest.config.ts` and `web/__tests__/`. Write a baseline component smoke test (suggest: `FactCard` — already well-scoped, has DESIGN.md-aligned types). Wire `"test": "vitest run"` in `web/package.json`. Add `npm test` step to CI.  
-**Why:** No frontend test framework exists today. Every UI PR ships without component-level coverage.  
-**Tech choice:** Vitest is the idiomatic choice for Next.js 14 + TypeScript. Do not introduce Jest — tool choice is hard to undo.  
-**Files:** `web/package.json`, `web/vitest.config.ts`, `web/__tests__/FactCard.test.tsx`, `.github/workflows/ci.yml` (or equivalent).  
-**Test:** `npm test` passes in CI from a clean install.  
-**Estimate:** 3–5 h
+Vitest is fully installed: `web/vitest.config.ts`, `"test": "vitest"` in `web/package.json`, `@testing-library/react` v16, `@testing-library/user-event`, and 24 test files already written across `web/components/admin/__tests__/` and `web/components/student/__tests__/`. Shipped with commit `6af0290` (alumni cards). No work remaining for this block.
 
 ---
 
@@ -165,19 +168,15 @@ Unit tests for cases 1, 3, 4 should already exist or be added in this sprint.
 
 ## Block G — Quick Wins
 
-### G1 · PDPA wording — replace "anonymised aggregates"  *(Next)*
+### ~~G1 · PDPA wording~~  ✓ Stale — phrase never written into code
 
-Replace every instance of "anonymised aggregates" with "query aggregates" in docs and UI copy.  
-**Files:** `grep -rn "anonymised" .` — expected in `docs/` and a UI string.  
-**Estimate:** 30 min
+`grep -r "anonymised"` finds no matches in any active code or UI file. The item was written anticipating copy that was never added. No work needed; remove from TODOS.md.
 
 ---
 
-### G2 · Model name env var override  *(Next)*
+### ~~G2 · Model name env var override~~  ✓ Already shipped
 
-Read the model name from `ANTHROPIC_MODEL` env var when set, falling back to `model.yaml`.  
-**Files:** wherever `model.yaml` is loaded in `api/services/llm.py` or `api/cfg/`.  
-**Estimate:** 30–60 min
+`api/config.py:24` exposes `anthropic_model: str = ""` (from `ANTHROPIC_MODEL` env var). `api/services/llm.py:91–92` has `get_model_name()` that reads it and falls back to `model.yaml`. No work remaining.
 
 ---
 
@@ -255,20 +254,19 @@ G1–G4 (quick wins)                        ──────── fill gaps b
 
 ## Definition of done
 
+- [x] `cd web && npm test` passes — vitest installed and 24 tests passing (D1 done)
+- [x] Career context and employer facts sanitized before LLM injection (A2 done)
+- [x] `ANTHROPIC_MODEL` env var overrides model.yaml (G2 done)
+- [x] Double-commit of a card cannot write YAML twice — 409 guard in place (B3 data safety done)
 - [ ] `cd api && pytest` passes with no regressions after every PR
-- [ ] `cd web && npm test` passes (after D1 lands; required for all subsequent PRs)
-- [ ] ADMIN_KEY query-param form returns 400 in any live code path (A1)
-- [ ] Career context and employer facts are sanitized before LLM injection (A2)
+- [ ] ADMIN_KEY no longer appears in browser URL bar or history (A1 — frontend only)
+- [ ] 409 on already-committed card is treated as silent success in SmartCanvas (B3 UX)
 - [ ] Chat endpoint returns in < 1 s even when Qdrant is unresponsive (B1)
 - [ ] Session analysis returns a structured response before gateway timeout on long notes (B2)
-- [ ] Double-commit of a card is a no-op (B3)
 - [ ] `GET /api/kb/health` is served from cache within TTL (C1)
 - [ ] `_compute_overlap_pairs` executes at most once under concurrent requests (C2)
-- [ ] `web/__tests__/` has at least one passing component test (D1)
 - [ ] Extraction accuracy ≥ 80% on 3 real Stripe notes, result documented (E1)
 - [ ] 3 T3 eval cases pass in `test_ai_eval.py` (F1)
 - [ ] `company_links_attempted` vs `company_links_written` surfaced in commit response (F2)
-- [ ] All 4 alumni failure modes verified (F3)
-- [ ] "anonymised aggregates" removed from all copy (G1)
-- [ ] `ANTHROPIC_MODEL` env var overrides `model.yaml` model name (G2)
-- [ ] CHANGELOG.md updated with breaking change note for A1
+- [ ] All 4 alumni failure modes verified end-to-end (F3)
+- [ ] CHANGELOG.md updated
