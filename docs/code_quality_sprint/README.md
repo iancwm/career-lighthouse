@@ -28,6 +28,9 @@ Shipped on 2026-04-27:
     `/api/kb/llm-traces` endpoint.
   - `services.kb_writer` now owns the duplicated profile, employer, alumni, and
     vector-chunk write pipeline used by `kb_router` and `session_router`.
+  - `services.kb_ingestion_service` now owns diff-first KB analysis, research
+    input extraction, KB retrieval, prompt summary assembly, and provenance
+    filling for `/api/kb/analyse` plus the draft-track research helpers.
 - QA follow-up:
   - Playwright QA found the student chat was preloading `/api/tracks`, which
     404s. `ChatInterface` now uses the existing `/api/tracks/active` backend
@@ -36,6 +39,7 @@ Shipped on 2026-04-27:
 Verification for this slice:
 
 - `cd api && uv run pytest -q` → `302 passed, 2 skipped`
+- `cd api && uv run python -m compileall routers/kb_router.py services/kb_ingestion_service.py`
 - Docker web rebuild passed with `docker compose up -d --build web`
 - Playwright smoke covered all admin views, student chat entry, and mobile
   admin layout.

@@ -25,7 +25,10 @@ describe("MarkdownMessage", () => {
     expect(screen.getByText("Bold")).toBeInTheDocument()
     expect(screen.getByText("italics").tagName).toBe("EM")
     expect(screen.getByText("code")).toBeInTheDocument()
-    expect(screen.getByText(/quoted line\s+second line/i)).toBeInTheDocument()
+    expect(Array.from(document.querySelectorAll("blockquote p")).map((node) => node.textContent)).toEqual([
+      "quoted line",
+      "second line",
+    ])
 
     const link = screen.getByRole("link", { name: "docs" })
     expect(link).toHaveAttribute("href", "https://example.com")

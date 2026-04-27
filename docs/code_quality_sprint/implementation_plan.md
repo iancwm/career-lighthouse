@@ -166,7 +166,7 @@ functions.
 
 ---
 
-### P1-3 · Extract `services/kb_ingestion_service.py`
+### P1-3 · Extract `services/kb_ingestion_service.py` — Done
 
 **Files:** `api/services/kb_ingestion_service.py` (new),
 `api/routers/kb_router.py`.
@@ -181,6 +181,12 @@ serialization. Move `_build_profile_summary`, `_build_employer_summary`,
 **Risk:** medium. Same coverage as P1-2.
 
 **Verify:** `tests/test_kb_analyse.py`, manual analyse → commit flow in admin.
+
+**Shipped:** `api/services/kb_ingestion_service.py` now owns input extraction,
+semantic retrieval, profile/employer summary assembly, `analyse_kb_input`
+dispatch, Pydantic validation, and provenance/chunk-id filling. The
+`/api/kb/analyse` endpoint is now a thin upload-size guard plus service call,
+and draft-track generation endpoints use the same research-input helpers.
 
 ---
 

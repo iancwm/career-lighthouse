@@ -13,7 +13,6 @@ follow-up is migrating the admin key transport off the query param.
 import json
 import logging
 import os
-import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional, Literal
@@ -67,9 +66,14 @@ from services.trace_adapter import (
     list_recent as list_recent_llm_traces,
 )
 from services.embedder import Embedder
-from services.ingestion import chunk_text, parse_file
 from services.source_ledger import get_source_ledger_store
 from services.vector_store import VectorStore
+from services.kb_ingestion_service import (
+    analyse_counsellor_input,
+    extract_generation_input,
+    merge_source_refs,
+    retrieve_generation_chunks,
+)
 from services import llm as llm_service
 from services.llm import extract_facts_from_prose
 from config import settings
@@ -101,41 +105,6 @@ def _read_llm_trace_log(*args, **kwargs):
 
 class TestQueryRequest(BaseModel):
     query: str
-
-
-# ---------------------------------------------------------------------------
-# Sprint 3 helpers
-# ---------------------------------------------------------------------------
-
-def _first_sentence(text: str, max_chars: int = 120) -> str:
-    """Extract first sentence up to max_chars — mirrors notebook spec."""
-    if not text:
-        return ""
-    text = str(text).strip()
-    dot = text.find(".")
-    if dot != -1 and dot < max_chars:
-        return text[: dot + 1]
-    return text[:max_chars]
-
-
-def _build_profile_summary(store: CareerProfileStore) -> str:
-    """Build the CURRENT CAREER PROFILE FIELDS block for the diff prompt."""
-    profiles = store.list_profiles()
-    lines = []
-    for meta in profiles:
-        slug = meta["slug"]
-        profile = store.get_profile(slug)
-        if not profile:
-            continue
-        ep = _first_sentence(str(profile.get("ep_sponsorship", "")))
-        compass = _first_sentence(str(profile.get("compass_score_typical", "")))
-        timeline = _first_sentence(str(profile.get("recruiting_timeline", "")))
-        notes = _first_sentence(str(profile.get("notes", "")))
-        lines.append(
-            f"{slug}: ep_sponsorship={ep} | compass={compass} | "
-            f"recruiting_timeline={timeline} | notes={notes}"
-        )
-    return "\n".join(lines)
 
 
 def _build_employer_detail(emp: dict) -> EmployerDetail:
@@ -170,19 +139,6 @@ def _employers_dir() -> Path:
     ))
 
 
-def _build_employer_summary(store: EmployerEntityStore) -> str:
-    """Build the CURRENT EMPLOYER FACTS block for the analyse diff prompt."""
-    employers = store.list_employers()
-    lines = []
-    for emp in employers:
-        slug = emp.get("slug", "")
-        name = emp.get("employer_name", slug)
-        ep = _first_sentence(str(emp.get("ep_requirement", "")))
-        seasons = ", ".join(emp.get("intake_seasons") or [])
-        lines.append(f"{slug} ({name}): ep_requirement={ep} | intake_seasons={seasons}")
-    return "\n".join(lines)
-
-
 def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
     """Return True if the draft has the minimum required fields to publish."""
     required_text = [
@@ -198,62 +154,6 @@ def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
         and len(detail.entry_paths) > 0
         and len(detail.match_keywords) > 0
     )
-
-
-def _extract_generation_input(
-    text: str | None,
-    source_type: str,
-    file: UploadFile | None,
-) -> tuple[str, str, str]:
-    """Return counsellor input text plus normalized source metadata."""
-    if source_type == "file" and file is not None:
-        raw_bytes = file.file.read()
-        fname = file.filename or "upload.txt"
-        try:
-            counsellor_input = parse_file(raw_bytes, fname)
-        except Exception as exc:
-            logger.warning("draft generation: failed to parse uploaded file %r: %s", fname, exc)
-            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
-        return counsellor_input, "file", fname
-
-    if not text or not text.strip():
-        raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
-    return text.strip(), "note", "counsellor_note"
-
-
-def _retrieve_generation_chunks(
-    counsellor_input: str,
-    embedder: Embedder,
-    store: VectorStore,
-) -> list[dict]:
-    try:
-        chunks_for_query = chunk_text(counsellor_input, max_tokens=256)
-        query_text = chunks_for_query[0] if chunks_for_query else counsellor_input
-        query_vec = embedder.encode(query_text)
-        return store.search(query_vec, top_k=8)
-    except Exception as exc:
-        logger.error("draft generation: KB search failed: %s", exc)
-        raise HTTPException(status_code=503, detail="KB unavailable")
-
-
-def _merge_source_refs(existing_refs: list[dict] | list, source_type: str, source_label: str) -> list[SourceRef]:
-    seen: set[tuple[str, str]] = set()
-    merged: list[SourceRef] = []
-    for raw in list(existing_refs or []) + [{"type": source_type, "label": source_label}]:
-        if isinstance(raw, dict):
-            ref_type = str(raw.get("type", "")).strip()
-            label = str(raw.get("label", "")).strip()
-        else:
-            ref_type = str(getattr(raw, "type", "")).strip()
-            label = str(getattr(raw, "label", "")).strip()
-        if not ref_type or not label:
-            continue
-        key = (ref_type.lower(), label.lower())
-        if key in seen:
-            continue
-        seen.add(key)
-        merged.append(SourceRef(type=ref_type, label=label))
-    return merged
 
 
 # ---------------------------------------------------------------------------
@@ -641,8 +541,8 @@ def generate_draft_track(
     if draft_store.get_draft(slug) is not None:
         raise HTTPException(status_code=409, detail=f"Draft track '{slug}' already exists.")
 
-    counsellor_input, source_type, source_label = _extract_generation_input(text, source_type, file)
-    retrieved = _retrieve_generation_chunks(counsellor_input, embedder, store)
+    counsellor_input, source_type, source_label = extract_generation_input(text, source_type, file)
+    retrieved = retrieve_generation_chunks(counsellor_input, embedder, store)
 
     try:
         raw = llm_service.generate_track_draft(
@@ -696,8 +596,8 @@ def refresh_draft_track_from_research(
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
 
-    counsellor_input, source_type, source_label = _extract_generation_input(text, source_type, file)
-    retrieved = _retrieve_generation_chunks(counsellor_input, embedder, store)
+    counsellor_input, source_type, source_label = extract_generation_input(text, source_type, file)
+    retrieved = retrieve_generation_chunks(counsellor_input, embedder, store)
 
     try:
         raw = llm_service.generate_track_draft(
@@ -726,7 +626,7 @@ def refresh_draft_track_from_research(
     detail.slug = slug
     detail.track_name = existing.track_name.strip()
     detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
-    detail.source_refs = _merge_source_refs(detail.source_refs, source_type, source_label)
+    detail.source_refs = merge_source_refs(detail.source_refs, source_type, source_label)
     try:
         return draft_store.save_draft(detail)
     except ValueError as exc:
@@ -1185,84 +1085,23 @@ def analyse(
 
     Auth note: protected by the router-level `require_admin_key` dependency.
     """
-    # --- 1. Extract counsellor input text ---
     if source_type == "file" and file is not None:
-        # Content-Length guard — fires before buffering the body.
         content_length = request.headers.get("content-length")
         if content_length and int(content_length) > settings.max_upload_bytes:
             raise HTTPException(
                 status_code=413,
                 detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024*1024)}MB)."
             )
-        raw_bytes = file.file.read()
-        fname = file.filename or "upload.txt"
-        try:
-            counsellor_input = parse_file(raw_bytes, fname)
-        except Exception as exc:
-            logger.warning("analyse: failed to parse uploaded file %r: %s", fname, exc)
-            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.")
-        source_label = fname
-    else:
-        if not text or not text.strip():
-            raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
-        counsellor_input = text.strip()
-        source_label = "counsellor_note"
 
-    # --- 2. Embed and retrieve top-10 KB chunks ---
-    try:
-        chunks_for_query = chunk_text(counsellor_input, max_tokens=256)
-        query_text = chunks_for_query[0] if chunks_for_query else counsellor_input
-        query_vec = embedder.encode(query_text)
-        retrieved = store.search(query_vec, top_k=10)
-    except Exception as exc:
-        logger.error("analyse: KB search failed: %s", exc)
-        raise HTTPException(status_code=503, detail="KB unavailable")
-
-    # --- 3. Build profile + employer summaries for the diff prompt ---
-    profile_summary = _build_profile_summary(profile_store)
-    employer_summary = _build_employer_summary(employer_store)
-
-    # --- 4. Call Claude ---
-    try:
-        raw = llm_service.analyse_kb_input(counsellor_input, retrieved, profile_summary, employer_summary)
-    except ValueError as exc:
-        logger.warning("analyse: Claude returned malformed JSON: %s", exc)
-        raise HTTPException(
-            status_code=422,
-            detail="Analysis failed — please try again or rephrase your input.",
-        )
-    except Exception as exc:
-        logger.error("analyse: LLM call failed: %s", exc)
-        raise HTTPException(status_code=503, detail="Analysis service unavailable")
-
-    # --- 5. Validate and fill chunk_ids ---
-    try:
-        result = KBAnalysisResult(**raw)
-    except Exception as exc:
-        logger.warning("analyse: Pydantic validation failed: %s | raw=%r", exc, str(raw)[:300])
-        raise HTTPException(
-            status_code=422,
-            detail="Analysis failed — please try again or rephrase your input.",
-        )
-
-    provenance_timestamp = datetime.now(timezone.utc).isoformat()
-    for i, chunk in enumerate(result.new_chunks):
-        chunk.source_label = source_label
-        chunk.source_type = source_type if source_type in ("note", "file") else "note"
-        chunk.source_timestamp = chunk.source_timestamp or provenance_timestamp
-        # Content-based chunk_id: same text → same ID (idempotent re-commit),
-        # different text → different ID (no clobbering across distinct notes).
-        content_key = chunk.text.strip()[:120]
-        chunk.chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_label}::{content_key}"))
-
-    for update_map in (result.profile_updates, result.employer_updates):
-        for fields in update_map.values():
-            for change in fields.values():
-                change.source_type = change.source_type or source_type
-                change.source_label = change.source_label or source_label
-                change.source_timestamp = change.source_timestamp or provenance_timestamp
-
-    return result
+    return analyse_counsellor_input(
+        text=text,
+        source_type=source_type,
+        file=file,
+        embedder=embedder,
+        store=store,
+        profile_store=profile_store,
+        employer_store=employer_store,
+    )
 
 
 @router.post("/commit-analysis", response_model=KBCommitResponse)

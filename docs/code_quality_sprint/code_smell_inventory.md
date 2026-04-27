@@ -222,12 +222,19 @@ extract to `utils/text.py`. Trivial; do as part of H4.
 co-located with its callers (`_build_profile_summary`,
 `_build_employer_summary`). Move with those into the `kb_ingestion_service`.
 
+**Status:** fixed in this sprint slice. The helper moved to
+`api/services/kb_ingestion_service.py` beside its prompt-summary callers.
+
 ### L3. `_build_profile_summary` / `_build_employer_summary` are prompt
 construction, not router logic
 
 Both build summary blocks for the `analyse` LLM call. They belong next to the
 prompt template in `cfg/prompts.yaml` or beside `analyse_kb_input` in `llm.py`,
 not in the router.
+
+**Status:** fixed in this sprint slice. The summary builders moved to
+`api/services/kb_ingestion_service.py`, and `/api/kb/analyse` delegates the
+full analysis workflow to that service.
 
 ### L4. `_observation_to_trace_entries` recomputes `nested_observations` twice
 
