@@ -1,5 +1,5 @@
 "use client"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 
 const API_URL = "/api/admin"
 
@@ -60,6 +60,17 @@ export default function KnowledgeUpdateTab({ onCommitted, onNavigateToSession }:
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const canAnalyse = inputMode === "note" ? noteText.trim().length > 0 : selectedFile !== null
+
+  // Warn before navigating away while a diff is loaded and uncommitted.
+  useEffect(() => {
+    if (state !== "diff") return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [state])
 
 function resetToIdle() {
     if (statusTimerRef.current) clearTimeout(statusTimerRef.current)

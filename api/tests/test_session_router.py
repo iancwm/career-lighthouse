@@ -345,7 +345,7 @@ class TestAnalyzeSession:
         mock_session_store.save_session.side_effect = lambda current: None
 
         module = sys.modules["session_router"]
-        with patch.object(module, "_apply_field_updates_to_alumni", return_value=(["available_for_mentoring"], False)) as mock_apply:
+        with patch.object(module, "_apply_field_updates_to_alumni", return_value=(["available_for_mentoring"], False, None, None)) as mock_apply:
             client = TestClient(app)
             resp = client.post(
                 "/api/sessions/abc-123/cards/card-alumni-1/commit",

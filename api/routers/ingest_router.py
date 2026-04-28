@@ -143,6 +143,8 @@ async def ingest(
         store.upsert(points)
         # Invalidate caches — KB has changed
         health_cache.invalidate_overlap_cache()
+        from routers.kb_router import _invalidate_docs_cache
+        _invalidate_docs_cache()
         get_career_profile_store().invalidate()
         get_source_ledger_store().upsert_record(
             filename=filename,

@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
 from pydantic import ValidationError
 from dependencies import require_admin_key
@@ -13,6 +14,8 @@ from datetime import datetime, timezone
 from time import perf_counter
 import re
 from uuid import uuid4
+
+_SESSION_INTENTS_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="session_intents")
 
 logger = logging.getLogger(__name__)
 
@@ -234,9 +237,9 @@ def _apply_field_updates_to_employer(slug: str, diff: dict) -> tuple[list[str], 
     return result.changed_fields, result.is_new
 
 
-def _apply_field_updates_to_alumni(slug: str, diff: dict[str, Any]) -> tuple[list[str], bool]:
+def _apply_field_updates_to_alumni(slug: str, diff: dict[str, Any]) -> tuple[list[str], bool, int | None, int | None]:
     result = apply_alumni_diff(slug, diff, source="Card commit")
-    return result.changed_fields, result.is_new
+    return result.changed_fields, result.is_new, result.company_links_attempted, result.company_links_written
 
 
 def _check_session_completion(session: KnowledgeSession) -> None:
@@ -378,16 +381,36 @@ def analyze_session(
     except Exception:
         pass  # Non-fatal
 
-    # Call LLM
+    # Call LLM — run in a sub-thread so we can enforce an overall deadline even
+    # on multi-pass notes where each chunk has its own per-call timeout but the
+    # total can still exceed the ALB/nginx gateway timeout.
     from services.llm import generate_session_intents
-    logger.info("analyze: passing %d tracks and %d employers to LLM",
-        len(existing_tracks), len(existing_employers))
+    from config import settings as _settings
+    _deadline = float(getattr(_settings, "llm_session_timeout_seconds", 180))
+    logger.info("analyze: passing %d tracks and %d employers to LLM (deadline %.0fs)",
+        len(existing_tracks), len(existing_employers), _deadline)
     try:
-        result = generate_session_intents(
+        _future = _SESSION_INTENTS_EXECUTOR.submit(
+            generate_session_intents,
             raw_input=session.raw_input,
             existing_tracks=existing_tracks,
             existing_employers=existing_employers,
             session_id=session.id,
+        )
+        result = _future.result(timeout=_deadline)
+    except FuturesTimeoutError:
+        current = store.get_session(session_id)
+        if current and current.status == "cancelled":
+            raise HTTPException(status_code=409, detail="Session was cancelled.")
+        session.status = "failed"
+        session.analysis_error = f"Analysis timed out after {_deadline:.0f}s"
+        _touch_session(session)
+        raise HTTPException(
+            status_code=504,
+            detail=(
+                f"Analysis timed out after {_deadline:.0f}s. "
+                "Notes may be too long — try splitting them into smaller sessions."
+            ),
         )
     except HTTPException as exc:
         current = store.get_session(session_id)
@@ -552,23 +575,34 @@ def commit_card(
 
     changed_fields: list[str] = []
     is_new = False
+    links_attempted: int | None = None
+    links_written: int | None = None
     if domain == "track":
         changed_fields, is_new = _apply_field_updates_to_profile(target_slug, effective_diff)
     elif domain == "employer":
         changed_fields, is_new = _apply_field_updates_to_employer(target_slug, effective_diff)
     else:
-        changed_fields, is_new = _apply_field_updates_to_alumni(target_slug, effective_diff)
+        changed_fields, is_new, links_attempted, links_written = _apply_field_updates_to_alumni(target_slug, effective_diff)
 
     card["status"] = "committed"
     _check_session_completion(session)
     store.save_session(session)
 
-    return {
+    response: dict[str, Any] = {
         "card_id": card_id,
         "domain": domain,
         "status": "committed",
         "message": f"Updated {len(changed_fields)} field(s) on {domain} '{target_slug}'",
     }
+    if links_attempted is not None:
+        response["company_links_attempted"] = links_attempted
+        response["company_links_written"] = links_written
+        if links_written is not None and links_attempted > links_written:
+            response["company_links_warning"] = (
+                f"{links_attempted - links_written} of {links_attempted} company link(s) "
+                "were dropped due to missing required fields."
+            )
+    return response
 
 
 @router.post("/{session_id}/cards/{card_id}/discard")

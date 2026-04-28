@@ -136,32 +136,26 @@ ranges in session card commits now populate `salary_min_sgd`/`salary_max_sgd` vi
 **Why:** Last-write-wins breaks trust fast, especially in a small office where two people can edit the same entity in one day.
 **Depends on:** Revision metadata on structured facts.
 
-### Install frontend test framework (vitest + react-testing-library)
-**What:** Install `vitest` + `@testing-library/react` for the `web/` workspace, set up `web/__tests__/`, write a baseline component test, wire it into CI.
-**Why:** No frontend test framework exists today (no `jest.config`, no `vitest.config`, no test directories). Every frontend PR ships without component-level coverage — relies on manual QA only. Surfaced by `/plan-eng-review` of the alumni cards design 2026-04-26: SmartCanvas alumni variant, AlumniDetectionModal, and admin components have no path to regression tests.
-**Pros:** Unlocks regression tests for SmartCanvas, modal flows, all admin/. Would catch UI bugs before counsellors do.
-**Cons:** Infrastructure decision benefits the whole frontend, not just one feature — needs its own focused PR. Wrong pick (Jest vs Vitest for Next.js) is hard to undo.
-**Context:** Next.js 14 app, Tailwind, `web/` workspace. Vitest is the modern default for Next; @testing-library/react for component tests. Playwright optional for later E2E.
-**Depends on:** Nothing structural.
+### ~~Install frontend test framework (vitest + react-testing-library)~~ ✓ Done (2026-04-26)
+Shipped: `web/vitest.config.ts`, `"test": "vitest"` in `web/package.json`, `@testing-library/react` v16, and 24 test files across `web/components/admin/__tests__/` and `web/components/student/__tests__/`. Landed with alumni cards sprint (commit `6af0290`).
 
 ## Next
 
 ### ~~Normalize employer YAMLs: headcount_estimate → singapore_headcount_estimate~~ ✓ Done (2026-04-23)
 Shipped: all active employer YAMLs now use `singapore_headcount_estimate`, and the employer allowlist / prompt references were updated to match the API read path.
 
-### ADMIN_KEY passed as query param — migrate to header or cookie
-**What:** Replace `?key=...` query param with `Authorization: Bearer` header or session cookie.
-**Why:** Query params appear in ALB access logs and browser history, exposing the admin key.
-**Depends on:** None. Breaking change for API consumers.
+### ADMIN_KEY: remove key from browser URL (frontend only)
+**What:** The backend already enforces `X-Admin-Key` header exclusively. Remove `?key=...` from the browser URL by switching to session-storage or a cookie so the key is never visible in the address bar or browser history.
+**Why:** URL-visible keys leak into browser history and referer headers.
+**Files:** `web/lib/admin-api.ts`, admin page bootstrap, `web/middleware.test.ts`.
+**Depends on:** None. Frontend-only change.
 
-### Sanitize chat prompt injections
-**What:** Apply `sanitize_for_prompt()` to career context and employer facts injected into live chat prompts in `llm.py`.
-**Why:** Counsellor-authored YAMLs are lower risk but should receive the same treatment as ingested chunks.
-**Depends on:** None.
+### ~~Sanitize chat prompt injections~~ ✓ Done (2026-04-27)
+Shipped: `sanitize_for_prompt()` applied to `career_context` and `employer_context` at `api/services/llm.py:957–958`.
 
-### Session card commit idempotency
-**What:** Store `committed: true` on cards and check before writing to prevent duplicate YAML updates on retry.
-**Why:** Browser refresh during commit can apply the same card twice, producing duplicate YAML fields.
+### Session card commit idempotency — UX polish remaining
+**What:** `commit_card()` already returns HTTP 409 when a card is not in `pending` state, preventing duplicate YAML writes. Remaining: make the frontend treat a 409 on a previously-committed card as a silent no-op (not an error toast) in `web/components/admin/SmartCanvas.tsx`.
+**Why:** Data corruption is prevented; the counsellor experience on browser-refresh is still broken (error flash).
 **Depends on:** None.
 
 ### Path to multi-instance scaling
@@ -172,10 +166,8 @@ Shipped: all active employer YAMLs now use `singapore_headcount_estimate`, and t
 ### ~~Consolidate field allowlists~~ ✓ Done (2026-04-18)
 Shipped: covered by "Synchronize and expand profile field allowlists" above — same change, same commit.
 
-### Model name env var override
-**What:** Make `model.yaml` model name overridable via env var (e.g., `ANTHROPIC_MODEL`).
-**Why:** When Anthropic deprecates a model, requires YAML edit + redeployment currently.
-**Depends on:** None.
+### ~~Model name env var override~~ ✓ Done (2026-04-27)
+Shipped: `api/config.py:24` exposes `anthropic_model: str = ""` from `ANTHROPIC_MODEL` env var. `api/services/llm.py:91–92` `get_model_name()` reads it first and falls back to `model.yaml`.
 
 ### list_docs() scroll ceiling — optimize for large KBs
 **What:** Switch `VectorStore.list_docs()` from `scroll(limit=10000)` to per-doc `count()` calls, or add a 60s TTL cache in `kb_router.py`.
@@ -228,10 +220,8 @@ Shipped: `session_id` now propagates through live session analysis, Langfuse gro
 session views, and the admin Trace Explorer filters traces by session, operation, and status. The
 stale API build issue that initially hid traces was fixed during verification.
 
-### PDPA wording — query digest is not "anonymised aggregates"
-**What:** Replace "anonymised aggregates" with "query aggregates" in docs and UI copy.
-**Why:** The digest contains raw student query text, which is not anonymised.
-**Depends on:** None.
+### ~~PDPA wording — query digest is not "anonymised aggregates"~~ ✓ Stale (2026-04-27)
+The phrase "anonymised aggregates" does not appear in any active code or UI file — it was never written into the product. No action needed.
 
 ### Extend AlumniDetail with deferred career-trajectory fields
 **What:** Add `career_trajectory_pattern`, `seniority_level`, `salary_band_estimate`, `experience_diversity` to `AlumniDetail` (and `ALLOWED_ALUMNI_FIELDS` + the alumni extraction prompt). Reconcile `profile_tier` with the existing `completeness` field — pick one.

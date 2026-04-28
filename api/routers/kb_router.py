@@ -86,6 +86,41 @@ router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
 logger = logging.getLogger(__name__)
 
 _thresholds = kb_cfg["thresholds"]
+
+# --- list_docs() TTL cache ------------------------------------------------
+# list_docs() does an O(n_chunks) Qdrant scroll on every call.  Cache the
+# result for 60 s so concurrent or rapid health checks don't hammer Qdrant.
+# The cache is invalidated on every ingest via health_cache.invalidate_overlap_cache
+# (we piggyback on the same invalidation path rather than adding a second one).
+import threading as _threading
+
+_docs_cache_lock = _threading.Lock()
+_docs_cache: Optional[list[dict]] = None
+_docs_cache_expires: Optional[datetime] = None
+_DOCS_CACHE_TTL = timedelta(seconds=60)
+
+
+def _get_cached_docs(store: VectorStore) -> list[dict]:
+    """Return list_docs() result, using a 60 s TTL cache."""
+    global _docs_cache, _docs_cache_expires
+    now = datetime.now(timezone.utc)
+    with _docs_cache_lock:
+        if _docs_cache is not None and _docs_cache_expires is not None and now < _docs_cache_expires:
+            return _docs_cache
+    # Cache miss — fetch outside lock so we don't block other readers while scrolling.
+    docs = store.list_docs()
+    with _docs_cache_lock:
+        _docs_cache = docs
+        _docs_cache_expires = datetime.now(timezone.utc) + _DOCS_CACHE_TTL
+    return docs
+
+
+def _invalidate_docs_cache() -> None:
+    global _docs_cache, _docs_cache_expires
+    with _docs_cache_lock:
+        _docs_cache = None
+        _docs_cache_expires = None
+# -------------------------------------------------------------------------
 _COVERAGE_THIN_THRESHOLD = _thresholds["coverage_thin"]
 _LOW_CONFIDENCE_THRESHOLD = _thresholds["low_confidence"]
 _OVERLAP_SCORE_THRESHOLD = _thresholds["overlap_score"]
@@ -1167,6 +1202,7 @@ def commit_analysis(
 
     # --- 4. Invalidate caches ---
     health_cache.invalidate_overlap_cache()
+    _invalidate_docs_cache()
     profile_store.invalidate()
     employer_store.invalidate()
 
@@ -1216,9 +1252,7 @@ def kb_health(
     If Qdrant is unavailable, returns HTTP 503.
     """
     try:
-        # TODO: cache list_docs() result (60s TTL) when KB exceeds ~200 documents.
-        # Currently O(n_chunks) scroll on every call — acceptable at pre-launch scale.
-        docs = store.list_docs()
+        docs = _get_cached_docs(store)
     except Exception as e:
         logger.error("Qdrant unavailable during kb_health: %s", e)
         raise HTTPException(status_code=503, detail="KB unavailable")
@@ -1226,15 +1260,12 @@ def kb_health(
     total_docs = len(docs)
     total_chunks = sum(d["chunk_count"] for d in docs)
 
-    # --- Overlap pairs (cached) ---
-    cached = health_cache.get_overlap_pairs()
-    if cached is None:
-        try:
-            cached = _compute_overlap_pairs(store)
-            health_cache.set_overlap_pairs(cached)
-        except Exception:
-            logger.warning("Failed to compute overlap pairs", exc_info=True)
-            cached = []
+    # --- Overlap pairs (cached, thundering-herd-safe) ---
+    try:
+        cached = health_cache.compute_if_needed(lambda: _compute_overlap_pairs(store))
+    except Exception:
+        logger.warning("Failed to compute overlap pairs", exc_info=True)
+        cached = []
 
     overlapping_filenames = {p["doc_a"] for p in cached} | {p["doc_b"] for p in cached}
 
