@@ -6,6 +6,7 @@ try:
     import fcntl
 except ImportError:  # pragma: no cover - non-POSIX fallback
     fcntl = None
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from pathlib import Path
 from datetime import datetime, timezone
 from typing import Optional
@@ -33,6 +34,10 @@ from limiter import limiter
 
 router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
+
+# Reused across requests to avoid per-request thread-pool creation overhead.
+_INSIGHT_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="insight_write")
+_INSIGHT_WRITE_TIMEOUT_SECS = 3
 
 
 def _setting_bool(name: str, default: bool = False) -> bool:
@@ -243,19 +248,27 @@ def chat(
     )
     if _setting_bool("student_chat_insights_enabled") and len(req.message) >= _setting_int("student_chat_embedding_min_chars", 20):
         try:
-            message_id = insight_store.index_message(
+            future = _INSIGHT_EXECUTOR.submit(
+                insight_store.index_message,
                 text=req.message,
                 embedder=embedder,
                 active_career_type=active_career_type,
                 intake_context=req.intake_context,
                 has_resume=bool(req.resume_text),
             )
+            message_id = future.result(timeout=_INSIGHT_WRITE_TIMEOUT_SECS)
             logger.info(
                 "student insight indexed",
                 extra={
                     "collection": settings.student_chat_collection_name,
                     "message_id": message_id,
                 },
+            )
+        except FuturesTimeoutError:
+            logger.warning(
+                "student insight write timed out after %ds — chat unaffected",
+                _INSIGHT_WRITE_TIMEOUT_SECS,
+                extra={"collection": settings.student_chat_collection_name},
             )
         except Exception as exc:
             logger.warning(

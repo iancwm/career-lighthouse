@@ -110,6 +110,71 @@ def _run_chat_query(message, real_embedder, real_qdrant_client, profile_store, e
     return response, chunks, active_career_type
 
 
+ALUMNI_FIXTURES_DIR = pathlib.Path(__file__).parent / "fixtures" / "alumni_heavy_notes"
+
+
+@pytest.fixture(scope="module")
+def real_alumni_store():
+    from services.alumni_store import AlumniEntityStore
+    return AlumniEntityStore()
+
+
+@pytest.mark.integration
+class TestAlumniExtractionEval:
+    """T3 eval cases: verify generate_alumni_extraction output quality on real fixtures."""
+
+    def test_career_trajectory_summary_populated(self, real_llm_client):
+        """Alumni note should produce a populated career_trajectory_summary."""
+        from services.llm import generate_alumni_extraction
+
+        note = (ALUMNI_FIXTURES_DIR / "alumni_3.txt").read_text(encoding="utf-8")
+        result = generate_alumni_extraction(text=note, existing_alumni=[])
+        alumni_list = result.get("alumni") or []
+        assert alumni_list, "No alumni entries returned"
+        first = alumni_list[0]
+        proposals = first.get("profile_proposals") or {}
+        trajectory = proposals.get("career_trajectory_summary")
+        value = (trajectory or {}).get("value") if isinstance(trajectory, dict) else trajectory
+        assert value and len(str(value)) > 20, (
+            f"career_trajectory_summary is empty or too short. Got: {value!r}\n"
+            f"Full result: {result}"
+        )
+
+    def test_is_update_and_matched_slug_for_existing_alumnus(self, real_llm_client):
+        """When existing alumni are provided that match the note, is_update=True and matched_slug is set."""
+        from services.llm import generate_alumni_extraction
+
+        note = (ALUMNI_FIXTURES_DIR / "alumni_1.txt").read_text(encoding="utf-8")
+        # Provide the alumnus from the note as an existing candidate
+        existing = [{"slug": "alicia-tan", "full_name": "Alicia Tan", "current_company": "Stripe"}]
+        result = generate_alumni_extraction(text=note, existing_alumni=existing)
+        alumni_list = result.get("alumni") or []
+        assert alumni_list, "No alumni entries returned"
+        matched = [a for a in alumni_list if a.get("is_update") and a.get("matched_slug")]
+        assert matched, (
+            "Expected at least one alumni entry with is_update=True and matched_slug set.\n"
+            f"Alumni entries: {alumni_list}"
+        )
+        assert matched[0]["matched_slug"] == "alicia-tan", (
+            f"Expected matched_slug='alicia-tan', got {matched[0]['matched_slug']!r}"
+        )
+
+    def test_source_excerpt_populated(self, real_llm_client):
+        """Each alumni entry should include a non-empty source_excerpt."""
+        from services.llm import generate_alumni_extraction
+
+        note = (ALUMNI_FIXTURES_DIR / "alumni_2.txt").read_text(encoding="utf-8")
+        result = generate_alumni_extraction(text=note, existing_alumni=[])
+        alumni_list = result.get("alumni") or []
+        assert alumni_list, "No alumni entries returned"
+        for entry in alumni_list:
+            excerpt = entry.get("source_excerpt")
+            assert excerpt and len(str(excerpt)) > 5, (
+                f"source_excerpt missing or too short for entry: {entry.get('full_name')!r}\n"
+                f"Got: {excerpt!r}"
+            )
+
+
 @pytest.mark.integration
 class TestEvalQueries:
     """Run real eval queries through the full chat pipeline."""

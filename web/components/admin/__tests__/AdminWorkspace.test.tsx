@@ -119,7 +119,7 @@ describe("AdminWorkspace", () => {
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith("/api/admin/api/kb/health", {
-        headers: {},
+        credentials: "same-origin",
       })
     )
     expect(screen.queryByText("brief-generator")).not.toBeInTheDocument()

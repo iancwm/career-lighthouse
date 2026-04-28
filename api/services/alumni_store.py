@@ -684,10 +684,16 @@ class AlumniEntityStore(Singleton):
         payload.pop("filename", None)
         return self.append_link(slug, payload, link_id=link_id)
 
-    def sync_company_links(self, slug: str, submitted_links: list[dict[str, Any]]) -> None:
-        """Reconcile submitted company links against stored links."""
+    def sync_company_links(self, slug: str, submitted_links: list[dict[str, Any]]) -> tuple[int, int]:
+        """Reconcile submitted company links against stored links.
+
+        Returns ``(attempted, written)`` counts so callers can surface
+        any links that were silently dropped due to missing required fields.
+        """
+        attempted = len(submitted_links)
         desired_ids: list[str] = []
         seen_ids: set[str] = set()
+        written = 0
         for raw in submitted_links:
             normalized = _normalize_company_link(raw)
             if not normalized:
@@ -698,6 +704,7 @@ class AlumniEntityStore(Singleton):
             seen_ids.add(link_id)
             desired_ids.append(link_id)
             self.append_link(slug, normalized, link_id=link_id)
+            written += 1
 
         existing_ids = {
             str(link.get("link_id") or "").strip()
@@ -706,6 +713,8 @@ class AlumniEntityStore(Singleton):
         }
         for link_id in sorted(existing_ids - set(desired_ids)):
             self.delete_link(slug, link_id)
+
+        return attempted, written
 
     def _normalize_link_payload(self, slug: str, payload: dict[str, Any], *, link_id: str | None = None) -> dict[str, Any]:
         data = dict(payload)

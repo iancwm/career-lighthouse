@@ -29,6 +29,8 @@ class WriteResult:
     changed_fields: list[str]
     is_new: bool
     skipped_missing: bool = False
+    company_links_attempted: int | None = None
+    company_links_written: int | None = None
 
 
 @dataclass(frozen=True)
@@ -185,11 +187,18 @@ def apply_alumni_diff(slug: str, diff: dict[str, Any], *, source: str | None = N
         store.update_alumni(slug, candidate_fields)
         is_new = False
 
+    links_attempted: int | None = None
+    links_written: int | None = None
     if has_company_links:
-        store.sync_company_links(slug, company_links or [])
+        links_attempted, links_written = store.sync_company_links(slug, company_links or [])
         changed_fields.append("company_links")
 
-    return WriteResult(changed_fields=changed_fields, is_new=is_new)
+    return WriteResult(
+        changed_fields=changed_fields,
+        is_new=is_new,
+        company_links_attempted=links_attempted,
+        company_links_written=links_written,
+    )
 
 
 def upsert_kb_chunks(

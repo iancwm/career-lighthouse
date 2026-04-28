@@ -21,6 +21,22 @@ def in_memory_qdrant():
 
 
 @pytest.fixture(autouse=True)
+def reset_docs_cache():
+    """Invalidate the list_docs() TTL cache before and after each test."""
+    try:
+        from routers.kb_router import _invalidate_docs_cache
+        _invalidate_docs_cache()
+    except Exception:
+        pass
+    yield
+    try:
+        from routers.kb_router import _invalidate_docs_cache
+        _invalidate_docs_cache()
+    except Exception:
+        pass
+
+
+@pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Ensure per-test rate limiting state does not leak across the suite."""
     limiter.reset()

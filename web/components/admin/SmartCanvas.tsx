@@ -423,7 +423,9 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
         return
       }
       if (!res.ok) throw new Error("commit failed")
-      setNotice("Card committed.")
+      const data = await res.json().catch(() => ({}))
+      const warning = data?.company_links_warning
+      setNotice(warning ? `Card committed. ⚠️ ${warning}` : "Card committed.")
       await loadSession()
     } catch {
       setError("Could not commit card.")

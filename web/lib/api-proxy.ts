@@ -32,7 +32,11 @@ export function forwardHeaders(request: NextRequest, includeAdminKey = false) {
   headers.delete("x-admin-key")
 
   if (includeAdminKey) {
-    const adminKey = request.headers.get("x-admin-key") || process.env.ADMIN_KEY
+    // Prefer the session cookie set by middleware (key is no longer in the URL).
+    // Fall back to the explicit header (legacy) and then to the server env var (dev mode).
+    // Optional chain guards against plain Request objects used in unit tests.
+    const cookieKey = request.cookies?.get?.("admin-session-key")?.value
+    const adminKey = cookieKey || request.headers.get("x-admin-key") || process.env.ADMIN_KEY
     if (adminKey) {
       headers.set("x-admin-key", adminKey)
     }
