@@ -29,87 +29,74 @@ export default function AdminWorkspaceHeader({
   onSelectWorkstream,
 }: AdminWorkspaceHeaderProps) {
   return (
-    <header className="mb-6 rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)]/92 p-6 shadow-[0_18px_60px_rgba(31,41,55,0.08)] backdrop-blur">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-3xl">
-          <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Counsellor workspace</p>
-          <h1 className="mt-2 font-display text-3xl leading-tight text-[var(--cl-ink)] sm:text-4xl">
-            Career Lighthouse
-          </h1>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-            Workstream-first navigation keeps intake, student prep, and machine-room operations in separate lanes.
-          </p>
+    <header className="mb-4 rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface)] shadow-[0_4px_16px_rgba(31,41,55,0.06)]">
+      {/* Row 1: wordmark + active page + shortcuts */}
+      <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-[var(--cl-line)]">
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="shrink-0 font-display text-sm font-medium text-[var(--cl-ink)]">Career Lighthouse</span>
+          <span className="text-[var(--cl-line)]" aria-hidden="true">·</span>
+          <div className="min-w-0">
+            <span className="block text-sm font-medium text-[var(--cl-ink)] truncate">{currentSurface.label}</span>
+            <span className="block text-xs text-[var(--cl-muted)] truncate max-w-sm">{currentSurface.description}</span>
+          </div>
         </div>
 
-        <div className="flex flex-col items-end gap-3">
-          <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
-            <p className="text-xs uppercase tracking-[0.22em] text-[var(--cl-muted)]">Active page</p>
-            <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{currentSurface.label}</p>
-            <p className="mt-1 text-sm text-[var(--cl-muted)]">{currentSurface.description}</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {view !== "sessions" && (
-              <button
-                type="button"
-                onClick={() => onNavigate({ view: "sessions", sessionId: null, trackSlug: null })}
-                className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90"
-              >
-                ← Staging Area
-              </button>
-            )}
-            {(activeWorkstream.id === "smart-counsellor" || activeWorkstream.id === "admin-room") && view !== "traces" && (
-              <button
-                type="button"
-                onClick={() => onNavigate({ view: "traces", sessionId: null })}
-                className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
-              >
-                Open Trace Explorer
-              </button>
-            )}
+        <div className="flex shrink-0 items-center gap-2">
+          {view !== "sessions" && (
             <button
-              ref={toggleButtonRef}
               type="button"
-              onClick={onToggleDrawer}
-              aria-expanded={drawerOpen}
-              className="rounded-full border border-[var(--cl-line)] bg-white/70 px-4 py-2 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white"
+              onClick={() => onNavigate({ view: "sessions", sessionId: null, trackSlug: null })}
+              className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-3 py-1.5 text-xs font-medium text-white hover:bg-[var(--cl-accent-strong)] transition-colors"
             >
-              {drawerOpen ? "\u2715 Close" : `\u2699 Browse ${activeWorkstream.label}`}
+              ← Staging Area
             </button>
-          </div>
+          )}
+          {(activeWorkstream.id === "smart-counsellor" || activeWorkstream.id === "admin-room") && view !== "traces" && (
+            <button
+              type="button"
+              onClick={() => onNavigate({ view: "traces", sessionId: null })}
+              className="rounded-full border border-[var(--cl-line)] bg-transparent px-3 py-1.5 text-xs text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/60 transition-colors"
+            >
+              Traces
+            </button>
+          )}
+          <button
+            ref={toggleButtonRef}
+            type="button"
+            onClick={onToggleDrawer}
+            aria-expanded={drawerOpen}
+            className="rounded-full border border-[var(--cl-line)] bg-transparent px-3 py-1.5 text-xs text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/60 transition-colors"
+          >
+            {drawerOpen ? "✕ Close" : `⚙ Browse ${activeWorkstream.label}`}
+          </button>
         </div>
       </div>
 
-      <div className="mt-6 grid gap-3 md:grid-cols-3">
+      {/* Row 2: compact workstream tabs */}
+      <div role="tablist" aria-label="Workstreams" className="flex border-b border-[var(--cl-line)] px-4">
         {ADMIN_WORKSTREAMS.map((workstream) => {
           const isActive = workstream.id === activeWorkstream.id
           return (
             <button
               key={workstream.id}
+              role="tab"
+              aria-selected={isActive}
               type="button"
               onClick={() => onSelectWorkstream(workstream.defaultView)}
-              className={`rounded-2xl border px-4 py-4 text-left transition-colors ${
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
                 isActive
-                  ? "border-[var(--cl-accent)] bg-[var(--cl-accent)]/8"
-                  : "border-[var(--cl-line)] bg-[var(--cl-surface)] hover:border-[var(--cl-accent)]/40"
+                  ? "border-[var(--cl-accent)] text-[var(--cl-accent)]"
+                  : "border-transparent text-[var(--cl-muted)] hover:text-[var(--cl-ink)]"
               }`}
             >
-              <p className="font-display text-xl text-[var(--cl-ink)]">{workstream.label}</p>
-              <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">{workstream.description}</p>
-              <span
-                className={`mt-3 inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                  isActive
-                    ? "bg-[var(--cl-accent)] text-white"
-                    : "bg-[var(--cl-surface-2)] text-[var(--cl-muted)]"
-                }`}
-              >
-                {isActive ? "Current lane" : "Switch lane"}
-              </span>
+              {workstream.label}
             </button>
           )
         })}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      {/* Row 3: view pills for active workstream */}
+      <div className="flex flex-wrap gap-1.5 px-4 py-2.5">
         {workstreamViews.map((item) => {
           const isActive = activeSurfaceId === item.id
           return (
@@ -117,7 +104,7 @@ export default function AdminWorkspaceHeader({
               key={item.id}
               type="button"
               onClick={() => onNavigate({ view: item.id })}
-              className={`rounded-full border px-4 py-2 text-sm transition-colors ${
+              className={`rounded-full border px-3 py-1 text-sm transition-colors ${
                 isActive
                   ? "border-[var(--cl-accent)] bg-[var(--cl-accent)] text-white"
                   : "border-[var(--cl-line)] bg-[var(--cl-surface)] text-[var(--cl-ink)] hover:border-[var(--cl-accent)]/50"

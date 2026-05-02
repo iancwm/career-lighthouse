@@ -14,7 +14,14 @@ services:
       start_period: 20s
 
   api:
-    build: ./api
+    build:
+      context: ./api
+      # Match the container user's UID/GID to the host developer so files
+      # written to ./knowledge and ./logs are directly editable on the host.
+      # Add UID and GID to your .env file (see .env.example).
+      args:
+        USER_UID: "${UID:-1000}"
+        USER_GID: "${GID:-1000}"
     ports:
       - "8000:8000"
     environment:

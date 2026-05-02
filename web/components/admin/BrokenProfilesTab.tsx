@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 const API_URL = "/api/admin"
 
@@ -100,12 +101,10 @@ export default function BrokenProfilesTab() {
           aria-live="polite"
         >
           <span className="inline-flex items-start gap-2">
-            {feedback.tone === "pending" ? (
-              <span className="mt-0.5 inline-block h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-amber-500 border-t-transparent" />
-            ) : (
-              <span className="shrink-0">⚠</span>
-            )}
-            <span>{feedback.message}</span>
+            {feedback.tone === "pending"
+              ? <ActionStatus variant="caution" size="sm" label={feedback.message} announce={false} />
+              : <><span className="shrink-0">⚠</span><span>{feedback.message}</span></>
+            }
           </span>
           {feedback.tone === "review" && (
             <button

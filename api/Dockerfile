@@ -24,8 +24,15 @@ RUN --mount=type=cache,target=/root/.cache/huggingface \
 
 COPY . .
 
-# Run as non-root user to limit blast radius on container escape
-RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser && \
+# Allow the container to run as the host user so bind-mounted files in
+# ./knowledge and ./logs are owned by the developer's UID/GID.
+# Pass USER_UID / USER_GID at build time (see docker-compose.yml).
+# Defaults to 1000:1000 (the first non-root user on most Linux systems).
+ARG USER_UID=1000
+ARG USER_GID=1000
+
+RUN addgroup --system --gid ${USER_GID} appgroup && \
+    adduser --system --uid ${USER_UID} --ingroup appgroup --home /home/appuser appuser && \
     mkdir -p /home/appuser/.cache/uv /app/.cache && \
     chown -R appuser:appgroup /home/appuser /app/.cache
 RUN chown -R appuser:appgroup /app
