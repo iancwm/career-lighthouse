@@ -88,9 +88,9 @@ describe("AdminWorkspace", () => {
   it("defaults to sessions and normalizes the URL", async () => {
     render(<AdminWorkspace />)
 
-    expect(screen.getByRole("button", { name: /Career Wire.*Current lane/i })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Smart Counsellor.*Switch lane/i })).toBeInTheDocument()
-    expect(screen.getByRole("button", { name: /Admin Room.*Switch lane/i })).toBeInTheDocument()
+    expect(screen.getByRole("tab", { name: "Career Wire" })).toHaveAttribute("aria-selected", "true")
+    expect(screen.getByRole("tab", { name: "Smart Counsellor" })).toHaveAttribute("aria-selected", "false")
+    expect(screen.getByRole("tab", { name: "Admin Room" })).toHaveAttribute("aria-selected", "false")
     expect(screen.getByRole("button", { name: /Staging Area/i })).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /open session/i })).toBeInTheDocument()
 
@@ -292,7 +292,7 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     expect(screen.queryByRole("button", { name: /^Trace Explorer$/i })).not.toBeInTheDocument()
-    fireEvent.click(screen.getByRole("button", { name: /Open Trace Explorer/i }))
+    fireEvent.click(screen.getByRole("button", { name: /^Traces$/i }))
 
     expect(push).toHaveBeenCalledWith("/admin?view=traces", { scroll: false })
   })

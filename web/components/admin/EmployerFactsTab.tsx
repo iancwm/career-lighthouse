@@ -848,7 +848,10 @@ export default function EmployerFactsTab() {
         Keep employer-specific information current here. These facts are used to answer direct student questions about hiring requirements, timelines, and application process.
       </p>
 
-      <div className="flex gap-0 rounded-xl border border-gray-200 overflow-hidden min-h-[560px]">
+      <div
+        className="flex gap-0 rounded-xl border border-[var(--cl-line)] overflow-hidden"
+        style={{ height: "max(480px, calc(100vh - 260px))" }}
+      >
         {/* ── Left panel (35%) ─────────────────────────────────── */}
         <div className="w-[35%] border-r border-gray-200 flex flex-col">
           {listState === "loading" && (
@@ -958,7 +961,7 @@ export default function EmployerFactsTab() {
         </div>
 
         {/* ── Right panel (65%) ─────────────────────────────────── */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Unsaved changes warning */}
           {(unsavedConfirm || navigationLockedMessage) && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
@@ -1024,7 +1027,7 @@ export default function EmployerFactsTab() {
 
           {/* Form (view / create) */}
           {(selected || mode === "create") && (
-            <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="flex-1 flex flex-col overflow-hidden min-h-0">
               {/* Tab selector */}
               <div className="flex border-b border-gray-200 px-4 pt-3">
                 <button
