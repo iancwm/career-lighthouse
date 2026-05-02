@@ -23,6 +23,8 @@ These docs are still maintained against the codebase:
 - `docs/code_quality_sprint/` - active structural cleanup plan for routers,
   YAML write services, trace adapters, and `services/llm.py`
 - `docs/alumni_schema/SPRINT-ALUMNI-CARDS.md` - card-native alumni integration sprint plan
+- `docs/SPRINT-UX-WORKSPACE-CLARITY.md` - planned UX sprint for
+  analysis visibility, Employer Fact Library save clarity, and screen economy
 
 ## Archived Specs And Plans
 
