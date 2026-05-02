@@ -1,5 +1,6 @@
 "use client"
 import { useRef, useState, useEffect } from "react"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 const API_URL = "/api/admin"
 
@@ -356,9 +357,8 @@ function resetToIdle() {
 
           {state === "analysing" && (
             <div className="h-full min-h-[240px] flex flex-col items-center justify-center gap-3 rounded-xl border border-gray-200">
-              <div className="w-6 h-6 border-2 border-[#0F766E] border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-500">{statusText}</p>
-              <button onClick={resetToIdle} className="text-xs text-gray-400 hover:text-gray-600 underline mt-1">
+              <ActionStatus size="md" label={statusText} />
+              <button onClick={resetToIdle} className="text-xs text-[var(--cl-muted)] hover:text-[var(--cl-ink)] underline mt-1">
                 Cancel
               </button>
             </div>

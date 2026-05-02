@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react"
 import FactCard from "./forms/FactCard"
 import FactEditor from "./forms/FactEditor"
 import ExtractedFactsModal from "./modals/ExtractedFactsModal"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 import { Fact, getFactKeyValue, getFactTypeLabel, isActiveFact, normalizeFactLifecycle, sortFactsForDisplay } from "@/types/facts"
 
 const API_URL = "/api/admin"
@@ -289,6 +290,7 @@ export default function EmployerFactsTab() {
   const undoTickRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isDirty = useRef(false)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [pendingExtractedCount, setPendingExtractedCount] = useState(0)
 
   const trackOptions = profiles.map((p) => ({ value: p.slug, label: p.career_type }))
 
@@ -296,6 +298,16 @@ export default function EmployerFactsTab() {
     fetchEmployers()
     fetchProfiles()
   }, [])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [hasUnsavedChanges])
 
   useEffect(() => {
     return () => {
@@ -344,6 +356,7 @@ export default function EmployerFactsTab() {
     setActiveTab("details")
     isDirty.current = false
     setHasUnsavedChanges(false)
+    setPendingExtractedCount(0)
     setUnsavedConfirm(null)
     setShowFactEditor(false)
     setUndoToast(null)
@@ -475,6 +488,17 @@ export default function EmployerFactsTab() {
     setExtractedFacts([])
     isDirty.current = true
     setHasUnsavedChanges(true)
+    setPendingExtractedCount((prev) => prev + factsToAdd.length)
+  }
+
+  function handleDiscardChanges() {
+    if (!selected) return
+    const structuredFacts = (selected.structured?.facts as Fact[]) || []
+    setFacts(normalizeFacts(structuredFacts))
+    setForm({ ...selected })
+    isDirty.current = false
+    setHasUnsavedChanges(false)
+    setPendingExtractedCount(0)
   }
 
   function updateField(field: keyof EmployerDetail, value: unknown) {
@@ -535,6 +559,7 @@ export default function EmployerFactsTab() {
       showSuccessBanner("Employer created.")
       isDirty.current = false
       setHasUnsavedChanges(false)
+      setPendingExtractedCount(0)
       return true
     } catch {
       setSaveState("error")
@@ -573,6 +598,7 @@ export default function EmployerFactsTab() {
       showSuccessBanner("Saved.")
       isDirty.current = false
       setHasUnsavedChanges(false)
+      setPendingExtractedCount(0)
       return true
     } catch {
       setSaveState("error")
@@ -794,6 +820,11 @@ export default function EmployerFactsTab() {
     : hasUnsavedChanges
       ? "You have unsaved changes. Save or discard them before switching employers."
       : ""
+  const saveButtonLabel = mode === "create"
+    ? "Create employer record"
+    : pendingExtractedCount > 0
+      ? `Save ${pendingExtractedCount} extracted fact${pendingExtractedCount === 1 ? "" : "s"}`
+      : "Save employer updates"
   const historyHref = selected ? `${API_URL}/api/kb/employers/${selected.slug}/history` : null
   const supersededByBySlug = new Map<string, string>()
   for (const fact of facts) {
@@ -1265,11 +1296,11 @@ export default function EmployerFactsTab() {
 
                       {/* Analysing / publishing spinner */}
                       {(replaceFlowState === "analysing" || replaceFlowState === "publishing") && (
-                        <div className="flex items-center justify-center gap-3 py-8">
-                          <div className="w-5 h-5 border-2 border-[#0F766E] border-t-transparent rounded-full animate-spin" />
-                          <p className="text-sm text-[#5F6B76]">
-                            {replaceFlowState === "publishing" ? "Publishing update..." : "Preparing review..."}
-                          </p>
+                        <div className="flex items-center justify-center py-8">
+                          <ActionStatus
+                            size="md"
+                            label={replaceFlowState === "publishing" ? "Publishing update…" : "Preparing review…"}
+                          />
                         </div>
                       )}
 
@@ -1456,14 +1487,9 @@ export default function EmployerFactsTab() {
                         className="flex-1 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-400"
                         title={!form.notes?.trim() ? "Add notes first" : ""}
                       >
-                        {extractLoading ? (
-                          <span className="flex items-center justify-center gap-2">
-                            <span className="w-3 h-3 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
-                            Extracting...
-                          </span>
-                        ) : (
-                          "🔍 Extract from notes"
-                        )}
+                        {extractLoading
+                          ? <ActionStatus variant="active" size="sm" label="Extracting…" />
+                          : "🔍 Extract from notes"}
                       </button>
                     </div>
                   )}
@@ -1527,20 +1553,32 @@ export default function EmployerFactsTab() {
                 />
               )}
 
-              {/* Sticky Save button */}
-              <div className="sticky bottom-0 z-10 border-t border-gray-100 px-4 py-3 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-[0_-6px_20px_rgba(15,23,42,0.06)]">
-                <button
-                  onClick={handleSave}
-                  disabled={!canSave || saveState === "saving"}
-                  className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-xl hover:bg-blue-700 disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                >
-                  {saveState === "saving" ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Saving...
-                    </span>
-                  ) : mode === "create" ? "Create employer record" : "Save employer updates"}
-                </button>
+              {/* Sticky save bar */}
+              <div className="sticky bottom-0 z-10 border-t border-[var(--cl-line)] px-4 py-3 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 shadow-[0_-6px_20px_rgba(15,23,42,0.06)]">
+                {pendingExtractedCount > 0 && saveState !== "saving" && (
+                  <p className="text-xs text-[var(--cl-warning)] mb-2">
+                    {pendingExtractedCount} extracted fact{pendingExtractedCount === 1 ? "" : "s"} not saved yet.
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSave}
+                    disabled={!canSave || saveState === "saving"}
+                    className="flex-1 flex items-center justify-center py-2.5 bg-[var(--cl-accent)] text-white text-sm font-medium rounded-xl hover:bg-[var(--cl-accent-strong)] disabled:opacity-40 focus:outline-none focus:ring-2 focus:ring-[var(--cl-accent)]"
+                  >
+                    {saveState === "saving"
+                      ? <ActionStatus variant="on-dark" size="sm" label="Saving…" />
+                      : saveButtonLabel}
+                  </button>
+                  {hasUnsavedChanges && saveState !== "saving" && mode !== "create" && (
+                    <button
+                      onClick={handleDiscardChanges}
+                      className="px-3 py-2.5 border border-[var(--cl-line)] text-[var(--cl-muted)] text-sm font-medium rounded-xl hover:bg-[var(--cl-surface-2)] focus:outline-none focus:ring-2 focus:ring-[var(--cl-line)]"
+                    >
+                      Discard
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}

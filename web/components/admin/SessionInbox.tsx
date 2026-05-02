@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
 import AlumniDetectionModal from "@/components/admin/modals/AlumniDetectionModal"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024 // 10MB
 const ACCEPTED_TYPES = [
@@ -569,10 +570,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
                         className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusStyle(session.status)}`}
                       >
                         {(session.status === "in-progress" || session.status === "analyzing") && (
-                          <svg className="mr-1 h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
+                          <ActionStatus variant="caution" size="sm" className="mr-1" />
                         )}
                         {statusLabel(session.status)}
                       </span>

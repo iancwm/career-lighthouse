@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 type CardDomain = "employer" | "track" | "alumni" | string
 
@@ -276,6 +277,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   const [editingDiff, setEditingDiff] = useState<Record<string, unknown>>({})
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [isAnalyzingNow, setIsAnalyzingNow] = useState(false)
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [statusDots, setStatusDots] = useState(0)
@@ -322,6 +324,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
 
   async function analyzeSession() {
     setActionLoading(true)
+    setIsAnalyzingNow(true)
     setNotice("Analyzing your notes with AI…")
     setError("")
     try {
@@ -355,6 +358,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
       setError(err.message || "Could not analyze session.")
     } finally {
       setActionLoading(false)
+      setIsAnalyzingNow(false)
       setLoading(false)
     }
   }
@@ -460,14 +464,15 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
 
   if (loading) {
     return (
-      <div className="flex items-center gap-3 text-sm text-gray-500 py-8">
-        <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-        </svg>
-        {session?.status === "in-progress" || session?.status === "analyzing"
-          ? `Analyzing${".".repeat(statusDots)}`
-          : "Loading session…"}
+      <div className="py-8">
+        <ActionStatus
+          size="md"
+          label={
+            session?.status === "in-progress" || session?.status === "analyzing"
+              ? `Analyzing${".".repeat(statusDots)}`
+              : "Loading session…"
+          }
+        />
       </div>
     )
   }
@@ -475,7 +480,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
 
   const isComplete = session.status === "completed"
   const isAnalyzed = session.status === "analyzed"
-  const isInFlight = session.status === "in-progress" || session.status === "analyzing"
+  const isInFlight = session.status === "in-progress" || session.status === "analyzing" || isAnalyzingNow
   const canRetry = session.status === "failed" || session.status === "cancelled"
   const statusText = isInFlight ? `Analyzing${".".repeat(statusDots)}` : session.status
   const pendingCards = session.intent_cards.filter((c) => c.status === "pending")
@@ -497,15 +502,12 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
             ← Back to Sessions
           </button>
           <div className="flex items-center gap-2">
-            {isInFlight && (
-              <svg className="h-4 w-4 animate-spin text-amber-600" viewBox="0 0 24 24" aria-hidden="true">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-              </svg>
-            )}
             <h2 className="text-lg font-semibold">
               {isComplete ? "Session Complete" : `Session: ${statusText}`}
             </h2>
+            {isInFlight && (
+              <ActionStatus variant="caution" size="sm" />
+            )}
           </div>
           <p className="text-xs text-gray-500">
             Created {new Date(session.created_at).toLocaleString()} by {session.created_by}
@@ -536,18 +538,22 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
             <button
               onClick={analyzeSession}
               disabled={actionLoading}
-              className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--cl-accent)] px-3 py-1.5 text-xs font-medium text-[var(--cl-accent)] hover:bg-teal-50 disabled:opacity-40"
             >
-              {actionLoading ? "Analyzing…" : "Retry analysis"}
+              {actionLoading
+                ? <ActionStatus variant="active" size="sm" label="Analyzing…" />
+                : "Retry analysis"}
             </button>
           )}
           {isAnalyzed && hasNoCards && (
             <button
               onClick={analyzeSession}
               disabled={actionLoading}
-              className="rounded-lg border border-blue-300 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--cl-accent)] px-3 py-1.5 text-xs font-medium text-[var(--cl-accent)] hover:bg-teal-50 disabled:opacity-40"
             >
-              {actionLoading ? "Analyzing…" : "Re-analyze"}
+              {actionLoading
+                ? <ActionStatus variant="active" size="sm" label="Analyzing…" />
+                : "Re-analyze"}
             </button>
           )}
         </div>

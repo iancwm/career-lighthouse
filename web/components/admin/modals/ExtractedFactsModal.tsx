@@ -1,6 +1,7 @@
 "use client"
 import { useState } from "react"
 import FactDataView from "../forms/FactDataView"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 import {
   Fact,
   getFactKeyValue,
@@ -67,10 +68,7 @@ export default function ExtractedFactsModal({
         <div className="flex-1 overflow-y-auto p-6">
           {isLoading && (
             <div className="flex items-center justify-center py-12">
-              <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
-                <p className="text-sm text-gray-600">Extracting facts from notes...</p>
-              </div>
+              <ActionStatus size="md" label="Extracting facts from notes…" />
             </div>
           )}
 
