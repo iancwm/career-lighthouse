@@ -13,7 +13,7 @@ just up
 ```
 
 - Career office: http://localhost:3000/admin
-- If you set `ADMIN_KEY`, append `?key=...` to the admin URL
+- If you set `ADMIN_KEY`, open `/admin?key=...` once; middleware exchanges it for an HttpOnly session cookie and redirects to the clean URL
 - Student advisor: http://localhost:3000/student
 
 ## Admin Key Configuration
@@ -47,20 +47,20 @@ ADMIN_KEY=your-generated-key-here
 ```
 
 **Important security notes:**
-- The admin key is passed as a **query parameter** (`?key=...`) in the browser — it will appear in server access logs
-- For production, consider migrating to `Authorization: Bearer` headers or session cookies (see TODOS.md)
+- The admin key is only accepted on the first request as a **query parameter** (`?key=...`); middleware validates it, sets an HttpOnly session cookie, and redirects to the clean URL
+- That first request can still appear in server access logs, so prefer TLS everywhere and rotate the key regularly
 - Rotate the key regularly via SSM SecureString in AWS
 - Both the API and Web services must share the same `ADMIN_KEY` value
 
 ### Accessing the Admin Dashboard
 
-Once `ADMIN_KEY` is set, access the dashboard with the key as a query parameter:
+Once `ADMIN_KEY` is set, access the dashboard with the key as a query parameter on the first visit:
 
 ```
 http://localhost:3000/admin?key=your-admin-key-here
 ```
 
-If the key is missing or incorrect, you'll see an "Unauthorized" error.
+After the redirect, the clean `/admin` URL uses the session cookie. If the key is missing or incorrect on first visit, you'll see an "Unauthorized" error.
 
 ## Developer Workflow
 
@@ -92,7 +92,7 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 
 `docs/README.md` is the index for the docs tree.
 
-- Active specs live in `docs/schema/` and `docs/alumni_schema/`
+- Active specs live in `docs/code_quality_sprint/`
 - Completed sprint specs and dated plans live in `docs/archived/`
 - Root docs for the current project state are `AUDIT.md`, `DESIGN.md`, `TODOS.md`, and `CHANGELOG.md`
 
@@ -116,9 +116,9 @@ The career office dashboard (`/admin`) includes:
 - **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Alumni-heavy Staging Area notes now emit `alumni` cards alongside track and employer cards, and SmartCanvas renders an alumni-specific review surface with confidence, evidence, trajectory, and company-history context. Session extraction emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so bad payloads fail fast instead of leaking into YAML writes.
 - **Knowledge Review** — structured review of proposed KB edits before anything is written.
 - **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
-- **Employer Facts** — maintain employer YAMLs, review track coverage for employer context, and inspect the full extracted fact `data` payload before saving structured updates.
+- **Employer Facts** — maintain employer YAMLs, review track coverage for employer context, inspect the full extracted fact `data` payload before saving structured updates, and keep sticky save/discard context visible during long extracted-fact reviews.
 - **Alumni Records** — maintain canonical alumni YAMLs plus append-only company-link history, while the Staging Area alumni-card flow feeds the same store through reviewed commits instead of a separate modal workflow.
-- **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, and keeps the archived working copy separate from the published profile. If a published track exists but the draft copy is missing, the builder now seeds the draft and registry automatically so the track stays editable instead of disappearing from the editor.
+- **Track Builder** — only for recurring evidence that needs a new or revised track. It shows the live published reference, supports refresh from new research, keeps the archived working copy separate from the published profile, and now holds the selected draft plus publish/rollback actions in a compact workbench layout. If a published track exists but the draft copy is missing, the builder now seeds the draft and registry automatically so the track stays editable instead of disappearing from the editor.
 - **KB Health** — live observability: doc coverage (good/thin), 7-day avg match score and retrieval diversity, low-confidence query log, and redundant document detection.
 - **LLM Observability** — session and prompt traces, live run state, a dedicated Trace Explorer that reads Langfuse first, and optional Langfuse-backed debugging for model calls.
 

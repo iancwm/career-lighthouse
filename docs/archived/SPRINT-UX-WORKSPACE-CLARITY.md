@@ -1,5 +1,5 @@
 ---
-status: planned
+status: completed
 created: 2026-05-02
 last_updated: 2026-05-02
 ---
@@ -10,6 +10,8 @@ last_updated: 2026-05-02
 **Goal:** Make long-running AI work, unsaved extracted facts, and the main admin workspace state impossible to miss while reducing the amount of scrolling needed to keep context.  
 **Primary surfaces:** Staging Area, Employer Fact Library, shared admin workspace shell.  
 **Branch convention:** one PR per block when possible; all affected Vitest and Playwright checks green before merge.
+
+**Status (2026-05-02):** Sprint complete. PR #20 shipped A1, B1, B2, C1, C2, and D1 plus the first A2 sweep (BrokenProfilesTab, EmployerFactsTab, KnowledgeUpdateTab, SessionInbox, SmartCanvas, ExtractedFactsModal). The follow-up pass completed the remaining A2 admin-tab audit, D2 sticky local context for the densest two-pane tools, and E1/E2 verification with focused Vitest and Playwright coverage.
 
 ---
 
@@ -61,9 +63,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 ## Block A - Shared Admin Status Components
 
-### A1. Add a shared loading/action status component
+### ~~A1. Add a shared loading/action status component~~  ✓ Shipped
 
-**What:** Create a shared admin status primitive for spinner + label + optional helper text. Use it for analyzing, loading, extracting, saving, and publishing states.
+`web/components/admin/ui/ActionStatus.tsx` now provides spinner + label + optional helper text with `active`, `caution`, and `on-dark` variants and `sm`/`md` sizes. Used across SmartCanvas, SessionInbox, EmployerFactsTab, KnowledgeUpdateTab, ExtractedFactsModal, and BrokenProfilesTab.
 
 **Suggested file:** `web/components/admin/ui/ActionStatus.tsx`
 
@@ -98,23 +100,27 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 **Estimate:** 0.5 day
 
-### A2. Audit every admin tab for loading-state consistency
+### ~~A2. Audit every admin tab for loading-state consistency~~  ✓ Shipped
+
+**Shipped in PR #20:** Staging Area / SmartCanvas, Employer Fact Library, Knowledge Review, SessionInbox session-row spinner, ExtractedFactsModal, and BrokenProfilesTab now use `ActionStatus` instead of bespoke SVG spinners.
+
+**Completed in follow-up:** Source Documents / KB Health, Student Insights, Facts Dashboard, Alumni Records, Track Builder, Resume Review, LLM Observability, and Trace Explorer now use the shared `ActionStatus` treatment for long-running work, while intentional skeleton states also carry accessible loading text.
 
 **What:** Sweep all admin tabs and standardize their long-running states. Use the shared spinner/status component for action-level work and keep skeletons only where they represent content layout loading.
 
 **Tabs in scope:**
 
-- Staging Area / SmartCanvas
-- Employer Fact Library
-- Knowledge Review
-- Source Documents / KB Health
-- Student Insights
-- Facts Dashboard
-- Alumni Records
-- Track Builder
-- Resume Review
-- LLM Observability
-- Trace Explorer
+- Staging Area / SmartCanvas ✓
+- Employer Fact Library ✓
+- Knowledge Review ✓
+- Source Documents / KB Health ✓
+- Student Insights ✓
+- Facts Dashboard ✓
+- Alumni Records ✓
+- Track Builder ✓
+- Resume Review ✓
+- LLM Observability ✓
+- Trace Explorer ✓
 
 **Acceptance criteria:**
 
@@ -129,7 +135,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 ## Block B - Staging Area Analysis Visibility
 
-### B1. Show the same spinner during initial analysis and refreshed analysis
+### ~~B1. Show the same spinner during initial analysis and refreshed analysis~~  ✓ Shipped
+
+`SmartCanvas.tsx` now sets `isAnalyzingNow` when `analyzeSession()` starts, threads it into `isInFlight`, and renders the shared `ActionStatus` (md size) inside the loading panel. The visual state during initial analyze, refresh-mid-analyze, and retry now share the same component and copy.
 
 **What:** When a session analysis is initiated from Staging Area, show the same visible spinner users currently see after refreshing an analyzing session.
 
@@ -157,7 +165,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 **Estimate:** 0.5-1 day
 
-### B2. Standardize session list row status
+### ~~B2. Standardize session list row status~~  ✓ Shipped
+
+`SessionInbox.tsx` session rows now render `ActionStatus` (caution variant, sm) for `in-progress` / `analyzing` rows in place of the old inline SVG spinner.
 
 **What:** Align Staging Area session rows with the same loading language so users can tell which sessions are analyzing before opening them.
 
@@ -177,7 +187,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 ## Block C - Employer Fact Library Save Clarity
 
-### C1. Promote unsaved extracted facts to a persistent local state rail
+### ~~C1. Promote unsaved extracted facts to a persistent local state rail~~  ✓ Shipped
+
+`EmployerFactsTab.tsx` now tracks `pendingExtractedCount`, increments it when extracted facts are added, and threads it into the sticky save area so the count and copy reflect unsaved extracted facts. Save and discard paths reset the count and dirty state.
 
 **What:** When extracted facts are added from the modal, show a sticky local state rail in Employer Fact Library until the user saves or discards.
 
@@ -208,7 +220,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 **Estimate:** 1-1.5 days
 
-### C2. Add a beforeunload guard for unsaved employer facts
+### ~~C2. Add a beforeunload guard for unsaved employer facts~~  ✓ Shipped
+
+`EmployerFactsTab.tsx` registers a `beforeunload` listener while `hasUnsavedChanges` is true and removes it after save or discard.
 
 **What:** Add a browser-level guard when `hasUnsavedChanges` is true in Employer Fact Library.
 
@@ -224,7 +238,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 ## Block D - Workspace Screen Economy
 
-### D1. Make the admin header and workspace controls less vertically expensive
+### ~~D1. Make the admin header and workspace controls less vertically expensive~~  ✓ Shipped
+
+`AdminWorkspaceHeader.tsx` was rewritten as a two-row, compact header: row 1 carries wordmark + active page label + Staging Area / Traces / Browse shortcuts; the verbose tagline and stacked "Active page" card were removed. `DirectiveBanner.tsx` was tightened in the same PR. The active surface label remains visible above the fold at common desktop widths.
 
 **What:** Reduce the persistent admin header footprint so each tool starts higher on the page without losing navigation context.
 
@@ -249,7 +265,9 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 **Estimate:** 1 day
 
-### D2. Add sticky local context to dense two-pane tools
+### ~~D2. Add sticky local context to dense two-pane tools~~  ✓ Shipped
+
+Employer Fact Library, SmartCanvas, and Track Builder now behave like local workbenches instead of long stacked pages. Each keeps the active record summary, dirty/analyzing state, and primary actions close to the work with constrained split-pane layouts on desktop and active-work-first stacking on mobile.
 
 **What:** Keep the selected record and primary actions visible inside dense admin tools instead of relying on page-level scrolling.
 
@@ -286,7 +304,12 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 ## Block E - Verification and Polish
 
-### E1. Add focused regression tests
+### ~~E1. Add focused regression tests~~  ✓ Shipped
+
+Focused regression coverage now locks in the new workspace behavior:
+
+- Vitest: SmartCanvas initial-analysis status, EmployerFactsTab sticky extracted-facts rail after modal add and after save, and the refreshed Facts Dashboard interaction path.
+- Playwright: analyzing-state visibility before and after refresh, sticky employer save/discard affordances, 1440x900 control visibility, and mobile stacking for dense work surfaces.
 
 **Vitest coverage:**
 
@@ -305,7 +328,13 @@ Secondary user: operations/admin staff watching whether the system is actively w
 
 **Estimate:** 1 day
 
-### E2. Visual QA checklist
+### ~~E2. Visual QA checklist~~  ✓ Shipped
+
+Completed verification on 2026-05-02:
+
+- Targeted Vitest suite passed for SmartCanvas, EmployerFactsTab, StudentInsightsTab, FactsDashboardTab, TrackBuilderTab, ResumeReviewTab, and LLMObservabilityTab.
+- Targeted Playwright admin workspace suite passed after installing the local Chromium runtime used by the test harness.
+- Manual screenshot review covered desktop `1440x900` and mobile stacked layouts for the main dense-workflow surfaces.
 
 Before shipping, verify:
 
@@ -349,14 +378,16 @@ Rationale:
 
 This sprint is done when:
 
-- Starting Staging Area analysis visibly shows spinner + AI analysis status without page refresh.
-- All admin tabs use the shared loading/action language or an intentional skeleton state.
-- Employer Fact Library no longer has grey-on-grey loading treatment.
-- Adding extracted facts creates an always-visible unsaved state with save and discard paths.
-- Users cannot accidentally navigate away from unsaved extracted facts without a clear warning.
-- The admin workspace exposes key context and primary actions above the fold at common desktop sizes.
-- Vitest and targeted Playwright checks cover the new behavior.
-- `DESIGN.md` remains the source of truth for color, density, and component hierarchy.
+- [x] Starting Staging Area analysis visibly shows spinner + AI analysis status without page refresh. (B1)
+- [x] All admin tabs use the shared loading/action language or an intentional skeleton state. (A2)
+- [x] Employer Fact Library no longer has grey-on-grey loading treatment. (A2)
+- [x] Adding extracted facts creates an always-visible unsaved state with save and discard paths. (C1)
+- [x] Users cannot accidentally navigate away from unsaved extracted facts without a clear warning. (C2)
+- [x] The admin workspace exposes key context and primary actions above the fold at common desktop sizes. (D1)
+- [x] Sticky local context lands for dense two-pane tools. (D2)
+- [x] Vitest and targeted Playwright checks cover the new behavior. (E1)
+- [x] Visual QA checklist completed before ship. (E2)
+- [x] `DESIGN.md` remains the source of truth for color, density, and component hierarchy.
 
 ## Deferred Follow-Ups
 

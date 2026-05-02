@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 const API_URL = "/api/admin"
 
@@ -560,10 +561,20 @@ export default function AlumniFactsTab() {
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Alumni list</p>
               <p className="mt-1 font-display text-xl text-[var(--cl-ink)]">{alumni.length} profiles</p>
             </div>
-            <span className="rounded-full bg-[var(--cl-surface-2)] px-3 py-1 text-xs font-medium text-[var(--cl-muted)]">
-              {loadState === "loading" ? "Loading" : loadState === "error" ? "Offline" : "Ready"}
-            </span>
+            {loadState === "loading" ? (
+              <ActionStatus label="Loading…" announce={false} />
+            ) : (
+              <span className="rounded-full bg-[var(--cl-surface-2)] px-3 py-1 text-xs font-medium text-[var(--cl-muted)]">
+                {loadState === "error" ? "Offline" : "Ready"}
+              </span>
+            )}
           </div>
+
+          {loadState === "loading" && (
+            <div className="mb-4 rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+              <ActionStatus label="Loading alumni records…" />
+            </div>
+          )}
 
           <div className="space-y-2">
             {alumni.map((profile) => {
@@ -632,9 +643,9 @@ export default function AlumniFactsTab() {
                 type="button"
                 onClick={() => void handlePreviewExtraction()}
                 disabled={previewLoading || !form.notes.trim()}
-                className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
               >
-                {previewLoading ? "Previewing…" : "Preview extraction"}
+                {previewLoading ? <ActionStatus variant="on-dark" label="Previewing…" /> : "Preview extraction"}
               </button>
             </div>
 
@@ -651,6 +662,12 @@ export default function AlumniFactsTab() {
             {previewError && (
               <div className="mt-4 rounded-2xl border border-[var(--cl-error)]/25 bg-[var(--cl-error)]/10 px-4 py-3 text-sm text-[var(--cl-error)]">
                 {previewError}
+              </div>
+            )}
+
+            {previewLoading && (
+              <div className="mt-4 rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+                <ActionStatus label="Preparing extraction preview…" />
               </div>
             )}
 
@@ -748,10 +765,12 @@ export default function AlumniFactsTab() {
               <button
                 type="button"
                 onClick={() => void handleSave()}
-                className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
                 disabled={saveState === "saving"}
               >
-                {saveState === "saving" ? "Saving…" : mode === "create" ? "Create alumni" : "Save alumni"}
+                {saveState === "saving"
+                  ? <ActionStatus variant="on-dark" label="Saving…" />
+                  : mode === "create" ? "Create alumni" : "Save alumni"}
               </button>
               {mode === "create" && (
                 <button

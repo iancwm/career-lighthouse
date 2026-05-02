@@ -849,13 +849,20 @@ export default function EmployerFactsTab() {
       </p>
 
       <div
-        className="flex gap-0 rounded-xl border border-[var(--cl-line)] overflow-hidden"
-        style={{ height: "max(480px, calc(100vh - 260px))" }}
+        className="flex flex-col overflow-hidden rounded-xl border border-[var(--cl-line)] xl:min-h-[480px] xl:h-[calc(100vh-260px)] xl:flex-row"
       >
         {/* ── Left panel (35%) ─────────────────────────────────── */}
-        <div className="w-[35%] border-r border-gray-200 flex flex-col">
+        <div className="order-2 flex min-h-0 w-full flex-col border-t border-gray-200 xl:order-1 xl:w-[35%] xl:border-t-0 xl:border-r">
+          <div className="border-b border-gray-100 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Employers</p>
+            <p className="mt-1 text-sm font-semibold text-gray-700">{employers.length} records</p>
+          </div>
+
           {listState === "loading" && (
-            <div className="flex-1 py-1">
+            <div className="flex-1 py-3">
+              <div className="px-3 pb-3">
+                <ActionStatus label="Loading employers…" />
+              </div>
               <SkeletonRow />
               <SkeletonRow />
               <SkeletonRow />
@@ -961,7 +968,7 @@ export default function EmployerFactsTab() {
         </div>
 
         {/* ── Right panel (65%) ─────────────────────────────────── */}
-        <div className="flex-1 flex flex-col min-h-0">
+        <div className="order-1 flex min-h-0 flex-1 flex-col xl:order-2">
           {/* Unsaved changes warning */}
           {(unsavedConfirm || navigationLockedMessage) && (
             <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
@@ -1052,11 +1059,30 @@ export default function EmployerFactsTab() {
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <h3 className="text-sm font-semibold text-gray-700">
-                  {mode === "create" ? "New employer record" : selected?.employer_name}
-                </h3>
+              <div className="border-b border-gray-100 bg-white px-4 py-3">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+                      {mode === "create" ? "New employer" : "Selected employer"}
+                    </p>
+                    <h3 className="mt-1 text-sm font-semibold text-gray-700">
+                      {mode === "create" ? "New employer record" : selected?.employer_name}
+                    </h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                      {activeTab === "details" ? "Details" : `Facts ${facts.length}`}
+                    </span>
+                    {hasUnsavedChanges && (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-800">
+                        Unsaved changes
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
 
+              <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {/* Details Tab */}
                 {activeTab === "details" && (
                 <div className="space-y-4">

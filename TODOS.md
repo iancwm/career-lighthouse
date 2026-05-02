@@ -6,6 +6,14 @@ This backlog is ordered by execution priority:
 - `Later` = useful cleanup or scale work that can wait
 - `Done` = shipped items kept here for context
 
+Active sprint specs:
+- `docs/code_quality_sprint/` — structural cleanup (P1-4 onward + Phase 2 router split + Phase 3 `services/llm.py` decomposition still open).
+
+Recently archived:
+- `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` — counsellor workspace UX sprint. Remaining A2 admin-tab sweep, D2 sticky local context, and E1/E2 verification shipped 2026-05-02.
+- `docs/archived/SPRINT-LAUNCH-READINESS.md` — security/reliability/KB-perf/alumni-followups sprint. Residual items (B3 UX, E1 accuracy artifact, F3 alumni verification) live in this backlog.
+- `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
+
 ## Now
 
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
@@ -35,10 +43,21 @@ Shipped: `web/types/facts.ts` is now the shared source of truth for fact shape, 
 ### ~~Counsellor Trust Sprint 1: Extract shared ProvenancePanel component~~ ✓ Done (2026-04-22)
 Shipped: provenance now renders through a reusable `ProvenancePanel` with the visible toggle, source metadata, and audit link.
 
-### Structured Facts Phase 2: LLM extraction accuracy testing
-**What:** Test extraction end-to-end on real Stripe notes; refine extraction prompt if accuracy < 80%; write 3–5 sample facts via UI (manual + extraction).
-**Why:** Extraction endpoint is now fully functional (three bugs fixed 2026-04-20/21: wrong method name, JSON array parsing, repair function signature). Accuracy testing is the remaining gate before Phase 3.
-**Depends on:** ExtractedFactsModal, extraction endpoint, llm.extract_facts_from_prose — all implemented and working as of 2026-04-21.
+### Structured Facts Phase 2: LLM extraction accuracy testing (E1)
+**What:** Run extraction end-to-end on 3 real Stripe employer notes; score field accuracy manually (target ≥ 80%); refine the extraction prompt in `api/services/llm.py` if accuracy falls short. Write 3–5 sample facts manually through the FactEditor UI to validate the write path.
+**Why:** Extraction endpoint is fully functional; accuracy is the gate before Phase 3 (querying structured facts in live chat context). Carried over from the launch-readiness sprint Block E1.
+**Deliverable:** A short accuracy report (code comment or doc entry) recording the score and any prompt changes made.
+**Depends on:** ExtractedFactsModal, extraction endpoint, `llm.extract_facts_from_prose` — all shipping.
+
+### Alumni cards — manual end-to-end verification of the four failure modes (F3)
+**What:** Manually verify (or add tests covering) the four failure modes from `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md`:
+  1. Hallucinated `matched_slug` is downgraded to `is_update=false` + `matched_slug=None`.
+  2. Malformed `company_links` discrepancy is surfaced via `company_links_attempted` vs `company_links_written` in the commit response (already shipped server-side; verify the SmartCanvas commit-result toast renders the discrepancy).
+  3. Slug collision for new alumni appends the local date before card creation.
+  4. Unknown LLM fields in alumni diff are rejected with a clear error and no partial YAML write.
+**Why:** Backend tests cover modes 1, 3, and 4; mode 2 is wired through the response body but the UI surface still needs a manual pass. Carried over from the alumni cards sprint and the launch-readiness sprint Block F3.
+**Files:** `web/components/admin/SmartCanvas.tsx`, `api/tests/test_session_router.py`, `api/tests/test_session_intents.py`.
+**Depends on:** None.
 
 ### ~~Structured Facts Phase 3: Build `/api/kb/facts` query endpoint~~ ✓ Done (2026-04-23)
 Shipped: `GET /api/kb/facts` and `GET /api/kb/facts/grouped` now load employer and career-profile facts, apply filters for type/employer/school/year/source/confidence, and exclude deleted records by default.
@@ -90,15 +109,11 @@ Shipped: 8 copy-pasted helper families consolidated into `api/services/shared_ya
 **Context:** Full spec at `docs/archived/student_chat_qdrant_ingestion/sprint_3_counsellor_search.md`. Key decisions: `DatetimeRange` (not `Range`) for timestamp filtering; `embedder.encode()` (not `embed()`); `build_filters()` gates background/region conditions on `student_chat_store_*` config flags; 8 AdminWorkspace touch points including ToolsDrawer.tsx.
 **Depends on:** Sprint 1 (service + DI). Can be parallelized with Sprint 2 after Sprint 1 ships.
 
-### Student chat insight write — add Qdrant timeout cap
-**What:** Add a timeout cap to the synchronous `insight_store.index_message()` call in `chat_router.py`, or move the write to `run_in_executor` when `chat()` is refactored to `async def`.
-**Why:** The write is wrapped in try/except (non-fatal) but has no timeout. If Qdrant is slow or unresponsive, the chat response is held up by the full Qdrant client timeout (potentially 30s+). Timeout handling was explicitly OOS for Sprint 1–3; this is the natural follow-up once the feature is observable in Langfuse traces.
-**Depends on:** Student chat insights Sprint 1–2 shipped.
+### ~~Student chat insight write — add Qdrant timeout cap~~ ✓ Done (2026-04-30)
+Shipped: `api/routers/chat_router.py` now wraps `insight_store.index_message()` in a module-level `_INSIGHT_EXECUTOR` (`ThreadPoolExecutor`) and applies `future.result(timeout=_INSIGHT_WRITE_TIMEOUT_SECS)`. A slow Qdrant no longer holds up the chat response.
 
-### Session-analysis timeout handling
-**What:** Tune `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` via env vars, and add a better non-blocking execution model when session analysis still exceeds the budget.
-**Why:** The timeout is now configurable, Langfuse confirms the request stays alive while it waits, and the structured JSON repair path now retries transient overloads. Long notes can still hit `504 Gateway Timeout` and occupy the user's session flow until they fail.
-**Depends on:** None.
+### ~~Session-analysis timeout handling~~ ✓ Done (2026-04-30)
+Shipped: `api/routers/session_router.py` now uses `_SESSION_INTENTS_EXECUTOR` and `future.result(timeout=_deadline)` to bound the multi-pass analysis call; long notes return inside the deadline instead of hitting a gateway timeout. `LLM_SESSION_TIMEOUT_SECONDS` and `LLM_SESSION_MULTI_PASS_*` remain env-tunable.
 
 ### ~~Validate profile field names in commit-analysis~~ ✓ Done (2026-04-12)
 Shipped: `ALLOWED_PROFILE_FIELDS` enforcement already existed with skip+warn; test coverage added
@@ -144,19 +159,34 @@ Shipped: `web/vitest.config.ts`, `"test": "vitest"` in `web/package.json`, `@tes
 ### ~~Normalize employer YAMLs: headcount_estimate → singapore_headcount_estimate~~ ✓ Done (2026-04-23)
 Shipped: all active employer YAMLs now use `singapore_headcount_estimate`, and the employer allowlist / prompt references were updated to match the API read path.
 
-### ADMIN_KEY: remove key from browser URL (frontend only)
-**What:** The backend already enforces `X-Admin-Key` header exclusively. Remove `?key=...` from the browser URL by switching to session-storage or a cookie so the key is never visible in the address bar or browser history.
-**Why:** URL-visible keys leak into browser history and referer headers.
-**Files:** `web/lib/admin-api.ts`, admin page bootstrap, `web/middleware.test.ts`.
-**Depends on:** None. Frontend-only change.
+### ~~ADMIN_KEY: remove key from browser URL~~ ✓ Done (2026-04-28)
+Shipped: `web/middleware.ts` accepts `?key=...` once on first hit, validates against `ADMIN_KEY`, sets an HttpOnly session cookie, and redirects to the clean URL so the key is stripped from the address bar after the first navigation. `web/lib/admin-api.ts` relies on the cookie; the proxy forwards it as `X-Admin-Key`. `web/middleware.test.ts` covers the redirect-and-cookie-set path.
 
 ### ~~Sanitize chat prompt injections~~ ✓ Done (2026-04-27)
 Shipped: `sanitize_for_prompt()` applied to `career_context` and `employer_context` at `api/services/llm.py:957–958`.
 
-### Session card commit idempotency — UX polish remaining
+### Session card commit idempotency — SmartCanvas 409 silent success (B3 UX polish)
 **What:** `commit_card()` already returns HTTP 409 when a card is not in `pending` state, preventing duplicate YAML writes. Remaining: make the frontend treat a 409 on a previously-committed card as a silent no-op (not an error toast) in `web/components/admin/SmartCanvas.tsx`.
 **Why:** Data corruption is prevented; the counsellor experience on browser-refresh is still broken (error flash).
+**Files:** `web/components/admin/SmartCanvas.tsx` (three 409 call sites already detect status; treat them as success when card is already committed).
+**Context:** Carried over from the launch-readiness sprint Block B3.
 **Depends on:** None.
+
+### Code quality sprint — Phase 1 finish (kb_health extract, prompt externalization, inline-import lift)
+**What:** P1-4 extract `services/kb_health.py` (`_compute_overlap_pairs`, `_read_query_log`, `kb_health` assembly). P1-5 move the `auto_complete_profile` prompt to `cfg/prompts.yaml` and add an `llm.auto_complete_profile_fields(...)` helper. P1-6 lift inline `from cfg`/`from services` imports out of `session_router.py` and `kb_router.py`, and promote the `_default_*_dir` / `_derive_structured_fields` / `_normalize_profile_payload` helpers to public names.
+**Why:** Phase 0 plus the `trace_adapter`, `kb_writer`, and `kb_ingestion_service` extractions shipped 2026-04-27. These three items close out Phase 1 so the router split can land cleanly.
+**Files:** `api/services/kb_health.py` (new), `api/cfg/prompts.yaml`, `api/services/llm.py`, `api/routers/kb_router.py`, `api/routers/session_router.py`, plus the affected store modules.
+**Depends on:** None. Each is its own PR per `docs/code_quality_sprint/implementation_plan.md`.
+
+### Code quality sprint — Phase 2 router split
+**What:** Split `kb_router.py` into `profile_router`, `tracks_router`, `employers_router`, `facts_router`, and `kb_admin_router`; register all five in `main.py`. Then split `tests/test_kb_router.py` into per-router test files. URL paths do not change.
+**Why:** After Phase 1, `kb_router.py` should be ~600 lines of thin endpoint handlers; splitting becomes a mechanical move. Defined in `docs/code_quality_sprint/implementation_plan.md` (P2-1, P2-2).
+**Depends on:** Phase 1 finish.
+
+### Code quality sprint — Phase 3 services/llm.py decomposition
+**What:** Extract `services/llm_tracing.py` (`LLMTraceRecorder` context manager, `_call_with_trace` collapses to a thin caller), `services/llm_json.py` (JSON repair + validation), and `services/llm_budgets.py` (trim/budget helpers, config readers). Generalize the three merge routines (`_merge_intents`, `_merge_analysis_results`, `_merge_track_drafts`) into `merge_chunked_results(results, spec=MergeSpec(...))`.
+**Why:** `services/llm.py` is ~1,800 lines mixing transport, tracing, JSON repair, budgeting, and merge logic. Defined in `docs/code_quality_sprint/implementation_plan.md` (P3-1 through P3-4). Can run in parallel with Phases 1–2 after P0-2 lands (already done).
+**Depends on:** None (parallelizable).
 
 ### Path to multi-instance scaling
 **What:** Replace file-based query log with CloudWatch Logs or SQS; move Qdrant to standalone container; remove `WEB_CONCURRENCY=1`.
@@ -169,21 +199,11 @@ Shipped: covered by "Synchronize and expand profile field allowlists" above — 
 ### ~~Model name env var override~~ ✓ Done (2026-04-27)
 Shipped: `api/config.py:24` exposes `anthropic_model: str = ""` from `ANTHROPIC_MODEL` env var. `api/services/llm.py:91–92` `get_model_name()` reads it first and falls back to `model.yaml`.
 
-### list_docs() scroll ceiling — optimize for large KBs
-**What:** Switch `VectorStore.list_docs()` from `scroll(limit=10000)` to per-doc `count()` calls, or add a 60s TTL cache in `kb_router.py`.
-**Why:** The current scroll is O(n_chunks) and runs on every `GET /api/kb/health` call. Acceptable at < 200 docs; becomes noticeable above that.
-**Pros:** Eliminates O(n) scan; health endpoint stays fast as KB grows.
-**Cons:** Per-doc `count()` requires one Qdrant call per document. TTL cache adds module-level state.
-**Context:** Added during Sprint 1 KB Observability eng review (2026-03-22). The inline `# TODO: cache list_docs()` comment in `kb_router.py` marks the call site.
-**Depends on:** None. Self-contained change to `vector_store.py` or `kb_router.py`.
+### ~~list_docs() scroll ceiling — TTL cache~~ ✓ Done (2026-04-28)
+Shipped: `api/routers/kb_router.py` wraps `VectorStore.list_docs()` in a 60 s module-level TTL cache (`_docs_cache`, `_docs_cache_expires`, `_DOCS_CACHE_TTL`) protected by `_docs_cache_lock`. The cache is invalidated on every ingest via `health_cache.invalidate_overlap_cache`, and `_get_cached_docs(store)` is the single read entry point.
 
-### health_cache thundering herd — check-lock-check pattern
-**What:** Replace the current "check outside lock → compute → set under lock" pattern with a proper check-lock-check or "computing" flag.
-**Why:** Concurrent health requests can all trigger the 5-second `_compute_overlap_pairs` scan simultaneously.
-**Pros:** Limits overlap computation to one in-flight at a time; eliminates duplicate O(n_chunks × Qdrant) scans.
-**Cons:** Adds locking complexity; a "computing" sentinel state must be handled gracefully.
-**Context:** Found during adversarial review in Ship 2 (2026-03-23). The Lock in `health_cache.py` already prevents data corruption.
-**Depends on:** None. Self-contained change to `api/services/health_cache.py` and the `kb_health` endpoint.
+### ~~health_cache thundering herd — check-lock-check pattern~~ ✓ Done (2026-04-28)
+Shipped: `api/services/health_cache.py` now uses a check-lock-check pattern with a `_computing` sentinel so only one thread runs the 5-second `_compute_overlap_pairs` scan; concurrent callers wait for the in-flight computation rather than triggering parallel scans.
 
 ### ~~File upload size limit — /api/ingest and /api/kb/analyse~~ ✓ Done (2026-04-12)
 Shipped: `Content-Length` pre-read guard on both endpoints (413 if > 10MB). Shared
@@ -199,10 +219,8 @@ Shipped: `Content-Length` pre-read guard on both endpoints (413 if > 10MB). Shar
 **Why:** DELETE currently disables, but there is no restore path without manual filesystem edits.
 **Depends on:** Employer entity CRUD.
 
-### Unsaved changes warning — KnowledgeUpdateTab mid-flow navigation
-**What:** Warn before leaving KnowledgeUpdateTab while a diff is loaded.
-**Why:** Counsellors can lose several seconds of analysis work if they navigate away.
-**Depends on:** None. Add when the current pre-launch scale no longer makes silent loss acceptable.
+### ~~Unsaved changes warning — KnowledgeUpdateTab mid-flow navigation~~ ✓ Done (2026-04-28)
+Shipped: `web/components/admin/KnowledgeUpdateTab.tsx` registers a `beforeunload` listener while a diff is loaded and removes it after commit or discard.
 
 ### ~~structured: values diverge from prose field edits after profile editor write~~ ✓ Done (2026-04-12)
 Shipped: `_derive_structured_fields()` helper extracts numeric values from prose (e.g. salary
@@ -241,10 +259,8 @@ The phrase "anonymised aggregates" does not appear in any active code or UI file
 
 ## Later
 
-### SessionInbox empty state copy
-**What:** "No active sessions. Create one above." — add brief context about what a session is for (multi-entity memo intake that extracts per-entity update cards) and a warmer tone.
-**Why:** Counsellors encountering the empty state for the first time have no orientation. The surrounding heading "New Publishing Session" helps, but the empty list below it is bare.
-**Depends on:** None. One-liner copy change in `web/components/admin/SessionInbox.tsx`.
+### ~~SessionInbox empty state copy~~ ✓ Done (2026-04-28)
+Shipped: `web/components/admin/SessionInbox.tsx` renders a "No sessions yet" state with explanatory copy ("Paste your meeting notes or upload a document above to get started. The system will extract individual update cards…") instead of the bare prior wording.
 
 ### Re-ingest documents with improved chunking
 **What:** Re-upload documents that contain tables or structured data so they get re-chunked with the new semantic-aware strategy.
@@ -275,6 +291,9 @@ Shipped: uploaded source files now persist in the source ledger, document deleti
 **Depends on:** AWS infrastructure design decisions.
 
 ## Done
+
+### ~~Workspace clarity sprint — remaining A2 sweep, D2 sticky local context, and E1/E2 verification~~ ✓ Done (2026-05-02)
+Shipped: the remaining admin tabs now use the shared `ActionStatus` loading language (or accessible skeleton text), Employer Fact Library / SmartCanvas / Track Builder now keep local context and primary actions visible inside constrained split panes, and the focused Vitest + Playwright regression pass is green. See `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md`.
 
 ### ~~Session-intent thought plumbing cleanup~~ ✓ Done (2026-04-19)
 Shipped: session analysis now uses a JSON-only prompt, the retired `<thought>` block is no longer parsed or stored, and dead `thought` fields were removed from the session models, router, and hardening tests.

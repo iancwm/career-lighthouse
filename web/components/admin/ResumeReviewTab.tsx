@@ -2,6 +2,7 @@
 import { useRef, useState, type ChangeEvent } from "react"
 import { adminFetch } from "@/lib/admin-api"
 import MarkdownMessage from "@/components/student/MarkdownMessage"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 export default function ResumeReviewTab() {
   const [resume, setResume] = useState("")
@@ -93,10 +94,10 @@ export default function ResumeReviewTab() {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={extracting || loading}
-            className="rounded-lg border border-[#0F766E] px-4 py-2 text-sm font-medium text-[#0F766E] hover:bg-[#F0F7F6] disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[#0F766E] px-4 py-2 text-sm font-medium text-[#0F766E] hover:bg-[#F0F7F6] disabled:opacity-40"
             style={{ minHeight: "44px" }}
           >
-            {extracting ? "Extracting…" : "Upload .docx or .txt"}
+            {extracting ? <ActionStatus label="Extracting…" /> : "Upload .docx or .txt"}
           </button>
           <button
             type="button"
@@ -128,10 +129,10 @@ export default function ResumeReviewTab() {
       <button
         onClick={handleGenerate}
         disabled={loading || !resume.trim()}
-        className="mt-3 rounded-xl bg-[#0F766E] px-5 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40 transition-colors"
+        className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#0F766E] px-5 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40 transition-colors"
         style={{ minHeight: "44px" }}
       >
-        {loading ? "Generating brief…" : "Generate brief"}
+        {loading ? <ActionStatus variant="on-dark" label="Generating brief…" /> : "Generate brief"}
       </button>
 
       {error && (

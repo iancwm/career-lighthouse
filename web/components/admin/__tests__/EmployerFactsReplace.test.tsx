@@ -46,6 +46,18 @@ const SECOND_EMPLOYER = {
   completeness: "amber",
 }
 
+const EXTRACTED_FACT = {
+  slug: "goldman-visa-note",
+  type: "visa_pathway",
+  data: { role_level: "Analyst" },
+  confidence: 88,
+  source: "counselor",
+  timestamp: "2026-04-24T00:00:00Z",
+  lifecycle: "active",
+  last_updated: "2026-04-24T00:00:00Z",
+  source_timestamp: "2026-04-24T00:00:00Z",
+}
+
 const ANALYSIS_RESULT = {
   interpretation_bullets: ["Goldman updated their EP requirement"],
   profile_updates: {},
@@ -364,5 +376,83 @@ describe("EmployerFactsTab — replace workflow", () => {
     ).not.toHaveLength(0)
     expect(screen.getByRole("heading", { name: "Goldman Sachs" })).toBeInTheDocument()
     expect(screen.queryByRole("heading", { name: "Morgan Stanley" })).not.toBeInTheDocument()
+  })
+
+  it("shows the sticky extracted-facts save rail after adding extracted facts", async () => {
+    const employerWithNotes = { ...EMPLOYER, notes: "Goldman updated visa guidance." }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith("/api/admin/api/kb/employers") && (!init || init.method === undefined)) {
+          return { ok: true, json: async () => [employerWithNotes] } as Response
+        }
+        if (url.endsWith("/api/admin/api/kb/career-profiles")) {
+          return { ok: true, json: async () => [] } as Response
+        }
+        if (url.endsWith("/api/admin/api/kb/employers/goldman_sachs/extract-facts")) {
+          return { ok: true, json: async () => ({ facts: [EXTRACTED_FACT] }) } as Response
+        }
+        throw new Error(`Unexpected fetch: ${url}`)
+      })
+    )
+
+    render(<EmployerFactsTab />)
+
+    await waitFor(() => screen.getByText("Goldman Sachs"))
+    fireEvent.click(screen.getByText("Goldman Sachs"))
+    fireEvent.click(screen.getByRole("button", { name: /^Facts/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Extract from notes/i }))
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add 1 fact/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("button", { name: /Add 1 fact/i }))
+
+    expect(screen.getByText(/1 extracted fact not saved yet/i)).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Save 1 extracted fact/i })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: /Discard/i })).toBeInTheDocument()
+  })
+
+  it("clears the sticky extracted-facts rail after save", async () => {
+    const employerWithNotes = { ...EMPLOYER, notes: "Goldman updated visa guidance." }
+    const savedEmployer = {
+      ...employerWithNotes,
+      structured: { facts: [ACTIVE_FACT, EXTRACTED_FACT] },
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input)
+        if (url.endsWith("/api/admin/api/kb/employers") && (!init || init.method === undefined)) {
+          return { ok: true, json: async () => [employerWithNotes] } as Response
+        }
+        if (url.endsWith("/api/admin/api/kb/career-profiles")) {
+          return { ok: true, json: async () => [] } as Response
+        }
+        if (url.endsWith("/api/admin/api/kb/employers/goldman_sachs/extract-facts")) {
+          return { ok: true, json: async () => ({ facts: [EXTRACTED_FACT] }) } as Response
+        }
+        if (url.endsWith("/api/admin/api/kb/employers/goldman_sachs") && init?.method === "PUT") {
+          return { ok: true, json: async () => savedEmployer } as Response
+        }
+        throw new Error(`Unexpected fetch: ${url}`)
+      })
+    )
+
+    render(<EmployerFactsTab />)
+
+    await waitFor(() => screen.getByText("Goldman Sachs"))
+    fireEvent.click(screen.getByText("Goldman Sachs"))
+    fireEvent.click(screen.getByRole("button", { name: /^Facts/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Extract from notes/i }))
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add 1 fact/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("button", { name: /Add 1 fact/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Save 1 extracted fact/i }))
+
+    await waitFor(() => expect(screen.getByText("Saved.")).toBeInTheDocument())
+    expect(screen.queryByText(/1 extracted fact not saved yet/i)).not.toBeInTheDocument()
+    expect(screen.queryByRole("button", { name: /Discard/i })).not.toBeInTheDocument()
   })
 })

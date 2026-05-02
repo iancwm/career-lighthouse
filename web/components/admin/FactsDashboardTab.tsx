@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
 import FactCard from "@/components/admin/forms/FactCard"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 import { Fact, getFactTypeLabel, isActiveFact, sortFactsForDisplay } from "@/types/facts"
 
 type GroupBy = "employer" | "type"
@@ -238,9 +239,10 @@ export default function FactsDashboardTab() {
             </label>
             <button
               type="submit"
-              className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90"
+              disabled={state.status === "loading"}
+              className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Refresh facts
+              {state.status === "loading" ? <ActionStatus variant="on-dark" label="Loading…" /> : "Refresh facts"}
             </button>
             <button
               type="button"
@@ -260,8 +262,8 @@ export default function FactsDashboardTab() {
       </div>
 
       {state.status === "loading" && (
-        <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 text-sm text-[var(--cl-muted)]">
-          Loading facts…
+        <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6">
+          <ActionStatus size="md" label="Loading facts…" />
         </div>
       )}
 

@@ -9,17 +9,20 @@ All notable changes to this project will be documented in this file.
 - **Alumni intent-card schema coverage**: `api/models_kb.py` now validates alumni card diffs directly, including the broader alumni field set used by the extraction prompt and the stringly-typed list/bool/int values the model sometimes emits before counsellor review.
 - **Alumni detection regression coverage**: added fixture-backed `_is_alumni_heavy` tests plus new router/model/UI coverage for alumni cards in `api/tests/test_alumni_detection.py`, `api/tests/test_models_kb.py`, and `web/components/admin/__tests__/SmartCanvas.test.tsx`.
 - **Code quality sprint docs**: `docs/code_quality_sprint/` now tracks the active structural cleanup plan, the smell inventory, and the superseded `conductor/refactor-kb-router.md` review.
+- **Workspace clarity regression coverage**: targeted Vitest coverage now locks in SmartCanvas initial-analysis visibility plus Employer Fact Library sticky extracted-facts state, and Playwright covers analyzing-state persistence, dense-workspace controls at `1440x900`, and mobile stacking for the admin workbench surfaces.
 
 ### Changed
 - **Alumni extraction prompt contract**: `api/cfg/prompts.yaml` now asks for multi-alumnus payloads with `matched_slug`, `is_update`, and `source_excerpt`, reusing the existing alumni-field allowlists instead of a hard-coded field list.
 - **Company-link reconciliation ownership**: `_sync_company_links` now lives on `AlumniEntityStore`, with the alumni router keeping only a compatibility wrapper.
 - **Phase 0 code-quality cleanup**: `api/services/shared_yaml.py` now exposes a shared `Singleton` base used by the eight YAML-backed service singletons; `runtime_paths.knowledge_dir(name)` centralizes knowledge path resolution; `api/utils/sdk_shapes.py` owns SDK object coercion and trace preview helpers.
 - **KB router service extraction**: `api/services/trace_adapter.py` now owns LLM trace adaptation and trace-log reads, while `api/services/kb_writer.py` owns profile, employer, alumni, and vector-chunk write paths shared by `kb_router` and `session_router`.
+- **Workspace clarity sprint completed**: the remaining admin tabs now use the shared `ActionStatus` loading language, Employer Fact Library / SmartCanvas / Track Builder now keep active context and action bars visible inside constrained two-pane layouts, and the sprint spec moved to `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md`.
 
 ### Fixed
 - **Silent alumni-card drop during session analysis**: alumni extraction results no longer fail validation just because the LLM returns valid alumni fields like `graduation_school`, `consent_for_referrals`, or `lifecycle`.
 - **Trace dead-ends on unexpected LLM client failures**: `_call_with_trace()` now writes an `error` row for non-HTTP exceptions too, which fixes the old observability gap where broken LLM calls could leave only a `started` trace behind.
 - **Student chat track preload**: the student chat now preloads career tracks from `/api/tracks/active` instead of the non-existent `/api/tracks`, fixing a Playwright-caught 404 when entering chat without a resume.
+- **Admin loading-state drift**: KB Health, Student Insights, Facts Dashboard, Alumni Records, Track Builder, Resume Review, LLM Observability, and Trace Explorer no longer fall back to inconsistent SVG/text-only long-running states.
 
 ## [0.1.5.4] - 2026-04-25
 

@@ -106,6 +106,19 @@ describe("FactsDashboardTab", () => {
 
     render(<FactsDashboardTab />)
 
+    await waitFor(() => expect(screen.getByRole("button", { name: /Refresh facts/i })).toBeEnabled())
+
+    adminFetchMock
+      .mockResolvedValueOnce(mockResponse({ facts: [], total: 0, filters_applied: { include_deleted: true } }))
+      .mockResolvedValueOnce(
+        mockResponse({
+          by: "type",
+          groups: {},
+          total: 0,
+          filters_applied: { include_deleted: true },
+        })
+      )
+
     fireEvent.change(screen.getByLabelText(/Type/i), { target: { value: " alumni " } })
     fireEvent.change(screen.getByLabelText(/Employer/i), { target: { value: " stripe " } })
     fireEvent.change(screen.getByLabelText(/School/i), { target: { value: " NUS " } })

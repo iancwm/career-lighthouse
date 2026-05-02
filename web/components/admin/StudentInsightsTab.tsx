@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 interface StudentInsightResult {
   message_id: string
@@ -213,9 +214,9 @@ export default function StudentInsightsTab() {
           <button
             type="submit"
             disabled={state === "loading" || !query.trim()}
-            className="rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-5 py-2 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {state === "loading" ? "Searching..." : "Search student questions"}
+            {state === "loading" ? <ActionStatus variant="on-dark" label="Searching…" /> : "Search student questions"}
           </button>
         </form>
       </div>
@@ -227,8 +228,8 @@ export default function StudentInsightsTab() {
       )}
 
       {state === "loading" && (
-        <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface)] px-5 py-4 text-sm text-[var(--cl-muted)]">
-          Searching student questions...
+        <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface)] px-5 py-4">
+          <ActionStatus label="Searching student questions…" />
         </div>
       )}
 
