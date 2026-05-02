@@ -8,6 +8,7 @@ import LowConfidenceLog from "@/components/admin/LowConfidenceLog"
 import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import SourceStateSummary from "@/components/admin/SourceStateSummary"
 import StaleSourceGuidanceModal from "@/components/admin/modals/StaleSourceGuidanceModal"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 interface LowConfidenceQuery {
   ts: string
@@ -334,6 +335,9 @@ export default function LLMObservabilityTab() {
       <section className="space-y-4">
         <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
           <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">LLM observability</p>
+          <div className="mt-4">
+            <ActionStatus size="md" label="Loading observability data…" />
+          </div>
           <div className="mt-3 h-8 w-56 rounded bg-[var(--cl-surface-2)]" />
           <div className="mt-4 h-4 w-80 rounded bg-[var(--cl-surface-2)]" />
           <div className="mt-6 grid gap-3 md:grid-cols-3">
@@ -361,9 +365,10 @@ export default function LLMObservabilityTab() {
           <button
             type="button"
             onClick={() => setRefreshKey((value) => value + 1)}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--cl-accent)] focus:ring-offset-2 focus:ring-offset-[var(--cl-surface)]"
+            disabled={loading}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--cl-accent)] focus:ring-offset-2 focus:ring-offset-[var(--cl-surface)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Refresh
+            {loading ? <ActionStatus label="Refreshing…" announce={false} /> : "Refresh"}
           </button>
         </div>
 

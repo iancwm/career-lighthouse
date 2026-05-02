@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { adminFetch } from "@/lib/admin-api"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 interface LLMTraceEntry {
   trace_id: string
@@ -113,7 +114,11 @@ export default function TraceExplorerTab({ initialSessionId = null }: TraceExplo
   }, [traces])
 
   if (loading) {
-    return <p className="text-sm text-[var(--cl-muted)]">Loading traces…</p>
+    return (
+      <div className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-6 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+        <ActionStatus size="md" label="Loading traces…" />
+      </div>
+    )
   }
 
   return (
@@ -131,9 +136,10 @@ export default function TraceExplorerTab({ initialSessionId = null }: TraceExplo
           <button
             type="button"
             onClick={() => setRefreshKey((value) => value + 1)}
-            className="rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] hover:border-[var(--cl-accent)]"
+            disabled={loading}
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] hover:border-[var(--cl-accent)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Refresh
+            {loading ? <ActionStatus label="Refreshing…" announce={false} /> : "Refresh"}
           </button>
         </div>
 

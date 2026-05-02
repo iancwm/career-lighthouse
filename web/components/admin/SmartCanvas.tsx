@@ -658,13 +658,18 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
         </div>
       )}
 
-      <div className="grid grid-cols-[320px_minmax(0,1fr)] gap-6">
+      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)] xl:min-h-[560px] xl:h-[calc(100vh-18rem)]">
         {/* Left Column — Cards */}
-        <div className="rounded-xl border border-gray-200 p-4">
-          <h3 className="text-sm font-semibold text-gray-700 mb-3">
-            Intents ({pendingCards.length} pending)
-          </h3>
-          <div className="space-y-2">
+        <div className="order-2 rounded-xl border border-gray-200 xl:order-1 xl:flex xl:min-h-0 xl:flex-col">
+          <div className="border-b border-gray-100 px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Intents ({pendingCards.length} pending)
+              </h3>
+              {isInFlight && <ActionStatus variant="caution" size="sm" label="Analyzing…" announce={false} />}
+            </div>
+          </div>
+          <div className="space-y-2 p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
             {session.intent_cards.map((card) => (
               <button
                 key={card.card_id}
@@ -701,181 +706,201 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                     {card.status}
                   </span>
                 </div>
-                <p className="text-sm font-medium text-gray-800 mt-1">{card.summary}</p>
+                <p className="mt-1 text-sm font-medium text-gray-800">{card.summary}</p>
               </button>
             ))}
           </div>
         </div>
 
         {/* Right Column — Diff View */}
-        <div className="rounded-xl border border-gray-200 p-5">
+        <div className="order-1 rounded-xl border border-gray-200 xl:order-2 xl:flex xl:min-h-0 xl:flex-col">
           {selectedCard ? (
             <>
-              <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getBadgeClasses(selectedCard.domain)}`}>
-                      {formatFieldLabel(selectedCard.domain)}
-                    </span>
-                    {selectedCard.is_update && (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
-                        Update
+              <div className="border-b border-gray-100 bg-white px-5 py-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getBadgeClasses(selectedCard.domain)}`}>
+                        {formatFieldLabel(selectedCard.domain)}
                       </span>
-                    )}
-                  </div>
-                  <h3 className="mt-3 text-sm font-semibold text-gray-800">
-                    {isAlumniCard ? selectedCardName : selectedCard.summary}
-                  </h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    {isAlumniCard
-                      ? selectedCardHeadline || `Domain: ${selectedCard.domain}`
-                      : `Domain: ${selectedCard.domain}`}
-                  </p>
-                </div>
-              </div>
-
-              {isAlumniCard && selectedCard.is_update && (
-                <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                  Updating existing {selectedCardName || selectedCard.matched_slug || "alumni record"}
-                </div>
-              )}
-
-              {/* Raw input reference */}
-              {selectedCard.raw_input_ref && (
-                <div className="mb-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
-                  <p className="text-xs font-medium text-gray-500 mb-1">From your notes:</p>
-                  <p className="text-sm text-gray-700 italic">{selectedCard.raw_input_ref}</p>
-                </div>
-              )}
-
-              {isAlumniCard && companyLinks.length > 0 && (
-                <div className="mb-5 rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-semibold text-emerald-900">Company history</h4>
-                    <span className="text-xs text-emerald-700">Chronological</span>
-                  </div>
-                  <div className="mt-3 space-y-3">
-                    {companyLinks.map((link, index) => {
-                      const companyName = toDisplayText(link.company_name) || toDisplayText(link.company_slug) || "Linked company"
-                      const role = toDisplayText(link.title) || toDisplayText(link.role)
-                      const relationship = toDisplayText(link.relationship)
-                      const notes = toDisplayText(link.notes)
-                      const dateLabel = formatLinkDateLabel(link)
-
-                      return (
-                        <div key={`${companyName}-${dateLabel}-${index}`} className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900">{companyName}</p>
-                              {(role || relationship) && (
-                                <p className="mt-1 text-xs text-gray-600">
-                                  {[role, relationship].filter(Boolean).join(" · ")}
-                                </p>
-                              )}
-                            </div>
-                            {dateLabel && (
-                              <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                                {dateLabel}
-                              </span>
-                            )}
-                          </div>
-                          {notes && <p className="mt-2 text-sm text-gray-700">{notes}</p>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Diff fields */}
-              {Object.entries(editingDiff).map(([key, value]) => {
-                const proposal = selectedCard.proposals?.[key]
-                const evidence = normalizeEvidence(proposal?.evidence)
-                const rationale = toDisplayText(proposal?.rationale)
-                const isTrajectoryField = isAlumniCard && key === "career_trajectory_summary"
-
-                return (
-                  <div key={key} className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <label className="text-sm font-medium text-gray-700" htmlFor={`smart-canvas-field-${key}`}>
-                        {formatFieldLabel(key)}
-                      </label>
-                      {isAlumniCard && proposal?.confidence != null && (
-                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                          Confidence {proposal.confidence}%
+                      {selectedCard.is_update && (
+                        <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800">
+                          Update
                         </span>
                       )}
                     </div>
-
-                    {isTrajectoryField && (
-                      <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                        <summary className="cursor-pointer text-xs font-medium text-slate-700">
-                          Trajectory preview
-                        </summary>
-                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                          {formatDiffValue(value) || "No trajectory summary yet."}
-                        </p>
-                      </details>
-                    )}
-
-                    {(evidence.length > 0 || rationale) && isAlumniCard && (
-                      <details className="mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
-                        <summary className="cursor-pointer text-xs font-medium text-gray-600">
-                          Evidence
-                        </summary>
-                        {evidence.length > 0 && (
-                          <ul className="mt-2 space-y-2 text-sm text-gray-700">
-                            {evidence.map((item, index) => (
-                              <li key={`${key}-evidence-${index}`} className="rounded bg-white px-3 py-2">
-                                {item}
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        {rationale && (
-                          <p className="mt-2 text-xs leading-5 text-gray-500">
-                            {rationale}
-                          </p>
-                        )}
-                      </details>
-                    )}
-
-                    <textarea
-                      id={`smart-canvas-field-${key}`}
-                      value={formatDiffValue(value)}
-                      onChange={(e) =>
-                        setEditingDiff((prev) => ({ ...prev, [key]: e.target.value }))
-                      }
-                      className="mt-3 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
-                    />
+                    <h3 className="mt-3 text-sm font-semibold text-gray-800">
+                      {isAlumniCard ? selectedCardName : selectedCard.summary}
+                    </h3>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {isAlumniCard
+                        ? selectedCardHeadline || `Domain: ${selectedCard.domain}`
+                        : `Domain: ${selectedCard.domain}`}
+                    </p>
                   </div>
-                )
-              })}
+                  {isInFlight && (
+                    <ActionStatus variant="caution" size="sm" label="Analysis still running" />
+                  )}
+                </div>
+              </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-3 border-t border-gray-100">
-                <button
-                  onClick={commitCard}
-                  disabled={actionLoading}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
-                >
-                  {actionLoading ? "Committing…" : "Commit"}
-                </button>
-                <button
-                  onClick={discardCard}
-                  disabled={actionLoading}
-                  className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-                >
-                  {actionLoading ? "Processing…" : "Discard"}
-                </button>
+              <div className="space-y-4 p-5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+                {isAlumniCard && selectedCard.is_update && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Updating existing {selectedCardName || selectedCard.matched_slug || "alumni record"}
+                  </div>
+                )}
+
+                {/* Raw input reference */}
+                {selectedCard.raw_input_ref && (
+                  <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3">
+                    <p className="mb-1 text-xs font-medium text-gray-500">From your notes:</p>
+                    <p className="text-sm text-gray-700 italic">{selectedCard.raw_input_ref}</p>
+                  </div>
+                )}
+
+                {isAlumniCard && companyLinks.length > 0 && (
+                  <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className="text-sm font-semibold text-emerald-900">Company history</h4>
+                      <span className="text-xs text-emerald-700">Chronological</span>
+                    </div>
+                    <div className="mt-3 space-y-3">
+                      {companyLinks.map((link, index) => {
+                        const companyName = toDisplayText(link.company_name) || toDisplayText(link.company_slug) || "Linked company"
+                        const role = toDisplayText(link.title) || toDisplayText(link.role)
+                        const relationship = toDisplayText(link.relationship)
+                        const notes = toDisplayText(link.notes)
+                        const dateLabel = formatLinkDateLabel(link)
+
+                        return (
+                          <div key={`${companyName}-${dateLabel}-${index}`} className="rounded-lg border border-emerald-100 bg-white px-4 py-3">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{companyName}</p>
+                                {(role || relationship) && (
+                                  <p className="mt-1 text-xs text-gray-600">
+                                    {[role, relationship].filter(Boolean).join(" · ")}
+                                  </p>
+                                )}
+                              </div>
+                              {dateLabel && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                                  {dateLabel}
+                                </span>
+                              )}
+                            </div>
+                            {notes && <p className="mt-2 text-sm text-gray-700">{notes}</p>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Diff fields */}
+                {Object.entries(editingDiff).map(([key, value]) => {
+                  const proposal = selectedCard.proposals?.[key]
+                  const evidence = normalizeEvidence(proposal?.evidence)
+                  const rationale = toDisplayText(proposal?.rationale)
+                  const isTrajectoryField = isAlumniCard && key === "career_trajectory_summary"
+
+                  return (
+                    <div key={key} className="rounded-lg border border-gray-200 bg-white p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <label className="text-sm font-medium text-gray-700" htmlFor={`smart-canvas-field-${key}`}>
+                          {formatFieldLabel(key)}
+                        </label>
+                        {isAlumniCard && proposal?.confidence != null && (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            Confidence {proposal.confidence}%
+                          </span>
+                        )}
+                      </div>
+
+                      {isTrajectoryField && (
+                        <details className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                          <summary className="cursor-pointer text-xs font-medium text-slate-700">
+                            Trajectory preview
+                          </summary>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                            {formatDiffValue(value) || "No trajectory summary yet."}
+                          </p>
+                        </details>
+                      )}
+
+                      {(evidence.length > 0 || rationale) && isAlumniCard && (
+                        <details className="mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-3 py-2">
+                          <summary className="cursor-pointer text-xs font-medium text-gray-600">
+                            Evidence
+                          </summary>
+                          {evidence.length > 0 && (
+                            <ul className="mt-2 space-y-2 text-sm text-gray-700">
+                              {evidence.map((item, index) => (
+                                <li key={`${key}-evidence-${index}`} className="rounded bg-white px-3 py-2">
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {rationale && (
+                            <p className="mt-2 text-xs leading-5 text-gray-500">
+                              {rationale}
+                            </p>
+                          )}
+                        </details>
+                      )}
+
+                      <textarea
+                        id={`smart-canvas-field-${key}`}
+                        value={formatDiffValue(value)}
+                        onChange={(e) =>
+                          setEditingDiff((prev) => ({ ...prev, [key]: e.target.value }))
+                        }
+                        className="mt-3 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[80px]"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+
+              <div className="border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs text-gray-500">
+                    Commit saves this card into the knowledge base. Discard skips it and moves on.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={commitCard}
+                      disabled={actionLoading}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                    >
+                      {actionLoading ? <ActionStatus variant="on-dark" label="Committing…" /> : "Commit"}
+                    </button>
+                    <button
+                      onClick={discardCard}
+                      disabled={actionLoading}
+                      className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                    >
+                      {actionLoading ? <ActionStatus label="Processing…" /> : "Discard"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </>
           ) : (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-800 mb-2">Raw Input</h3>
-              <pre className="text-sm text-gray-600 whitespace-pre-wrap bg-gray-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
-                {session.raw_input}
-              </pre>
+            <div className="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+              <div className="border-b border-gray-100 px-5 py-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-800">Raw Input</h3>
+                  <p className="mt-1 text-xs text-gray-500">Select a pending card to review proposed updates, or read the original notes here.</p>
+                </div>
+              </div>
+              <div className="p-5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+                <pre className="whitespace-pre-wrap rounded-lg bg-gray-50 p-4 text-sm text-gray-600 xl:min-h-full">
+                  {session.raw_input}
+                </pre>
+              </div>
             </div>
           )}
         </div>

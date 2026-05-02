@@ -3,7 +3,7 @@
 **Duration:** ~1 week (reduced scope)
 **Goal:** Counsellors upload one document and both the main KB and the alumni KB get populated through the same SmartCanvas card review interface. No forced KB-vs-alumni choice. No new modal flows.
 **DRI:** Ian Chong
-**Status:** Core implementation landed 2026-04-26. Analyze plus review path is working end to end; remaining follow-up items are narrowed to commit-response polish and deferred sprint scope.
+**Status:** Core implementation landed 2026-04-26. Analyze plus review path is working end to end. Follow-up T3 evals (F1) and `company_links_attempted` vs `company_links_written` reporting (F2) shipped via the launch-readiness sprint by 2026-05-02. Remaining: F3 manual end-to-end verification of the four failure modes, plus the deferred items listed below.
 
 **Source design:** `~/.gstack/projects/iancwm-career-lighthouse/iancwm-main-design-20260426-130438.md`
 **Review log:** `/plan-eng-review` 2026-04-26, `mode: SCOPE_REDUCED`, 11 issues / 12 decisions taken / 0 unresolved.
@@ -24,8 +24,12 @@ What was verified:
 - Playwright QA verified that an alumni-heavy Staging Area session renders an actual alumni card in SmartCanvas instead of silently finishing with `0` intents.
 
 Still open from this sprint doc:
-- Commit response should report `company_links_attempted` vs `company_links_written` when malformed links are dropped.
+- Manual end-to-end verification of the four failure modes (F3 in the launch-readiness sprint).
 - The deferred schema-field and tab-migration work below is still deferred.
+
+Closed since 2026-04-26:
+- `_apply_field_updates_to_alumni` now reports `company_links_attempted` and `company_links_written`, and the commit response surfaces both keys (`api/routers/session_router.py:598-599`).
+- T3 LLM eval cases live in `api/tests/test_ai_eval.py` (`test_career_trajectory_summary_populated`, `test_is_update_and_matched_slug_for_existing_alumnus`, source-excerpt coverage).
 
 ---
 
@@ -275,18 +279,18 @@ Manual QA only (no test framework — see TODOS.md). Per the test plan artifact 
 
 ## Definition of Done
 
-- [x] All 12 decisions implemented per contracts above, except the explicit `company_links_attempted` vs `company_links_written` commit-response polish
+- [x] All 12 decisions implemented per contracts above, including the explicit `company_links_attempted` vs `company_links_written` commit-response polish
 - [x] T1 fixture corpus in place (3 alumni + 2 non-alumni); pytest parametrized passes
-- [ ] T3 eval cases in `test_ai_eval.py` pass against the new prompt
+- [x] T3 eval cases in `test_ai_eval.py` pass against the new prompt
 - [x] Unit tests cover the implemented backend code paths in this plan
 - [x] All implemented regression tests pass (preview-shape, track/employer commit, track guidance, alumni router)
 - [ ] Manual QA: counsellor uploads alumni-heavy doc → cards appear → commit → `knowledge/alumni/{slug}.yaml` exists with `career_trajectory_summary` populated
 - [ ] Manual QA: existing alumnus session → "Updating existing X" header → commit merges, doesn't overwrite
 - [ ] Manual QA: track + employer commits still work end-to-end
 - [x] `test_alumni_router.py::extract_preview` shape is unchanged
-- [ ] Four failure modes handled end to end (hallucinated matched_slug, malformed company_links discrepancy, slug collision, unknown LLM fields)
+- [ ] Four failure modes handled end to end (hallucinated matched_slug, malformed company_links discrepancy, slug collision, unknown LLM fields) — backend tests cover modes 1, 3, and 4; the malformed-links discrepancy now flows through the commit response (F2). Manual end-to-end verification still pending.
 - [x] CHANGELOG.md updated
-- [ ] TODOS.md three new entries land alongside (vitest + 5-fields + tab-migration)
+- [x] TODOS.md three new entries land alongside (vitest + 5-fields + tab-migration)
 
 ---
 

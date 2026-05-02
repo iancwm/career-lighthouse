@@ -28,7 +28,7 @@ const SMOKE_VIEWS = Object.values(ADMIN_VIEWS).filter(
 
 async function expectAdminViewToLoad(page: Page, viewId: string, label: string) {
   await page.goto(`/admin?view=${viewId}&key=test-admin-key`)
-  await expect(page.getByRole("heading", { name: "Career Lighthouse" })).toBeVisible()
+  await expect(page.locator("header").getByText("Career Lighthouse").first()).toBeVisible()
   await expect(page.locator("header").getByText(label, { exact: true }).first()).toBeVisible()
 }
 
@@ -37,9 +37,9 @@ test.describe("Admin workspace IA", () => {
     await page.goto("/admin")
 
     await page.waitForURL(/\/admin\?view=sessions/)
-    await expect(page.getByRole("button", { name: /Career Wire.*Current lane/i })).toBeVisible()
-    await expect(page.getByRole("button", { name: /Smart Counsellor.*Switch lane/i })).toBeVisible()
-    await expect(page.getByRole("button", { name: /Admin Room.*Switch lane/i })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Career Wire" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Smart Counsellor" })).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Admin Room" })).toBeVisible()
     await expect(page.getByRole("button", { name: /Staging Area/i })).toBeVisible()
   })
 
@@ -214,7 +214,53 @@ test.describe("Admin workspace IA", () => {
     await expect(page.getByText("Suggested company links")).toBeVisible()
   })
 
+  test("shows the SmartCanvas analyzing state before and after refresh", async ({ page }) => {
+    let sessionGetCount = 0
+
+    await page.route("**/api/sessions/**", async (route) => {
+      const request = route.request()
+      const url = new URL(request.url())
+
+      if (request.method() === "GET" && url.pathname.endsWith("/api/sessions/session-clarity")) {
+        sessionGetCount += 1
+        await route.fulfill({
+          json: {
+            id: "session-clarity",
+            status: sessionGetCount === 1 ? "in-progress" : "analyzing",
+            raw_input: "Fresh counsellor memo",
+            intent_cards: [],
+            created_by: "counsellor",
+            created_at: "2026-05-02T09:00:00Z",
+            updated_at: "2026-05-02T09:00:00Z",
+            analysis_error: null,
+          },
+        })
+        return
+      }
+
+      if (request.method() === "POST" && url.pathname.endsWith("/api/sessions/session-clarity/analyze")) {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        await route.fulfill({ json: { session_id: "session-clarity", cards: [] } })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.goto("/admin?view=sessions&sessionId=session-clarity&key=test-admin-key")
+
+    await expect(page.getByText(/Analyzing/).first()).toBeVisible()
+    await expect(page.getByRole("button", { name: /Stop analysis/i })).toBeVisible()
+
+    await page.reload()
+
+    await expect(page.getByRole("button", { name: /Stop analysis/i })).toBeVisible()
+    await expect(page.getByText(/Session: Analyzing/i)).toBeVisible()
+  })
+
   test("keeps employer saves visible and blocks switching while edits are unsaved", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+
     await page.route("**/api/kb/employers**", async (route) => {
       const request = route.request()
       const url = new URL(request.url())
@@ -264,5 +310,45 @@ test.describe("Admin workspace IA", () => {
     await expect(page.getByText(/Save or discard before opening Morgan Stanley/i)).toBeVisible()
     await expect(page.getByRole("heading", { name: "Goldman Sachs" })).toBeVisible()
     await expect(page.getByRole("heading", { name: "Morgan Stanley" })).toHaveCount(0)
+  })
+
+  test("stacks employer active work before the employer list on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+
+    await page.route("**/api/kb/employers**", async (route) => {
+      const request = route.request()
+      const url = new URL(request.url())
+      const method = request.method()
+
+      if (method === "GET" && url.pathname.endsWith("/api/kb/employers")) {
+        await route.fulfill({ json: [EMPLOYER_FIXTURE, EMPLOYER_FIXTURE_2] })
+        return
+      }
+
+      if (method === "GET" && url.pathname.endsWith("/api/kb/career-profiles")) {
+        await route.fulfill({
+          json: [{ slug: "investment_banking", career_type: "Investment Banking" }],
+        })
+        return
+      }
+
+      await route.fallback()
+    })
+
+    await page.goto("/admin?view=employers&key=test-admin-key")
+    await page.getByText("Goldman Sachs", { exact: true }).first().click()
+
+    const selectedEmployerLabel = page.getByText("Selected employer")
+    const employersLabel = page.getByText("Employers")
+
+    await expect(selectedEmployerLabel).toBeVisible()
+    await expect(employersLabel).toBeVisible()
+
+    const selectedEmployerBox = await selectedEmployerLabel.boundingBox()
+    const employersBox = await employersLabel.boundingBox()
+
+    expect(selectedEmployerBox, "Selected employer context should be rendered on the mobile stack").not.toBeNull()
+    expect(employersBox, "Employer list label should be rendered on the mobile stack").not.toBeNull()
+    expect(selectedEmployerBox!.y).toBeLessThan(employersBox!.y)
   })
 })

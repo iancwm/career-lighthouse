@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 import SmartCanvas from "../SmartCanvas"
 
@@ -102,6 +102,47 @@ describe("SmartCanvas", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: /Stop analysis/i })).toBeInTheDocument())
     expect(screen.getByText(/Session: Analyzing/i)).toBeInTheDocument()
+  })
+
+  it("shows the analyzing status during the initial analysis flow before refresh", async () => {
+    let resolveAnalyze: ((value: Response) => void) | null = null
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/api/admin/api/sessions/session-5") && (!init || init.method === undefined)) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            id: "session-5",
+            status: "in-progress",
+            raw_input: "Fresh counsellor note",
+            intent_cards: [],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response)
+      }
+      if (url.endsWith("/api/admin/api/sessions/session-5/analyze")) {
+        return new Promise<Response>((resolve) => {
+          resolveAnalyze = resolve
+        })
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-5" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText(/Analyzing/i)).toBeInTheDocument())
+
+    await act(async () => {
+      resolveAnalyze?.({
+        ok: true,
+        json: async () => ({ session_id: "session-5", cards: [], already_covered: [], track_guidance: null }),
+      } as Response)
+    })
   })
 
   it("renders nested follow-up data as readable json", async () => {

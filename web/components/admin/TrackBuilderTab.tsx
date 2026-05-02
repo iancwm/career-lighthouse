@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 
 interface DraftTrackDetail {
   slug: string
@@ -354,6 +355,8 @@ export default function TrackBuilderTab({
   }
 
   const selectedPublishedTrack = publishedDetail
+  const selectedTrackLabel = form.track_name || selectedSlug || "New draft"
+  const selectedTrackStatus = selectedSlug ? form.status.replace(/_/g, " ") : "draft setup"
 
   return (
     <div>
@@ -373,9 +376,9 @@ export default function TrackBuilderTab({
         </div>
       )}
 
-      <div className="grid grid-cols-[280px_minmax(0,1fr)] gap-6">
-        <div className="rounded-xl border border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-3">
+      <div className="grid gap-6 xl:grid-cols-[280px_minmax(0,1fr)] xl:min-h-[560px] xl:h-[calc(100vh-18rem)]">
+        <div className="order-2 rounded-xl border border-gray-200 xl:order-1 xl:flex xl:min-h-0 xl:flex-col">
+          <div className="flex items-center justify-between border-b border-gray-100 p-4">
             <h3 className="text-sm font-semibold text-gray-700">Draft Tracks</h3>
             <button
               onClick={startNewDraft}
@@ -385,59 +388,88 @@ export default function TrackBuilderTab({
             </button>
           </div>
 
-          {loading ? (
-            <p className="text-sm text-gray-400">Loading drafts…</p>
-          ) : drafts.length === 0 ? (
-            <p className="text-sm text-gray-400">No draft tracks yet.</p>
-          ) : (
-            <div className="space-y-2 mb-5">
-              {drafts.map((draft) => (
-                <button
-                  key={draft.slug}
-                  onClick={() => {
-                    setSelectedSlug(draft.slug)
-                    setForm(draft)
-                    setError("")
-                    setNotice("")
-                  }}
-                  className={`w-full rounded-lg border px-3 py-2 text-left ${
-                    selectedSlug === draft.slug ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-gray-800">{draft.track_name || draft.slug}</p>
-                  <p className="text-xs text-gray-500">{draft.slug}</p>
-                  <p className="text-xs text-gray-500 mt-1">Status: {draft.status}</p>
-                </button>
-              ))}
-            </div>
-          )}
+          <div className="space-y-5 p-4 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+            {loading ? (
+              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                <ActionStatus label="Loading drafts…" />
+              </div>
+            ) : drafts.length === 0 ? (
+              <p className="text-sm text-gray-400">No draft tracks yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {drafts.map((draft) => (
+                  <button
+                    key={draft.slug}
+                    onClick={() => {
+                      setSelectedSlug(draft.slug)
+                      setForm(draft)
+                      setError("")
+                      setNotice("")
+                    }}
+                    className={`w-full rounded-lg border px-3 py-2 text-left ${
+                      selectedSlug === draft.slug ? "border-blue-500 bg-blue-50" : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-gray-800">{draft.track_name || draft.slug}</p>
+                    <p className="text-xs text-gray-500">{draft.slug}</p>
+                    <p className="mt-1 text-xs text-gray-500">Status: {draft.status}</p>
+                  </button>
+                ))}
+              </div>
+            )}
 
-          <h3 className="text-sm font-semibold text-gray-700 mb-2">Published Tracks</h3>
-            <div className="space-y-2">
-              {tracks.map((track) => (
-                <button
-                  key={track.slug}
-                  type="button"
-                  onClick={() => {
-                    setSelectedSlug(track.slug)
-                    setError("")
-                    setNotice("")
-                  }}
-                  className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                    selectedSlug === track.slug
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <p className="text-sm font-medium text-gray-800">{track.label}</p>
-                  <p className="text-xs text-gray-500">{track.slug}</p>
-                </button>
-              ))}
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-gray-700">Published Tracks</h3>
+              <div className="space-y-2">
+                {tracks.map((track) => (
+                  <button
+                    key={track.slug}
+                    type="button"
+                    onClick={() => {
+                      setSelectedSlug(track.slug)
+                      setError("")
+                      setNotice("")
+                    }}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      selectedSlug === track.slug
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-gray-800">{track.label}</p>
+                    <p className="text-xs text-gray-500">{track.slug}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="order-1 rounded-xl border border-gray-200 xl:order-2 xl:flex xl:min-h-0 xl:flex-col">
+          <div className="border-b border-gray-100 bg-white px-5 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-gray-500">Selected draft</p>
+                <h3 className="mt-1 text-sm font-semibold text-gray-800">{selectedTrackLabel}</h3>
+                <p className="mt-1 text-xs text-gray-500">
+                  {selectedSlug ? `Slug: ${selectedSlug}` : "Set the slug and track name before generating a first draft."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium capitalize text-gray-600">
+                  {selectedTrackStatus}
+                </span>
+                {selectedPublishedTrack?.last_published && (
+                  <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-medium text-gray-600">
+                    Live {selectedPublishedTrack.last_published}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-        <div className="rounded-xl border border-gray-200 p-5">
-          <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+          <div className="space-y-5 p-5 xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
+            <div className="rounded-xl border border-blue-100 bg-blue-50/60 p-4">
             <h3 className="text-sm font-semibold text-gray-800 mb-1">
               {selectedSlug ? "Refresh Draft With New Research" : "Start From Research"}
             </h3>
@@ -462,7 +494,7 @@ export default function TrackBuilderTab({
                 Uploaded file
               </button>
             </div>
-            {sourceMode === "note" ? (
+              {sourceMode === "note" ? (
               <textarea
                 value={sourceText}
                 onChange={(e) => setSourceText(e.target.value)}
@@ -484,9 +516,9 @@ export default function TrackBuilderTab({
                 {sourceFile && <p className="mt-2 text-sm text-gray-600">{sourceFile.name}</p>}
               </div>
             )}
-          </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
             <label className="text-sm text-gray-700">
               Track slug
               <input
@@ -506,9 +538,9 @@ export default function TrackBuilderTab({
                 placeholder="Data Science"
               />
             </label>
-          </div>
+            </div>
 
-          <label className="block text-sm text-gray-700 mb-4">
+            <label className="block text-sm text-gray-700 mb-4">
             Match description
             <textarea
               value={form.match_description}
@@ -516,10 +548,10 @@ export default function TrackBuilderTab({
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[84px]"
               placeholder="Describe the field in the language students and counsellors would naturally use."
             />
-          </label>
+            </label>
 
-          {form.source_refs.length > 0 && (
-            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            {form.source_refs.length > 0 && (
+              <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
               <p className="text-xs font-medium text-gray-500 mb-2">Source references</p>
               <div className="flex flex-wrap gap-2">
                 {form.source_refs.map((ref, index) => (
@@ -531,10 +563,10 @@ export default function TrackBuilderTab({
                   </span>
                 ))}
               </div>
-            </div>
-          )}
+              </div>
+            )}
 
-          <label className="block text-sm text-gray-700 mb-4">
+            <label className="block text-sm text-gray-700 mb-4">
             Match keywords
             <input
               value={form.match_keywords.join(", ")}
@@ -542,27 +574,27 @@ export default function TrackBuilderTab({
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm"
               placeholder="data science, machine learning, ml engineer, analytics"
             />
-          </label>
+            </label>
 
-          <label className="block text-sm text-gray-700 mb-4">
+            <label className="block text-sm text-gray-700 mb-4">
             EP sponsorship guidance
             <textarea
               value={form.ep_sponsorship}
               onChange={(e) => updateField("ep_sponsorship", e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[84px]"
             />
-          </label>
+            </label>
 
-          <label className="block text-sm text-gray-700 mb-4">
+            <label className="block text-sm text-gray-700 mb-4">
             Typical COMPASS score
             <textarea
               value={form.compass_score_typical}
               onChange={(e) => updateField("compass_score_typical", e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[72px]"
             />
-          </label>
+            </label>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
             <label className="text-sm text-gray-700">
               Recruiting timeline
               <textarea
@@ -579,9 +611,9 @@ export default function TrackBuilderTab({
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[96px]"
               />
             </label>
-          </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="grid grid-cols-2 gap-4 mb-4">
             <label className="text-sm text-gray-700">
               Example employers
               <textarea
@@ -598,75 +630,28 @@ export default function TrackBuilderTab({
                 className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[120px]"
               />
             </label>
-          </div>
+            </div>
 
-          <label className="block text-sm text-gray-700 mb-4">
+            <label className="block text-sm text-gray-700 mb-4">
             Typical background
             <textarea
               value={form.typical_background}
               onChange={(e) => updateField("typical_background", e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[96px]"
             />
-          </label>
+            </label>
 
-          <label className="block text-sm text-gray-700 mb-4">
+            <label className="block text-sm text-gray-700 mb-4">
             Counsellor notes
             <textarea
               value={form.notes}
               onChange={(e) => updateField("notes", e.target.value)}
               className="mt-1 w-full rounded border border-gray-300 px-3 py-2 text-sm min-h-[96px]"
             />
-          </label>
+            </label>
 
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-            <p className="text-xs text-gray-500">
-              {form.status === "ready_for_publish" ? "This draft is ready to publish." : "Complete the required fields to make this draft publish-ready."}
-            </p>
-            <div className="flex gap-3">
-              {!selectedSlug && (
-                <button
-                  onClick={generateDraft}
-                  disabled={
-                    generating ||
-                    !form.slug.trim() ||
-                    !form.track_name.trim() ||
-                    (sourceMode === "note" ? !sourceText.trim() : !sourceFile)
-                  }
-                  className="rounded-xl border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
-                >
-                  {generating ? "Generating…" : "Generate from research"}
-                </button>
-              )}
-              {selectedSlug && (
-                <button
-                  onClick={refreshDraftFromResearch}
-                  disabled={
-                    generating ||
-                    (sourceMode === "note" ? !sourceText.trim() : !sourceFile)
-                  }
-                  className="rounded-xl border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
-                >
-                  {generating ? "Refreshing…" : "Refresh from research"}
-                </button>
-              )}
-              <button
-                onClick={saveDraft}
-                disabled={saving || generating || !form.slug || !form.track_name}
-                className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
-              >
-                {saving ? "Saving…" : "Save draft"}
-              </button>
-                <button
-                  onClick={publishDraft}
-                  disabled={publishing || generating || !selectedSlug || form.status !== "ready_for_publish"}
-                  className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
-                >
-                  {publishing ? "Publishing…" : "Publish track"}
-                </button>
-              </div>
-            </div>
-          {selectedSlug && (
-            <div className="mt-5 rounded-xl border border-gray-200 p-4">
+            {selectedSlug && (
+              <div className="mt-5 rounded-xl border border-gray-200 p-4">
               {(form.status === "published" || form.archived_at) && (
                 <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                   This is the archived working copy for a published track. The live student-facing version is shown below for reference.
@@ -682,12 +667,16 @@ export default function TrackBuilderTab({
                 <button
                   onClick={rollbackTrack}
                   disabled={rollingBack || history.length === 0}
-                  className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
                 >
-                  {rollingBack ? "Rolling back…" : "Rollback published track"}
+                  {rollingBack ? <ActionStatus label="Rolling back…" /> : "Rollback published track"}
                 </button>
               </div>
-              {publishedLoading && <p className="text-sm text-gray-400">Loading published reference…</p>}
+              {publishedLoading && (
+                <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  <ActionStatus label="Loading published reference…" />
+                </div>
+              )}
               {publishedError && <p className="text-sm text-red-600">{publishedError}</p>}
               {selectedPublishedTrack && (
                 <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
@@ -725,8 +714,67 @@ export default function TrackBuilderTab({
                   ))
                 )}
               </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <p className="text-xs text-gray-500">
+                {form.status === "ready_for_publish"
+                  ? "This draft is ready to publish."
+                  : "Complete the required fields to make this draft publish-ready."}
+              </p>
+              <div className="flex flex-wrap gap-3">
+                {!selectedSlug && (
+                  <button
+                    onClick={generateDraft}
+                    disabled={
+                      generating ||
+                      !form.slug.trim() ||
+                      !form.track_name.trim() ||
+                      (sourceMode === "note" ? !sourceText.trim() : !sourceFile)
+                    }
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                  >
+                    {generating ? <ActionStatus label="Generating…" /> : "Generate from research"}
+                  </button>
+                )}
+                {selectedSlug && (
+                  <button
+                    onClick={refreshDraftFromResearch}
+                    disabled={generating || (sourceMode === "note" ? !sourceText.trim() : !sourceFile)}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-blue-300 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                  >
+                    {generating ? <ActionStatus label="Refreshing…" /> : "Refresh from research"}
+                  </button>
+                )}
+                <button
+                  onClick={saveDraft}
+                  disabled={saving || generating || !form.slug || !form.track_name}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                >
+                  {saving ? <ActionStatus label="Saving…" /> : "Save draft"}
+                </button>
+                <button
+                  onClick={publishDraft}
+                  disabled={publishing || generating || !selectedSlug || form.status !== "ready_for_publish"}
+                  className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40"
+                >
+                  {publishing ? <ActionStatus variant="on-dark" label="Publishing…" /> : "Publish track"}
+                </button>
+                {selectedSlug && (
+                  <button
+                    onClick={rollbackTrack}
+                    disabled={rollingBack || history.length === 0}
+                    className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40"
+                  >
+                    {rollingBack ? <ActionStatus label="Rolling back…" /> : "Rollback"}
+                  </button>
+                )}
+              </div>
             </div>
-          )}
+          </div>
         </div>
       </div>
     </div>

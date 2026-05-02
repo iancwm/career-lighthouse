@@ -22,6 +22,7 @@ import FactsDashboardTab from "@/components/admin/FactsDashboardTab"
 import TraceExplorerTab from "@/components/admin/TraceExplorerTab"
 import ResumeReviewTab from "@/components/admin/ResumeReviewTab"
 import BrokenProfilesTab from "@/components/admin/BrokenProfilesTab"
+import { ActionStatus } from "@/components/admin/ui/ActionStatus"
 import type { AdminView, AdminViewDefinition, WorkstreamDefinition } from "@/components/admin/adminNavManifest"
 import type { KBHealth } from "@/components/admin/useAdminWorkspace"
 
@@ -77,7 +78,11 @@ function KnowledgeWorkspace({
           </button>
         </div>
 
-        {healthLoading && <p className="text-sm text-[var(--cl-muted)]">Loading KB health…</p>}
+        {healthLoading && (
+          <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+            <ActionStatus label="Loading KB health…" />
+          </div>
+        )}
         {healthError && (
           <div className="mb-4 rounded-2xl border border-[var(--cl-error)]/25 bg-[var(--cl-error)]/10 px-4 py-3 text-sm text-[var(--cl-error)]">
             Knowledge base unavailable - check that Qdrant is running.
