@@ -4,17 +4,17 @@ tracks:
 - fintech_compliance
 - investment_banking
 - tech_product
+- model_validation_risk
+- quantitative_finance
 ep_requirement: Likely sponsors EP for qualified candidates; major Singapore bank.
   Verify current policy.
 counselor_contact: Dr. Patricia Lim, Career Counselor - Law & Governance
-notes: 'Retail Banking (Relationship Manager → Senior RM) comp: SGD 70–85K base +
-  15–20% bonus (performance-based on AUM growth). Mass-affluent client segment (SGD
-  100K–1M wealth). Role is customer-facing with no data/analytics exposure. Alumni
-  Jane Teoh (MITB AI ''23) transitioned from UOB Senior RM to Stripe Data Analyst
-  via MITB AI Track — banking domain knowledge (settlement mechanics, FX, regulatory
-  compliance, fraud patterns) proved differentiator in fintech data roles. UOB banking
-  culture: hierarchical, documentation-heavy.'
-last_updated: '2026-04-22'
+notes: 'Active model validation hiring driven by MAS 2023 Model Governance Guidelines.
+  UOB hired +4 model validators 2023–2025 (per Rohit''s contact, corroborated by Cayden
+  Lee call April 2025). Recruits from SMU MQF cohort. Comp benchmarks consistent with
+  Big 3 bank standard: SGD 70–85K entry validator, SGD 90–120K senior validator. EP
+  sponsorship likely for qualified MQF graduates — verify current policy.'
+last_updated: '2026-05-03'
 intake_seasons: []
 singapore_headcount_estimate: null
 application_process: null

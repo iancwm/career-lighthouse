@@ -1,6 +1,6 @@
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class DocInfo(BaseModel):
@@ -179,9 +179,20 @@ class EmployerCardDiff(BaseModel):
     ep_requirement: str | None = None
     intake_seasons: list[str] | None = None
     application_process: str | None = None
-    headcount_estimate: str | int | None = None
+    singapore_headcount_estimate: str | int | None = None
     counselor_contact: str | None = None
     notes: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_headcount_field(cls, data: Any) -> Any:
+        if not isinstance(data, dict):
+            return data
+        if "singapore_headcount_estimate" in data or "headcount_estimate" not in data:
+            return data
+        normalized = dict(data)
+        normalized["singapore_headcount_estimate"] = normalized.pop("headcount_estimate")
+        return normalized
 
 
 class TrackCardDiff(BaseModel):

@@ -32,6 +32,35 @@ def test_intent_card_accepts_alumni_domain():
     assert card.proposals == {}
 
 
+def test_intent_card_accepts_singapore_headcount_estimate_for_employer_cards():
+    card = IntentCard(
+        card_id="employer-card-1",
+        domain="employer",
+        summary="Update Instacart Singapore",
+        diff={
+            "slug": "instacart_singapore",
+            "employer_name": "Instacart Singapore",
+            "singapore_headcount_estimate": "80-100",
+        },
+        raw_input_ref="Instacart expanded the Singapore credit risk team.",
+    )
+
+    assert card.diff["singapore_headcount_estimate"] == "80-100"
+
+
+def test_validate_intent_card_diff_normalizes_legacy_headcount_estimate():
+    diff = validate_intent_card_diff(
+        "employer",
+        {
+            "slug": "instacart_singapore",
+            "headcount_estimate": 120,
+        },
+    )
+
+    assert diff["singapore_headcount_estimate"] == 120
+    assert "headcount_estimate" not in diff
+
+
 def test_validate_intent_card_diff_rejects_unknown_alumni_field():
     try:
         validate_intent_card_diff(

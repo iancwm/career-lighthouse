@@ -1,25 +1,30 @@
 top_employers_smu:
+- ocbc
+- dbs
+- uob
 - jane_street
 - drw
 - wintermute
-- goldman_sachs
+- ernst_and_young
 - monetary_authority_of_singapore
-notes: 'MAS Economist role requires strong quant skills: VAR (vector autoregression),
-  DSGE (dynamic stochastic general equilibrium), nowcasting techniques, R + Python
-  + Stata proficiency. Central bank quant roles differ from private sector quant finance:
-  policy-focused (not trading/alpha-generation), lower comp, higher prestige in public
-  policy sphere. MSc Financial Economics graduates with strong econometrics background
-  are competitive for both MAS and private quant roles — counsellors should help students
-  distinguish between these two quant pathways early.'
+notes: 'SMU MQF (~30 grads/year) is supply-constrained pipeline — all grads placed
+  in model validation, risk analytics, or quant trading. Big 3 banks (DBS, UOB, OCBC)
+  hire ~8–10 MQF grads/year into model risk. MAS 2023 Model Governance Guidelines
+  driving validation hiring surge: UOB +4 validators, OCBC +3, DBS +2 (2023–2025).
+  Thesis topic is a direct hire signal: regulatory-relevant thesis (Basel III, PD
+  backtesting) targets banks; ML/fintech thesis targets tech. Quant trading firms
+  (Citadel, DE Shaw, Winton) poach top MQF students at SGD 150–250K TC. Sub-tracks:
+  model validation (stable, lower ceiling), quant trading (high pay, short runway
+  ~10 yrs), model development (balanced, growing in fintech), quant data science (fintech).
+  Alumni contact: Cayden Lee, Senior Model Validator OCBC, MQF ''23 — available for
+  SMU quant alumni mentoring.'
 career_type: Quantitative Finance & Economic Research
 entry_paths:
-- Direct hire as Junior Economist or Research Analyst at MAS after MSc Financial Economics
-- Quantitative Researcher or Trader role at proprietary trading firms (Jane Street,
-  DRW, Wintermute) via campus recruiting
-- Strats or Quantitative Analyst role at Goldman Sachs Securities Division
-- PhD pathway for senior MAS Economist or academic research roles
-- Internship-to-return-offer conversion at MAS Economic Policy Group or private quant
-  firms
+- SMU MQF direct hire into model validation (Big 3 banks)
+- Quant undergrad + MQF thesis presentation campus recruiting
+- Internship in Model Risk Management converting to full-time
+- Quant trading via campus recruiting (Jane Street, DRW, Citadel)
+- Fintech data science (Grab, Wise, Databricks)
 ep_sponsorship: Strong EP sponsorship prospects across all listed employers; MAS roles
   are Singapore citizen/PR preferred but select EP candidates for specialist quant
   positions. Private sector firms like Jane Street and DRW actively sponsor EP for
@@ -30,14 +35,19 @@ recruiting_timeline: Private quant firms (Jane Street, DRW, Wintermute) recruit 
   extended by December. MAS recruitment is year-round via the MAS Careers portal with
   structured intake cycles in Q1 and Q3. Goldman Sachs follows standard investment
   bank timelines with summer analyst applications opening in July–August.
-salary_range_2024:
-  mas_economist_entry: SGD 60,000–80,000 per annum
-  goldman_sachs_strats_entry: SGD 90,000–120,000 per annum
-  prop_trading_quant_researcher: SGD 120,000–200,000+ per annum (base), with significant
-    performance bonuses at Jane Street, DRW, and Wintermute
+salary_range_2024: 'Model Validation entry: SGD 70–85K + 12–15% bonus. Senior Validator:
+  SGD 90–120K + 12–18% bonus. Manager/Director: SGD 130–180K. Quant trading (Citadel,
+  DE Shaw, Winton): SGD 150–250K TC (volatile bonuses). Model Development mid-level:
+  SGD 110–140K. Consulting lateral (EY/Deloitte model risk): SGD 120–160K mid-level.
+  Fintech data scientist (Databricks, Wise, Grab): SGD 110–150K.'
 typical_background: MSc Financial Economics, MSc Quantitative Finance, or BSc (Hons)
   Economics/Mathematics with strong econometrics and programming skills. Competitive
   candidates typically demonstrate proficiency in Python, R, and Stata, with coursework
   or research experience in time-series econometrics, stochastic calculus, or macroeconomic
   modelling. Prior internships in economic research, quantitative trading, or financial
   analysis significantly strengthen candidacy.
+counselor_contact: 'Dr. Suresh Kumar. Alumni: Cayden Lee (OCBC Senior Model Validator,
+  MQF ''23) — speaks at SMU quant alumni meetups.'
+structured:
+  salary_min_sgd: 70000
+  salary_max_sgd: 85000

@@ -4,12 +4,29 @@ tracks:
 - fintech_compliance
 - investment_banking
 - tech_product
-ep_requirement: Likely sponsors EP for qualified candidates; major Singapore bank.
-  Verify current policy.
+- model_validation_risk
+- quantitative_finance
+ep_requirement: Likely sponsors EP for qualified MQF graduates entering model validation.
+  Verify current policy with HR.
 counselor_contact: Dr. Patricia Lim, Career Counselor - Law & Governance
-notes: OCBC compliance team recommended as first employer for students targeting fintech
-  compliance careers. Bank AML/KYC programs are mature and audited; 2–3 years builds
-  strong credibility. OCBC compliance talent actively recruited by fintechs (Stripe,
-  Wise, Revolut). Talent pipeline source confirmed by Aditya Mehta (Stripe Head of
-  Compliance APAC, NUS LLM '18).
-last_updated: '2026-04-20'
+notes: 'Active model validation hiring driven by MAS 2023 Model Governance Guidelines.
+  Hired +3 validators 2023–2025. Model Validation team validates credit risk models
+  (PD, LGD, EAD) against MAS Model Governance Guidelines and Basel III Endgame requirements.
+  Tools used: Python, R, SAS, VBA. Comp: SGD 75K base (entry validator) → SGD 95K
+  (senior validator) + 12–15% bonus + 2–3% annual increment. OTE ~SGD 109K at senior
+  level. Accelerated promotion possible: Cayden Lee promoted Senior Validator in <2
+  years (9 months). Current projects include IRB revalidation (PD/LGD models vs Basel
+  III Endgame) and Model Validation Policy documentation for MAS submission Q2 2025.
+  Alumni contact: Cayden Lee (Senior Model Validator, MQF ''23) — available for student
+  referrals and SMU quant alumni mentoring.'
+last_updated: '2026-05-03'
+intake_seasons:
+- Q1 (post-MQF graduation)
+- Q3 (mid-year intake for regulatory project needs)
+application_process: 'Campus recruiting: attends SMU MQF thesis presentations (Q4
+  each year). Direct hire from MQF cohort. Thesis topic relevance (Basel III, PD backtesting,
+  model governance) is a strong hire signal. Internship-to-full-time conversion also
+  observed (DBS model risk internship → OCBC full-time).'
+singapore_headcount_estimate: 'Credit risk team ~80–100 (modelers, validators, business
+  users). Model validation sub-team: 4–5 validators + 1 manager. Hired +3 model validators
+  2023–2025 (MAS regulatory compliance driven).'

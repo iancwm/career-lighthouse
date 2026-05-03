@@ -1,0 +1,67 @@
+track_name: Model Validation & Model Risk Management
+match_description: Specialist track for quantitative finance graduates who validate
+  statistical and machine learning models used in credit risk, market risk, and regulatory
+  compliance at banks and financial institutions. Requires deep statistical expertise,
+  regulatory knowledge (MAS, Basel III), and programming skills. More stable but lower
+  comp ceiling than quant trading.
+match_keywords:
+- model validation
+- model risk
+- credit risk
+- PD model
+- LGD
+- EAD
+- backtesting
+- IRB
+- Basel III
+- MAS model governance
+- stress testing
+- quantitative finance
+- MQF
+- statistical modeling
+- AUC-ROC
+- PSI
+ep_sponsorship: Likely — major Singapore banks (DBS, UOB, OCBC) actively hire MQF
+  graduates into model risk teams and typically sponsor EP for qualified candidates.
+compass_score_typical: COMPASS 40–50 typical for MQF graduates entering model validation
+  at major banks.
+top_employers_smu:
+- ocbc
+- dbs
+- uob
+- ernst_and_young
+- kpmg
+- deloitte
+recruiting_timeline: 'Campus recruiting: MQF thesis presentations (Q4 each year);
+  OCBC/UOB/DBS attend SMU MQF thesis presentations. Offers typically Q1 following
+  graduation. ~8–10 MQF grads/year placed across Big 3 banks.'
+international_realistic: Realistic for MQF graduates with strong thesis and technical
+  skills; banks sponsor EP. Supply-constrained field — all MQF grads (~30/year) typically
+  placed.
+entry_paths:
+- SMU MQF (MSc Quantitative Finance) direct hire
+- Quant Finance undergrad + MQF pipeline
+- Internship in Model Risk Management (DBS, OCBC, UOB) converting to full-time
+- Consulting (EY/Deloitte model risk) lateral entry
+salary_range_2024: 'Entry (0–2 yrs): SGD 70–85K base + 12–15% bonus. Senior Validator
+  (2–5 yrs): SGD 90–120K base + 12–18% bonus. Manager/Specialist (5+ yrs): SGD 130–180K
+  base. OTE at senior level ~SGD 109K. Bonus tied to regulatory milestone closures,
+  not individual performance metrics. CPF 20% standard. Limited equity/ESOS.'
+typical_background: 'SMU Quantitative Finance undergrad + MQF (MSc Quantitative Finance).
+  Relevant thesis topic (Basel III, PD backtesting, model governance) strongly signals
+  to bank recruiters. Internship in model risk or risk analytics preferred. Tools:
+  Python, R, SAS, VBA.'
+counselor_contact: 'Dr. Suresh Kumar (call notes April 7, 2025). Alumni contact: Cayden
+  Lee (Senior Model Validator, OCBC, MQF ''23).'
+notes: 'MQF pipeline is supply-constrained — ~30 grads/year, all placed. Thesis topic
+  matters: regulatory-relevant thesis (Basel III, backtesting) signals to banks; ML/fintech
+  thesis signals to tech companies. Career ceiling ~SGD 180K at Director level (10–15
+  years). Faster comp ceiling in fintech data science (SGD 180K+ in 5–7 yrs) or quant
+  trading (SGD 150–250K TC but volatile). Exit paths: consulting (EY/Deloitte model
+  risk SGD 120–160K mid-level), fintech data scientist (Databricks, Wise, Grab SGD
+  110–150K), quant trading. MAS 2023 Model Governance Guidelines driving hiring surge
+  at Big 3 banks — job security high through 2027+. Role is non-revenue function;
+  last hired/first cut in downsizing. Early specialization risk: credit model validation
+  difficult to pivot to market risk or operational risk without retraining. Accelerated
+  promotion possible: Cayden promoted Senior Validator in <2 years (9 months). Regulatory
+  monoculture risk if MAS loosens model governance requirements.'

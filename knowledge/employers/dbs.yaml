@@ -6,22 +6,24 @@ tracks:
 - project_management
 - sustainability_esg
 - fintech_compliance
+- model_validation_risk
+- quantitative_finance
 ep_requirement: Will sponsor
 intake_seasons:
 - rolling
-singapore_headcount_estimate: 10 per year
+singapore_headcount_estimate: '15–20 PM/BA roles/year; 70% internal promotion from
+  analyst pool, 30% external (consulting: Accenture, Infosys; fintech: Grab)'
 application_process: Entry via BA or Scrum Master roles (not direct PM). Computing
   degree or IT-related background required. 3–5 years experience typical. DBS Academy
   internal PM certification path common.
 counsellor_contact: Atina
-last_updated: '2026-04-21'
-notes: DBS compliance team is a recommended first employer for students targeting
-  fintech compliance careers. Bank AML programs are more mature and audited than fintech
-  equivalents; 2–3 years at DBS compliance builds unassailable credibility before
-  moving to fintech. DBS compliance talent is actively recruited by Stripe, Wise,
-  Revolut, and crypto exchanges. Existing card updated to add fintech_compliance track.
-singapore_headcount_estimate: '15–20 PM/BA roles/year; 70% internal promotion from analyst pool,
-  30% external (consulting: Accenture, Infosys; fintech: Grab)'
+last_updated: '2026-05-03'
+notes: 'Active model validation hiring driven by MAS 2023 Model Governance Guidelines.
+  DBS hired +2 model validators 2023–2025. Offers 6-month Model Risk Management internship
+  rotation (Cayden Lee completed year 3 internship at DBS — backtesting and validation
+  exposure). Internship-to-full-time conversion pathway exists. Recruits from SMU
+  MQF cohort at thesis presentations. Comp benchmarks consistent with Big 3 bank standard:
+  SGD 70–85K entry validator, SGD 90–120K senior validator.'
 counselor_contact: 'Dr. Suresh Kumar. Alumni contact: Sophia Lim (NUS Computing ''18),
   Senior PM Digital Banking Transformation — available for guest lecture on PM careers
   (target: May 2025, NUS Computing). Follow-up: Connect with NUS Computing faculty
