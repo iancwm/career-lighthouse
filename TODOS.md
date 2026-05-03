@@ -7,9 +7,10 @@ This backlog is ordered by execution priority:
 - `Done` = shipped items kept here for context
 
 Active sprint specs:
-- `docs/code_quality_sprint/` — structural cleanup (P1-4 onward + Phase 2 router split + Phase 3 `services/llm.py` decomposition still open).
+- None.
 
 Recently archived:
+- `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` — counsellor workspace UX sprint. Remaining A2 admin-tab sweep, D2 sticky local context, and E1/E2 verification shipped 2026-05-02.
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` — security/reliability/KB-perf/alumni-followups sprint. Residual items (B3 UX, E1 accuracy artifact, F3 alumni verification) live in this backlog.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
@@ -237,6 +238,22 @@ and live session state.
 Shipped: `session_id` now propagates through live session analysis, Langfuse groups traces into
 session views, and the admin Trace Explorer filters traces by session, operation, and status. The
 stale API build issue that initially hid traces was fixed during verification.
+
+### Sync canonical card-debug fixtures into the Langfuse eval dataset
+**What:** Add a small script or admin-safe workflow that syncs the canonical repo truth set for session-card debugging into the Langfuse dataset used by prompt and workflow evals.
+**Why:** The Langfuse observability sprint will keep the same 10 canonical cases in two places, repo fixtures for version-controlled review and Langfuse datasets for prompt/version scoring. Without a sync path, those sources will drift and make regressions harder to trust.
+**Context:** Approved during `/plan-eng-review` on 2026-05-03 for the Langfuse-first card extraction debugging sprint. The initial implementation should ship the wedge first, then this follow-up keeps the dual-source corpus honest as cases evolve.
+**Effort:** M
+**Priority:** P2
+**Depends on:** Initial workflow-detail + eval implementation shipping
+
+### Test a softer non-technical alias for `Debug Workflow`
+**What:** Run a product-language experiment for non-technical operators once they become real users, testing an alias such as `What happened?` or `Explain this run` for the workflow-debug entrypoint.
+**Why:** The current sprint correctly keeps `Debug Workflow` as the technical troubleshooting CTA, but the design review identified a likely future need for a less intimidating doorway when the observability flow is handed off to non-technical operators.
+**Context:** Approved during `/plan-design-review` on 2026-05-03 for the Langfuse-first card extraction debugging sprint. The plan now includes a two-layer workflow-detail view with a plain-English `What happened` layer, so this follow-up is specifically about whether the entrypoint label should soften later, not about redesigning the underlying screen.
+**Effort:** S
+**Priority:** P3
+**Depends on:** Actual non-technical operator adoption
 
 ### ~~PDPA wording — query digest is not "anonymised aggregates"~~ ✓ Stale (2026-04-27)
 The phrase "anonymised aggregates" does not appear in any active code or UI file — it was never written into the product. No action needed.

@@ -16,16 +16,17 @@ The repo root holds the active project docs:
 
 These docs are still maintained against the codebase:
 
-- `docs/code_quality_sprint/` - active structural cleanup plan for routers,
-  YAML write services, trace adapters, and `services/llm.py`. Phase 0 plus
-  the `trace_adapter`, `kb_writer`, and `kb_ingestion_service` extractions
-  shipped 2026-04-27; Phase 1 remainder, Phase 2 router split, and Phase 3
-  `services/llm.py` decomposition are still open.
+- `docs/langfuse_observability_sprint/` - active Langfuse observability sprint
+  covering workflow-detail debugging, prompt provenance, score/eval loops, and
+  the Staging Area to `Debug Workflow` UX.
 
 ## Archived Specs And Plans
 
 Completed or historical planning docs live under `docs/archived/`:
 
+- `docs/archived/code_quality_sprint/` - archived structural cleanup sprint
+  plan. Phase 0 and part of Phase 1 shipped; the remaining Phase 1, Phase 2,
+  and Phase 3 follow-ups now live in `TODOS.md`.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` - shipped counsellor
   workspace clarity sprint. The follow-up pass closed the remaining admin-tab
   loading-state sweep, sticky two-pane local context, and focused Vitest /
@@ -44,12 +45,12 @@ Completed or historical planning docs live under `docs/archived/`:
 
 ## Cleanup Specs
 
-Sprint status is tracked in `docs/code_quality_sprint/README.md`. The current
-slice shipped Phase 0 plus the `trace_adapter`, `kb_writer`, and
-`kb_ingestion_service` service extractions. Remaining work — `kb_health` lift,
-prompt externalization, inline-import cleanup, the router split, and the
-`services/llm.py` decomposition — is tracked in
-`docs/code_quality_sprint/implementation_plan.md`.
+The structural cleanup sprint has been archived to
+`docs/archived/code_quality_sprint/`. The shipped slice covered Phase 0 plus
+the `trace_adapter`, `kb_writer`, and `kb_ingestion_service` extractions.
+Remaining work — `kb_health` lift, prompt externalization, inline-import
+cleanup, the router split, and the `services/llm.py` decomposition — is now
+tracked in `TODOS.md`.
 
 ## Navigation
 
@@ -58,7 +59,7 @@ Start here:
 - `README.md` for the product and setup overview
 - `DESIGN.md` for architecture and UI direction
 - `TODOS.md` for the current backlog
-- `docs/code_quality_sprint/` for the active cleanup sprint specs
+- `docs/langfuse_observability_sprint/` for the active Langfuse observability sprint
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs
