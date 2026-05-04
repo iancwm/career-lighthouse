@@ -9,6 +9,7 @@ import RedundancyPanel from "@/components/admin/RedundancyPanel"
 import SourceStateSummary from "@/components/admin/SourceStateSummary"
 import StaleSourceGuidanceModal from "@/components/admin/modals/StaleSourceGuidanceModal"
 import { ActionStatus } from "@/components/admin/ui/ActionStatus"
+import type { LLMWorkflowDetail, LLMWorkflowSummary } from "@/types/llm-observability"
 
 interface LowConfidenceQuery {
   ts: string
@@ -78,29 +79,6 @@ interface KBHealthResponse {
   stale_source_evidence?: StaleSourceEvidence[]
 }
 
-interface LLMTraceEntry {
-  trace_id: string
-  ts: string
-  operation: string
-  status: string
-  model: string
-  session_id?: string | null
-  phase?: string | null
-  chunk_index?: number | null
-  chunk_count?: number | null
-  multi_pass_threshold_chars?: number | null
-  multi_pass_chunk_tokens?: number | null
-  multi_pass_overlap_tokens?: number | null
-  timeout_seconds: number | null
-  max_tokens: number
-  latency_ms: number
-  input_chars: number
-  output_chars: number
-  input_preview: string
-  output_preview: string
-  error: string | null
-}
-
 interface SourceStateView {
   activeCount: number | null
   supersededCount: number | null
@@ -113,34 +91,6 @@ interface SourceStateView {
 
 interface KBHealthView extends Omit<KBHealthResponse, "source_state"> {
   sourceState: SourceStateView
-}
-
-function formatLatency(ms: number): string {
-  if (ms < 1000) return `${Math.round(ms)}ms`
-  return `${(ms / 1000).toFixed(2)}s`
-}
-
-function formatTimestamp(value: string): string {
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) return value
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(parsed)
-}
-
-function traceStatusClass(status: string): string {
-  if (status === "ok") return "border-emerald-200 bg-emerald-100 text-emerald-700"
-  if (status === "started") return "border-sky-200 bg-sky-100 text-sky-700"
-  return "border-rose-200 bg-rose-100 text-rose-700"
-}
-
-function traceStatusLabel(status: string): string {
-  if (status === "ok") return "Completed"
-  if (status === "started") return "In flight"
-  return "Error"
 }
 
 function normalizeSourceState(health: KBHealthResponse): SourceStateView {
@@ -162,6 +112,156 @@ function normalizeHealth(payload: KBHealthResponse): KBHealthView {
     ...rest,
     sourceState: normalizeSourceState(payload),
   }
+}
+
+function formatTimestamp(value?: string | null): string {
+  if (!value) return "—"
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parsed)
+}
+
+function WorkflowWatchList({
+  workflows,
+  selectedWorkflowId,
+  detail,
+  detailLoading,
+  onSelect,
+}: {
+  workflows: LLMWorkflowSummary[]
+  selectedWorkflowId: string | null
+  detail: LLMWorkflowDetail | null
+  detailLoading: boolean
+  onSelect: (workflowId: string) => void
+}) {
+  const cardCount = (workflow: Partial<LLMWorkflowSummary>) =>
+    workflow.card_counts?.committed ?? workflow.card_counts?.repaired ?? workflow.card_counts?.raw ?? 0
+  const failures = workflows.filter((workflow) => workflow.status === "error" || workflow.status === "failed").length
+  const repairRuns = workflows.filter((workflow) => workflow.repair_applied).length
+  const missingCards = workflows.filter((workflow) => cardCount(workflow) === 0).length
+
+  return (
+    <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
+      <div className="flex flex-col gap-3 border-b border-[var(--cl-line)] pb-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Workflow queue</p>
+          <h3 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">Session-card health</h3>
+          <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">
+            Poll-friendly summaries first. Open one workflow to inspect the underlying repair, validation, and append story.
+          </p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-3">
+          <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-3 py-2 text-sm text-[var(--cl-ink)]">
+            <span className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Failed workflows</span>
+            <div className="mt-1 font-display text-2xl">{failures}</div>
+          </div>
+          <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-3 py-2 text-sm text-[var(--cl-ink)]">
+            <span className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Repair runs</span>
+            <div className="mt-1 font-display text-2xl">{repairRuns}</div>
+          </div>
+          <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-3 py-2 text-sm text-[var(--cl-ink)]">
+            <span className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Zero-card runs</span>
+            <div className="mt-1 font-display text-2xl">{missingCards}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="space-y-3">
+          {workflows.length === 0 ? (
+            <p className="text-sm text-[var(--cl-muted)]">No workflow summaries recorded yet.</p>
+          ) : (
+            workflows.map((workflow) => {
+              const cards = cardCount(workflow)
+              const selected = workflow.workflow_id === selectedWorkflowId
+              return (
+                <button
+                  key={workflow.workflow_id}
+                  type="button"
+                  onClick={() => onSelect(workflow.workflow_id)}
+                  className={`w-full rounded-2xl border px-4 py-4 text-left transition-colors ${
+                    selected
+                      ? "border-[var(--cl-accent)] bg-[var(--cl-accent)]/5"
+                      : "border-[var(--cl-line)] bg-white hover:border-[var(--cl-accent)]/40"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-[var(--cl-surface-2)] px-2.5 py-0.5 text-xs font-medium text-[var(--cl-muted)]">
+                      {workflow.status}
+                    </span>
+                    {workflow.repair_applied && (
+                      <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                        Repair applied
+                      </span>
+                    )}
+                    <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                      {cards} cards
+                    </span>
+                  </div>
+                  <p className="mt-3 font-medium text-[var(--cl-ink)]">
+                    {workflow.session_id ? `Session ${workflow.session_id.slice(0, 12)}` : workflow.workflow_name}
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--cl-muted)]">
+                    {workflow.prompt.prompt_name || "Prompt unavailable"}
+                    {workflow.prompt.prompt_version ? ` · v${workflow.prompt.prompt_version}` : ""}
+                  </p>
+                  {workflow.failure_summary && (
+                    <p className="mt-2 text-sm text-[var(--cl-error)]">{workflow.failure_summary}</p>
+                  )}
+                </button>
+              )
+            })
+          )}
+        </div>
+
+        <div className="rounded-2xl border border-[var(--cl-line)] bg-white px-5 py-4">
+          <h4 className="font-display text-xl text-[var(--cl-ink)]">Open detail</h4>
+          {detailLoading && (
+            <div className="mt-4">
+              <ActionStatus label="Loading workflow detail…" />
+            </div>
+          )}
+          {!detailLoading && !detail && (
+            <p className="mt-4 text-sm text-[var(--cl-muted)]">Pick a workflow summary to open its detail panel.</p>
+          )}
+          {detail && !detailLoading && (
+            <div className="mt-4 space-y-3 text-sm">
+              <p className="font-medium text-[var(--cl-ink)]">{detail.summary}</p>
+              <p className="text-[var(--cl-muted)]">{detail.likely_cause}</p>
+              <p className="text-[var(--cl-muted)]">{detail.recommended_action}</p>
+              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Prompt provenance</p>
+                <p className="mt-2 text-[var(--cl-ink)]">
+                  {detail.prompt.prompt_name || "Prompt version unavailable for this run"}
+                  {detail.prompt.prompt_version ? ` · v${detail.prompt.prompt_version}` : ""}
+                  {detail.prompt.prompt_source ? ` · ${detail.prompt.prompt_source}` : ""}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Model</p>
+                <p className="mt-2 text-[var(--cl-ink)]">{detail.model || "Unavailable"}</p>
+              </div>
+              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Timeline</p>
+                <p className="mt-2 text-[var(--cl-ink)]">
+                  {detail.steps.map((step) => step.label).join(" → ") || "No steps recorded"}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Started</p>
+                <p className="mt-2 text-[var(--cl-ink)]">{formatTimestamp(detail.started_at)}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  )
 }
 
 function StaleSourceEvidencePanel({ evidence }: { evidence: StaleSourceEvidence[] }) {
@@ -201,97 +301,13 @@ function StaleSourceEvidencePanel({ evidence }: { evidence: StaleSourceEvidence[
   )
 }
 
-function TraceTable({ traces }: { traces: LLMTraceEntry[] }) {
-  return (
-    <section className="rounded-3xl border border-[var(--cl-line)] bg-[var(--cl-surface)] p-5 shadow-[0_12px_30px_rgba(31,41,55,0.06)]">
-      <div className="flex flex-col gap-2 border-b border-[var(--cl-line)] pb-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Trace evidence</p>
-          <h3 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">Recent LLM traces</h3>
-          <p className="mt-2 text-sm leading-6 text-[var(--cl-muted)]">
-            Newest last. Started rows stay visible while a request is still in flight.
-          </p>
-        </div>
-        <p className="text-sm text-[var(--cl-muted)]">{traces.length} rows</p>
-      </div>
-
-      {traces.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--cl-muted)]">No LLM traces recorded yet.</p>
-      ) : (
-        <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--cl-line)]">
-          <div className="overflow-x-auto">
-            <table className="min-w-full border-collapse text-left">
-              <thead className="bg-[var(--cl-surface-2)]">
-                <tr className="text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">
-                  <th className="px-4 py-3 font-mono-display">Time</th>
-                  <th className="px-4 py-3 font-mono-display">Operation</th>
-                  <th className="px-4 py-3 font-mono-display">Status</th>
-                  <th className="px-4 py-3 font-mono-display">Model</th>
-                  <th className="px-4 py-3 font-mono-display">Latency</th>
-                  <th className="px-4 py-3 font-mono-display">Session</th>
-                </tr>
-              </thead>
-              <tbody>
-                {traces.map((trace, index) => (
-                  <tr
-                    key={`${trace.trace_id}-${trace.status}-${trace.ts}-${index}`}
-                    className="border-t border-[var(--cl-line)] bg-[var(--cl-surface)]"
-                  >
-                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">{formatTimestamp(trace.ts)}</td>
-                    <td className="px-4 py-4 align-top">
-                      <div className="space-y-2">
-                        <p className="font-medium text-[var(--cl-ink)]">{trace.operation}</p>
-                        <p className="text-xs leading-5 text-[var(--cl-muted)]">
-                          {trace.phase ?? "No phase"}
-                          {trace.chunk_index && trace.chunk_count ? ` · chunk ${trace.chunk_index}/${trace.chunk_count}` : ""}
-                        </p>
-                        {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens || trace.multi_pass_overlap_tokens) && (
-                          <p className="text-xs leading-5 text-[var(--cl-muted)]">
-                            {trace.multi_pass_threshold_chars ? `threshold ${trace.multi_pass_threshold_chars} chars` : ""}
-                            {trace.multi_pass_threshold_chars && trace.multi_pass_chunk_tokens ? " · " : ""}
-                            {trace.multi_pass_chunk_tokens ? `chunk ${trace.multi_pass_chunk_tokens} tokens` : ""}
-                            {(trace.multi_pass_threshold_chars || trace.multi_pass_chunk_tokens) && trace.multi_pass_overlap_tokens ? " · " : ""}
-                            {trace.multi_pass_overlap_tokens !== undefined && trace.multi_pass_overlap_tokens !== null
-                              ? `overlap ${trace.multi_pass_overlap_tokens} tokens`
-                              : ""}
-                          </p>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-top">
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-medium ${traceStatusClass(trace.status)}`}>
-                        {traceStatusLabel(trace.status)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">{trace.model}</td>
-                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">
-                      {formatLatency(trace.latency_ms)}
-                      <div className="mt-1 text-xs text-[var(--cl-muted)]">
-                        {trace.timeout_seconds ? `timeout ${trace.timeout_seconds}s` : "No timeout"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-4 align-top text-sm text-[var(--cl-ink)]">
-                      {trace.session_id ? <span className="font-mono-display">{trace.session_id.slice(0, 12)}</span> : "Unknown"}
-                      <div className="mt-1 text-xs text-[var(--cl-muted)]">
-                        {trace.input_chars} in · {trace.output_chars} out
-                      </div>
-                      {trace.error && <p className="mt-1 text-xs text-[var(--cl-error)]">{trace.error}</p>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </section>
-  )
-}
-
 export default function LLMObservabilityTab() {
   const [health, setHealth] = useState<KBHealthView | null>(null)
-  const [traces, setTraces] = useState<LLMTraceEntry[]>([])
+  const [workflows, setWorkflows] = useState<LLMWorkflowSummary[]>([])
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<LLMWorkflowDetail | null>(null)
   const [loading, setLoading] = useState(true)
+  const [detailLoading, setDetailLoading] = useState(false)
   const [error, setError] = useState("")
   const [refreshKey, setRefreshKey] = useState(0)
   const [showStaleGuidance, setShowStaleGuidance] = useState(false)
@@ -306,15 +322,17 @@ export default function LLMObservabilityTab() {
         if (!res.ok) throw new Error(`health:${res.status}`)
         return res.json()
       }),
-      adminFetch("/api/kb/llm-traces?limit=25").then(async (res) => {
-        if (!res.ok) throw new Error(`traces:${res.status}`)
+      adminFetch("/api/kb/workflow-summaries?limit=12").then(async (res) => {
+        if (!res.ok) throw new Error(`workflows:${res.status}`)
         return res.json()
       }),
     ])
-      .then(([healthData, traceData]) => {
+      .then(([healthData, workflowData]) => {
         if (cancelled) return
+        const nextWorkflows = workflowData as LLMWorkflowSummary[]
         setHealth(normalizeHealth(healthData as KBHealthResponse))
-        setTraces((traceData as LLMTraceEntry[]).slice().reverse())
+        setWorkflows(nextWorkflows)
+        setSelectedWorkflowId((current) => current ?? nextWorkflows[0]?.workflow_id ?? null)
       })
       .catch(() => {
         if (!cancelled) setError("Could not load observability data.")
@@ -328,6 +346,34 @@ export default function LLMObservabilityTab() {
     }
   }, [refreshKey])
 
+  useEffect(() => {
+    if (!selectedWorkflowId) {
+      setDetail(null)
+      return
+    }
+    let cancelled = false
+    setDetailLoading(true)
+
+    adminFetch(`/api/kb/workflow-detail?workflow_id=${selectedWorkflowId}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`detail:${res.status}`)
+        return res.json()
+      })
+      .then((payload) => {
+        if (!cancelled) setDetail(payload as LLMWorkflowDetail)
+      })
+      .catch(() => {
+        if (!cancelled) setDetail(null)
+      })
+      .finally(() => {
+        if (!cancelled) setDetailLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedWorkflowId])
+
   const staleEvidence = health?.sourceState.staleEvidence ?? []
 
   if (loading && !health) {
@@ -337,13 +383,6 @@ export default function LLMObservabilityTab() {
           <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">LLM observability</p>
           <div className="mt-4">
             <ActionStatus size="md" label="Loading observability data…" />
-          </div>
-          <div className="mt-3 h-8 w-56 rounded bg-[var(--cl-surface-2)]" />
-          <div className="mt-4 h-4 w-80 rounded bg-[var(--cl-surface-2)]" />
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            <div className="h-32 rounded-3xl bg-[var(--cl-surface-2)]" />
-            <div className="h-32 rounded-3xl bg-[var(--cl-surface-2)]" />
-            <div className="h-32 rounded-3xl bg-[var(--cl-surface-2)]" />
           </div>
         </div>
       </section>
@@ -358,7 +397,7 @@ export default function LLMObservabilityTab() {
             <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">LLM observability</p>
             <h2 className="mt-2 font-display text-3xl leading-tight text-[var(--cl-ink)]">Trace every call</h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-              This view shows Langfuse-backed trace data, KB health, and the source-state ledger, with a JSONL fallback only when Langfuse is unavailable.
+              This view combines KB health with session-card workflow summaries so you can spot broken runs quickly, then open one workflow for its debug story.
             </p>
           </div>
 
@@ -366,9 +405,9 @@ export default function LLMObservabilityTab() {
             type="button"
             onClick={() => setRefreshKey((value) => value + 1)}
             disabled={loading}
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--cl-accent)] focus:ring-offset-2 focus:ring-offset-[var(--cl-surface)] disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[var(--cl-line)] px-4 py-2 text-sm font-medium text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)] disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {loading ? <ActionStatus label="Refreshing…" announce={false} /> : "Refresh"}
+            Refresh
           </button>
         </div>
 
@@ -400,6 +439,14 @@ export default function LLMObservabilityTab() {
             diversityScore={health.retrieval_diversity_score}
           />
 
+          <WorkflowWatchList
+            workflows={workflows}
+            selectedWorkflowId={selectedWorkflowId}
+            detail={detail}
+            detailLoading={detailLoading}
+            onSelect={setSelectedWorkflowId}
+          />
+
           <div className="grid gap-4 xl:grid-cols-2">
             <div className="space-y-4">
               <DocCoverageList docs={health.doc_coverage} />
@@ -408,16 +455,7 @@ export default function LLMObservabilityTab() {
             </div>
             <LowConfidenceLog avgMatchScore={health.avg_match_score} queries={health.low_confidence_queries} />
           </div>
-
-          <TraceTable traces={traces} />
         </div>
-      )}
-
-      {!health && !error && (
-        <p className="text-sm text-[var(--cl-muted)]">No observability data available yet.</p>
-      )}
-      {!health && error && (
-        <p className="text-sm text-[var(--cl-muted)]">Refresh once the backend is available again.</p>
       )}
 
       {showStaleGuidance && (

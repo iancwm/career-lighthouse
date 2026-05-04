@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 from models_kb import TrackGuidance
@@ -8,8 +10,10 @@ class KnowledgeSession(BaseModel):
     status: str  # "in-progress" | "analyzing" | "analyzed" | "completed" | "failed" | "cancelled"
     raw_input: str
     intent_cards: list[dict] = []
+    already_covered: list[dict] = []
     track_guidance: TrackGuidance | None = None
     analysis_error: str | None = None
+    analysis_workflow: dict[str, Any] | None = None
     created_by: str = "counsellor"
     created_at: str
     updated_at: str

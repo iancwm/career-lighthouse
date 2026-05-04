@@ -59,6 +59,8 @@ class LLMTraceEntry(BaseModel):
     model: str
     feature: str | None = None
     session_id: str | None = None
+    workflow_id: str | None = None
+    workflow_name: str | None = None
     phase: str | None = None
     chunk_index: int | None = None
     chunk_count: int | None = None
@@ -72,6 +74,17 @@ class LLMTraceEntry(BaseModel):
     parse_attempt: int | None = None
     repair_attempt: int | None = None
     partial_result: bool | None = None
+    prompt_name: str | None = None
+    prompt_source: str | None = None
+    prompt_label: str | None = None
+    prompt_version: int | None = None
+    schema_name: str | None = None
+    error_class: str | None = None
+    domain_mix: str | None = None
+    repair_applied: bool | None = None
+    card_count_raw: int | None = None
+    card_count_repaired: int | None = None
+    card_count_committed: int | None = None
     timeout_seconds: float | None = None
     max_tokens: int
     latency_ms: float
@@ -80,6 +93,86 @@ class LLMTraceEntry(BaseModel):
     input_preview: str = ""
     output_preview: str = ""
     error: str | None = None
+
+
+class LLMPromptProvenance(BaseModel):
+    prompt_name: str | None = None
+    prompt_source: str | None = None
+    prompt_label: str | None = None
+    prompt_version: int | None = None
+
+
+class LLMWorkflowCardCounts(BaseModel):
+    raw: int | None = None
+    repaired: int | None = None
+    committed: int | None = None
+    already_covered: int | None = None
+    alumni_built: int | None = None
+
+
+class LLMWorkflowScore(BaseModel):
+    key: str
+    value: float | int | str | bool | None = None
+    label: str
+    rationale: str | None = None
+
+
+class LLMWorkflowStep(BaseModel):
+    step_id: str
+    label: str
+    status: str
+    started_at: str | None = None
+    ended_at: str | None = None
+    duration_ms: float | None = None
+    detail: str | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class LLMWorkflowSummary(BaseModel):
+    workflow_id: str
+    workflow_name: str
+    status: str
+    started_at: str | None = None
+    ended_at: str | None = None
+    duration_ms: float | None = None
+    session_id: str | None = None
+    model: str | None = None
+    prompt: LLMPromptProvenance = Field(default_factory=LLMPromptProvenance)
+    drop_point: str | None = None
+    failure_summary: str | None = None
+    repair_applied: bool = False
+    card_counts: LLMWorkflowCardCounts = Field(default_factory=LLMWorkflowCardCounts)
+    alumni_path: str | None = None
+    is_partial: bool = False
+
+
+class LLMWorkflowDetail(BaseModel):
+    workflow_id: str
+    workflow_name: str
+    status: str
+    session_id: str | None = None
+    trace_ids: list[str] = Field(default_factory=list)
+    started_at: str | None = None
+    ended_at: str | None = None
+    duration_ms: float | None = None
+    prompt: LLMPromptProvenance = Field(default_factory=LLMPromptProvenance)
+    model: str | None = None
+    summary: str | None = None
+    likely_cause: str | None = None
+    recommended_action: str | None = None
+    drop_point: str | None = None
+    alumni_path: str | None = None
+    prompt_provenance_unavailable: bool = False
+    context_pack_summary: dict[str, Any] = Field(default_factory=dict)
+    raw_output_summary: dict[str, Any] = Field(default_factory=dict)
+    repair_summary: dict[str, Any] = Field(default_factory=dict)
+    parsed_payload_summary: dict[str, Any] = Field(default_factory=dict)
+    validation_summary: dict[str, Any] = Field(default_factory=dict)
+    append_summary: dict[str, Any] = Field(default_factory=dict)
+    card_counts: LLMWorkflowCardCounts = Field(default_factory=LLMWorkflowCardCounts)
+    scores: list[LLMWorkflowScore] = Field(default_factory=list)
+    steps: list[LLMWorkflowStep] = Field(default_factory=list)
+    limitations: list[str] = Field(default_factory=list)
 
 
 class OverlapPair(BaseModel):
