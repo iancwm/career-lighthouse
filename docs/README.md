@@ -16,9 +16,15 @@ The repo root holds the active project docs:
 
 These docs are still maintained against the codebase:
 
-- `docs/langfuse_observability_sprint/` - active Langfuse observability sprint
-  covering workflow-detail debugging, prompt provenance, score/eval loops, and
-  the Staging Area to `Debug Workflow` UX.
+- `docs/sprint_cq_finish/` - Code Quality Finish & Backlog Close-out sprint.
+  Covers the three remaining "Now" backlog items (B3 SmartCanvas UX, E1
+  accuracy testing, F3 alumni verification), Code Quality Phase 1 finish
+  (P1-4 kb_health extract, P1-5 prompt externalization, P1-6 inline-import
+  lift), Code Quality Phase 3 (P3-1 through P3-4 llm.py decomposition), and
+  the Langfuse eval dataset sync follow-up. Started 2026-05-04.
+- `docs/langfuse_observability_sprint/` - Langfuse observability sprint specs.
+  Implementation shipped 2026-05-04 (PR #22). Design and engineering reference
+  docs retained here for the follow-up eval-sync work.
 
 ## Archived Specs And Plans
 
