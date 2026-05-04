@@ -7,7 +7,7 @@ This backlog is ordered by execution priority:
 - `Done` = shipped items kept here for context
 
 Active sprint specs:
-- None.
+- `docs/sprint_cq_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Covers Now close-out items (B3, E1, F3), Code Quality Phase 1 finish (P1-4, P1-5, P1-6), Code Quality Phase 3 (P3-1 through P3-4), and Langfuse eval dataset sync. Started 2026-05-04.
 
 Recently archived:
 - `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
