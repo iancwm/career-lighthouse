@@ -341,9 +341,13 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
         const data: KnowledgeSession = await reloadRes.json()
         setSession(data)
         if (data.intent_cards.length > 0) {
-          setNotice(`${data.intent_cards.length} intent(s) extracted — select a card to review.`)
-          // Auto-select first card
-          const firstCard = data.intent_cards[0]
+          const pendingCount = data.intent_cards.filter((card) => card.status === "pending").length
+          setNotice(
+            pendingCount > 0
+              ? `Your session is ready. ${pendingCount} cards are ready to review.`
+              : "Your session is ready."
+          )
+          const firstCard = data.intent_cards.find((card) => card.status === "pending") ?? data.intent_cards[0]
           setSelectedCardId(firstCard.card_id)
           setEditingDiff({ ...firstCard.diff })
         } else if (data.track_guidance && data.track_guidance.status !== "safe_update") {
@@ -523,7 +527,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
             onClick={() => onOpenTraces(sessionId)}
             className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
           >
-            Open trace explorer
+            Debug Workflow
           </button>
           {isInFlight && (
             <button

@@ -5,6 +5,7 @@ import asyncio
 import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -653,3 +654,125 @@ def test_shutdown_langfuse_traces_shuts_down_client(mock_client):
 
     assert fake_langfuse.flushed is False
     assert fake_langfuse.shut_down is True
+
+
+def test_workflow_detail_combines_trace_and_session_evidence(tmp_path, monkeypatch):
+    import services.trace_adapter as trace_adapter
+    from services.session_store import SessionStore
+
+    sessions_dir = tmp_path / "sessions"
+    trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
+    monkeypatch.setenv("SESSIONS_DIR", str(sessions_dir))
+    SessionStore._instance = None
+
+    store = SessionStore()
+    session = store.create_session("Met with Goldman and Maya Lim.", created_by="counsellor")
+    session.status = "analyzed"
+    session.intent_cards = [
+        {
+            "card_id": "card-1",
+            "domain": "employer",
+            "summary": "Update Goldman Sachs",
+            "diff": {"slug": "goldman_sachs", "notes": "Raised EP requirement"},
+            "raw_input_ref": "Goldman raised their EP requirement.",
+            "status": "pending",
+        }
+    ]
+    session.already_covered = [{"content": "Maya mentors students", "reason": "Already recorded"}]
+    session.analysis_workflow = {
+        "workflow_id": "workflow-123",
+        "workflow_name": "session_card_analysis",
+        "status": "ok",
+        "started_at": "2026-05-03T12:00:00+00:00",
+        "ended_at": "2026-05-03T12:00:03+00:00",
+        "drop_point": "session.intent_cards",
+        "append": {"target": "session.intent_cards", "result": "written", "card_count": 1},
+        "validation": {"result": "accepted", "validated_cards": 1},
+        "card_counts": {"raw": 1, "repaired": 1, "committed": 1, "already_covered": 1, "alumni_built": 0},
+        "alumni": {"heavy": True, "invoked": True, "result": "invoked", "cards_built": 0},
+        "steps": [{"step_id": "router-1", "label": "Append cards", "status": "ok", "detail": "Cards written"}],
+    }
+    store.save_session(session)
+
+    trace_path.parent.mkdir(parents=True, exist_ok=True)
+    trace_path.write_text(
+        "\n".join(
+            [
+                json.dumps(
+                    {
+                        "trace_id": "trace-1",
+                        "ts": "2026-05-03T12:00:00+00:00",
+                        "operation": "generate_session_intents",
+                        "status": "started",
+                        "model": "claude-sonnet-4-6",
+                        "session_id": session.id,
+                        "workflow_id": "workflow-123",
+                        "workflow_name": "session_card_analysis",
+                        "prompt_name": "generate_session_intents",
+                        "prompt_source": "repo",
+                        "prompt_label": "repo",
+                        "prompt_version": 3,
+                        "schema_name": "SessionAnalysisResult",
+                        "domain_mix": "track,employer",
+                        "timeout_seconds": 180.0,
+                        "max_tokens": 4096,
+                        "latency_ms": 0.0,
+                        "input_chars": 200,
+                        "output_chars": 0,
+                        "input_preview": "Met with Goldman",
+                        "output_preview": "",
+                        "error": None,
+                    }
+                ),
+                json.dumps(
+                    {
+                        "trace_id": "trace-1",
+                        "ts": "2026-05-03T12:00:02+00:00",
+                        "operation": "generate_session_intents",
+                        "status": "ok",
+                        "model": "claude-sonnet-4-6",
+                        "session_id": session.id,
+                        "workflow_id": "workflow-123",
+                        "workflow_name": "session_card_analysis",
+                        "prompt_name": "generate_session_intents",
+                        "prompt_source": "repo",
+                        "prompt_label": "repo",
+                        "prompt_version": 3,
+                        "schema_name": "SessionAnalysisResult",
+                        "domain_mix": "track,employer",
+                        "repair_applied": True,
+                        "card_count_raw": 1,
+                        "card_count_repaired": 1,
+                        "timeout_seconds": 180.0,
+                        "max_tokens": 4096,
+                        "latency_ms": 1532.0,
+                        "input_chars": 200,
+                        "output_chars": 420,
+                        "input_preview": "Met with Goldman",
+                        "output_preview": "{\"cards\": 1}",
+                        "error": None,
+                    }
+                )
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    fake_settings = SimpleNamespace(llm_trace_log_path=str(trace_path))
+    with patch.object(trace_adapter, "settings", fake_settings), patch.object(trace_adapter.llm_service, "_get_langfuse_client", return_value=None):
+        detail = trace_adapter.get_workflow_detail(session_id=session.id)
+        summaries = trace_adapter.list_workflow_summaries(session_id=session.id)
+
+    assert detail is not None
+    assert detail.workflow_id == "workflow-123"
+    assert detail.prompt.prompt_name == "generate_session_intents"
+    assert detail.prompt.prompt_version == 3
+    assert detail.card_counts.committed == 1
+    assert detail.append_summary["result"] == "written"
+    assert detail.alumni_path == "invoked"
+    assert any(step.label == "Append cards" for step in detail.steps)
+
+    assert len(summaries) == 1
+    assert summaries[0].workflow_id == "workflow-123"
+    assert summaries[0].repair_applied is True
+    assert summaries[0].card_counts.committed == 1

@@ -7,7 +7,7 @@ describe("LLMObservabilityTab", () => {
     vi.restoreAllMocks()
   })
 
-  it("renders the source-state summary, evidence, and trace table", async () => {
+  it("renders source-state health plus workflow summaries and detail", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce({
@@ -56,25 +56,72 @@ describe("LLMObservabilityTab", () => {
         ok: true,
         json: async () => [
           {
-            trace_id: "trace-1",
-            ts: "2026-04-22T09:00:00Z",
-            operation: "chat.answer",
+            workflow_id: "workflow-1",
+            workflow_name: "session_card_analysis",
             status: "ok",
             model: "gpt-5",
             session_id: "session-1",
-            phase: "reply",
-            chunk_index: 1,
-            chunk_count: 2,
-            timeout_seconds: 12,
-            max_tokens: 512,
-            latency_ms: 842,
-            input_chars: 240,
-            output_chars: 420,
-            input_preview: "Student asks about internships.",
-            output_preview: "Answer with current sources.",
-            error: null,
+            started_at: "2026-04-22T09:00:00Z",
+            ended_at: "2026-04-22T09:00:01Z",
+            duration_ms: 842,
+            prompt: {
+              prompt_name: "generate_session_intents",
+              prompt_version: 3,
+              prompt_source: "repo",
+              prompt_label: "repo",
+            },
+            drop_point: "session.intent_cards",
+            failure_summary: null,
+            repair_applied: true,
+            card_counts: {
+              committed: 3,
+            },
+            alumni_path: "skipped_not_alumni_heavy",
+            is_partial: false,
           },
         ],
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          workflow_id: "workflow-1",
+          workflow_name: "session_card_analysis",
+          status: "ok",
+          session_id: "session-1",
+          trace_ids: ["trace-1"],
+          started_at: "2026-04-22T09:00:00Z",
+          ended_at: "2026-04-22T09:00:01Z",
+          duration_ms: 842,
+          prompt: {
+            prompt_name: "generate_session_intents",
+            prompt_version: 3,
+            prompt_source: "repo",
+            prompt_label: "repo",
+          },
+          model: "gpt-5",
+          summary: "3 cards are ready to review.",
+          likely_cause: "The extraction, validation, and append path completed successfully.",
+          recommended_action: "Review the pending cards in the staging area.",
+          drop_point: "session.intent_cards",
+          alumni_path: "skipped_not_alumni_heavy",
+          prompt_provenance_unavailable: false,
+          context_pack_summary: {},
+          raw_output_summary: {},
+          repair_summary: { applied: true },
+          parsed_payload_summary: {},
+          validation_summary: {},
+          append_summary: {},
+          card_counts: { committed: 3 },
+          scores: [],
+          steps: [
+            {
+              step_id: "step-1",
+              label: "Intent extraction",
+              status: "ok",
+            },
+          ],
+          limitations: [],
+        }),
       } as Response)
 
     vi.stubGlobal("fetch", fetchMock)
@@ -96,7 +143,8 @@ describe("LLMObservabilityTab", () => {
     expect(within(dialog).getByText("old-guide.pdf")).toBeInTheDocument()
     expect(within(dialog).getByText(/Re-ingest or delete the old indexed chunks/i)).toBeInTheDocument()
     expect(screen.getByText("What internships fit me?")).toBeInTheDocument()
-    expect(screen.getByText("Completed")).toBeInTheDocument()
+    expect(screen.getByText(/Repair applied/i)).toBeInTheDocument()
     expect(screen.getByText("gpt-5")).toBeInTheDocument()
+    expect(screen.getByText(/3 cards are ready to review\./i)).toBeInTheDocument()
   })
 })

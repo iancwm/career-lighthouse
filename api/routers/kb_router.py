@@ -37,6 +37,8 @@ from models_kb import (
     KBHealthResponse,
     IngestResponse,
     LLMTraceEntry,
+    LLMWorkflowDetail,
+    LLMWorkflowSummary,
     LowConfidenceQuery,
     OverlapPair,
     TestQueryResult,
@@ -63,7 +65,9 @@ from services.shared_yaml import safe_slug_is_valid
 from services import trace_adapter
 from services.trace_adapter import (
     _observation_to_trace_entries,
+    get_workflow_detail,
     list_recent as list_recent_llm_traces,
+    list_workflow_summaries,
 )
 from services.embedder import Embedder
 from services.source_ledger import get_source_ledger_store
@@ -1364,3 +1368,31 @@ def llm_traces(
         status=status,
         trace_path=getattr(settings, "llm_trace_log_path", ""),
     )
+
+
+@router.get("/workflow-summaries", response_model=list[LLMWorkflowSummary])
+def workflow_summaries(
+    limit: int = 25,
+    session_id: str | None = None,
+    status: str | None = None,
+):
+    """Return lean session-analysis workflow summaries for polling surfaces."""
+    if limit < 1:
+        raise HTTPException(status_code=422, detail="limit must be at least 1")
+    if limit > 200:
+        limit = 200
+    return list_workflow_summaries(limit=limit, session_id=session_id, status=status)
+
+
+@router.get("/workflow-detail", response_model=LLMWorkflowDetail)
+def workflow_detail(
+    session_id: str | None = None,
+    workflow_id: str | None = None,
+):
+    """Return a normalized session-analysis workflow detail object."""
+    if not session_id and not workflow_id:
+        raise HTTPException(status_code=422, detail="session_id or workflow_id is required")
+    detail = get_workflow_detail(session_id=session_id, workflow_id=workflow_id)
+    if detail is None:
+        raise HTTPException(status_code=404, detail="Workflow detail not found")
+    return detail

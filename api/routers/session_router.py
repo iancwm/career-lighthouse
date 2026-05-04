@@ -257,6 +257,28 @@ def _touch_session(session: KnowledgeSession) -> None:
     store = SessionStore()
     store.save_session(session)
 
+
+def _workflow_timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _workflow_step(label: str, status: str, detail: str | None = None, **metadata: Any) -> dict[str, Any]:
+    return {
+        "step_id": f"step-{uuid4().hex[:8]}",
+        "label": label,
+        "status": status,
+        "started_at": _workflow_timestamp(),
+        "ended_at": _workflow_timestamp(),
+        "detail": detail,
+        "metadata": {key: value for key, value in metadata.items() if value is not None},
+    }
+
+
+def _ensure_analysis_workflow(session: KnowledgeSession) -> dict[str, Any]:
+    if not isinstance(session.analysis_workflow, dict):
+        session.analysis_workflow = {}
+    return session.analysis_workflow
+
 @router.get("", response_model=List[KnowledgeSession])
 def list_sessions(request: Request, store: SessionStore = Depends(get_session_store)):
     """List sessions, most recently updated first.
@@ -352,6 +374,39 @@ def analyze_session(
     if session.status == "completed":
         raise HTTPException(status_code=409, detail="Completed sessions cannot be re-analyzed")
 
+    workflow_id = uuid4().hex
+    session.analysis_workflow = {
+        "workflow_id": workflow_id,
+        "workflow_name": "session_card_analysis",
+        "status": "started",
+        "started_at": _workflow_timestamp(),
+        "ended_at": None,
+        "drop_point": "analysis_started",
+        "partial_result": False,
+        "failure_summary": None,
+        "steps": [],
+        "context_pack": {},
+        "repair": {"applied": False, "attempts": 0},
+        "raw_output": {},
+        "parsed_payload": {},
+        "validation": {},
+        "append": {},
+        "card_counts": {
+            "raw": 0,
+            "repaired": 0,
+            "committed": 0,
+            "already_covered": 0,
+            "alumni_built": 0,
+        },
+        "alumni": {
+            "heavy": False,
+            "invoked": False,
+            "result": "not_evaluated",
+            "cards_built": 0,
+        },
+    }
+    workflow = _ensure_analysis_workflow(session)
+
     # Mark the run before starting the LLM call so the UI can stop auto-retrying
     # and operators can see that work is in flight.
     session.status = "analyzing"
@@ -381,6 +436,12 @@ def analyze_session(
     except Exception:
         pass  # Non-fatal
 
+    workflow["context_pack"] = {
+        "existing_track_count": len(existing_tracks),
+        "existing_employer_count": len(existing_employers),
+        "raw_input_chars": len(session.raw_input or ""),
+    }
+
     # Call LLM — run in a sub-thread so we can enforce an overall deadline even
     # on multi-pass notes where each chunk has its own per-call timeout but the
     # total can still exceed the ALB/nginx gateway timeout.
@@ -396,6 +457,7 @@ def analyze_session(
             existing_tracks=existing_tracks,
             existing_employers=existing_employers,
             session_id=session.id,
+            trace_metadata={"workflow_id": workflow_id, "workflow_name": "session_card_analysis"},
         )
         result = _future.result(timeout=_deadline)
     except FuturesTimeoutError:
@@ -404,6 +466,11 @@ def analyze_session(
             raise HTTPException(status_code=409, detail="Session was cancelled.")
         session.status = "failed"
         session.analysis_error = f"Analysis timed out after {_deadline:.0f}s"
+        workflow["status"] = "error"
+        workflow["ended_at"] = _workflow_timestamp()
+        workflow["drop_point"] = "session_intent_generation"
+        workflow["failure_summary"] = session.analysis_error
+        workflow["steps"].append(_workflow_step("Intent extraction", "error", session.analysis_error))
         _touch_session(session)
         raise HTTPException(
             status_code=504,
@@ -418,6 +485,11 @@ def analyze_session(
             raise HTTPException(status_code=409, detail="Session was cancelled.")
         session.status = "failed"
         session.analysis_error = str(exc.detail)
+        workflow["status"] = "error"
+        workflow["ended_at"] = _workflow_timestamp()
+        workflow["drop_point"] = "session_intent_generation"
+        workflow["failure_summary"] = session.analysis_error
+        workflow["steps"].append(_workflow_step("Intent extraction", "error", session.analysis_error))
         _touch_session(session)
         raise
     except Exception as exc:
@@ -426,8 +498,30 @@ def analyze_session(
             raise HTTPException(status_code=409, detail="Session was cancelled.")
         session.status = "failed"
         session.analysis_error = str(exc)
+        workflow["status"] = "error"
+        workflow["ended_at"] = _workflow_timestamp()
+        workflow["drop_point"] = "session_intent_generation"
+        workflow["failure_summary"] = session.analysis_error
+        workflow["steps"].append(_workflow_step("Intent extraction", "error", session.analysis_error))
         _touch_session(session)
         raise HTTPException(status_code=503, detail="Analysis service unavailable")
+
+    workflow["steps"].append(
+        _workflow_step(
+            "Intent extraction",
+            "ok",
+            cards=len(result.get("cards", [])),
+            already_covered=len(result.get("already_covered", [])),
+        )
+    )
+    workflow["card_counts"]["raw"] = len(result.get("cards", []))
+    workflow["card_counts"]["repaired"] = len(result.get("cards", []))
+    workflow["card_counts"]["already_covered"] = len(result.get("already_covered", []))
+    workflow["parsed_payload"] = {
+        "cards_raw": len(result.get("cards", [])),
+        "cards_repaired": len(result.get("cards", [])),
+        "already_covered": len(result.get("already_covered", [])),
+    }
 
     track_guidance = None
     try:
@@ -450,10 +544,22 @@ def analyze_session(
     except (ValidationError, ValueError, TypeError) as exc:
         session.status = "failed"
         session.analysis_error = f"Invalid intent card payload: {exc}"
+        workflow["status"] = "error"
+        workflow["ended_at"] = _workflow_timestamp()
+        workflow["drop_point"] = "card_validation"
+        workflow["failure_summary"] = session.analysis_error
+        workflow["validation"] = {
+            "result": "rejected",
+            "reason": str(exc),
+        }
+        workflow["steps"].append(_workflow_step("Card validation", "error", str(exc)))
         _touch_session(session)
         raise HTTPException(status_code=422, detail="Invalid intent card payload from analysis service")
 
-    if _is_alumni_heavy(session.raw_input):
+    alumni_heavy = _is_alumni_heavy(session.raw_input)
+    workflow["alumni"]["heavy"] = alumni_heavy
+
+    if alumni_heavy:
         try:
             from services.alumni_store import get_alumni_store
             from services.llm import generate_alumni_extraction
@@ -472,14 +578,30 @@ def analyze_session(
                 text=session.raw_input,
                 existing_alumni=existing_alumni,
                 session_id=session.id,
+                trace_metadata={"workflow_id": workflow_id, "workflow_name": "session_card_analysis"},
             )
-            for alumni_card in _build_alumni_cards(alumni_extraction, session.id, existing_alumni):
+            workflow["alumni"]["invoked"] = True
+            built_alumni_cards = _build_alumni_cards(alumni_extraction, session.id, existing_alumni)
+            for alumni_card in built_alumni_cards:
                 cards.append(IntentCard(**alumni_card))
+            workflow["alumni"]["result"] = "invoked"
+            workflow["alumni"]["cards_built"] = len(built_alumni_cards)
+            workflow["card_counts"]["alumni_built"] = len(built_alumni_cards)
+            workflow["steps"].append(_workflow_step("Alumni extraction", "ok", cards=len(built_alumni_cards)))
             logger.info("analyze: alumni extraction took %dms", round((perf_counter() - started) * 1000))
         except HTTPException:
+            workflow["alumni"]["invoked"] = True
+            workflow["alumni"]["result"] = "http_error"
+            workflow["steps"].append(_workflow_step("Alumni extraction", "error", "Upstream HTTP error"))
             logger.warning("analyze: alumni extraction skipped after upstream HTTP error", exc_info=True)
         except Exception:
+            workflow["alumni"]["invoked"] = True
+            workflow["alumni"]["result"] = "parse_error"
+            workflow["steps"].append(_workflow_step("Alumni extraction", "error", "Parse or validation error"))
             logger.warning("analyze: alumni extraction skipped after parse/validation error", exc_info=True)
+    else:
+        workflow["alumni"]["result"] = "skipped_not_alumni_heavy"
+        workflow["steps"].append(_workflow_step("Alumni heavy detection", "ok", "Alumni path skipped", heavy=False))
 
     # Build AlreadyCovered objects
     already_covered = []
@@ -493,9 +615,27 @@ def analyze_session(
         raise HTTPException(status_code=409, detail="Session was cancelled.")
 
     session.intent_cards = [c.model_dump() for c in cards]
+    session.already_covered = [a.model_dump() for a in already_covered]
     session.track_guidance = track_guidance
     session.analysis_error = None
     session.status = "analyzed"
+    workflow["status"] = "ok"
+    workflow["ended_at"] = _workflow_timestamp()
+    workflow["card_counts"]["committed"] = len(session.intent_cards)
+    workflow["append"] = {
+        "target": "session.intent_cards",
+        "result": "written",
+        "card_count": len(session.intent_cards),
+    }
+    workflow["validation"] = {
+        "result": "accepted",
+        "validated_cards": len(session.intent_cards),
+    }
+    workflow["drop_point"] = (
+        "alumni_card_build"
+        if alumni_heavy and workflow["alumni"]["invoked"] and workflow["alumni"]["cards_built"] == 0 and workflow["card_counts"]["raw"] == 0
+        else "session.intent_cards"
+    )
     _touch_session(session)
 
     return SessionAnalysisResponse(
@@ -521,6 +661,11 @@ def cancel_session(
         raise HTTPException(status_code=409, detail="Completed sessions cannot be cancelled")
     session.status = "cancelled"
     session.analysis_error = "Cancelled by user"
+    if isinstance(session.analysis_workflow, dict):
+        session.analysis_workflow["status"] = "cancelled"
+        session.analysis_workflow["ended_at"] = _workflow_timestamp()
+        session.analysis_workflow["drop_point"] = "cancelled"
+        session.analysis_workflow["failure_summary"] = "Cancelled by user"
     _touch_session(session)
     return {"session_id": session_id, "status": "cancelled"}
 

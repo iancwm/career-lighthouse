@@ -79,8 +79,10 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
   const [dragOver, setDragOver] = useState(false)
   const [actionSessionId, setActionSessionId] = useState<string | null>(null)
   const [statusPulse, setStatusPulse] = useState(0)
+  const [promotedSessionId, setPromotedSessionId] = useState<string | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const previousSessionStatusRef = useRef(new Map<string, string>())
 
   const hasActiveSessions = sessions.some((session) => session.status === "in-progress" || session.status === "analyzing")
 
@@ -145,7 +147,22 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
       const res = await adminFetch("/api/sessions")
       if (!res.ok) throw new Error("load failed")
       const data: KnowledgeSession[] = await res.json()
-      setSessions(data.filter((s) => s.status !== "completed"))
+      const visibleSessions = data.filter((s) => s.status !== "completed")
+      const previousStatuses = previousSessionStatusRef.current
+      for (const session of visibleSessions) {
+        const previous = previousStatuses.get(session.id)
+        const pendingCards = session.intent_cards.filter((card) => card.status === "pending").length
+        if ((previous === "analyzing" || previous === "in-progress") && session.status === "analyzed") {
+          setNotice(
+            pendingCards > 0
+              ? `Your session is ready. ${pendingCards} cards are ready to review.`
+              : "Your session is ready."
+          )
+          setPromotedSessionId(session.id)
+        }
+      }
+      previousSessionStatusRef.current = new Map(visibleSessions.map((session) => [session.id, session.status]))
+      setSessions(visibleSessions)
     } catch {
       setError("Could not load sessions.")
     } finally {
@@ -158,6 +175,12 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     const interval = setInterval(loadSessions, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  useEffect(() => {
+    if (!promotedSessionId) return
+    const timeout = window.setTimeout(() => setPromotedSessionId(null), 5000)
+    return () => window.clearTimeout(timeout)
+  }, [promotedSessionId])
 
   useEffect(() => {
     if (!hasActiveSessions) {
@@ -344,9 +367,106 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     setTimeout(() => textareaRef.current?.focus(), 300)
   }
 
+  function renderSessionRow(session: KnowledgeSession) {
+    const pendingCards = session.intent_cards.filter((c) => c.status === "pending").length
+    const showStop = session.status === "in-progress" || session.status === "analyzing"
+    const showRetry = session.status === "failed" || session.status === "cancelled"
+    const busy = actionSessionId === session.id
+    const isPromoted = promotedSessionId === session.id
+
+    return (
+      <div
+        key={session.id}
+        className={`w-full rounded-xl border bg-[#FFFDFC] px-4 py-3 text-left transition-colors ${
+          isPromoted
+            ? "border-[#0F766E] shadow-[0_0_0_2px_rgba(15,118,110,0.12)]"
+            : "border-[#D8D0C4] hover:border-[#0F766E]"
+        }`}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <button
+            type="button"
+            onClick={() => onSelectSession(session.id)}
+            className="min-w-0 flex-1 text-left"
+          >
+            <p className="text-sm font-medium text-[#1F2937]">
+              {statusLabel(session.status)}
+            </p>
+            <p className="text-xs text-[#5F6B76] mt-1 truncate">
+              {session.raw_input.slice(0, 100)}
+              {session.raw_input.length > 100 ? "…" : ""}
+            </p>
+            <p className="text-xs text-[#5F6B76] mt-0.5 font-mono">
+              {new Date(session.created_at).toLocaleString()}
+            </p>
+            {session.analysis_error && (
+              <p className="mt-2 text-xs text-amber-900">
+                {session.analysis_error}
+              </p>
+            )}
+          </button>
+          <div className="text-right">
+            <span
+              className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusStyle(session.status)}`}
+            >
+              {(session.status === "in-progress" || session.status === "analyzing") && (
+                <ActionStatus variant="caution" size="sm" className="mr-1" />
+              )}
+              {statusLabel(session.status)}
+            </span>
+            {pendingCards > 0 && (
+              <p className="text-xs text-[#5F6B76] mt-1">{pendingCards} pending</p>
+            )}
+            <div className="mt-2 flex flex-wrap justify-end gap-2">
+              {session.status === "analyzed" && pendingCards > 0 && (
+                <button
+                  type="button"
+                  onClick={() => onSelectSession(session.id)}
+                  className="rounded-lg bg-[#0F766E] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#0A5C57]"
+                >
+                  Review now
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onOpenTraces(session.id)}
+                className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+              >
+                Debug Workflow
+              </button>
+              {showStop && (
+                <button
+                  type="button"
+                  onClick={() => stopSession(session.id)}
+                  disabled={busy}
+                  className="rounded-lg border border-amber-300 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-40"
+                >
+                  {busy ? "Stopping…" : "Stop"}
+                </button>
+              )}
+              {showRetry && (
+                <button
+                  type="button"
+                  onClick={() => retrySession(session.id)}
+                  disabled={busy}
+                  className="rounded-lg border border-blue-300 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
+                >
+                  {busy ? "Retrying…" : "Retry"}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) return <p className="text-sm text-muted">Loading sessions…</p>
 
   const displayedSessions = showAllSessions ? sessions : sessions.slice(0, SESSION_PAGE_SIZE)
+  const readySessions = displayedSessions.filter((session) => session.status === "analyzed")
+  const activeSessions = displayedSessions.filter((session) => session.status === "in-progress" || session.status === "analyzing")
+  const recentSessions = displayedSessions.filter((session) => !readySessions.includes(session) && !activeSessions.includes(session))
 
   return (
     <div>
@@ -532,85 +652,42 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
         </div>
       ) : (
         <>
-          <div className="space-y-3">
-            {displayedSessions.map((session) => {
-              const pendingCards = session.intent_cards.filter((c) => c.status === "pending").length
-              const showStop = session.status === "in-progress" || session.status === "analyzing"
-              const showRetry = session.status === "failed" || session.status === "cancelled"
-              const busy = actionSessionId === session.id
-              return (
-                <div
-                  key={session.id}
-                  className="w-full rounded-xl border border-[#D8D0C4] bg-[#FFFDFC] px-4 py-3 text-left hover:border-[#0F766E] transition-colors"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <button
-                      type="button"
-                      onClick={() => onSelectSession(session.id)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <p className="text-sm font-medium text-[#1F2937]">
-                        {statusLabel(session.status)}
-                      </p>
-                      <p className="text-xs text-[#5F6B76] mt-1 truncate">
-                        {session.raw_input.slice(0, 100)}
-                        {session.raw_input.length > 100 ? "…" : ""}
-                      </p>
-                      <p className="text-xs text-[#5F6B76] mt-0.5 font-mono">
-                        {new Date(session.created_at).toLocaleString()}
-                      </p>
-                      {session.analysis_error && (
-                        <p className="mt-2 text-xs text-amber-900">
-                          {session.analysis_error}
-                        </p>
-                      )}
-                    </button>
-                    <div className="text-right">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium ${statusStyle(session.status)}`}
-                      >
-                        {(session.status === "in-progress" || session.status === "analyzing") && (
-                          <ActionStatus variant="caution" size="sm" className="mr-1" />
-                        )}
-                        {statusLabel(session.status)}
-                      </span>
-                      {pendingCards > 0 && (
-                        <p className="text-xs text-[#5F6B76] mt-1">{pendingCards} pending</p>
-                      )}
-                      <div className="mt-2 flex flex-wrap justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => onOpenTraces(session.id)}
-                          className="rounded-lg border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                        >
-                          Traces
-                        </button>
-                        {showStop && (
-                          <button
-                            type="button"
-                            onClick={() => stopSession(session.id)}
-                            disabled={busy}
-                            className="rounded-lg border border-amber-300 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-40"
-                          >
-                            {busy ? "Stopping…" : "Stop"}
-                          </button>
-                        )}
-                        {showRetry && (
-                          <button
-                            type="button"
-                            onClick={() => retrySession(session.id)}
-                            disabled={busy}
-                            className="rounded-lg border border-blue-300 px-2.5 py-1 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
-                          >
-                            {busy ? "Retrying…" : "Retry"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+          <div className="space-y-6">
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-[#1F2937]">Ready to review</h4>
+                <span className="text-xs text-[#5F6B76]">{readySessions.length}</span>
+              </div>
+              {readySessions.length > 0 ? readySessions.map(renderSessionRow) : (
+                <div className="rounded-xl border border-dashed border-[#D8D0C4] bg-[#FFFCF6] px-4 py-4 text-sm text-[#5F6B76]">
+                  Sessions move here as soon as analysis finishes.
                 </div>
-              )
-            })}
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-[#1F2937]">Analyzing now</h4>
+                <span className="text-xs text-[#5F6B76]">{activeSessions.length}</span>
+              </div>
+              {activeSessions.length > 0 ? activeSessions.map(renderSessionRow) : (
+                <div className="rounded-xl border border-dashed border-[#D8D0C4] bg-[#FFFCF6] px-4 py-4 text-sm text-[#5F6B76]">
+                  No sessions are actively analyzing right now.
+                </div>
+              )}
+            </section>
+
+            <section className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-semibold text-[#1F2937]">Recent sessions</h4>
+                <span className="text-xs text-[#5F6B76]">{recentSessions.length}</span>
+              </div>
+              {recentSessions.length > 0 ? recentSessions.map(renderSessionRow) : (
+                <div className="rounded-xl border border-dashed border-[#D8D0C4] bg-[#FFFCF6] px-4 py-4 text-sm text-[#5F6B76]">
+                  Failed or cancelled sessions will stay here until you retry them.
+                </div>
+              )}
+            </section>
           </div>
 
           {/* Show more button */}

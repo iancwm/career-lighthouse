@@ -53,6 +53,22 @@ _LANGFUSE_BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._-]+\b", re.IGNORECASE)
 _llm = model_cfg["llm"]
 _prompts = prompts_cfg.get("prompts", {})
 SCHOOL_NAME = model_cfg["school"]["name"]
+_PROMPT_SOURCE_REPO = "repo"
+_PROMPT_SOURCE_LANGFUSE = "langfuse"
+_PROMPT_SOURCE_REPO_FALLBACK = "repo_fallback"
+_WORKFLOW_NAME = "session_card_analysis"
+_PROMPT_FLOW_CONFIG = {
+    "generate_session_intents": {
+        "repo_key": "session_intents",
+        "langfuse_enabled_setting": "langfuse_prompt_session_intents_enabled",
+        "langfuse_name": "generate_session_intents",
+    },
+    "generate_alumni_extraction": {
+        "repo_key": "alumni_extraction",
+        "langfuse_enabled_setting": "langfuse_prompt_alumni_extraction_enabled",
+        "langfuse_name": "generate_alumni_extraction",
+    },
+}
 
 
 def _llm_setting(setting_name: str, model_key: str, default: Any = None) -> Any:
@@ -72,6 +88,79 @@ def _llm_int(setting_name: str, model_key: str, default: int) -> int:
 def _llm_bool(setting_name: str, model_key: str, default: bool) -> bool:
     value = _llm_setting(setting_name, model_key, default)
     return bool(value)
+
+
+def _is_production_like_environment() -> bool:
+    environment = str(getattr(settings, "langfuse_tracing_environment", "development") or "development").strip().lower()
+    return environment in {"production", "prod"}
+
+
+def _langfuse_prompt_policy() -> tuple[str | None, int | None]:
+    if _is_production_like_environment():
+        label = str(getattr(settings, "langfuse_prompt_production_label", "production") or "production").strip()
+        ttl = int(getattr(settings, "langfuse_prompt_cache_ttl_seconds", 300) or 300)
+        return label or None, ttl
+    return None, 0
+
+
+def _repo_prompt_text(repo_key: str, prompt_kwargs: dict[str, Any]) -> str:
+    template = str(_prompts[repo_key])
+    if not prompt_kwargs:
+        return template
+    return template.format(**prompt_kwargs)
+
+
+def _resolve_prompt(flow_name: str, *, prompt_kwargs: dict[str, Any]) -> dict[str, Any]:
+    config = _PROMPT_FLOW_CONFIG[flow_name]
+    repo_key = str(config["repo_key"])
+    repo_prompt = _repo_prompt_text(repo_key, prompt_kwargs)
+    default = {
+        "text": repo_prompt,
+        "prompt_name": str(config.get("langfuse_name") or flow_name),
+        "prompt_source": _PROMPT_SOURCE_REPO,
+        "prompt_label": "repo",
+        "prompt_version": None,
+    }
+
+    if not bool(getattr(settings, str(config["langfuse_enabled_setting"]), False)):
+        return default
+
+    langfuse_client = _get_langfuse_client()
+    if langfuse_client is None or not hasattr(langfuse_client, "get_prompt"):
+        return {
+            **default,
+            "prompt_source": _PROMPT_SOURCE_REPO_FALLBACK,
+            "prompt_label": "repo-fallback",
+        }
+
+    label, cache_ttl_seconds = _langfuse_prompt_policy()
+    try:
+        prompt_client = langfuse_client.get_prompt(
+            str(config.get("langfuse_name") or flow_name),
+            label=label,
+            type="text",
+            cache_ttl_seconds=cache_ttl_seconds,
+            fallback=repo_prompt,
+            max_retries=0,
+            fetch_timeout_seconds=int(getattr(settings, "langfuse_prompt_fetch_timeout_seconds", 5) or 5),
+        )
+        compiled = prompt_client.compile(**prompt_kwargs)
+        labels = getattr(prompt_client, "labels", []) or []
+        resolved_label = label or (labels[0] if labels else "latest")
+        return {
+            "text": compiled,
+            "prompt_name": getattr(prompt_client, "name", str(config.get("langfuse_name") or flow_name)),
+            "prompt_source": _PROMPT_SOURCE_LANGFUSE,
+            "prompt_label": str(resolved_label),
+            "prompt_version": getattr(prompt_client, "version", None),
+        }
+    except Exception:
+        logger.warning("Langfuse prompt resolution failed for %s; falling back to repo prompt", flow_name, exc_info=True)
+        return {
+            **default,
+            "prompt_source": _PROMPT_SOURCE_REPO_FALLBACK,
+            "prompt_label": "repo-fallback",
+        }
 
 
 def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
@@ -710,11 +799,23 @@ def _call_with_trace(
         "input_chars_sent": _trace_metadata_int(metadata, "input_chars_sent", input_chars),
     }
     for field in (
+        "workflow_id",
+        "workflow_name",
         "kb_chunks_retrieved",
         "kb_chunks_sent",
         "parse_attempt",
         "repair_attempt",
         "partial_result",
+        "prompt_name",
+        "prompt_source",
+        "prompt_label",
+        "prompt_version",
+        "schema_name",
+        "domain_mix",
+        "repair_applied",
+        "card_count_raw",
+        "card_count_repaired",
+        "card_count_committed",
     ):
         if field in metadata and metadata[field] is not None:
             trace_entry_metadata[field] = metadata[field]
@@ -788,6 +889,7 @@ def _call_with_trace(
                     "output_chars": 0,
                     "input_preview": input_preview,
                     "output_preview": "",
+                    "error_class": exc.__class__.__name__,
                     "error": error_message,
                 })
                 if lf_observation is not None:
@@ -823,6 +925,7 @@ def _call_with_trace(
                     "output_chars": 0,
                     "input_preview": input_preview,
                     "output_preview": "",
+                    "error_class": exc.__class__.__name__,
                     "error": error_message,
                 })
                 if lf_observation is not None:
@@ -1253,6 +1356,7 @@ def generate_alumni_extraction(
     text: str,
     existing_alumni: list[dict[str, Any]] | None,
     session_id: str | None = None,
+    trace_metadata: dict[str, object] | None = None,
     *,
     source_label: str = "counsellor_note",
     source_type: str = "note",
@@ -1274,11 +1378,15 @@ def generate_alumni_extraction(
     current_profile_payload = current_profile if isinstance(current_profile, dict) else {}
     current_link_payload = current_links if isinstance(current_links, list) else []
 
-    system = _prompts["alumni_extraction"].format(
-        school_name=SCHOOL_NAME,
-        allowed_alumni_fields=", ".join(sorted(ALLOWED_ALUMNI_FIELDS)),
-        allowed_alumni_link_fields=", ".join(sorted(ALLOWED_ALUMNI_LINK_FIELDS)),
+    resolved_prompt = _resolve_prompt(
+        "generate_alumni_extraction",
+        prompt_kwargs={
+            "school_name": SCHOOL_NAME,
+            "allowed_alumni_fields": ", ".join(sorted(ALLOWED_ALUMNI_FIELDS)),
+            "allowed_alumni_link_fields": ", ".join(sorted(ALLOWED_ALUMNI_LINK_FIELDS)),
+        },
     )
+    system = resolved_prompt["text"]
     user = (
         f"MEETING NOTES:\n{sanitize_for_prompt(notes)}\n\n"
         f"CURRENT ALUMNI PROFILE (if editing existing alumni):\n"
@@ -1309,11 +1417,19 @@ def generate_alumni_extraction(
         trace_metadata={
             "feature": "generate_alumni_extraction",
             "session_id": session_id,
+            "workflow_name": str((trace_metadata or {}).get("workflow_name") or _WORKFLOW_NAME),
+            **(trace_metadata or {}),
             "source_type": source_type,
             "source_label": source_label,
             "alumni_slug": alumni_slug,
             "existing_alumni_count": len(normalized_candidates),
             "input_chars_pre_trim": len(text or ""),
+            "schema_name": "AlumniExtractionPreview",
+            "domain_mix": "alumni",
+            "prompt_name": resolved_prompt["prompt_name"],
+            "prompt_source": resolved_prompt["prompt_source"],
+            "prompt_label": resolved_prompt["prompt_label"],
+            "prompt_version": resolved_prompt["prompt_version"],
         },
         validator=None,
     )
@@ -1622,6 +1738,10 @@ def generate_session_intents(
             propagate_cm = nullcontext()
 
     with root_span_cm as root_span, propagate_cm:
+        resolved_prompt = _resolve_prompt(
+            "generate_session_intents",
+            prompt_kwargs={},
+        )
         tracks_text = ""
         if existing_tracks:
             tracks_text = "\n".join(
@@ -1658,7 +1778,7 @@ def generate_session_intents(
                 threshold_chars=threshold,
                 chunk_tokens=chunk_tokens,
                 overlap_tokens=overlap_tokens,
-                system=_prompts["session_intents"],
+                system=str(resolved_prompt["text"]),
                 schema_name="SessionAnalysisResult",
                 schema_hint=schema_hint,
                 build_user=build_user,
@@ -1669,11 +1789,18 @@ def generate_session_intents(
                     "feature": "generate_session_intents",
                     **(trace_metadata or {}),
                     "session_id": session_id,
+                    "workflow_name": str((trace_metadata or {}).get("workflow_name") or _WORKFLOW_NAME),
                     "phase": str((trace_metadata or {}).get("phase") or "session_analysis"),
                     "multi_pass_threshold_chars": threshold,
                     "multi_pass_chunk_tokens": chunk_tokens,
                     "multi_pass_overlap_tokens": overlap_tokens,
                     "input_chars_pre_trim": len(raw_input),
+                    "schema_name": "SessionAnalysisResult",
+                    "domain_mix": "track,employer",
+                    "prompt_name": resolved_prompt["prompt_name"],
+                    "prompt_source": resolved_prompt["prompt_source"],
+                    "prompt_label": resolved_prompt["prompt_label"],
+                    "prompt_version": resolved_prompt["prompt_version"],
                 },
             )
 

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     langfuse_base_url: str = ""
     langfuse_host: str = ""
     langfuse_tracing_environment: str = "development"
+    langfuse_prompt_session_intents_enabled: bool = False
+    langfuse_prompt_alumni_extraction_enabled: bool = False
+    langfuse_prompt_production_label: str = "production"
+    langfuse_prompt_cache_ttl_seconds: int = 300
+    langfuse_prompt_fetch_timeout_seconds: int = 5
 
 
 if SettingsConfigDict is None:
@@ -118,6 +123,11 @@ if SettingsConfigDict is None:
         langfuse_base_url: str = ""
         langfuse_host: str = ""
         langfuse_tracing_environment: str = "development"
+        langfuse_prompt_session_intents_enabled: bool = False
+        langfuse_prompt_alumni_extraction_enabled: bool = False
+        langfuse_prompt_production_label: str = "production"
+        langfuse_prompt_cache_ttl_seconds: int = 300
+        langfuse_prompt_fetch_timeout_seconds: int = 5
 
 
 settings = Settings()
