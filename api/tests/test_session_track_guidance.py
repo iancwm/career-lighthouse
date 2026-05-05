@@ -1,4 +1,5 @@
 """Integration tests for session track guidance persistence."""
+
 import json
 import os
 import sys
@@ -52,7 +53,9 @@ def _load_profiles_with_mock_embedder(self, profiles_dir: Path, mock_emb) -> Non
         if missing:
             continue
         self._profiles[slug] = profile
-        self._keyword_index[slug] = [str(profile.get("career_type", slug)).strip().lower()]
+        self._keyword_index[slug] = [
+            str(profile.get("career_type", slug)).strip().lower()
+        ]
         self._type_embeddings[slug] = mock_emb.encode(profile["career_type"])
 
 
@@ -78,7 +81,11 @@ def app_with_guidance_router():
         tracks_version_path = tmp_path / ".tracks-version"
 
         write_profile(profiles_dir, "quant_finance", {"career_type": "Quant Finance"})
-        write_profile(profiles_dir, "software_engineering", {"career_type": "Software Engineering"})
+        write_profile(
+            profiles_dir,
+            "software_engineering",
+            {"career_type": "Software Engineering"},
+        )
 
         ss_module._SESSIONS_DIR = sessions_dir
         os.environ["CAREER_PROFILES_DIR"] = str(profiles_dir)
@@ -112,12 +119,15 @@ def app_with_guidance_router():
 
         with patch(
             "services.career_profiles.CareerProfileStore._load_profiles",
-            lambda self: _load_profiles_with_mock_embedder(self, profiles_dir, mock_embedder),
+            lambda self: _load_profiles_with_mock_embedder(
+                self, profiles_dir, mock_embedder
+            ),
         ):
             original_dependencies = sys.modules.get("dependencies")
             sys.modules["dependencies"] = fake_dependencies
 
             import importlib.util
+
             spec = importlib.util.spec_from_file_location(
                 "session_router_guidance_test", "routers/session_router.py"
             )
@@ -154,11 +164,15 @@ def app_with_guidance_router():
 @patch("services.llm.get_client")
 def test_analyze_persists_track_guidance(mock_client, app_with_guidance_router):
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=json.dumps({"cards": [], "already_covered": []}))]
+    mock_msg.content = [
+        MagicMock(text=json.dumps({"cards": [], "already_covered": []}))
+    ]
     mock_client.return_value.messages.create.return_value = mock_msg
 
     client = TestClient(app_with_guidance_router)
-    create_resp = client.post("/api/sessions", json={"raw_input": "DRW quantitative research"})
+    create_resp = client.post(
+        "/api/sessions", json={"raw_input": "DRW quantitative research"}
+    )
     assert create_resp.status_code == 201
     session_id = create_resp.json()["id"]
 
@@ -166,7 +180,9 @@ def test_analyze_persists_track_guidance(mock_client, app_with_guidance_router):
     assert analyze_resp.status_code == 200
     analyze_body = analyze_resp.json()
     assert analyze_body["track_guidance"]["status"] == "clustered_uncertainty"
-    assert [item["slug"] for item in analyze_body["track_guidance"]["nearest_tracks"]] == [
+    assert [
+        item["slug"] for item in analyze_body["track_guidance"]["nearest_tracks"]
+    ] == [
         "quant_finance",
         "software_engineering",
     ]

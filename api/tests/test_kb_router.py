@@ -23,16 +23,20 @@ def make_client(in_memory_qdrant, mock_embedder):
 
 def seed_chunk(store, filename, chunk_text, chunk_index=0):
     vec = np.ones(384, dtype=np.float32)
-    store.upsert([{
-        "id": f"{filename}-{chunk_index}",
-        "vector": vec,
-        "payload": {
-            "source_filename": filename,
-            "chunk_index": chunk_index,
-            "upload_timestamp": "2026-01-01T00:00:00+00:00",
-            "text": chunk_text,
-        },
-    }])
+    store.upsert(
+        [
+            {
+                "id": f"{filename}-{chunk_index}",
+                "vector": vec,
+                "payload": {
+                    "source_filename": filename,
+                    "chunk_index": chunk_index,
+                    "upload_timestamp": "2026-01-01T00:00:00+00:00",
+                    "text": chunk_text,
+                },
+            }
+        ]
+    )
 
 
 def configure_track_paths(monkeypatch, tmp_path):
@@ -45,14 +49,23 @@ def configure_track_paths(monkeypatch, tmp_path):
 
     monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
     monkeypatch.setenv("DRAFT_TRACKS_DIR", str(drafts_dir))
-    monkeypatch.setenv("CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "career_tracks.yaml"))
-    monkeypatch.setenv("CAREER_PROFILE_HISTORY_DIR", str(tmp_path / "career_profiles_history"))
-    monkeypatch.setenv("TRACK_PUBLISH_LOG_PATH", str(logs_dir / "track_publish_log.jsonl"))
-    monkeypatch.setenv("TRACK_PUBLISH_JOURNAL_PATH", str(logs_dir / "track_publish_journal.jsonl"))
+    monkeypatch.setenv(
+        "CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "career_tracks.yaml")
+    )
+    monkeypatch.setenv(
+        "CAREER_PROFILE_HISTORY_DIR", str(tmp_path / "career_profiles_history")
+    )
+    monkeypatch.setenv(
+        "TRACK_PUBLISH_LOG_PATH", str(logs_dir / "track_publish_log.jsonl")
+    )
+    monkeypatch.setenv(
+        "TRACK_PUBLISH_JOURNAL_PATH", str(logs_dir / "track_publish_journal.jsonl")
+    )
     monkeypatch.setenv("TRACKS_VERSION_PATH", str(tmp_path / ".tracks-version"))
 
     from services.career_profiles import get_career_profile_store
     from services.track_drafts import get_track_draft_store
+
     get_career_profile_store().invalidate()
     get_track_draft_store().invalidate()
 
@@ -96,6 +109,7 @@ def sample_draft_payload(slug="data_science", note_text="Field notes"):
 # ---------------------------------------------------------------------------
 # POST /api/kb/test-query
 # ---------------------------------------------------------------------------
+
 
 class TestTestQuery:
     def test_returns_chunks_with_scores(self, in_memory_qdrant, mock_embedder):
@@ -142,8 +156,11 @@ class TestTestQuery:
 # GET /api/kb/health — doc coverage
 # ---------------------------------------------------------------------------
 
+
 class TestKBHealthDocCoverage:
-    def test_empty_kb_returns_zeroes_and_nulls(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_empty_kb_returns_zeroes_and_nulls(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
         with patch("routers.kb_router.settings") as mock_settings:
@@ -171,7 +188,9 @@ class TestKBHealthDocCoverage:
         assert coverage["big-doc.txt"]["coverage_status"] == "good"
         assert coverage["big-doc.txt"]["chunk_count"] == 20
 
-    def test_doc_with_fewer_than_20_chunks_is_thin(self, in_memory_qdrant, mock_embedder):
+    def test_doc_with_fewer_than_20_chunks_is_thin(
+        self, in_memory_qdrant, mock_embedder
+    ):
         client, store = make_client(in_memory_qdrant, mock_embedder)
         for i in range(5):
             seed_chunk(store, "small-doc.txt", f"chunk {i}", chunk_index=i)
@@ -202,6 +221,7 @@ class TestKBHealthDocCoverage:
 # GET /api/kb/health — query log metrics
 # ---------------------------------------------------------------------------
 
+
 class TestKBHealthQueryLog:
     def _write_log(self, path, entries):
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -209,7 +229,9 @@ class TestKBHealthQueryLog:
             for e in entries:
                 f.write(json.dumps(e) + "\n")
 
-    def test_absent_log_returns_null_metrics(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_absent_log_returns_null_metrics(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "no_log.jsonl")
 
@@ -221,15 +243,33 @@ class TestKBHealthQueryLog:
         assert data["avg_match_score"] is None
         assert data["low_confidence_queries"] == []
 
-    def test_avg_match_score_computed_from_log(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_avg_match_score_computed_from_log(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc).isoformat()
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
-        self._write_log(log_path, [
-            {"ts": now, "query_text": "q1", "scores": [0.8, 0.5], "doc_matched": "a.txt", "top_docs": ["a.txt", "b.txt"]},
-            {"ts": now, "query_text": "q2", "scores": [0.6, 0.4], "doc_matched": "b.txt", "top_docs": ["b.txt", "a.txt"]},
-        ])
+        self._write_log(
+            log_path,
+            [
+                {
+                    "ts": now,
+                    "query_text": "q1",
+                    "scores": [0.8, 0.5],
+                    "doc_matched": "a.txt",
+                    "top_docs": ["a.txt", "b.txt"],
+                },
+                {
+                    "ts": now,
+                    "query_text": "q2",
+                    "scores": [0.6, 0.4],
+                    "doc_matched": "b.txt",
+                    "top_docs": ["b.txt", "a.txt"],
+                },
+            ],
+        )
 
         with patch("routers.kb_router.settings") as mock_settings:
             mock_settings.query_log_path = log_path
@@ -238,15 +278,33 @@ class TestKBHealthQueryLog:
         data = r.json()
         assert data["avg_match_score"] == pytest.approx(0.7, abs=0.001)
 
-    def test_low_confidence_query_appears_in_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_low_confidence_query_appears_in_list(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc).isoformat()
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
-        self._write_log(log_path, [
-            {"ts": now, "query_text": "weak question", "scores": [0.20], "doc_matched": None, "top_docs": []},
-            {"ts": now, "query_text": "strong question", "scores": [0.90], "doc_matched": "a.txt", "top_docs": ["a.txt"]},
-        ])
+        self._write_log(
+            log_path,
+            [
+                {
+                    "ts": now,
+                    "query_text": "weak question",
+                    "scores": [0.20],
+                    "doc_matched": None,
+                    "top_docs": [],
+                },
+                {
+                    "ts": now,
+                    "query_text": "strong question",
+                    "scores": [0.90],
+                    "doc_matched": "a.txt",
+                    "top_docs": ["a.txt"],
+                },
+            ],
+        )
 
         with patch("routers.kb_router.settings") as mock_settings:
             mock_settings.query_log_path = log_path
@@ -258,14 +316,28 @@ class TestKBHealthQueryLog:
         assert lc[0]["query_text"] == "weak question"
         assert lc[0]["max_score"] == pytest.approx(0.20, abs=0.001)
 
-    def test_malformed_log_line_skipped(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_malformed_log_line_skipped(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc).isoformat()
         with open(log_path, "w") as f:
             f.write("this is not json\n")
-            f.write(json.dumps({"ts": now, "query_text": "q", "scores": [0.7], "doc_matched": "a.txt", "top_docs": ["a.txt"]}) + "\n")
+            f.write(
+                json.dumps(
+                    {
+                        "ts": now,
+                        "query_text": "q",
+                        "scores": [0.7],
+                        "doc_matched": "a.txt",
+                        "top_docs": ["a.txt"],
+                    }
+                )
+                + "\n"
+            )
 
         with patch("routers.kb_router.settings") as mock_settings:
             mock_settings.query_log_path = log_path
@@ -276,17 +348,35 @@ class TestKBHealthQueryLog:
         data = r.json()
         assert data["avg_match_score"] is not None
 
-    def test_entries_outside_7day_window_excluded(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_entries_outside_7day_window_excluded(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "query_log.jsonl")
         from datetime import datetime, timezone
+
         now = datetime.now(timezone.utc).isoformat()
-        self._write_log(log_path, [
-            # Old entry — outside 7 day window (year 2020)
-            {"ts": "2020-01-01T00:00:00+00:00", "query_text": "old q", "scores": [0.1], "doc_matched": None, "top_docs": []},
-            # Recent entry
-            {"ts": now, "query_text": "recent q", "scores": [0.9], "doc_matched": "a.txt", "top_docs": ["a.txt"]},
-        ])
+        self._write_log(
+            log_path,
+            [
+                # Old entry — outside 7 day window (year 2020)
+                {
+                    "ts": "2020-01-01T00:00:00+00:00",
+                    "query_text": "old q",
+                    "scores": [0.1],
+                    "doc_matched": None,
+                    "top_docs": [],
+                },
+                # Recent entry
+                {
+                    "ts": now,
+                    "query_text": "recent q",
+                    "scores": [0.9],
+                    "doc_matched": "a.txt",
+                    "top_docs": ["a.txt"],
+                },
+            ],
+        )
 
         with patch("routers.kb_router.settings") as mock_settings:
             mock_settings.query_log_path = log_path
@@ -301,8 +391,11 @@ class TestKBHealthQueryLog:
 # GET /api/kb/career-profiles
 # ---------------------------------------------------------------------------
 
+
 class TestCareerProfilesEndpoint:
-    def test_returns_empty_list_when_no_profiles_loaded(self, in_memory_qdrant, mock_embedder):
+    def test_returns_empty_list_when_no_profiles_loaded(
+        self, in_memory_qdrant, mock_embedder
+    ):
         from main import app
         from services.career_profiles import get_career_profile_store
         from unittest.mock import MagicMock
@@ -317,7 +410,9 @@ class TestCareerProfilesEndpoint:
         assert r.status_code == 200
         assert r.json() == []
 
-    def test_auto_complete_profile_uses_shared_llm_gateway(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_auto_complete_profile_uses_shared_llm_gateway(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         from main import app
         from services.career_profiles import get_career_profile_store
         from unittest.mock import MagicMock
@@ -327,7 +422,9 @@ class TestCareerProfilesEndpoint:
         (tmp_path / "career_profiles").mkdir(parents=True, exist_ok=True)
 
         mock_profile_store = MagicMock()
-        mock_profile_store.get_broken_profile.return_value = {"career_type": "Test Track"}
+        mock_profile_store.get_broken_profile.return_value = {
+            "career_type": "Test Track"
+        }
         mock_profile_store.invalidate.return_value = None
         app.dependency_overrides[get_career_profile_store] = lambda: mock_profile_store
 
@@ -339,7 +436,9 @@ class TestCareerProfilesEndpoint:
         }
 
         try:
-            with patch.object(llm_module, "call_structured_json", return_value=filled) as mock_call:
+            with patch.object(
+                llm_module, "call_structured_json", return_value=filled
+            ) as mock_call:
                 client, _ = make_client(in_memory_qdrant, mock_embedder)
                 resp = client.post("/api/kb/career-profiles/test_track/auto-complete")
 
@@ -360,59 +459,90 @@ class TestCareerProfilesEndpoint:
 # Track Builder endpoints
 # ---------------------------------------------------------------------------
 
+
 class TestTrackBuilderEndpoints:
-    def test_list_tracks_bootstraps_registry_from_existing_profiles(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_list_tracks_bootstraps_registry_from_existing_profiles(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         paths = configure_track_paths(monkeypatch, tmp_path)
-        with open(paths["profiles_dir"] / "consulting.yaml", "w", encoding="utf-8") as f:
-            yaml.safe_dump({
-                "career_type": "Consulting",
-                "ep_sponsorship": "High",
-                "top_employers_smu": ["McKinsey"],
-                "recruiting_timeline": "Sep-Nov",
-                "international_realistic": True,
-                "entry_paths": ["Internship"],
-                "salary_range_2024": "S$90K",
-                "typical_background": "Any",
-            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        with open(
+            paths["profiles_dir"] / "consulting.yaml", "w", encoding="utf-8"
+        ) as f:
+            yaml.safe_dump(
+                {
+                    "career_type": "Consulting",
+                    "ep_sponsorship": "High",
+                    "top_employers_smu": ["McKinsey"],
+                    "recruiting_timeline": "Sep-Nov",
+                    "international_realistic": True,
+                    "entry_paths": ["Internship"],
+                    "salary_range_2024": "S$90K",
+                    "typical_background": "Any",
+                },
+                f,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+            )
 
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         r = client.get("/api/kb/tracks")
 
         assert r.status_code == 200
-        assert r.json() == [{
-            "slug": "consulting",
-            "label": "Consulting",
-            "status": "active",
-            "last_published": None,
-        }]
+        assert r.json() == [
+            {
+                "slug": "consulting",
+                "label": "Consulting",
+                "status": "active",
+                "last_published": None,
+            }
+        ]
         assert paths["registry_path"].exists()
 
-    def test_list_tracks_and_drafts_sync_missing_published_profile(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_list_tracks_and_drafts_sync_missing_published_profile(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         paths = configure_track_paths(monkeypatch, tmp_path)
-        with open(paths["profiles_dir"] / "fintech_compliance.yaml", "w", encoding="utf-8") as f:
-            yaml.safe_dump({
-                "career_type": "Fintech Compliance",
-                "match_description": "Regulatory, AML, and compliance roles in fintech.",
-                "match_keywords": ["fintech compliance", "AML", "KYC"],
-                "ep_sponsorship": "Competitive at larger firms.",
-                "compass_score_typical": "45-60",
-                "top_employers_smu": ["DBS", "Stripe"],
-                "recruiting_timeline": "Year-round",
-                "international_realistic": True,
-                "entry_paths": ["AML Analyst", "Compliance Officer"],
-                "salary_range_2024": "SGD 95K-110K",
-                "typical_background": "Law, finance, or regulatory compliance.",
-                "notes": "Existing published profile without a draft copy.",
-            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        with open(
+            paths["profiles_dir"] / "fintech_compliance.yaml", "w", encoding="utf-8"
+        ) as f:
+            yaml.safe_dump(
+                {
+                    "career_type": "Fintech Compliance",
+                    "match_description": "Regulatory, AML, and compliance roles in fintech.",
+                    "match_keywords": ["fintech compliance", "AML", "KYC"],
+                    "ep_sponsorship": "Competitive at larger firms.",
+                    "compass_score_typical": "45-60",
+                    "top_employers_smu": ["DBS", "Stripe"],
+                    "recruiting_timeline": "Year-round",
+                    "international_realistic": True,
+                    "entry_paths": ["AML Analyst", "Compliance Officer"],
+                    "salary_range_2024": "SGD 95K-110K",
+                    "typical_background": "Law, finance, or regulatory compliance.",
+                    "notes": "Existing published profile without a draft copy.",
+                },
+                f,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+            )
         with open(paths["registry_path"], "w", encoding="utf-8") as f:
-            yaml.safe_dump({
-                "tracks": [{
-                    "slug": "consulting",
-                    "label": "Management Consulting",
-                    "status": "active",
-                    "last_published": None,
-                }]
-            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(
+                {
+                    "tracks": [
+                        {
+                            "slug": "consulting",
+                            "label": "Management Consulting",
+                            "status": "active",
+                            "last_published": None,
+                        }
+                    ]
+                },
+                f,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+            )
 
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
@@ -430,28 +560,40 @@ class TestTrackBuilderEndpoints:
         draft_slugs = [item["slug"] for item in drafts_resp.json()]
         assert "fintech_compliance" in draft_slugs
 
-        seeded = next(item for item in drafts_resp.json() if item["slug"] == "fintech_compliance")
+        seeded = next(
+            item for item in drafts_resp.json() if item["slug"] == "fintech_compliance"
+        )
         assert seeded["status"] == "ready_for_publish"
         assert (paths["drafts_dir"] / "fintech_compliance.yaml").exists()
 
-    def test_get_track_reference_returns_published_detail(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_get_track_reference_returns_published_detail(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         configure_track_paths(monkeypatch, tmp_path)
-        with open(tmp_path / "career_profiles" / "data_science.yaml", "w", encoding="utf-8") as f:
-            yaml.safe_dump({
-                "career_type": "Data Science",
-                "match_description": "Students interested in analytics, Python, and experimentation.",
-                "match_keywords": ["data science", "analytics"],
-                "ep_sponsorship": "Common in larger firms.",
-                "compass_score_typical": "45-60",
-                "top_employers_smu": ["Grab", "DBS"],
-                "recruiting_timeline": "Internships open in September.",
-                "international_realistic": True,
-                "entry_paths": ["Internship to return offer"],
-                "salary_range_2024": "S$70K-S$110K",
-                "typical_background": "Stats, CS, IS.",
-                "counselor_contact": "Henry",
-                "notes": "Published reference notes.",
-            }, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        with open(
+            tmp_path / "career_profiles" / "data_science.yaml", "w", encoding="utf-8"
+        ) as f:
+            yaml.safe_dump(
+                {
+                    "career_type": "Data Science",
+                    "match_description": "Students interested in analytics, Python, and experimentation.",
+                    "match_keywords": ["data science", "analytics"],
+                    "ep_sponsorship": "Common in larger firms.",
+                    "compass_score_typical": "45-60",
+                    "top_employers_smu": ["Grab", "DBS"],
+                    "recruiting_timeline": "Internships open in September.",
+                    "international_realistic": True,
+                    "entry_paths": ["Internship to return offer"],
+                    "salary_range_2024": "S$70K-S$110K",
+                    "typical_background": "Stats, CS, IS.",
+                    "counselor_contact": "Henry",
+                    "notes": "Published reference notes.",
+                },
+                f,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+            )
 
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         client.get("/api/kb/tracks")
@@ -464,11 +606,16 @@ class TestTrackBuilderEndpoints:
         assert data["label"] == "Data Science"
         assert data["status"] == "active"
         assert data["last_published"] is None
-        assert data["match_description"] == "Students interested in analytics, Python, and experimentation."
+        assert (
+            data["match_description"]
+            == "Students interested in analytics, Python, and experimentation."
+        )
         assert data["top_employers_smu"] == ["Grab", "DBS"]
         assert data["entry_paths"] == ["Internship to return offer"]
 
-    def test_create_draft_track_persists_yaml(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_create_draft_track_persists_yaml(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
@@ -483,7 +630,9 @@ class TestTrackBuilderEndpoints:
         assert stored["track_name"] == "Data Science"
         assert stored["match_keywords"] == ["data science", "machine learning"]
 
-    def test_publish_draft_writes_profile_registry_and_tracks_version(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_publish_draft_writes_profile_registry_and_tracks_version(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         client.post("/api/kb/draft-tracks", json=sample_draft_payload())
@@ -503,11 +652,15 @@ class TestTrackBuilderEndpoints:
         assert registry["tracks"][0]["slug"] == "data_science"
         assert paths["tracks_version_path"].exists()
 
-    def test_rollback_restores_previous_published_profile(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_rollback_restores_previous_published_profile(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
-        client.post("/api/kb/draft-tracks", json=sample_draft_payload(note_text="First version"))
+        client.post(
+            "/api/kb/draft-tracks", json=sample_draft_payload(note_text="First version")
+        )
         first_publish = client.post("/api/kb/draft-tracks/data_science/publish")
         assert first_publish.status_code == 200
 
@@ -527,22 +680,29 @@ class TestTrackBuilderEndpoints:
             restored = yaml.safe_load(f)
         assert restored["notes"] == "First version"
 
-    def test_generate_draft_track_from_note(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_generate_draft_track_from_note(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         configure_track_paths(monkeypatch, tmp_path)
         client, store = make_client(in_memory_qdrant, mock_embedder)
-        seed_chunk(store, "ds-guide.txt", "Data scientists at Grab need Python and SQL skills.")
+        seed_chunk(
+            store, "ds-guide.txt", "Data scientists at Grab need Python and SQL skills."
+        )
 
         generated = sample_draft_payload()
         generated["status"] = "draft"
         generated["source_refs"] = [{"type": "note", "label": "counsellor_note"}]
 
         with patch("services.llm.generate_track_draft", return_value=generated):
-            r = client.post("/api/kb/draft-tracks/generate", data={
-                "slug": "data_science",
-                "track_name": "Data Science",
-                "text": "Create a data science track from these counsellor notes.",
-                "source_type": "note",
-            })
+            r = client.post(
+                "/api/kb/draft-tracks/generate",
+                data={
+                    "slug": "data_science",
+                    "track_name": "Data Science",
+                    "text": "Create a data science track from these counsellor notes.",
+                    "source_type": "note",
+                },
+            )
 
         assert r.status_code == 201
         data = r.json()
@@ -550,25 +710,39 @@ class TestTrackBuilderEndpoints:
         assert data["track_name"] == "Data Science"
         assert data["source_refs"][0]["label"] == "counsellor_note"
 
-    def test_generate_draft_track_rejects_duplicate_slug(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_generate_draft_track_rejects_duplicate_slug(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         client.post("/api/kb/draft-tracks", json=sample_draft_payload())
 
-        r = client.post("/api/kb/draft-tracks/generate", data={
-            "slug": "data_science",
-            "track_name": "Data Science",
-            "text": "Try to create it again",
-            "source_type": "note",
-        })
+        r = client.post(
+            "/api/kb/draft-tracks/generate",
+            data={
+                "slug": "data_science",
+                "track_name": "Data Science",
+                "text": "Try to create it again",
+                "source_type": "note",
+            },
+        )
 
         assert r.status_code == 409
 
-    def test_refresh_existing_draft_from_note_updates_fields_and_merges_sources(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_refresh_existing_draft_from_note_updates_fields_and_merges_sources(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         configure_track_paths(monkeypatch, tmp_path)
         client, store = make_client(in_memory_qdrant, mock_embedder)
-        client.post("/api/kb/draft-tracks", json=sample_draft_payload(note_text="First draft notes"))
-        seed_chunk(store, "alumni-call.txt", "Data scientists at DBS often come from analytics and experimentation roles.")
+        client.post(
+            "/api/kb/draft-tracks",
+            json=sample_draft_payload(note_text="First draft notes"),
+        )
+        seed_chunk(
+            store,
+            "alumni-call.txt",
+            "Data scientists at DBS often come from analytics and experimentation roles.",
+        )
 
         refreshed = sample_draft_payload(note_text="Updated from alumni call")
         refreshed["track_name"] = "Data Science"
@@ -591,7 +765,9 @@ class TestTrackBuilderEndpoints:
         assert {"type": "file", "label": "alumni-call.txt"} in data["source_refs"]
         assert {"type": "note", "label": "counsellor_note"} in data["source_refs"]
 
-    def test_refresh_existing_draft_requires_existing_slug(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_refresh_existing_draft_requires_existing_slug(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
@@ -635,9 +811,12 @@ class TestTrackBuilderEndpoints:
         assert data[0]["career_type"] == "Investment Banking"
         assert data[0]["ep_tier"] == "High"
 
-    def test_draft_backwards_compat_missing_salary_and_visa_fields(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_draft_backwards_compat_missing_salary_and_visa_fields(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         """Old draft YAMLs without salary_levels or visa_pathway_notes should deserialise cleanly."""
         from models_tracks import DraftTrackDetail
+
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
@@ -653,15 +832,25 @@ class TestTrackBuilderEndpoints:
         assert data.get("salary_levels") is None
         assert data.get("visa_pathway_notes") is None
 
-    def test_publish_draft_round_trip_salary_and_visa(self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path):
+    def test_publish_draft_round_trip_salary_and_visa(
+        self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
+    ):
         """Draft with salary_levels and visa_pathway_notes should publish correctly."""
         paths = configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
         payload = sample_draft_payload()
         payload["salary_levels"] = [
-            {"stage": "Junior Analyst", "range_sgd": "80–110K", "notes": "Base + 15-20% bonus"},
-            {"stage": "Senior Manager", "range_sgd": "160–200K", "notes": "Base + 30% bonus"},
+            {
+                "stage": "Junior Analyst",
+                "range_sgd": "80–110K",
+                "notes": "Base + 15-20% bonus",
+            },
+            {
+                "stage": "Senior Manager",
+                "range_sgd": "160–200K",
+                "notes": "Base + 30% bonus",
+            },
         ]
         payload["visa_pathway_notes"] = "EP → Tech.Pass in 3y → PR eligible after 5y"
         client.post("/api/kb/draft-tracks", json=payload)
@@ -676,7 +865,10 @@ class TestTrackBuilderEndpoints:
         assert len(profile["salary_levels"]) == 2
         assert profile["salary_levels"][0]["stage"] == "Junior Analyst"
         assert profile["salary_levels"][1]["range_sgd"] == "160–200K"
-        assert profile["visa_pathway_notes"] == "EP → Tech.Pass in 3y → PR eligible after 5y"
+        assert (
+            profile["visa_pathway_notes"]
+            == "EP → Tech.Pass in 3y → PR eligible after 5y"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -711,7 +903,8 @@ def make_employer_client(in_memory_qdrant, mock_embedder, employers_dir):
 def make_employers_dir(tmp_path):
     d = tmp_path / "employers"
     d.mkdir()
-    (d / "goldman_sachs.yaml").write_text(textwrap.dedent("""\
+    (d / "goldman_sachs.yaml").write_text(
+        textwrap.dedent("""\
         employer_name: Goldman Sachs
         slug: goldman_sachs
         tracks:
@@ -721,14 +914,17 @@ def make_employers_dir(tmp_path):
           - Jan
           - Jul
         last_updated: "2026-04-05"
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     return d
 
 
 def make_profiles_dir(tmp_path):
     d = tmp_path / "career_profiles"
     d.mkdir()
-    (d / "investment_banking.yaml").write_text(textwrap.dedent("""\
+    (d / "investment_banking.yaml").write_text(
+        textwrap.dedent("""\
         career_type: Investment Banking
         ep_sponsorship: "High"
         compass_score_typical: "45-55"
@@ -744,7 +940,9 @@ def make_profiles_dir(tmp_path):
         notes: "Original note"
         structured:
           sponsorship_tier: High
-    """), encoding="utf-8")
+    """),
+        encoding="utf-8",
+    )
     return d
 
 
@@ -845,18 +1043,30 @@ def make_facts_dirs(tmp_path):
     }
 
     (employers_dir / "stripe_singapore.yaml").write_text(
-        yaml.safe_dump(stripe_payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        yaml.safe_dump(
+            stripe_payload,
+            allow_unicode=True,
+            default_flow_style=False,
+            sort_keys=False,
+        ),
         encoding="utf-8",
     )
     (profiles_dir / "consulting.yaml").write_text(
-        yaml.safe_dump(consulting_payload, allow_unicode=True, default_flow_style=False, sort_keys=False),
+        yaml.safe_dump(
+            consulting_payload,
+            allow_unicode=True,
+            default_flow_style=False,
+            sort_keys=False,
+        ),
         encoding="utf-8",
     )
 
     return employers_dir, profiles_dir
 
 
-def make_facts_client(in_memory_qdrant, mock_embedder, employers_dir, profiles_dir, monkeypatch):
+def make_facts_client(
+    in_memory_qdrant, mock_embedder, employers_dir, profiles_dir, monkeypatch
+):
     from main import app
     from services.vector_store import VectorStore
     from services.career_profiles import CareerProfileStore
@@ -881,6 +1091,7 @@ def make_facts_client(in_memory_qdrant, mock_embedder, employers_dir, profiles_d
 # GET /api/kb/employers
 # ---------------------------------------------------------------------------
 
+
 class TestListEmployersEndpoint:
     def test_returns_employer_list(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)
@@ -892,15 +1103,20 @@ class TestListEmployersEndpoint:
         assert data[0]["slug"] == "goldman_sachs"
         assert data[0]["employer_name"] == "Goldman Sachs"
 
-    def test_normalizes_scalar_tracks_in_employer_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_normalizes_scalar_tracks_in_employer_list(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
-        (d / "drw.yaml").write_text(textwrap.dedent("""\
+        (d / "drw.yaml").write_text(
+            textwrap.dedent("""\
             employer_name: DRW
             slug: drw
             tracks: quant_finance
             ep_requirement: EP3
             intake_seasons: Q4 2026
-        """), encoding="utf-8")
+        """),
+            encoding="utf-8",
+        )
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
         r = client.get("/api/kb/employers")
         assert r.status_code == 200
@@ -908,22 +1124,29 @@ class TestListEmployersEndpoint:
         assert data["drw"]["tracks"] == ["quant_finance"]
         assert data["drw"]["intake_seasons"] == ["Q4 2026"]
 
-    def test_coerces_numeric_headcount_estimate_in_employer_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_coerces_numeric_headcount_estimate_in_employer_list(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
-        (d / "mas.yaml").write_text(textwrap.dedent("""\
+        (d / "mas.yaml").write_text(
+            textwrap.dedent("""\
             employer_name: Monetary Authority of Singapore
             slug: mas
             tracks:
               - public_sector
             singapore_headcount_estimate: 2000
-        """), encoding="utf-8")
+        """),
+            encoding="utf-8",
+        )
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
         r = client.get("/api/kb/employers")
         assert r.status_code == 200
         data = {item["slug"]: item for item in r.json()}
         assert data["mas"]["singapore_headcount_estimate"] == "2000"
 
-    def test_empty_dir_returns_empty_list(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_empty_dir_returns_empty_list(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         empty = tmp_path / "emp"
         empty.mkdir()
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, empty)
@@ -935,6 +1158,7 @@ class TestListEmployersEndpoint:
 # ---------------------------------------------------------------------------
 # GET /api/kb/employers/{slug}
 # ---------------------------------------------------------------------------
+
 
 class TestGetEmployerEndpoint:
     def test_returns_employer_by_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
@@ -950,7 +1174,9 @@ class TestGetEmployerEndpoint:
         r = client.get("/api/kb/employers/nonexistent")
         assert r.status_code == 404
 
-    def test_422_for_path_traversal_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_422_for_path_traversal_slug(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
         r = client.get("/api/kb/employers/..%2Fevil")
@@ -960,6 +1186,7 @@ class TestGetEmployerEndpoint:
 # ---------------------------------------------------------------------------
 # POST /api/kb/employers — create
 # ---------------------------------------------------------------------------
+
 
 class TestCreateEmployerEndpoint:
     def test_creates_new_employer(self, in_memory_qdrant, mock_embedder, tmp_path):
@@ -984,7 +1211,9 @@ class TestCreateEmployerEndpoint:
         assert r.json()["slug"] == "meta"
         assert (d / "meta.yaml").exists()
 
-    def test_creates_new_employer_with_structured_facts(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_creates_new_employer_with_structured_facts(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
@@ -1020,10 +1249,14 @@ class TestCreateEmployerEndpoint:
         assert r.status_code == 201
 
         import yaml as _yaml
+
         with open(d / "stripe_singapore.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert written["structured"]["facts"][0]["slug"] == "stripe-summer-internship"
-        assert written["structured"]["facts"][0]["data"]["phase_name"] == "Summer internship"
+        assert (
+            written["structured"]["facts"][0]["data"]["phase_name"]
+            == "Summer internship"
+        )
 
     def test_409_on_duplicate_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)
@@ -1045,7 +1278,9 @@ class TestCreateEmployerEndpoint:
         r = client.post("/api/kb/employers", json=payload)
         assert r.status_code == 409
 
-    def test_409_if_disabled_file_exists(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_409_if_disabled_file_exists(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         (d / "disabled_corp.yaml.disabled").touch()
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
@@ -1091,6 +1326,7 @@ class TestCreateEmployerEndpoint:
 # PUT /api/kb/employers/{slug}
 # ---------------------------------------------------------------------------
 
+
 class TestUpdateEmployerEndpoint:
     def test_updates_ep_requirement(self, in_memory_qdrant, mock_embedder, tmp_path):
         d = make_employers_dir(tmp_path)
@@ -1106,8 +1342,8 @@ class TestUpdateEmployerEndpoint:
             "application_process": None,
             "counsellor_contact": None,
             "notes": None,
-            "last_updated": "2020-01-01",   # server should override this
-            "completeness": "amber",         # server should override this
+            "last_updated": "2020-01-01",  # server should override this
+            "completeness": "amber",  # server should override this
         }
         r = client.put("/api/kb/employers/goldman_sachs", json=payload)
         assert r.status_code == 200
@@ -1115,6 +1351,7 @@ class TestUpdateEmployerEndpoint:
         assert data["ep_requirement"] == "EP3 (updated)"
         # Server must set last_updated to today, not use the body value
         from datetime import datetime, timezone
+
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         assert data["last_updated"] == today
 
@@ -1154,13 +1391,19 @@ class TestUpdateEmployerEndpoint:
         assert r.status_code == 200
 
         import yaml as _yaml
+
         with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert "structured" in written
         assert written["structured"]["facts"][0]["slug"] == "goldman-sachs-timeline"
-        assert written["structured"]["facts"][0]["data"]["phase_name"] == "Summer internship"
+        assert (
+            written["structured"]["facts"][0]["data"]["phase_name"]
+            == "Summer internship"
+        )
 
-    def test_server_ignores_completeness_in_body(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_server_ignores_completeness_in_body(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
@@ -1221,7 +1464,9 @@ class TestUpdateEmployerEndpoint:
         r = client.put("/api/kb/employers/../evil", json=payload)
         assert r.status_code in (422, 404)
 
-    def test_history_endpoint_returns_previous_snapshot(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_history_endpoint_returns_previous_snapshot(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
@@ -1252,8 +1497,11 @@ class TestUpdateEmployerEndpoint:
 # DELETE /api/kb/employers/{slug}
 # ---------------------------------------------------------------------------
 
+
 class TestDeleteEmployerEndpoint:
-    def test_delete_renames_to_disabled(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_delete_renames_to_disabled(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
@@ -1279,8 +1527,11 @@ class TestDeleteEmployerEndpoint:
 # GET /api/kb/facts
 # ---------------------------------------------------------------------------
 
+
 class TestFactsQueryEndpoints:
-    def test_facts_list_excludes_deleted_and_applies_filters(self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch):
+    def test_facts_list_excludes_deleted_and_applies_filters(
+        self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch
+    ):
         employers_dir, profiles_dir = make_facts_dirs(tmp_path)
         client, _ = make_facts_client(
             in_memory_qdrant,
@@ -1295,7 +1546,11 @@ class TestFactsQueryEndpoints:
         data = r.json()
         assert data["total"] == 4
         assert len(data["facts"]) == 4
-        assert {fact["type"] for fact in data["facts"]} == {"timeline_phase", "alumni", "skill_requirement"}
+        assert {fact["type"] for fact in data["facts"]} == {
+            "timeline_phase",
+            "alumni",
+            "skill_requirement",
+        }
         assert all(fact["deleted"] is False for fact in data["facts"])
 
         alumni = client.get(
@@ -1314,7 +1569,9 @@ class TestFactsQueryEndpoints:
         assert alumni_data["total"] == 1
         assert alumni_data["facts"][0]["slug"] == "stripe-sg-aditya"
         assert alumni_data["facts"][0]["source_label"] == "stripe_singapore"
-        assert alumni_data["facts"][0]["audit_url"] == "/api/kb/employers/stripe_singapore"
+        assert (
+            alumni_data["facts"][0]["audit_url"] == "/api/kb/employers/stripe_singapore"
+        )
 
         hidden = client.get("/api/kb/facts", params={"type": "interview_stage"})
         assert hidden.status_code == 200
@@ -1329,7 +1586,9 @@ class TestFactsQueryEndpoints:
         assert deleted_data["total"] == 1
         assert deleted_data["facts"][0]["deleted"] is True
 
-    def test_facts_grouped_returns_buckets_and_counts(self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch):
+    def test_facts_grouped_returns_buckets_and_counts(
+        self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch
+    ):
         employers_dir, profiles_dir = make_facts_dirs(tmp_path)
         client, _ = make_facts_client(
             in_memory_qdrant,
@@ -1344,20 +1603,33 @@ class TestFactsQueryEndpoints:
         grouped = by_type.json()
         assert grouped["by"] == "type"
         assert grouped["total"] == 4
-        assert set(grouped["groups"].keys()) == {"alumni", "skill_requirement", "timeline_phase"}
+        assert set(grouped["groups"].keys()) == {
+            "alumni",
+            "skill_requirement",
+            "timeline_phase",
+        }
         assert len(grouped["groups"]["timeline_phase"]) == 2
-        assert all(item["deleted"] is False for items in grouped["groups"].values() for item in items)
+        assert all(
+            item["deleted"] is False
+            for items in grouped["groups"].values()
+            for item in items
+        )
 
         by_employer = client.get("/api/kb/facts/grouped", params={"by": "employer"})
         assert by_employer.status_code == 200
         employer_grouped = by_employer.json()
         assert employer_grouped["by"] == "employer"
         assert employer_grouped["total"] == 4
-        assert set(employer_grouped["groups"].keys()) == {"consulting", "stripe_singapore"}
+        assert set(employer_grouped["groups"].keys()) == {
+            "consulting",
+            "stripe_singapore",
+        }
         assert len(employer_grouped["groups"]["stripe_singapore"]) == 3
         assert len(employer_grouped["groups"]["consulting"]) == 1
 
-    def test_facts_endpoints_handle_empty_data(self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch):
+    def test_facts_endpoints_handle_empty_data(
+        self, in_memory_qdrant, mock_embedder, tmp_path, monkeypatch
+    ):
         empty_employers = tmp_path / "empty_employers"
         empty_profiles = tmp_path / "empty_profiles"
         empty_employers.mkdir()
@@ -1372,16 +1644,26 @@ class TestFactsQueryEndpoints:
 
         facts = client.get("/api/kb/facts")
         assert facts.status_code == 200
-        assert facts.json() == {"facts": [], "total": 0, "filters_applied": {"include_deleted": False}}
+        assert facts.json() == {
+            "facts": [],
+            "total": 0,
+            "filters_applied": {"include_deleted": False},
+        }
 
         grouped = client.get("/api/kb/facts/grouped")
         assert grouped.status_code == 200
-        assert grouped.json() == {"by": "employer", "groups": {}, "total": 0, "filters_applied": {"include_deleted": False}}
+        assert grouped.json() == {
+            "by": "employer",
+            "groups": {},
+            "total": 0,
+            "filters_applied": {"include_deleted": False},
+        }
 
 
 # ---------------------------------------------------------------------------
 # POST /api/kb/commit-analysis — employer_updates write path
 # ---------------------------------------------------------------------------
+
 
 class TestCommitAnalysisEmployerUpdates:
     def test_valid_field_updates_yaml(self, in_memory_qdrant, mock_embedder, tmp_path):
@@ -1404,20 +1686,21 @@ class TestCommitAnalysisEmployerUpdates:
 
         # Verify YAML was written
         import yaml as _yaml
+
         with open(d / "goldman_sachs.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert written["ep_requirement"] == "EP3 (updated)"
 
-    def test_unknown_field_skipped_by_allowlist(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_unknown_field_skipped_by_allowlist(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
         payload = {
             "profile_updates": {},
             "employer_updates": {
-                "goldman_sachs": {
-                    "structured": {"old": None, "new": "evil value"}
-                }
+                "goldman_sachs": {"structured": {"old": None, "new": "evil value"}}
             },
             "new_chunks": [],
         }
@@ -1430,8 +1713,11 @@ class TestCommitAnalysisEmployerUpdates:
 # POST /api/kb/commit-analysis — profile_updates write path
 # ---------------------------------------------------------------------------
 
+
 class TestCommitAnalysisProfileUpdates:
-    def test_valid_profile_field_updates_yaml(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_valid_profile_field_updates_yaml(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         from main import app
         import dependencies
         from services.vector_store import VectorStore
@@ -1465,11 +1751,14 @@ class TestCommitAnalysisProfileUpdates:
         assert "investment_banking" in r.json()["profiles_updated"]
 
         import yaml as _yaml
+
         with open(pdir / "investment_banking.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert written["notes"] == "Updated note"
 
-    def test_unknown_profile_field_skipped_by_allowlist(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_unknown_profile_field_skipped_by_allowlist(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         from main import app
         import dependencies
         from services.vector_store import VectorStore
@@ -1490,9 +1779,7 @@ class TestCommitAnalysisProfileUpdates:
         client = TestClient(app)
         payload = {
             "profile_updates": {
-                "investment_banking": {
-                    "structured": {"old": None, "new": "evil value"}
-                }
+                "investment_banking": {"structured": {"old": None, "new": "evil value"}}
             },
             "employer_updates": {},
             "new_chunks": [],
@@ -1503,11 +1790,14 @@ class TestCommitAnalysisProfileUpdates:
         assert r.json()["profiles_updated"] == []
 
         import yaml as _yaml
+
         with open(pdir / "investment_banking.yaml", encoding="utf-8") as f:
             written = _yaml.safe_load(f)
         assert written["structured"]["sponsorship_tier"] == "High"
 
-    def test_empty_profile_field_map_returns_ok(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_empty_profile_field_map_returns_ok(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         """Empty field map for a known profile slug should return 200 with no profiles updated."""
         from main import app
         import dependencies
@@ -1528,9 +1818,7 @@ class TestCommitAnalysisProfileUpdates:
 
         client = TestClient(app)
         payload = {
-            "profile_updates": {
-                "investment_banking": {}
-            },
+            "profile_updates": {"investment_banking": {}},
             "employer_updates": {},
             "new_chunks": [],
         }
@@ -1539,16 +1827,16 @@ class TestCommitAnalysisProfileUpdates:
         assert r.status_code == 200
         assert r.json()["profiles_updated"] == []
 
-    def test_unsafe_employer_slug_skipped(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_unsafe_employer_slug_skipped(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
         payload = {
             "profile_updates": {},
             "employer_updates": {
-                "../evil": {
-                    "ep_requirement": {"old": None, "new": "EP3"}
-                }
+                "../evil": {"ep_requirement": {"old": None, "new": "EP3"}}
             },
             "new_chunks": [],
         }
@@ -1556,16 +1844,16 @@ class TestCommitAnalysisProfileUpdates:
         assert r.status_code == 200
         assert "../evil" not in r.json().get("employers_updated", [])
 
-    def test_unknown_employer_slug_skipped_with_warning(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_unknown_employer_slug_skipped_with_warning(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
         payload = {
             "profile_updates": {},
             "employer_updates": {
-                "nonexistent_corp": {
-                    "ep_requirement": {"old": None, "new": "EP3"}
-                }
+                "nonexistent_corp": {"ep_requirement": {"old": None, "new": "EP3"}}
             },
             "new_chunks": [],
         }
@@ -1573,7 +1861,9 @@ class TestCommitAnalysisProfileUpdates:
         assert r.status_code == 200
         assert "nonexistent_corp" not in r.json().get("employers_updated", [])
 
-    def test_empty_employer_updates_returns_ok(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_empty_employer_updates_returns_ok(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
@@ -1587,7 +1877,9 @@ class TestCommitAnalysisProfileUpdates:
         assert r.json()["employers_updated"] == []
 
 
-def test_kb_health_reports_source_state_counts_and_hit_breakdown(in_memory_qdrant, mock_embedder):
+def test_kb_health_reports_source_state_counts_and_hit_breakdown(
+    in_memory_qdrant, mock_embedder
+):
     client, store = make_client(in_memory_qdrant, mock_embedder)
     for i in range(2):
         seed_chunk(store, "active-guide.txt", f"active chunk {i}", chunk_index=i)

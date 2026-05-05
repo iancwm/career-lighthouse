@@ -5,6 +5,7 @@ This module keeps the trust signal boring:
   - a tiny in-memory index is rebuilt when the file changes
   - guidance is derived from nearest track candidates, not prompt magic
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,9 @@ def _default_signals_path() -> Path:
 
 
 def _signals_path() -> Path:
-    return Path(os.environ.get("EMERGING_TRACK_SIGNALS_PATH", str(_default_signals_path())))
+    return Path(
+        os.environ.get("EMERGING_TRACK_SIGNALS_PATH", str(_default_signals_path()))
+    )
 
 
 def _cluster_key(candidates: list[dict]) -> str:
@@ -77,7 +80,9 @@ class EmergingTrackSignalStore(Singleton):
                 try:
                     entry = json.loads(raw)
                 except json.JSONDecodeError:
-                    logger.warning("EmergingTrackSignalStore: skipping malformed log line")
+                    logger.warning(
+                        "EmergingTrackSignalStore: skipping malformed log line"
+                    )
                     continue
                 key = str(entry.get("cluster_key", "")).strip()
                 if not key:
@@ -130,7 +135,9 @@ def build_track_guidance(
 
     Thresholds are configured in track_guidance.yaml.
     """
-    candidates = profile_store.top_candidates(query_embedding, limit=_routing["top_candidates_limit"])
+    candidates = profile_store.top_candidates(
+        query_embedding, limit=_routing["top_candidates_limit"]
+    )
     if not candidates:
         return None
 
@@ -170,13 +177,17 @@ def build_track_guidance(
 
     recurrence_count = 0
     if cluster_key:
-        store.record_signal({
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "session_id": session_id,
-            "raw_input": raw_input,
-            "cluster_key": cluster_key,
-            "nearest_tracks": [candidate.model_dump() for candidate in nearest_tracks],
-        })
+        store.record_signal(
+            {
+                "ts": datetime.now(timezone.utc).isoformat(),
+                "session_id": session_id,
+                "raw_input": raw_input,
+                "cluster_key": cluster_key,
+                "nearest_tracks": [
+                    candidate.model_dump() for candidate in nearest_tracks
+                ],
+            }
+        )
         recurrence_count = store.recurrence_count(cluster_key)
 
     if recurrence_count >= _conf["emerging_signal_min_recurrence"]:

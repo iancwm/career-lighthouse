@@ -87,18 +87,24 @@ class StudentChatInsightStore:
             intake_context=intake_context,
             has_resume=has_resume,
         )
-        payload_data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+        payload_data = (
+            payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+        )
         vector = embedder.encode(text)
         self._store.upsert(
-            [{
-                "id": payload.message_id,
-                "vector": vector,
-                "payload": payload_data,
-            }]
+            [
+                {
+                    "id": payload.message_id,
+                    "vector": vector,
+                    "payload": payload_data,
+                }
+            ]
         )
         return payload.message_id
 
-    def search(self, vector: np.ndarray, top_k: int, filters: Filter | None = None) -> list[dict]:
+    def search(
+        self, vector: np.ndarray, top_k: int, filters: Filter | None = None
+    ) -> list[dict]:
         """Search student insight collection with optional metadata filters.
 
         This uses a client compatibility shim because embedded/local clients may

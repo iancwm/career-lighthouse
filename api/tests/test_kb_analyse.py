@@ -1,5 +1,6 @@
 # api/tests/test_kb_analyse.py
 """Tests for POST /api/kb/analyse and POST /api/kb/commit-analysis endpoints."""
+
 import json
 import os
 import tempfile
@@ -32,7 +33,10 @@ VALID_ANALYSIS_RESPONSE = {
     "interpretation_bullets": ["Goldman raised EP threshold to COMPASS 50+"],
     "profile_updates": {
         "investment_banking": {
-            "ep_sponsorship": {"old": "High at bulge brackets", "new": "50+ COMPASS required at Goldman from 2026"}
+            "ep_sponsorship": {
+                "old": "High at bulge brackets",
+                "new": "50+ COMPASS required at Goldman from 2026",
+            }
         }
     },
     "new_chunks": [
@@ -52,11 +56,19 @@ class TestAnalyse:
     def test_text_note_returns_analysis(self, in_memory_qdrant, mock_embedder):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
-        with patch("services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE):
-            with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+        with patch(
+            "services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE
+        ):
+            with patch(
+                "services.career_profiles.CareerProfileStore.list_profiles",
+                return_value=[],
+            ):
                 r = client.post(
                     "/api/kb/analyse",
-                    data={"text": "Goldman changed their EP policy", "source_type": "note"},
+                    data={
+                        "text": "Goldman changed their EP policy",
+                        "source_type": "note",
+                    },
                 )
 
         assert r.status_code == 200
@@ -80,7 +92,10 @@ class TestAnalyse:
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
         with patch("services.llm.analyse_kb_input", side_effect=ValueError("bad JSON")):
-            with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+            with patch(
+                "services.career_profiles.CareerProfileStore.list_profiles",
+                return_value=[],
+            ):
                 r = client.post(
                     "/api/kb/analyse",
                     data={"text": "some input", "source_type": "note"},
@@ -93,7 +108,9 @@ class TestAnalyse:
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         mock_embedder.encode.side_effect = RuntimeError("embedding service down")
 
-        with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+        with patch(
+            "services.career_profiles.CareerProfileStore.list_profiles", return_value=[]
+        ):
             r = client.post(
                 "/api/kb/analyse",
                 data={"text": "Goldman changed their EP policy", "source_type": "note"},
@@ -104,25 +121,43 @@ class TestAnalyse:
     def test_chunk_ids_are_filled_by_server(self, in_memory_qdrant, mock_embedder):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
-        with patch("services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE):
-            with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+        with patch(
+            "services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE
+        ):
+            with patch(
+                "services.career_profiles.CareerProfileStore.list_profiles",
+                return_value=[],
+            ):
                 r = client.post(
                     "/api/kb/analyse",
-                    data={"text": "Goldman changed their EP policy", "source_type": "note"},
+                    data={
+                        "text": "Goldman changed their EP policy",
+                        "source_type": "note",
+                    },
                 )
 
         assert r.status_code == 200
         chunks = r.json()["new_chunks"]
         assert all(c["chunk_id"] != "" for c in chunks)
 
-    def test_analysis_response_includes_provenance(self, in_memory_qdrant, mock_embedder):
+    def test_analysis_response_includes_provenance(
+        self, in_memory_qdrant, mock_embedder
+    ):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
-        with patch("services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE):
-            with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+        with patch(
+            "services.llm.analyse_kb_input", return_value=VALID_ANALYSIS_RESPONSE
+        ):
+            with patch(
+                "services.career_profiles.CareerProfileStore.list_profiles",
+                return_value=[],
+            ):
                 r = client.post(
                     "/api/kb/analyse",
-                    data={"text": "Goldman changed their EP policy", "source_type": "note"},
+                    data={
+                        "text": "Goldman changed their EP policy",
+                        "source_type": "note",
+                    },
                 )
 
         assert r.status_code == 200
@@ -133,12 +168,17 @@ class TestAnalyse:
         assert change["source_timestamp"]
         assert data["new_chunks"][0]["source_timestamp"]
 
-    def test_already_covered_empty_for_novel_input(self, in_memory_qdrant, mock_embedder):
+    def test_already_covered_empty_for_novel_input(
+        self, in_memory_qdrant, mock_embedder
+    ):
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         response = {**VALID_ANALYSIS_RESPONSE, "already_covered": []}
 
         with patch("services.llm.analyse_kb_input", return_value=response):
-            with patch("services.career_profiles.CareerProfileStore.list_profiles", return_value=[]):
+            with patch(
+                "services.career_profiles.CareerProfileStore.list_profiles",
+                return_value=[],
+            ):
                 r = client.post(
                     "/api/kb/analyse",
                     data={"text": "Completely new information", "source_type": "note"},
@@ -164,6 +204,7 @@ class TestAnalyse:
 # ---------------------------------------------------------------------------
 # POST /api/kb/commit-analysis
 # ---------------------------------------------------------------------------
+
 
 class TestCommitAnalysis:
     def test_commits_new_chunks_to_qdrant(self, in_memory_qdrant, mock_embedder):
@@ -203,7 +244,9 @@ class TestCommitAnalysis:
         assert data["chunks_added"] == 0
         assert data["profiles_updated"] == []
 
-    def test_missing_profile_on_disk_skips_gracefully(self, in_memory_qdrant, mock_embedder):
+    def test_missing_profile_on_disk_skips_gracefully(
+        self, in_memory_qdrant, mock_embedder
+    ):
         """Commit with a profile slug that doesn't exist on disk — should skip and not crash."""
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
@@ -221,7 +264,9 @@ class TestCommitAnalysis:
         assert r.status_code == 200
         assert r.json()["profiles_updated"] == []
 
-    def test_commit_writes_yaml_and_returns_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_commit_writes_yaml_and_returns_slug(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         """Commit with profile_updates writes to a YAML file and returns the slug."""
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 

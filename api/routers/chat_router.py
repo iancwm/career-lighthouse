@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+
 try:
     import fcntl
 except ImportError:  # pragma: no cover - non-POSIX fallback
@@ -36,7 +37,9 @@ router = APIRouter(prefix="/api")
 logger = logging.getLogger(__name__)
 
 # Reused across requests to avoid per-request thread-pool creation overhead.
-_INSIGHT_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="insight_write")
+_INSIGHT_EXECUTOR = ThreadPoolExecutor(
+    max_workers=2, thread_name_prefix="insight_write"
+)
 _INSIGHT_WRITE_TIMEOUT_SECS = 3
 
 
@@ -77,8 +80,9 @@ def list_active_tracks():
     return [t for t in store.list_registry() if t.status == "active"]
 
 
-def _log_query(message: str, chunks: list[dict],
-               active_career_type: Optional[str] = None) -> None:
+def _log_query(
+    message: str, chunks: list[dict], active_career_type: Optional[str] = None
+) -> None:
     """Append a query log entry to JSONL. Failures are non-fatal — chat must not break.
 
     Schema: { ts, query_text, scores, doc_matched, top_docs, career_type }
@@ -112,7 +116,9 @@ def _log_query(message: str, chunks: list[dict],
             "scores": scores,
             "doc_matched": doc_matched,
             "top_docs": top_docs,
-            "career_type": None if active_career_type is None else str(active_career_type),
+            "career_type": None
+            if active_career_type is None
+            else str(active_career_type),
         }
         with open(settings.query_log_path, "a", encoding="utf-8") as f:
             if fcntl is not None:
@@ -125,7 +131,9 @@ def _log_query(message: str, chunks: list[dict],
                 if fcntl is not None:
                     fcntl.flock(f.fileno(), fcntl.LOCK_UN)
     except Exception:
-        logger.warning("Failed to write query log entry — chat unaffected", exc_info=True)
+        logger.warning(
+            "Failed to write query log entry — chat unaffected", exc_info=True
+        )
 
 
 def _resolve_career_type(
@@ -182,10 +190,14 @@ def _humanize_source_name(filename: str) -> str:
 
 def _chunk_lifecycle(payload: dict) -> str:
     """Resolve a chunk's lifecycle state from its payload, falling back to the source ledger if not embedded."""
-    lifecycle = str(payload.get("lifecycle") or payload.get("status") or "").strip().lower()
+    lifecycle = (
+        str(payload.get("lifecycle") or payload.get("status") or "").strip().lower()
+    )
     if lifecycle:
         return lifecycle
-    filename = str(payload.get("source_filename") or payload.get("filename") or "").strip()
+    filename = str(
+        payload.get("source_filename") or payload.get("filename") or ""
+    ).strip()
     record = get_source_ledger_store().get_record(filename)
     return str(record.get("lifecycle") or "active") if record else "active"
 
@@ -232,8 +244,14 @@ def chat(
         Citation(
             filename=c["payload"]["source_filename"],
             excerpt=c["payload"]["text"][:150],
-            source_name=_humanize_source_name(str(c["payload"].get("source_filename", "unknown"))),
-            updated_at=str(c["payload"].get("upload_timestamp") or c["payload"].get("updated_at") or ""),
+            source_name=_humanize_source_name(
+                str(c["payload"].get("source_filename", "unknown"))
+            ),
+            updated_at=str(
+                c["payload"].get("upload_timestamp")
+                or c["payload"].get("updated_at")
+                or ""
+            ),
             source_lifecycle=_chunk_lifecycle(c["payload"]),
         )
         for c in active_chunks
@@ -246,7 +264,9 @@ def chat(
         career_context=career_context,
         employer_context=employer_context,
     )
-    if _setting_bool("student_chat_insights_enabled") and len(req.message) >= _setting_int("student_chat_embedding_min_chars", 20):
+    if _setting_bool("student_chat_insights_enabled") and len(
+        req.message
+    ) >= _setting_int("student_chat_embedding_min_chars", 20):
         try:
             future = _INSIGHT_EXECUTOR.submit(
                 insight_store.index_message,

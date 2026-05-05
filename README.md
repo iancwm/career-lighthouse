@@ -78,6 +78,10 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | `just logs` | Follow logs for all services |
 | `just clean` | Stop services and wipe Qdrant data volume |
 | `just install` | Install all dependencies (`uv sync` + `npm ci`) |
+| `just format` | Format the Python backend with Ruff |
+| `just format-check` | Verify the Python backend is still Ruff-formatted |
+| `just typecheck` | Validate the web app with Next.js build |
+| `just check` | Run the Ruff format check plus the web TypeScript check |
 | `just lock-api` | Refresh `api/uv.lock` after changing Python dependencies |
 | `just qdrant` | Start a local Qdrant server (needed for `dev-api`) |
 | `just dev-api` | Run API dev server locally with hot-reload |
@@ -102,7 +106,7 @@ The backend uses `uv` with [api/pyproject.toml](/home/iancwm/git/career-lighthou
 
 ```bash
 cd api
-uv sync --extra dev
+uv sync --extra dev --group dev
 uv run python -m pytest
 uv lock
 ```

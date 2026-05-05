@@ -1,4 +1,5 @@
 """Runtime storage path helpers for local Docker and deployed environments."""
+
 from __future__ import annotations
 
 import os
@@ -93,23 +94,60 @@ def runtime_storage_targets() -> dict[str, tuple[str, Path]]:
     return {
         "SESSIONS_DIR": ("dir", _env_path("SESSIONS_DIR", default_sessions_dir())),
         "DATA_PATH": ("dir", _env_path("DATA_PATH", default_data_path())),
-        "CAREER_PROFILES_DIR": ("dir", _env_path("CAREER_PROFILES_DIR", default_profiles_dir())),
+        "CAREER_PROFILES_DIR": (
+            "dir",
+            _env_path("CAREER_PROFILES_DIR", default_profiles_dir()),
+        ),
         "EMPLOYERS_DIR": ("dir", _env_path("EMPLOYERS_DIR", default_employers_dir())),
-        "DRAFT_TRACKS_DIR": ("dir", _env_path("DRAFT_TRACKS_DIR", default_drafts_dir())),
-        "CAREER_PROFILE_HISTORY_DIR": ("dir", _env_path("CAREER_PROFILE_HISTORY_DIR", default_history_dir())),
-        "SENTENCE_TRANSFORMERS_HOME": ("dir", _env_path("SENTENCE_TRANSFORMERS_HOME", default_sentence_transformers_home())),
+        "DRAFT_TRACKS_DIR": (
+            "dir",
+            _env_path("DRAFT_TRACKS_DIR", default_drafts_dir()),
+        ),
+        "CAREER_PROFILE_HISTORY_DIR": (
+            "dir",
+            _env_path("CAREER_PROFILE_HISTORY_DIR", default_history_dir()),
+        ),
+        "SENTENCE_TRANSFORMERS_HOME": (
+            "dir",
+            _env_path(
+                "SENTENCE_TRANSFORMERS_HOME", default_sentence_transformers_home()
+            ),
+        ),
         "UV_CACHE_DIR": ("dir", _env_path("UV_CACHE_DIR", default_uv_cache_dir())),
-        "QUERY_LOG_PATH": ("file", _env_path("QUERY_LOG_PATH", default_query_log_path())),
-        "LLM_TRACE_LOG_PATH": ("file", _env_path("LLM_TRACE_LOG_PATH", default_llm_trace_log_path())),
+        "QUERY_LOG_PATH": (
+            "file",
+            _env_path("QUERY_LOG_PATH", default_query_log_path()),
+        ),
+        "LLM_TRACE_LOG_PATH": (
+            "file",
+            _env_path("LLM_TRACE_LOG_PATH", default_llm_trace_log_path()),
+        ),
         "EMERGING_TRACK_SIGNALS_PATH": (
             "file",
-            _env_path("EMERGING_TRACK_SIGNALS_PATH", default_emerging_track_signals_path()),
+            _env_path(
+                "EMERGING_TRACK_SIGNALS_PATH", default_emerging_track_signals_path()
+            ),
         ),
-        "CAREER_TRACKS_REGISTRY_PATH": ("file", _env_path("CAREER_TRACKS_REGISTRY_PATH", default_registry_path())),
-        "TRACK_PUBLISH_JOURNAL_PATH": ("file", _env_path("TRACK_PUBLISH_JOURNAL_PATH", default_publish_journal_path())),
-        "TRACK_PUBLISH_LOG_PATH": ("file", _env_path("TRACK_PUBLISH_LOG_PATH", default_publish_log_path())),
-        "TRACKS_VERSION_PATH": ("file", _env_path("TRACKS_VERSION_PATH", default_tracks_version_path())),
-        "SOURCE_LEDGER_DIR": ("dir", _env_path("SOURCE_LEDGER_DIR", default_source_ledger_dir())),
+        "CAREER_TRACKS_REGISTRY_PATH": (
+            "file",
+            _env_path("CAREER_TRACKS_REGISTRY_PATH", default_registry_path()),
+        ),
+        "TRACK_PUBLISH_JOURNAL_PATH": (
+            "file",
+            _env_path("TRACK_PUBLISH_JOURNAL_PATH", default_publish_journal_path()),
+        ),
+        "TRACK_PUBLISH_LOG_PATH": (
+            "file",
+            _env_path("TRACK_PUBLISH_LOG_PATH", default_publish_log_path()),
+        ),
+        "TRACKS_VERSION_PATH": (
+            "file",
+            _env_path("TRACKS_VERSION_PATH", default_tracks_version_path()),
+        ),
+        "SOURCE_LEDGER_DIR": (
+            "dir",
+            _env_path("SOURCE_LEDGER_DIR", default_source_ledger_dir()),
+        ),
         "SOURCE_LEDGER_HISTORY_DIR": (
             "dir",
             _env_path("SOURCE_LEDGER_HISTORY_DIR", default_source_ledger_history_dir()),

@@ -4,6 +4,7 @@
 Usage:
     from cfg import model_cfg, career_profiles_cfg, kb_cfg, track_guidance_cfg, prompts_cfg
 """
+
 from pathlib import Path
 import yaml
 

@@ -9,6 +9,7 @@ This module provides:
 
 All prompts and model parameters are loaded from cfg/ YAML files.
 """
+
 import json
 import logging
 import os
@@ -46,7 +47,9 @@ _langfuse_flush_executor: ThreadPoolExecutor | None = None
 _TRACE_PREVIEW_CHARS = 500
 _LANGFUSE_METADATA_VALUE_LIMIT = 200
 _LANGFUSE_EMAIL_RE = re.compile(r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+")
-_LANGFUSE_PHONE_RE = re.compile(r"(?<!\w)\+?(?:\d[\d\s().-]*[\s().-][\d\s().-]*\d)(?!\w)")
+_LANGFUSE_PHONE_RE = re.compile(
+    r"(?<!\w)\+?(?:\d[\d\s().-]*[\s().-][\d\s().-]*\d)(?!\w)"
+)
 _LANGFUSE_API_KEY_RE = re.compile(r"\b(?:sk|pk|key|secret)[_-][A-Za-z0-9_-]{8,}\b")
 _LANGFUSE_BEARER_RE = re.compile(r"\bBearer\s+[A-Za-z0-9._-]+\b", re.IGNORECASE)
 
@@ -91,13 +94,23 @@ def _llm_bool(setting_name: str, model_key: str, default: bool) -> bool:
 
 
 def _is_production_like_environment() -> bool:
-    environment = str(getattr(settings, "langfuse_tracing_environment", "development") or "development").strip().lower()
+    environment = (
+        str(
+            getattr(settings, "langfuse_tracing_environment", "development")
+            or "development"
+        )
+        .strip()
+        .lower()
+    )
     return environment in {"production", "prod"}
 
 
 def _langfuse_prompt_policy() -> tuple[str | None, int | None]:
     if _is_production_like_environment():
-        label = str(getattr(settings, "langfuse_prompt_production_label", "production") or "production").strip()
+        label = str(
+            getattr(settings, "langfuse_prompt_production_label", "production")
+            or "production"
+        ).strip()
         ttl = int(getattr(settings, "langfuse_prompt_cache_ttl_seconds", 300) or 300)
         return label or None, ttl
     return None, 0
@@ -142,20 +155,28 @@ def _resolve_prompt(flow_name: str, *, prompt_kwargs: dict[str, Any]) -> dict[st
             cache_ttl_seconds=cache_ttl_seconds,
             fallback=repo_prompt,
             max_retries=0,
-            fetch_timeout_seconds=int(getattr(settings, "langfuse_prompt_fetch_timeout_seconds", 5) or 5),
+            fetch_timeout_seconds=int(
+                getattr(settings, "langfuse_prompt_fetch_timeout_seconds", 5) or 5
+            ),
         )
         compiled = prompt_client.compile(**prompt_kwargs)
         labels = getattr(prompt_client, "labels", []) or []
         resolved_label = label or (labels[0] if labels else "latest")
         return {
             "text": compiled,
-            "prompt_name": getattr(prompt_client, "name", str(config.get("langfuse_name") or flow_name)),
+            "prompt_name": getattr(
+                prompt_client, "name", str(config.get("langfuse_name") or flow_name)
+            ),
             "prompt_source": _PROMPT_SOURCE_LANGFUSE,
             "prompt_label": str(resolved_label),
             "prompt_version": getattr(prompt_client, "version", None),
         }
     except Exception:
-        logger.warning("Langfuse prompt resolution failed for %s; falling back to repo prompt", flow_name, exc_info=True)
+        logger.warning(
+            "Langfuse prompt resolution failed for %s; falling back to repo prompt",
+            flow_name,
+            exc_info=True,
+        )
         return {
             **default,
             "prompt_source": _PROMPT_SOURCE_REPO_FALLBACK,
@@ -181,7 +202,9 @@ def get_model_name() -> str:
     return getattr(settings, "anthropic_model", "") or _llm["model"]
 
 
-def _trace_metadata_int(metadata: dict[str, object], key: str, default: int | None = None) -> int | None:
+def _trace_metadata_int(
+    metadata: dict[str, object], key: str, default: int | None = None
+) -> int | None:
     value = metadata.get(key)
     if value is None:
         return default
@@ -203,7 +226,9 @@ def get_client(max_retries: int = 2):
     return client
 
 
-def _safe_create(*, timeout_seconds: float | None = None, max_retries: int | None = None, **kwargs):
+def _safe_create(
+    *, timeout_seconds: float | None = None, max_retries: int | None = None, **kwargs
+):
     """Call client.messages.create() with timeout/connection error handling.
 
     Raises HTTP 504 on timeout and HTTP 502 on connection failure so callers
@@ -212,7 +237,9 @@ def _safe_create(*, timeout_seconds: float | None = None, max_retries: int | Non
     if timeout_seconds is not None:
         kwargs["timeout"] = timeout_seconds
     try:
-        client = get_client() if max_retries is None else get_client(max_retries=max_retries)
+        client = (
+            get_client() if max_retries is None else get_client(max_retries=max_retries)
+        )
         return client.messages.create(**kwargs)
     except anthropic.APITimeoutError:
         raise HTTPException(status_code=504, detail="LLM service timeout")
@@ -287,7 +314,10 @@ def _load_langfuse_symbols() -> None:
     if _langfuse_class is not None and propagate_attributes is not None:
         return
     try:
-        from langfuse import Langfuse as _Langfuse, propagate_attributes as _propagate_attributes
+        from langfuse import (
+            Langfuse as _Langfuse,
+            propagate_attributes as _propagate_attributes,
+        )
     except ImportError:  # pragma: no cover - optional dependency for local dev/tests
         return
     _langfuse_class = _Langfuse
@@ -295,7 +325,9 @@ def _load_langfuse_symbols() -> None:
 
 
 def _langfuse_endpoint() -> str | None:
-    endpoint = getattr(settings, "langfuse_host", "") or getattr(settings, "langfuse_base_url", "")
+    endpoint = getattr(settings, "langfuse_host", "") or getattr(
+        settings, "langfuse_base_url", ""
+    )
     return endpoint or None
 
 
@@ -329,12 +361,17 @@ def _get_langfuse_client():
                 tracing_enabled=True,
                 flush_at=getattr(settings, "langfuse_flush_at", 1),
                 flush_interval=getattr(settings, "langfuse_flush_interval", 1.0),
-                environment=getattr(settings, "langfuse_tracing_environment", "development"),
+                environment=getattr(
+                    settings, "langfuse_tracing_environment", "development"
+                ),
                 mask=_mask_langfuse_value,
             )
             _langfuse_client_config = config_key
         except Exception:
-            logger.warning("Langfuse client initialization failed; continuing without tracing", exc_info=True)
+            logger.warning(
+                "Langfuse client initialization failed; continuing without tracing",
+                exc_info=True,
+            )
             return None
     return _langfuse_client
 
@@ -343,7 +380,10 @@ def _start_langfuse_observation(client, **kwargs):
     try:
         return client.start_as_current_observation(**kwargs)
     except Exception:
-        logger.warning("Langfuse observation startup failed; continuing without tracing", exc_info=True)
+        logger.warning(
+            "Langfuse observation startup failed; continuing without tracing",
+            exc_info=True,
+        )
         return nullcontext()
 
 
@@ -352,23 +392,33 @@ def _schedule_langfuse_flush() -> None:
         return
     global _langfuse_flush_executor
     if _langfuse_flush_executor is None:
-        _langfuse_flush_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="langfuse-flush")
+        _langfuse_flush_executor = ThreadPoolExecutor(
+            max_workers=1, thread_name_prefix="langfuse-flush"
+        )
     try:
         _langfuse_flush_executor.submit(flush_langfuse_traces)
     except Exception:
         logger.warning("Failed to schedule Langfuse flush", exc_info=True)
 
 
-def _langfuse_input_payload(system: str, messages: list[dict], metadata: dict[str, object], max_tokens: int, timeout_seconds: float | None) -> dict:
+def _langfuse_input_payload(
+    system: str,
+    messages: list[dict],
+    metadata: dict[str, object],
+    max_tokens: int,
+    timeout_seconds: float | None,
+) -> dict:
     """Build the Langfuse input payload dict with content previews and char counts instead of full text."""
     message_summaries = []
     for message in messages:
         content = str(message.get("content", ""))
-        message_summaries.append({
-            "role": message.get("role", "user"),
-            "content_preview": _truncate_preview(content),
-            "content_chars": len(content),
-        })
+        message_summaries.append(
+            {
+                "role": message.get("role", "user"),
+                "content_preview": _truncate_preview(content),
+                "content_chars": len(content),
+            }
+        )
     normalized_metadata: dict[str, object] = dict(metadata)
     for key, value in metadata.items():
         normalized_key = _langfuse_metadata_key(str(key))
@@ -385,11 +435,15 @@ def _langfuse_input_payload(system: str, messages: list[dict], metadata: dict[st
     }
 
 
-def _langfuse_trace_metadata(metadata: dict[str, object], trace_id: str) -> dict[str, str]:
+def _langfuse_trace_metadata(
+    metadata: dict[str, object], trace_id: str
+) -> dict[str, str]:
     """Convert internal trace metadata to the camelCase string dict expected by the Langfuse SDK, stripping None values and reserved keys."""
     out: dict[str, str] = {
         "traceId": trace_id,
-        "environment": str(getattr(settings, "langfuse_tracing_environment", "development")),
+        "environment": str(
+            getattr(settings, "langfuse_tracing_environment", "development")
+        ),
     }
     for key, value in metadata.items():
         if value is None or key in {"trace_id", "traceId", "session_id", "sessionId"}:
@@ -429,7 +483,9 @@ def _append_llm_trace(entry: dict) -> None:
             handle.flush()
             os.fsync(handle.fileno())
     except Exception:
-        logger.warning("Failed to write LLM trace entry — request unaffected", exc_info=True)
+        logger.warning(
+            "Failed to write LLM trace entry — request unaffected", exc_info=True
+        )
 
 
 def _response_text(response: object) -> str:
@@ -468,12 +524,12 @@ def _extract_json_block(text: str) -> str:
     if has_obj and has_arr:
         # Return whichever bracket opens first (outermost structure)
         if arr_start < obj_start:
-            return text[arr_start:arr_end + 1].strip()
-        return text[obj_start:obj_end + 1].strip()
+            return text[arr_start : arr_end + 1].strip()
+        return text[obj_start : obj_end + 1].strip()
     if has_obj:
-        return text[obj_start:obj_end + 1].strip()
+        return text[obj_start : obj_end + 1].strip()
     if has_arr:
-        return text[arr_start:arr_end + 1].strip()
+        return text[arr_start : arr_end + 1].strip()
     return text
 
 
@@ -523,7 +579,9 @@ def _repair_json_output(
             "Fix the JSON below and preserve the original meaning as closely as possible."
         )
         if parse_error_text:
-            repair_system += f"\nThe previous JSON parse attempt failed with: {parse_error_text}"
+            repair_system += (
+                f"\nThe previous JSON parse attempt failed with: {parse_error_text}"
+            )
 
         repair_user = f"Malformed JSON:\n{repair_source}"
         response = _call_with_trace(
@@ -555,11 +613,15 @@ def _repair_json_output(
         if isinstance(repaired, (dict, list)):
             return repaired
 
-        last_error = ValueError(f"{schema_name} repair did not return a JSON object or array")
+        last_error = ValueError(
+            f"{schema_name} repair did not return a JSON object or array"
+        )
         parse_error_text = str(last_error)
         repair_source = _json_dumps_safe(repaired)
 
-    raise ValueError(f"{schema_name} repair did not return a valid JSON object") from last_error
+    raise ValueError(
+        f"{schema_name} repair did not return a valid JSON object"
+    ) from last_error
 
 
 def _validate_or_repair(
@@ -691,20 +753,28 @@ def _budget_chunks(
     budgeted: list[dict] = []
     char_budget = excerpt_chars
     if max_chunk_chars is not None and max_chunk_chars > 0:
-        char_budget = min(char_budget, max_chunk_chars) if char_budget is not None else max_chunk_chars
+        char_budget = (
+            min(char_budget, max_chunk_chars)
+            if char_budget is not None
+            else max_chunk_chars
+        )
     for chunk in limited:
         payload = chunk.get("payload", {}) if isinstance(chunk, dict) else {}
-        budgeted.append({
-            "score": chunk.get("score") if isinstance(chunk, dict) else None,
-            "payload": {
-                "source_filename": payload.get("source_filename", "unknown"),
-                "text": _trim_to_budget(str(payload.get("text", "")), char_budget),
-            },
-        })
+        budgeted.append(
+            {
+                "score": chunk.get("score") if isinstance(chunk, dict) else None,
+                "payload": {
+                    "source_filename": payload.get("source_filename", "unknown"),
+                    "text": _trim_to_budget(str(payload.get("text", "")), char_budget),
+                },
+            }
+        )
     return budgeted
 
 
-def _join_budgeted_sections(sections: list[str], *, max_context_chars: int | None) -> str:
+def _join_budgeted_sections(
+    sections: list[str], *, max_context_chars: int | None
+) -> str:
     cleaned = [section.strip() for section in sections if section and section.strip()]
     if not cleaned:
         return ""
@@ -725,7 +795,9 @@ def _join_budgeted_sections(sections: list[str], *, max_context_chars: int | Non
     return "\n\n".join(out)
 
 
-def _normalize_existing_alumni_candidates(existing_alumni: list[dict[str, Any]] | None) -> list[dict[str, str | None]]:
+def _normalize_existing_alumni_candidates(
+    existing_alumni: list[dict[str, Any]] | None,
+) -> list[dict[str, str | None]]:
     candidates: list[dict[str, str | None]] = []
     for raw in existing_alumni or []:
         if not isinstance(raw, dict):
@@ -736,12 +808,14 @@ def _normalize_existing_alumni_candidates(existing_alumni: list[dict[str, Any]] 
         current_title = str(raw.get("current_title") or "").strip() or None
         if not slug and not full_name:
             continue
-        candidates.append({
-            "slug": slug,
-            "full_name": full_name,
-            "current_company": current_company,
-            "current_title": current_title,
-        })
+        candidates.append(
+            {
+                "slug": slug,
+                "full_name": full_name,
+                "current_company": current_company,
+                "current_title": current_title,
+            }
+        )
     return candidates
 
 
@@ -765,7 +839,9 @@ def _validated_alumni_preview_payload(
     return preview.model_dump()
 
 
-def _budget_history(history: list[dict], *, max_turns: int, max_chars: int | None) -> str:
+def _budget_history(
+    history: list[dict], *, max_turns: int, max_chars: int | None
+) -> str:
     lines = []
     for message in history[-max_turns:]:
         role = str(message.get("role", "user")).upper()
@@ -787,16 +863,24 @@ def _call_with_trace(
 ) -> object:
     """Call the Anthropic API with full observability: emits started/ok/error JSONL trace entries and a Langfuse generation span."""
     start = perf_counter()
-    input_chars = len(system) + sum(len(str(message.get("content", ""))) for message in messages)
+    input_chars = len(system) + sum(
+        len(str(message.get("content", ""))) for message in messages
+    )
     trace_id = uuid.uuid4().hex
-    input_preview = _truncate_preview(messages[-1].get("content", "")) if messages else ""
+    input_preview = (
+        _truncate_preview(messages[-1].get("content", "")) if messages else ""
+    )
     metadata = trace_metadata or {}
     feature = str(metadata.get("feature") or operation)
     trace_entry_metadata: dict[str, object] = {
         **metadata,
         "feature": feature,
-        "input_chars_pre_trim": _trace_metadata_int(metadata, "input_chars_pre_trim", input_chars),
-        "input_chars_sent": _trace_metadata_int(metadata, "input_chars_sent", input_chars),
+        "input_chars_pre_trim": _trace_metadata_int(
+            metadata, "input_chars_pre_trim", input_chars
+        ),
+        "input_chars_sent": _trace_metadata_int(
+            metadata, "input_chars_sent", input_chars
+        ),
     }
     for field in (
         "workflow_id",
@@ -827,24 +911,32 @@ def _call_with_trace(
             as_type="generation",
             name=operation,
             model=model,
-            input=_langfuse_input_payload(system, messages, {**trace_entry_metadata, "traceId": trace_id, "trace_id": trace_id}, max_tokens, timeout_seconds),
+            input=_langfuse_input_payload(
+                system,
+                messages,
+                {**trace_entry_metadata, "traceId": trace_id, "trace_id": trace_id},
+                max_tokens,
+                timeout_seconds,
+            ),
         )
-    _append_llm_trace({
-        "trace_id": trace_id,
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "operation": operation,
-        "status": "started",
-        "model": model,
-        **trace_entry_metadata,
-        "timeout_seconds": timeout_seconds,
-        "max_tokens": max_tokens,
-        "latency_ms": 0.0,
-        "input_chars": input_chars,
-        "output_chars": 0,
-        "input_preview": input_preview,
-        "output_preview": "",
-        "error": None,
-    })
+    _append_llm_trace(
+        {
+            "trace_id": trace_id,
+            "ts": datetime.now(timezone.utc).isoformat(),
+            "operation": operation,
+            "status": "started",
+            "model": model,
+            **trace_entry_metadata,
+            "timeout_seconds": timeout_seconds,
+            "max_tokens": max_tokens,
+            "latency_ms": 0.0,
+            "input_chars": input_chars,
+            "output_chars": 0,
+            "input_preview": input_preview,
+            "output_preview": "",
+            "error": None,
+        }
+    )
     with observation_cm as lf_observation:
         if lf_observation is not None and propagate_attributes is not None:
             try:
@@ -858,7 +950,10 @@ def _call_with_trace(
                     propagate_kwargs["metadata"] = langfuse_metadata
                 attr_cm = propagate_attributes(**propagate_kwargs)
             except Exception:
-                logger.warning("Langfuse propagation failed; continuing without tracing", exc_info=True)
+                logger.warning(
+                    "Langfuse propagation failed; continuing without tracing",
+                    exc_info=True,
+                )
                 attr_cm = nullcontext()
         else:
             attr_cm = nullcontext()
@@ -875,23 +970,25 @@ def _call_with_trace(
             except HTTPException as exc:
                 elapsed_ms = round((perf_counter() - start) * 1000, 1)
                 error_message = str(exc.detail)
-                _append_llm_trace({
-                    "trace_id": trace_id,
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "operation": operation,
-                    "status": "error",
-                    "model": model,
-                    **trace_entry_metadata,
-                    "timeout_seconds": timeout_seconds,
-                    "max_tokens": max_tokens,
-                    "latency_ms": elapsed_ms,
-                    "input_chars": input_chars,
-                    "output_chars": 0,
-                    "input_preview": input_preview,
-                    "output_preview": "",
-                    "error_class": exc.__class__.__name__,
-                    "error": error_message,
-                })
+                _append_llm_trace(
+                    {
+                        "trace_id": trace_id,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "operation": operation,
+                        "status": "error",
+                        "model": model,
+                        **trace_entry_metadata,
+                        "timeout_seconds": timeout_seconds,
+                        "max_tokens": max_tokens,
+                        "latency_ms": elapsed_ms,
+                        "input_chars": input_chars,
+                        "output_chars": 0,
+                        "input_preview": input_preview,
+                        "output_preview": "",
+                        "error_class": exc.__class__.__name__,
+                        "error": error_message,
+                    }
+                )
                 if lf_observation is not None:
                     lf_observation.update(
                         level="ERROR",
@@ -905,29 +1002,31 @@ def _call_with_trace(
                             },
                             trace_id,
                         ),
-                )
+                    )
                 _schedule_langfuse_flush()
                 raise
             except Exception as exc:
                 elapsed_ms = round((perf_counter() - start) * 1000, 1)
                 error_message = str(exc) or exc.__class__.__name__
-                _append_llm_trace({
-                    "trace_id": trace_id,
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "operation": operation,
-                    "status": "error",
-                    "model": model,
-                    **trace_entry_metadata,
-                    "timeout_seconds": timeout_seconds,
-                    "max_tokens": max_tokens,
-                    "latency_ms": elapsed_ms,
-                    "input_chars": input_chars,
-                    "output_chars": 0,
-                    "input_preview": input_preview,
-                    "output_preview": "",
-                    "error_class": exc.__class__.__name__,
-                    "error": error_message,
-                })
+                _append_llm_trace(
+                    {
+                        "trace_id": trace_id,
+                        "ts": datetime.now(timezone.utc).isoformat(),
+                        "operation": operation,
+                        "status": "error",
+                        "model": model,
+                        **trace_entry_metadata,
+                        "timeout_seconds": timeout_seconds,
+                        "max_tokens": max_tokens,
+                        "latency_ms": elapsed_ms,
+                        "input_chars": input_chars,
+                        "output_chars": 0,
+                        "input_preview": input_preview,
+                        "output_preview": "",
+                        "error_class": exc.__class__.__name__,
+                        "error": error_message,
+                    }
+                )
                 if lf_observation is not None:
                     lf_observation.update(
                         level="ERROR",
@@ -952,22 +1051,24 @@ def _call_with_trace(
 
             elapsed_ms = round((perf_counter() - start) * 1000, 1)
             usage_details = _langfuse_usage_details(response)
-            _append_llm_trace({
-                "trace_id": trace_id,
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "operation": operation,
-                "status": "ok",
-                "model": model,
-                **trace_entry_metadata,
-                "timeout_seconds": timeout_seconds,
-                "max_tokens": max_tokens,
-                "latency_ms": elapsed_ms,
-                "input_chars": input_chars,
-                "output_chars": len(output_text),
-                "input_preview": input_preview,
-                "output_preview": _truncate_preview(output_text),
-                "error": None,
-            })
+            _append_llm_trace(
+                {
+                    "trace_id": trace_id,
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "operation": operation,
+                    "status": "ok",
+                    "model": model,
+                    **trace_entry_metadata,
+                    "timeout_seconds": timeout_seconds,
+                    "max_tokens": max_tokens,
+                    "latency_ms": elapsed_ms,
+                    "input_chars": input_chars,
+                    "output_chars": len(output_text),
+                    "input_preview": input_preview,
+                    "output_preview": _truncate_preview(output_text),
+                    "error": None,
+                }
+            )
             if lf_observation is not None:
                 lf_observation.update(
                     output=_truncate_preview(output_text),
@@ -1014,10 +1115,14 @@ def shutdown_langfuse_traces() -> None:
         logger.warning("Failed to shutdown Langfuse traces", exc_info=True)
 
 
-def chat_with_context(message: str, resume_text: str | None,
-                      chunks: list[dict], history: list[dict],
-                      career_context: str | None = None,
-                      employer_context: str | None = None) -> str:
+def chat_with_context(
+    message: str,
+    resume_text: str | None,
+    chunks: list[dict],
+    history: list[dict],
+    career_context: str | None = None,
+    employer_context: str | None = None,
+) -> str:
     """Chat with context injection for multi-turn career advising conversations.
 
     Injects structured context blocks in a specific order:
@@ -1040,25 +1145,60 @@ def chat_with_context(message: str, resume_text: str | None,
     Returns:
         LLM response text.
     """
-    generic_max_chunks = _llm_int("llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8)
-    max_chunks = min(_llm_int("llm_chat_max_chunks", "chat_max_chunks", 5), generic_max_chunks)
-    excerpt_chars = _llm_int("llm_chat_excerpt_preview_chars", "chat_excerpt_preview_chars", int(_llm["excerpt_preview_chars"]))
-    max_chunk_chars = _llm_int("llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000)
-    max_context_chars = _llm_int("llm_chat_max_context_chars", "chat_max_context_chars", 12000)
-    max_resume_chars = _llm_int("llm_chat_max_resume_chars", "chat_max_resume_chars", 5000)
+    generic_max_chunks = _llm_int(
+        "llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8
+    )
+    max_chunks = min(
+        _llm_int("llm_chat_max_chunks", "chat_max_chunks", 5), generic_max_chunks
+    )
+    excerpt_chars = _llm_int(
+        "llm_chat_excerpt_preview_chars",
+        "chat_excerpt_preview_chars",
+        int(_llm["excerpt_preview_chars"]),
+    )
+    max_chunk_chars = _llm_int(
+        "llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000
+    )
+    max_context_chars = _llm_int(
+        "llm_chat_max_context_chars", "chat_max_context_chars", 12000
+    )
+    max_resume_chars = _llm_int(
+        "llm_chat_max_resume_chars", "chat_max_resume_chars", 5000
+    )
     history_window = int(_llm["history_window"])
 
     kb_chunks_retrieved = len(chunks)
-    budgeted_chunks = _budget_chunks(chunks, max_chunks=max_chunks, excerpt_chars=excerpt_chars, max_chunk_chars=max_chunk_chars)
+    budgeted_chunks = _budget_chunks(
+        chunks,
+        max_chunks=max_chunks,
+        excerpt_chars=excerpt_chars,
+        max_chunk_chars=max_chunk_chars,
+    )
     kb_text = "\n\n---\n\n".join(
         f"[{c['payload']['source_filename']}]\n{c['payload']['text']}"
         for c in budgeted_chunks
     )
-    raw_history_text = _budget_history(history, max_turns=history_window, max_chars=None) if history else "None"
-    history_text = _budget_history(history, max_turns=history_window, max_chars=max_context_chars // 2 if max_context_chars else None) if history else "None"
+    raw_history_text = (
+        _budget_history(history, max_turns=history_window, max_chars=None)
+        if history
+        else "None"
+    )
+    history_text = (
+        _budget_history(
+            history,
+            max_turns=history_window,
+            max_chars=max_context_chars // 2 if max_context_chars else None,
+        )
+        if history
+        else "None"
+    )
 
-    safe_career_context = sanitize_for_prompt(career_context) if career_context else None
-    safe_employer_context = sanitize_for_prompt(employer_context) if employer_context else None
+    safe_career_context = (
+        sanitize_for_prompt(career_context) if career_context else None
+    )
+    safe_employer_context = (
+        sanitize_for_prompt(employer_context) if employer_context else None
+    )
 
     # Injection order: career profile → employer facts → KB chunks
     # Employer facts always appear before KB chunks so authoritative YAML data
@@ -1071,7 +1211,9 @@ def chat_with_context(message: str, resume_text: str | None,
             raw_context_sections.insert(1, safe_employer_context)
         else:
             raw_context_sections.insert(0, safe_employer_context)
-    raw_context_sections.append(f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}")
+    raw_context_sections.append(
+        f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}"
+    )
     raw_combined_context = "\n\n".join(raw_context_sections)
 
     context_sections = []
@@ -1079,20 +1221,22 @@ def chat_with_context(message: str, resume_text: str | None,
         context_sections.append(_trim_to_budget(safe_career_context, max_context_chars))
     if safe_employer_context:
         if safe_career_context:
-            context_sections.insert(1, _trim_to_budget(safe_employer_context, max_context_chars))
+            context_sections.insert(
+                1, _trim_to_budget(safe_employer_context, max_context_chars)
+            )
         else:
-            context_sections.insert(0, _trim_to_budget(safe_employer_context, max_context_chars))
-    context_sections.append(f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}")
+            context_sections.insert(
+                0, _trim_to_budget(safe_employer_context, max_context_chars)
+            )
+    context_sections.append(
+        f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}"
+    )
     combined_context = "\n\n".join(context_sections)
 
     # Disambiguation instruction: injected when no career type is active, so the
     # LLM naturally asks the student to clarify their track rather than giving a
     # generic answer.
-    disambiguation_note = (
-        ""
-        if career_context
-        else "\n\n" + _prompts["disambiguation"]
-    )
+    disambiguation_note = "" if career_context else "\n\n" + _prompts["disambiguation"]
 
     resume_section = f"Student resume:\n{_trim_to_budget(resume_text or 'Not provided', max_resume_chars)}"
     context_section = combined_context
@@ -1115,13 +1259,16 @@ def chat_with_context(message: str, resume_text: str | None,
         [resume_section, context_section, history_section],
         max_context_chars=core_budget,
     )
-    user_content = f"{core_section}\n\n{question_section}" if core_section else question_section
+    user_content = (
+        f"{core_section}\n\n{question_section}" if core_section else question_section
+    )
 
     response = _call_with_trace(
         operation="chat_with_context",
         model=get_model_name(),
         max_tokens=_llm["max_tokens"],
-        system=_prompts["chat_system"].format(school_name=SCHOOL_NAME) + disambiguation_note,
+        system=_prompts["chat_system"].format(school_name=SCHOOL_NAME)
+        + disambiguation_note,
         messages=[{"role": "user", "content": user_content}],
         trace_metadata={
             "feature": "chat_with_context",
@@ -1149,22 +1296,46 @@ def analyse_kb_input(
     """
     allowed_fields = ", ".join(kb_cfg["employers"]["allowed_update_fields"])
     system = _prompts["analyse_kb_input"].format(
-        school_name=SCHOOL_NAME,
-        allowed_employer_fields=allowed_fields
+        school_name=SCHOOL_NAME, allowed_employer_fields=allowed_fields
     )
-    excerpt_chars = _llm_int("llm_analysis_excerpt_preview_chars", "analysis_excerpt_preview_chars", int(_llm["excerpt_preview_chars"]))
-    generic_max_chunks = _llm_int("llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8)
-    max_chunks = min(_llm_int("llm_analysis_max_chunks", "analysis_max_chunks", 6), generic_max_chunks)
-    threshold = _llm_int("llm_analysis_max_input_chars", "analysis_max_input_chars", 12000)
-    chunk_tokens = _effective_session_multi_pass_setting("llm_session_multi_pass_chunk_tokens", "multi_pass_chunk_tokens")
-    overlap_tokens = _effective_session_multi_pass_setting("llm_session_multi_pass_overlap_tokens", "multi_pass_overlap_tokens")
-    max_chunk_chars = _llm_int("llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000)
-    budgeted_chunks = _budget_chunks(retrieved_chunks, max_chunks=max_chunks, excerpt_chars=excerpt_chars, max_chunk_chars=max_chunk_chars)
-    formatted_chunks = "\n\n".join(
-        f"[{i+1}] (score={c['score']:.3f}) source={c['payload']['source_filename']}\n"
-        f"{str(c['payload']['text'])[:excerpt_chars]}"
-        for i, c in enumerate(budgeted_chunks)
-    ) or "(No existing KB content retrieved)"
+    excerpt_chars = _llm_int(
+        "llm_analysis_excerpt_preview_chars",
+        "analysis_excerpt_preview_chars",
+        int(_llm["excerpt_preview_chars"]),
+    )
+    generic_max_chunks = _llm_int(
+        "llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8
+    )
+    max_chunks = min(
+        _llm_int("llm_analysis_max_chunks", "analysis_max_chunks", 6),
+        generic_max_chunks,
+    )
+    threshold = _llm_int(
+        "llm_analysis_max_input_chars", "analysis_max_input_chars", 12000
+    )
+    chunk_tokens = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_chunk_tokens", "multi_pass_chunk_tokens"
+    )
+    overlap_tokens = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_overlap_tokens", "multi_pass_overlap_tokens"
+    )
+    max_chunk_chars = _llm_int(
+        "llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000
+    )
+    budgeted_chunks = _budget_chunks(
+        retrieved_chunks,
+        max_chunks=max_chunks,
+        excerpt_chars=excerpt_chars,
+        max_chunk_chars=max_chunk_chars,
+    )
+    formatted_chunks = (
+        "\n\n".join(
+            f"[{i + 1}] (score={c['score']:.3f}) source={c['payload']['source_filename']}\n"
+            f"{str(c['payload']['text'])[:excerpt_chars]}"
+            for i, c in enumerate(budgeted_chunks)
+        )
+        or "(No existing KB content retrieved)"
+    )
 
     schema_hint = (
         "JSON object with interpretation_bullets, profile_updates, employer_updates, "
@@ -1201,7 +1372,9 @@ def analyse_kb_input(
         validator=KBAnalysisResult,
     )
     if not results:
-        raise ValueError(f"Claude returned no valid KB analysis results: {failures[0] if failures else 'unknown error'}")
+        raise ValueError(
+            f"Claude returned no valid KB analysis results: {failures[0] if failures else 'unknown error'}"
+        )
 
     merged = results[0] if len(results) == 1 else _merge_analysis_results(results)
     try:
@@ -1209,7 +1382,10 @@ def analyse_kb_input(
     except Exception as exc:
         raise ValueError(f"Claude returned malformed JSON: {exc}") from exc
     if failures:
-        logger.warning("analyse_kb_input: partial extraction due to %d failing chunk(s)", len(failures))
+        logger.warning(
+            "analyse_kb_input: partial extraction due to %d failing chunk(s)",
+            len(failures),
+        )
     return validated.model_dump()
 
 
@@ -1228,24 +1404,54 @@ def generate_track_draft(
     Returns a raw JSON dict shaped for DraftTrackDetail (caller validates).
     Raises ValueError if Claude returns malformed JSON.
     """
-    tracks_text = "\n".join(
-        f"- {item.get('slug')}: {item.get('career_type') or item.get('label') or item.get('slug')}"
-        for item in existing_tracks
-    ) or "(No existing tracks configured)"
-    excerpt_chars = _llm_int("llm_track_draft_excerpt_preview_chars", "track_draft_excerpt_preview_chars", int(_llm["excerpt_preview_chars"]))
-    generic_max_chunks = _llm_int("llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8)
-    max_chunks = min(_llm_int("llm_track_draft_max_chunks", "track_draft_max_chunks", 6), generic_max_chunks)
-    threshold = _llm_int("llm_track_draft_max_input_chars", "track_draft_max_input_chars", 12000)
-    chunk_tokens = _effective_session_multi_pass_setting("llm_session_multi_pass_chunk_tokens", "multi_pass_chunk_tokens")
-    overlap_tokens = _effective_session_multi_pass_setting("llm_session_multi_pass_overlap_tokens", "multi_pass_overlap_tokens")
-    max_chunk_chars = _llm_int("llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000)
-    budgeted_chunks = _budget_chunks(retrieved_chunks, max_chunks=max_chunks, excerpt_chars=excerpt_chars, max_chunk_chars=max_chunk_chars)
-    excerpts_text = "\n\n".join(
-        f"[{i+1}] score={c['score']:.3f} source={c['payload'].get('source_filename', 'unknown')}\n"
-        f"{str(c['payload'].get('text', ''))[:excerpt_chars]}"
-        for i, c in enumerate(budgeted_chunks)
-    ) or "(No related knowledge retrieved)"
-    existing_draft_text = json.dumps(existing_draft or {}, indent=2, ensure_ascii=False) or "{}"
+    tracks_text = (
+        "\n".join(
+            f"- {item.get('slug')}: {item.get('career_type') or item.get('label') or item.get('slug')}"
+            for item in existing_tracks
+        )
+        or "(No existing tracks configured)"
+    )
+    excerpt_chars = _llm_int(
+        "llm_track_draft_excerpt_preview_chars",
+        "track_draft_excerpt_preview_chars",
+        int(_llm["excerpt_preview_chars"]),
+    )
+    generic_max_chunks = _llm_int(
+        "llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8
+    )
+    max_chunks = min(
+        _llm_int("llm_track_draft_max_chunks", "track_draft_max_chunks", 6),
+        generic_max_chunks,
+    )
+    threshold = _llm_int(
+        "llm_track_draft_max_input_chars", "track_draft_max_input_chars", 12000
+    )
+    chunk_tokens = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_chunk_tokens", "multi_pass_chunk_tokens"
+    )
+    overlap_tokens = _effective_session_multi_pass_setting(
+        "llm_session_multi_pass_overlap_tokens", "multi_pass_overlap_tokens"
+    )
+    max_chunk_chars = _llm_int(
+        "llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000
+    )
+    budgeted_chunks = _budget_chunks(
+        retrieved_chunks,
+        max_chunks=max_chunks,
+        excerpt_chars=excerpt_chars,
+        max_chunk_chars=max_chunk_chars,
+    )
+    excerpts_text = (
+        "\n\n".join(
+            f"[{i + 1}] score={c['score']:.3f} source={c['payload'].get('source_filename', 'unknown')}\n"
+            f"{str(c['payload'].get('text', ''))[:excerpt_chars]}"
+            for i, c in enumerate(budgeted_chunks)
+        )
+        or "(No related knowledge retrieved)"
+    )
+    existing_draft_text = (
+        json.dumps(existing_draft or {}, indent=2, ensure_ascii=False) or "{}"
+    )
     system = _prompts["track_draft"].format(school_name=SCHOOL_NAME)
     schema_hint = (
         "JSON object matching DraftTrackDetail with slug, track_name, status, match_description, "
@@ -1288,7 +1494,9 @@ def generate_track_draft(
         validator=DraftTrackDetail,
     )
     if not results:
-        raise ValueError(f"Claude returned no valid draft output: {failures[0] if failures else 'unknown error'}")
+        raise ValueError(
+            f"Claude returned no valid draft output: {failures[0] if failures else 'unknown error'}"
+        )
 
     merged = results[0] if len(results) == 1 else _merge_track_drafts(results)
     merged["slug"] = slug
@@ -1301,7 +1509,10 @@ def generate_track_draft(
     except Exception as exc:
         raise ValueError(f"Claude returned malformed JSON: {exc}") from exc
     if failures:
-        logger.warning("generate_track_draft: partial extraction due to %d failing chunk(s)", len(failures))
+        logger.warning(
+            "generate_track_draft: partial extraction due to %d failing chunk(s)",
+            len(failures),
+        )
     return validated.model_dump()
 
 
@@ -1318,23 +1529,46 @@ def generate_brief(resume_text: str, chunks: list[dict]) -> str:
     Returns:
         Brief text with actionable talking points.
     """
-    generic_max_chunks = _llm_int("llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8)
-    max_chunks = min(_llm_int("llm_brief_max_chunks", "brief_max_chunks", 6), generic_max_chunks)
-    excerpt_chars = _llm_int("llm_brief_excerpt_preview_chars", "brief_excerpt_preview_chars", int(_llm["excerpt_preview_chars"]))
-    max_chunk_chars = _llm_int("llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000)
-    max_context_chars = _llm_int("llm_brief_max_context_chars", "brief_max_context_chars", 10000)
-    max_resume_chars = _llm_int("llm_brief_max_resume_chars", "brief_max_resume_chars", 4500)
+    generic_max_chunks = _llm_int(
+        "llm_max_chunks_per_prompt", "max_chunks_per_prompt", 8
+    )
+    max_chunks = min(
+        _llm_int("llm_brief_max_chunks", "brief_max_chunks", 6), generic_max_chunks
+    )
+    excerpt_chars = _llm_int(
+        "llm_brief_excerpt_preview_chars",
+        "brief_excerpt_preview_chars",
+        int(_llm["excerpt_preview_chars"]),
+    )
+    max_chunk_chars = _llm_int(
+        "llm_max_chunk_chars_for_prompt", "max_chunk_chars_for_prompt", 4000
+    )
+    max_context_chars = _llm_int(
+        "llm_brief_max_context_chars", "brief_max_context_chars", 10000
+    )
+    max_resume_chars = _llm_int(
+        "llm_brief_max_resume_chars", "brief_max_resume_chars", 4500
+    )
 
     kb_chunks_retrieved = len(chunks)
-    budgeted_chunks = _budget_chunks(chunks, max_chunks=max_chunks, excerpt_chars=excerpt_chars, max_chunk_chars=max_chunk_chars)
+    budgeted_chunks = _budget_chunks(
+        chunks,
+        max_chunks=max_chunks,
+        excerpt_chars=excerpt_chars,
+        max_chunk_chars=max_chunk_chars,
+    )
     kb_text = "\n\n---\n\n".join(
         f"[{c['payload']['source_filename']}]\n{c['payload']['text']}"
         for c in budgeted_chunks
     )
     resume_section = f"Resume:\n{_trim_to_budget(resume_text, max_resume_chars)}"
     kb_section = f"Knowledge base:\n{kb_text or 'No documents uploaded yet.'}"
-    input_chars_pre_trim = len(f"Resume:\n{resume_text}") + len(f"Knowledge base:\n{kb_text or 'No documents uploaded yet.'}")
-    user_content = _join_budgeted_sections([resume_section, kb_section], max_context_chars=max_context_chars)
+    input_chars_pre_trim = len(f"Resume:\n{resume_text}") + len(
+        f"Knowledge base:\n{kb_text or 'No documents uploaded yet.'}"
+    )
+    user_content = _join_budgeted_sections(
+        [resume_section, kb_section], max_context_chars=max_context_chars
+    )
 
     response = _call_with_trace(
         operation="generate_brief",
@@ -1375,7 +1609,9 @@ def generate_alumni_extraction(
         raise ValueError("notes are required")
 
     normalized_candidates = _normalize_existing_alumni_candidates(existing_alumni)
-    current_profile_payload = current_profile if isinstance(current_profile, dict) else {}
+    current_profile_payload = (
+        current_profile if isinstance(current_profile, dict) else {}
+    )
     current_link_payload = current_links if isinstance(current_links, list) else []
 
     resolved_prompt = _resolve_prompt(
@@ -1417,7 +1653,9 @@ def generate_alumni_extraction(
         trace_metadata={
             "feature": "generate_alumni_extraction",
             "session_id": session_id,
-            "workflow_name": str((trace_metadata or {}).get("workflow_name") or _WORKFLOW_NAME),
+            "workflow_name": str(
+                (trace_metadata or {}).get("workflow_name") or _WORKFLOW_NAME
+            ),
             **(trace_metadata or {}),
             "source_type": source_type,
             "source_label": source_label,
@@ -1485,8 +1723,13 @@ def generate_alumni_extraction(
         "source_label": preview_payload.get("source_label") or source_label,
         "source_type": preview_payload.get("source_type") or source_type,
         "is_update": bool(payload.get("is_update", primary_item.get("is_update"))),
-        "matched_slug": str(payload.get("matched_slug") or primary_item.get("matched_slug") or "").strip() or None,
-        "source_excerpt": str(payload.get("source_excerpt") or primary_item.get("source_excerpt") or "").strip(),
+        "matched_slug": str(
+            payload.get("matched_slug") or primary_item.get("matched_slug") or ""
+        ).strip()
+        or None,
+        "source_excerpt": str(
+            payload.get("source_excerpt") or primary_item.get("source_excerpt") or ""
+        ).strip(),
         "alumni": alumni_items,
     }
 
@@ -1514,7 +1757,7 @@ def _merge_intents(results: list[dict]) -> dict:
                 if i > 0:
                     card["card_id"] = f"card-{uuid.uuid4().hex[:8]}"
                 merged_cards.append(card)
-        
+
         for ac in res.get("already_covered", []):
             merged_already_covered.append(ac)
 
@@ -1558,7 +1801,12 @@ def _merge_analysis_results(results: list[dict]) -> dict:
             source_type = str(chunk.get("source_type", "")).strip()
             source_label = str(chunk.get("source_label", "")).strip()
             career_type = str(chunk.get("career_type", "") or "").strip()
-            key = (text.lower(), source_type.lower(), source_label.lower(), career_type.lower())
+            key = (
+                text.lower(),
+                source_type.lower(),
+                source_label.lower(),
+                career_type.lower(),
+            )
             if text and key not in seen_chunks:
                 seen_chunks.add(key)
                 merged["new_chunks"].append(chunk)
@@ -1593,7 +1841,9 @@ def _merge_track_drafts(results: list[dict]) -> dict:
                 if not isinstance(current, list):
                     current = [current]
                 incoming = value if isinstance(value, list) else [value]
-                merged[key] = current + [item for item in incoming if item not in current]
+                merged[key] = current + [
+                    item for item in incoming if item not in current
+                ]
             elif key == "structured" and isinstance(value, dict):
                 current = merged.get(key) or {}
                 if not isinstance(current, dict):
@@ -1729,12 +1979,16 @@ def generate_session_intents(
             propagate_cm = propagate_attributes(
                 session_id=session_id,
                 metadata={
-                    "environment": str(getattr(settings, "langfuse_tracing_environment", "development")),
+                    "environment": str(
+                        getattr(settings, "langfuse_tracing_environment", "development")
+                    ),
                     "feature": "generate_session_intents",
                 },
             )
         except Exception:
-            logger.warning("Langfuse propagation failed; continuing without tracing", exc_info=True)
+            logger.warning(
+                "Langfuse propagation failed; continuing without tracing", exc_info=True
+            )
             propagate_cm = nullcontext()
 
     with root_span_cm as root_span, propagate_cm:
@@ -1789,8 +2043,12 @@ def generate_session_intents(
                     "feature": "generate_session_intents",
                     **(trace_metadata or {}),
                     "session_id": session_id,
-                    "workflow_name": str((trace_metadata or {}).get("workflow_name") or _WORKFLOW_NAME),
-                    "phase": str((trace_metadata or {}).get("phase") or "session_analysis"),
+                    "workflow_name": str(
+                        (trace_metadata or {}).get("workflow_name") or _WORKFLOW_NAME
+                    ),
+                    "phase": str(
+                        (trace_metadata or {}).get("phase") or "session_analysis"
+                    ),
                     "multi_pass_threshold_chars": threshold,
                     "multi_pass_chunk_tokens": chunk_tokens,
                     "multi_pass_overlap_tokens": overlap_tokens,
@@ -1831,7 +2089,10 @@ def generate_session_intents(
                 )
 
             if failures:
-                logger.warning("generate_session_intents: partial extraction due to %d failing chunk(s)", len(failures))
+                logger.warning(
+                    "generate_session_intents: partial extraction due to %d failing chunk(s)",
+                    len(failures),
+                )
             return result
         except HTTPException:
             raise
@@ -1849,7 +2110,9 @@ def generate_session_intents(
             return {"cards": [], "already_covered": []}
 
 
-async def extract_facts_from_prose(notes: str, employer_name: str = "employer") -> list[dict]:
+async def extract_facts_from_prose(
+    notes: str, employer_name: str = "employer"
+) -> list[dict]:
     """Extract structured facts (timeline, alumni, interview, etc.) from prose notes.
 
     Uses Claude to parse employer notes and extract timeline_phase, alumni,
@@ -1951,7 +2214,9 @@ Example:
                 fact_obj = Fact(
                     slug=f.get("slug", ""),
                     type=f.get("type", ""),
-                    timestamp=f.get("timestamp", datetime.now(timezone.utc).isoformat()),
+                    timestamp=f.get(
+                        "timestamp", datetime.now(timezone.utc).isoformat()
+                    ),
                     source="inferred",
                     confidence=f.get("confidence", 75),
                     data=f,
@@ -1959,12 +2224,20 @@ Example:
                 )
                 validated_facts.append(fact_obj.model_dump())
             except ValidationError as e:
-                logger.warning("extract_facts_from_prose: invalid fact, skipping: %s", e)
+                logger.warning(
+                    "extract_facts_from_prose: invalid fact, skipping: %s", e
+                )
                 continue
 
-        logger.info("extract_facts_from_prose: extracted %d facts from %s", len(validated_facts), employer_name)
+        logger.info(
+            "extract_facts_from_prose: extracted %d facts from %s",
+            len(validated_facts),
+            employer_name,
+        )
         return validated_facts
 
     except Exception as exc:
         logger.error("extract_facts_from_prose: failed for %s: %s", employer_name, exc)
-        raise HTTPException(status_code=500, detail=f"Fact extraction failed: {str(exc)}")
+        raise HTTPException(
+            status_code=500, detail=f"Fact extraction failed: {str(exc)}"
+        )

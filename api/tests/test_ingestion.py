@@ -27,6 +27,7 @@ def test_parse_file_txt():
 
 def test_ingest_document_calls_upsert(in_memory_qdrant, mock_embedder):
     from services.vector_store import VectorStore
+
     store = VectorStore(client=in_memory_qdrant, collection="knowledge")
     store.ensure_collection(dim=384)
 
@@ -87,18 +88,18 @@ def test_parse_file_docx_merged_cells_no_duplication():
     # Build a table with a merged header row using raw XML
     tbl = etree.fromstring(
         '<w:tbl xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
-        '  <w:tr>'
-        '    <w:tc>'
+        "  <w:tr>"
+        "    <w:tc>"
         '      <w:tcPr><w:gridSpan w:val="2"/></w:tcPr>'
-        '      <w:p><w:r><w:t>Merged Header</w:t></w:r></w:p>'
-        '    </w:tc>'
-        '    <w:tc/>'
-        '  </w:tr>'
-        '  <w:tr>'
-        '    <w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc>'
-        '    <w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc>'
-        '  </w:tr>'
-        '</w:tbl>'
+        "      <w:p><w:r><w:t>Merged Header</w:t></w:r></w:p>"
+        "    </w:tc>"
+        "    <w:tc/>"
+        "  </w:tr>"
+        "  <w:tr>"
+        "    <w:tc><w:p><w:r><w:t>A</w:t></w:r></w:p></w:tc>"
+        "    <w:tc><w:p><w:r><w:t>B</w:t></w:r></w:p></w:tc>"
+        "  </w:tr>"
+        "</w:tbl>"
     )
     doc.element.body.append(tbl)
 
@@ -119,9 +120,11 @@ def test_parse_file_docx_merged_cells_no_duplication():
 # Semantic-aware chunking tests
 # ---------------------------------------------------------------------------
 
+
 def test_chunk_preserves_paragraph_boundaries():
     """Two short paragraphs should each be their own chunk, not split mid-paragraph."""
     from services.ingestion import chunk_text
+
     text = "First paragraph about career paths.\n\nSecond paragraph about salary expectations."
     chunks = chunk_text(text, max_tokens=512, overlap=64)
     # Both paragraphs should be preserved in at least one chunk
@@ -133,6 +136,7 @@ def test_chunk_preserves_paragraph_boundaries():
 def test_chunk_preserves_table_rows():
     """A small table should be kept together in one chunk, not split across rows."""
     from services.ingestion import chunk_text
+
     text = """Here is the salary table:
 | Role | Base | Bonus |
 | Junior | 80K | 15% |
@@ -149,6 +153,7 @@ def test_chunk_preserves_table_rows():
 def test_chunk_splits_oversized_paragraph():
     """A single long paragraph exceeding token limit should split at word boundaries."""
     from services.ingestion import chunk_text
+
     words = [f"word{i}" for i in range(500)]
     long_paragraph = " ".join(words)
     chunks = chunk_text(long_paragraph, max_tokens=100, overlap=20)
@@ -163,6 +168,7 @@ def test_chunk_splits_oversized_paragraph():
 def test_chunk_single_short_text_returns_as_is():
     """Text within token limit should return as single chunk."""
     from services.ingestion import chunk_text
+
     text = "Short career advice."
     chunks = chunk_text(text, max_tokens=512, overlap=64)
     assert chunks == ["Short career advice."]
@@ -171,6 +177,7 @@ def test_chunk_single_short_text_returns_as_is():
 def test_chunk_empty_returns_empty():
     """Empty text should return empty list."""
     from services.ingestion import chunk_text
+
     assert chunk_text("", max_tokens=512, overlap=64) == []
     assert chunk_text("   ", max_tokens=512, overlap=64) == []
 
@@ -178,6 +185,7 @@ def test_chunk_empty_returns_empty():
 def test_chunk_preserves_list_items():
     """Consecutive list items should be kept together."""
     from services.ingestion import chunk_text
+
     text = """Skills needed:
 - Communication
 - Analytical thinking

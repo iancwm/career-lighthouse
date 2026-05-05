@@ -25,7 +25,10 @@ class AttributeShape:
 
 
 def test_coerce_mapping_and_sequence_from_sdk_like_objects():
-    assert coerce_mapping(ModelDumpShape()) == {"data": [{"id": "one"}], "name": "shape"}
+    assert coerce_mapping(ModelDumpShape()) == {
+        "data": [{"id": "one"}],
+        "name": "shape",
+    }
     assert coerce_sequence(ModelDumpShape()) == [{"id": "one"}]
     assert coerce_sequence(AttributeShape()) == ["a", "b"]
     assert get_value(AttributeShape(), "missing", "status") == "ok"
@@ -52,4 +55,3 @@ def test_format_timestamp_normalizes_datetimes_to_utc():
     ts = datetime(2026, 4, 27, 1, 2, 3, tzinfo=timezone.utc)
 
     assert format_timestamp(ts) == "2026-04-27T01:02:03+00:00"
-

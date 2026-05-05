@@ -1,4 +1,5 @@
 """Tests for track guidance and recurrence logging."""
+
 from unittest.mock import MagicMock
 
 import numpy as np
@@ -44,7 +45,9 @@ def _load_with_mock_embedder(store, profiles_dir, mock_emb):
         if missing:
             continue
         store._profiles[slug] = profile
-        store._keyword_index[slug] = [str(profile.get("career_type", slug)).strip().lower()]
+        store._keyword_index[slug] = [
+            str(profile.get("career_type", slug)).strip().lower()
+        ]
         store._type_embeddings[slug] = mock_emb.encode(profile["career_type"])
 
 
@@ -64,7 +67,9 @@ def test_build_track_guidance_records_recurrence(tmp_path, monkeypatch):
     profiles_dir = tmp_path / "profiles"
     profiles_dir.mkdir()
     write_profile(profiles_dir, "quant_finance", {"career_type": "Quant Finance"})
-    write_profile(profiles_dir, "software_engineering", {"career_type": "Software Engineering"})
+    write_profile(
+        profiles_dir, "software_engineering", {"career_type": "Software Engineering"}
+    )
 
     monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
     monkeypatch.setenv("EMERGING_TRACK_SIGNALS_PATH", str(tmp_path / "signals.jsonl"))
@@ -98,13 +103,20 @@ def test_build_track_guidance_records_recurrence(tmp_path, monkeypatch):
     query_vec[0] = 0.62
     query_vec[1] = 0.38
 
-    first = build_track_guidance("DRW quantitative research", query_vec, store, session_id="s-1")
-    second = build_track_guidance("DRW quantitative research", query_vec, store, session_id="s-2")
+    first = build_track_guidance(
+        "DRW quantitative research", query_vec, store, session_id="s-1"
+    )
+    second = build_track_guidance(
+        "DRW quantitative research", query_vec, store, session_id="s-2"
+    )
 
     assert first is not None
     assert first.status == "clustered_uncertainty"
     assert first.recurrence_count == 1
-    assert [track.slug for track in first.nearest_tracks] == ["quant_finance", "software_engineering"]
+    assert [track.slug for track in first.nearest_tracks] == [
+        "quant_finance",
+        "software_engineering",
+    ]
     assert second is not None
     assert second.status == "emerging_taxonomy_signal"
     assert second.recurrence_count == 2
@@ -125,23 +137,43 @@ def test_validate_runtime_storage_includes_emerging_signal_log(tmp_path, monkeyp
 
     monkeypatch.setenv("SESSIONS_DIR", str(tmp_path / "sessions"))
     monkeypatch.setenv("DATA_PATH", str(tmp_path / "data" / "qdrant"))
-    monkeypatch.setenv("CAREER_PROFILES_DIR", str(tmp_path / "knowledge" / "career_profiles"))
+    monkeypatch.setenv(
+        "CAREER_PROFILES_DIR", str(tmp_path / "knowledge" / "career_profiles")
+    )
     monkeypatch.setenv("EMPLOYERS_DIR", str(tmp_path / "knowledge" / "employers"))
     monkeypatch.setenv("DRAFT_TRACKS_DIR", str(tmp_path / "knowledge" / "draft_tracks"))
-    monkeypatch.setenv("CAREER_PROFILE_HISTORY_DIR", str(tmp_path / "knowledge" / "career_profiles_history"))
+    monkeypatch.setenv(
+        "CAREER_PROFILE_HISTORY_DIR",
+        str(tmp_path / "knowledge" / "career_profiles_history"),
+    )
     monkeypatch.setenv("SENTENCE_TRANSFORMERS_HOME", str(tmp_path / ".cache"))
     monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / ".cache" / "uv"))
     monkeypatch.setenv("QUERY_LOG_PATH", str(tmp_path / "logs" / "query_log.jsonl"))
-    monkeypatch.setenv("LLM_TRACE_LOG_PATH", str(tmp_path / "logs" / "llm_trace_log.jsonl"))
-    monkeypatch.setenv("CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "knowledge" / "career_tracks.yaml"))
-    monkeypatch.setenv("TRACK_PUBLISH_JOURNAL_PATH", str(tmp_path / "logs" / "track_publish_journal.jsonl"))
-    monkeypatch.setenv("TRACK_PUBLISH_LOG_PATH", str(tmp_path / "logs" / "track_publish_log.jsonl"))
-    monkeypatch.setenv("TRACKS_VERSION_PATH", str(tmp_path / "knowledge" / ".tracks-version"))
+    monkeypatch.setenv(
+        "LLM_TRACE_LOG_PATH", str(tmp_path / "logs" / "llm_trace_log.jsonl")
+    )
+    monkeypatch.setenv(
+        "CAREER_TRACKS_REGISTRY_PATH",
+        str(tmp_path / "knowledge" / "career_tracks.yaml"),
+    )
+    monkeypatch.setenv(
+        "TRACK_PUBLISH_JOURNAL_PATH",
+        str(tmp_path / "logs" / "track_publish_journal.jsonl"),
+    )
+    monkeypatch.setenv(
+        "TRACK_PUBLISH_LOG_PATH", str(tmp_path / "logs" / "track_publish_log.jsonl")
+    )
+    monkeypatch.setenv(
+        "TRACKS_VERSION_PATH", str(tmp_path / "knowledge" / ".tracks-version")
+    )
 
     blocked_parent = tmp_path / "blocked"
     blocked_parent.mkdir()
     blocked_parent.chmod(0o500)
-    monkeypatch.setenv("EMERGING_TRACK_SIGNALS_PATH", str(blocked_parent / "emerging_track_signals.jsonl"))
+    monkeypatch.setenv(
+        "EMERGING_TRACK_SIGNALS_PATH",
+        str(blocked_parent / "emerging_track_signals.jsonl"),
+    )
 
     try:
         with pytest.raises(RuntimeError, match="EMERGING_TRACK_SIGNALS_PATH"):

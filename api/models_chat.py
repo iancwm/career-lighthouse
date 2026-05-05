@@ -14,9 +14,12 @@ class IntakeContext(BaseModel):
     Never persisted — used only to resolve the initial career type slug,
     then discarded. PDPA: no personal identity data collected here.
     """
-    background: Optional[str] = None   # "undergrad" | "masters" | "professional"
-    region: Optional[str] = None       # "sea" | "south_asia" | "east_asia" | "other"
-    interest: Optional[str] = None     # "finance" | "consulting" | "tech" | "public_sector" | "not_sure"
+
+    background: Optional[str] = None  # "undergrad" | "masters" | "professional"
+    region: Optional[str] = None  # "sea" | "south_asia" | "east_asia" | "other"
+    interest: Optional[str] = (
+        None  # "finance" | "consulting" | "tech" | "public_sector" | "not_sure"
+    )
 
 
 class ChatRequest(BaseModel):
@@ -24,8 +27,12 @@ class ChatRequest(BaseModel):
     resume_text: Optional[str] = None
     history: list[ChatMessage] = []
     # Sprint 2: guided entry + career profile injection
-    intake_context: Optional[IntakeContext] = None   # message 1 only; server resolves career type then discards
-    active_career_type: Optional[str] = None         # client echoes back slug from previous response
+    intake_context: Optional[IntakeContext] = (
+        None  # message 1 only; server resolves career type then discards
+    )
+    active_career_type: Optional[str] = (
+        None  # client echoes back slug from previous response
+    )
 
 
 class Citation(BaseModel):
@@ -39,7 +46,9 @@ class Citation(BaseModel):
 class ChatResponse(BaseModel):
     response: str
     citations: list[Citation]
-    active_career_type: Optional[str] = None  # resolved career type slug; client stores and echoes on next request
+    active_career_type: Optional[str] = (
+        None  # resolved career type slug; client stores and echoes on next request
+    )
 
 
 class BriefRequest(BaseModel):

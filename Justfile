@@ -98,7 +98,7 @@ where-data:
 
 # Install all dependencies (uv-managed API deps + npm ci for web)
 install:
-    cd api && uv sync --extra dev --frozen
+    cd api && uv sync --extra dev --group dev --frozen
     cd web && npm ci
 
 # Refresh the API lockfile after editing api/pyproject.toml
@@ -117,6 +117,24 @@ dev-api:
 dev-web:
     cd web && npm run dev
 
+# Convenience aliases for the quality commands.
+format: format-api
+format-check: format-check-api
+typecheck: typecheck-web
+check: format-check typecheck
+
+# Format the Python backend with Ruff.
+format-api:
+    cd api && uv sync --extra dev --group dev --frozen && uv run ruff format .
+
+# Verify the Python backend is still Ruff-formatted.
+format-check-api:
+    cd api && uv sync --extra dev --group dev --frozen && uv run ruff format . --check
+
+# Validate the web app's TypeScript by running Next.js build.
+typecheck-web:
+    cd web && npm run typecheck
+
 # ── Tests ─────────────────────────────────────────────────────────────────────
 
 # Run all tests
@@ -124,7 +142,7 @@ test: test-api test-web
 
 # Run API tests
 test-api:
-    cd api && uv sync --extra dev --frozen && uv run python -m pytest
+    cd api && uv sync --extra dev --group dev --frozen && uv run python -m pytest
 
 # Run web tests
 test-web:

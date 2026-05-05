@@ -10,6 +10,7 @@ The implementation is intentionally file-backed so it matches the current
 career profile and employer storage model and works in local Docker with the
 existing bind mounts.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,8 +22,17 @@ from threading import Lock
 
 import yaml
 
-from models_tracks import DraftTrackDetail, SourceRef, TrackRegistryEntry, TrackVersionInfo
-from services.career_profiles import _default_profiles_dir, _derive_structured_fields, _is_placeholder_counselor_contact
+from models_tracks import (
+    DraftTrackDetail,
+    SourceRef,
+    TrackRegistryEntry,
+    TrackVersionInfo,
+)
+from services.career_profiles import (
+    _default_profiles_dir,
+    _derive_structured_fields,
+    _is_placeholder_counselor_contact,
+)
 from services.runtime_paths import (
     default_drafts_dir,
     default_history_dir,
@@ -31,7 +41,12 @@ from services.runtime_paths import (
     default_registry_path,
     default_tracks_version_path,
 )
-from services.shared_yaml import Singleton, atomic_yaml_write, safe_slug_is_valid, version_stamp
+from services.shared_yaml import (
+    Singleton,
+    atomic_yaml_write,
+    safe_slug_is_valid,
+    version_stamp,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -74,23 +89,35 @@ def _drafts_dir() -> Path:
 
 
 def _registry_path() -> Path:
-    return Path(os.environ.get("CAREER_TRACKS_REGISTRY_PATH", str(_default_registry_path())))
+    return Path(
+        os.environ.get("CAREER_TRACKS_REGISTRY_PATH", str(_default_registry_path()))
+    )
 
 
 def _history_dir() -> Path:
-    return Path(os.environ.get("CAREER_PROFILE_HISTORY_DIR", str(_default_history_dir())))
+    return Path(
+        os.environ.get("CAREER_PROFILE_HISTORY_DIR", str(_default_history_dir()))
+    )
 
 
 def _publish_journal_path() -> Path:
-    return Path(os.environ.get("TRACK_PUBLISH_JOURNAL_PATH", str(_default_publish_journal_path())))
+    return Path(
+        os.environ.get(
+            "TRACK_PUBLISH_JOURNAL_PATH", str(_default_publish_journal_path())
+        )
+    )
 
 
 def _publish_audit_log_path() -> Path:
-    return Path(os.environ.get("TRACK_PUBLISH_LOG_PATH", str(_default_publish_audit_log_path())))
+    return Path(
+        os.environ.get("TRACK_PUBLISH_LOG_PATH", str(_default_publish_audit_log_path()))
+    )
 
 
 def _tracks_version_path() -> Path:
-    return Path(os.environ.get("TRACKS_VERSION_PATH", str(_default_tracks_version_path())))
+    return Path(
+        os.environ.get("TRACKS_VERSION_PATH", str(_default_tracks_version_path()))
+    )
 
 
 def _profiles_dir() -> Path:
@@ -181,14 +208,18 @@ def _draft_from_profile(slug: str, profile: dict) -> DraftTrackDetail | None:
             match_description=str(profile.get("match_description") or "").strip(),
             match_keywords=list(profile.get("match_keywords") or []),
             ep_sponsorship=str(profile.get("ep_sponsorship") or "").strip(),
-            compass_score_typical=str(profile.get("compass_score_typical") or "").strip(),
+            compass_score_typical=str(
+                profile.get("compass_score_typical") or ""
+            ).strip(),
             top_employers_smu=list(profile.get("top_employers_smu") or []),
             recruiting_timeline=str(profile.get("recruiting_timeline") or "").strip(),
             international_realistic=bool(profile.get("international_realistic", True)),
             entry_paths=list(profile.get("entry_paths") or []),
             salary_range_2024=str(profile.get("salary_range_2024") or "").strip(),
             typical_background=str(profile.get("typical_background") or "").strip(),
-            counselor_contact=_clean_counselor_contact(profile.get("counselor_contact")),
+            counselor_contact=_clean_counselor_contact(
+                profile.get("counselor_contact")
+            ),
             notes=str(profile.get("notes") or "").strip(),
             source_refs=[SourceRef(type="seeded", label=f"published profile:{slug}")],
             structured=dict(profile.get("structured") or {}),
@@ -258,7 +289,11 @@ class TrackDraftStore(Singleton):
                             payload.setdefault("slug", yaml_path.stem)
                             self._drafts[yaml_path.stem] = payload
                     except Exception as exc:
-                        logger.warning("TrackDraftStore: failed to load %s: %s", yaml_path.name, exc)
+                        logger.warning(
+                            "TrackDraftStore: failed to load %s: %s",
+                            yaml_path.name,
+                            exc,
+                        )
             self._loaded = True
 
     def invalidate(self) -> None:
@@ -316,18 +351,22 @@ class TrackDraftStore(Singleton):
         with open(path, encoding="utf-8") as f:
             payload = yaml.safe_load(f) or {}
         items = payload.get("tracks") or []
-        result = [TrackRegistryEntry(**item) for item in items if isinstance(item, dict)]
+        result = [
+            TrackRegistryEntry(**item) for item in items if isinstance(item, dict)
+        ]
         seen = {item.slug for item in result}
         updated = False
         for slug, profile in _valid_published_profiles():
             if slug in seen:
                 continue
-            result.append(TrackRegistryEntry(
-                slug=slug,
-                label=str(profile.get("career_type") or slug).strip(),
-                status="active",
-                last_published=None,
-            ))
+            result.append(
+                TrackRegistryEntry(
+                    slug=slug,
+                    label=str(profile.get("career_type") or slug).strip(),
+                    status="active",
+                    last_published=None,
+                )
+            )
             updated = True
         if updated:
             result.sort(key=lambda item: item.slug)
@@ -342,11 +381,13 @@ class TrackDraftStore(Singleton):
             return versions
         for yaml_path in sorted(history_dir.glob("*.yaml"), reverse=True):
             version = yaml_path.stem
-            versions.append(TrackVersionInfo(
-                version=version,
-                published_at=version,
-                filename=yaml_path.name,
-            ))
+            versions.append(
+                TrackVersionInfo(
+                    version=version,
+                    published_at=version,
+                    filename=yaml_path.name,
+                )
+            )
         return versions
 
     def publish_draft(self, slug: str, actor: str = "system") -> str:
@@ -358,13 +399,16 @@ class TrackDraftStore(Singleton):
 
             version = version_stamp()
             journal_path = _publish_journal_path()
-            _append_jsonl(journal_path, {
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "action": "publish_started",
-                "slug": slug,
-                "version": version,
-                "actor": actor,
-            })
+            _append_jsonl(
+                journal_path,
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "action": "publish_started",
+                    "slug": slug,
+                    "version": version,
+                    "actor": actor,
+                },
+            )
 
             published_path = _profiles_dir() / f"{slug}.yaml"
             previous_payload = None
@@ -393,7 +437,10 @@ class TrackDraftStore(Singleton):
 
             published_payload = {
                 "career_type": draft.track_name.strip(),
-                "match_description": (draft.match_description or f"{draft.track_name} {' '.join(draft.match_keywords)}").strip(),
+                "match_description": (
+                    draft.match_description
+                    or f"{draft.track_name} {' '.join(draft.match_keywords)}"
+                ).strip(),
                 "match_keywords": _normalise_keywords(draft.match_keywords),
                 "match_cosine": False,
                 "structured": base_structured,
@@ -407,7 +454,9 @@ class TrackDraftStore(Singleton):
                 "typical_background": draft.typical_background,
                 "counselor_contact": _clean_counselor_contact(draft.counselor_contact),
                 "notes": draft.notes,
-                "salary_levels": [s.model_dump() for s in draft.salary_levels] if draft.salary_levels else [],
+                "salary_levels": [s.model_dump() for s in draft.salary_levels]
+                if draft.salary_levels
+                else [],
                 "visa_pathway_notes": draft.visa_pathway_notes or "",
             }
 
@@ -423,12 +472,14 @@ class TrackDraftStore(Singleton):
                     updated = True
                     break
             if not updated:
-                registry.append(TrackRegistryEntry(
-                    slug=slug,
-                    label=draft.track_name.strip(),
-                    status="active",
-                    last_published=version,
-                ))
+                registry.append(
+                    TrackRegistryEntry(
+                        slug=slug,
+                        label=draft.track_name.strip(),
+                        status="active",
+                        last_published=version,
+                    )
+                )
             registry.sort(key=lambda item: item.slug)
             atomic_yaml_write(_registry_path(), _registry_payload(registry))
 
@@ -438,23 +489,31 @@ class TrackDraftStore(Singleton):
             draft_payload["last_updated"] = _today()
             atomic_yaml_write(_drafts_dir() / f"{slug}.yaml", draft_payload)
 
-            _append_jsonl(_publish_audit_log_path(), {
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "actor": actor,
-                "action": "publish_track",
-                "slug": slug,
-                "from_version": "none" if previous_payload is None else "previous",
-                "to_version": version,
-            })
-            _append_jsonl(journal_path, {
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "action": "publish_completed",
-                "slug": slug,
-                "version": version,
-                "actor": actor,
-                "source_refs": [ref.model_dump() for ref in draft.source_refs],
-            })
-            _atomic_text_write(_tracks_version_path(), datetime.now(timezone.utc).isoformat())
+            _append_jsonl(
+                _publish_audit_log_path(),
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "actor": actor,
+                    "action": "publish_track",
+                    "slug": slug,
+                    "from_version": "none" if previous_payload is None else "previous",
+                    "to_version": version,
+                },
+            )
+            _append_jsonl(
+                journal_path,
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "action": "publish_completed",
+                    "slug": slug,
+                    "version": version,
+                    "actor": actor,
+                    "source_refs": [ref.model_dump() for ref in draft.source_refs],
+                },
+            )
+            _atomic_text_write(
+                _tracks_version_path(), datetime.now(timezone.utc).isoformat()
+            )
             self.invalidate()
             return version
 
@@ -469,14 +528,19 @@ class TrackDraftStore(Singleton):
             with open(history_path, encoding="utf-8") as f:
                 payload = yaml.safe_load(f) or {}
             atomic_yaml_write(_profiles_dir() / f"{slug}.yaml", payload)
-            _append_jsonl(_publish_audit_log_path(), {
-                "ts": datetime.now(timezone.utc).isoformat(),
-                "actor": actor,
-                "action": "rollback_track",
-                "slug": slug,
-                "to_version": target.version,
-            })
-            _atomic_text_write(_tracks_version_path(), datetime.now(timezone.utc).isoformat())
+            _append_jsonl(
+                _publish_audit_log_path(),
+                {
+                    "ts": datetime.now(timezone.utc).isoformat(),
+                    "actor": actor,
+                    "action": "rollback_track",
+                    "slug": slug,
+                    "to_version": target.version,
+                },
+            )
+            _atomic_text_write(
+                _tracks_version_path(), datetime.now(timezone.utc).isoformat()
+            )
             self.invalidate()
             return target.version
 

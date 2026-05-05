@@ -13,16 +13,20 @@ def _make_store(in_memory_qdrant):
     store = VectorStore(client=in_memory_qdrant, collection="knowledge")
     store.ensure_collection(384)
     vec = np.ones(384, dtype=np.float32)
-    store.upsert([{
-        "id": "chat-source-1",
-        "vector": vec,
-        "payload": {
-            "source_filename": "guide.txt",
-            "chunk_index": 0,
-            "upload_timestamp": "2026-01-01",
-            "text": "Consulting recruiting is front-loaded in September and October.",
-        },
-    }])
+    store.upsert(
+        [
+            {
+                "id": "chat-source-1",
+                "vector": vec,
+                "payload": {
+                    "source_filename": "guide.txt",
+                    "chunk_index": 0,
+                    "upload_timestamp": "2026-01-01",
+                    "text": "Consulting recruiting is front-loaded in September and October.",
+                },
+            }
+        ]
+    )
     return store, vec
 
 
@@ -48,13 +52,17 @@ def _make_client(in_memory_qdrant, mock_embedder, insight_store):
 
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
-    app.dependency_overrides[dependencies.get_student_insight_store] = lambda: insight_store
+    app.dependency_overrides[dependencies.get_student_insight_store] = lambda: (
+        insight_store
+    )
     app.dependency_overrides[get_career_profile_store] = lambda: _mock_profile_store()
     app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
     return TestClient(app)
 
 
-def test_chat_indexes_student_message_when_feature_enabled(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_chat_indexes_student_message_when_feature_enabled(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     import services.llm as llm_module
 
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
@@ -65,11 +73,14 @@ def test_chat_indexes_student_message_when_feature_enabled(in_memory_qdrant, moc
     client = _make_client(in_memory_qdrant, mock_embedder, mock_insight_store)
 
     with patch.object(llm_module, "chat_with_context", return_value="Here is advice"):
-        response = client.post("/api/chat", json={
-            "message": "How should I prepare for consulting interviews?",
-            "resume_text": "secret resume text",
-            "history": [],
-        })
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": "How should I prepare for consulting interviews?",
+                "resume_text": "secret resume text",
+                "history": [],
+            },
+        )
 
     assert response.status_code == 200
     mock_insight_store.index_message.assert_called_once()
@@ -79,7 +90,9 @@ def test_chat_indexes_student_message_when_feature_enabled(in_memory_qdrant, moc
     assert kwargs["active_career_type"] == response.json()["active_career_type"]
 
 
-def test_chat_skips_index_when_feature_disabled(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_chat_skips_index_when_feature_disabled(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     import services.llm as llm_module
 
     monkeypatch.setattr(settings, "student_chat_insights_enabled", False)
@@ -89,17 +102,22 @@ def test_chat_skips_index_when_feature_disabled(in_memory_qdrant, mock_embedder,
     client = _make_client(in_memory_qdrant, mock_embedder, mock_insight_store)
 
     with patch.object(llm_module, "chat_with_context", return_value="Advice"):
-        response = client.post("/api/chat", json={
-            "message": "Tell me about internship timing",
-            "resume_text": None,
-            "history": [],
-        })
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": "Tell me about internship timing",
+                "resume_text": None,
+                "history": [],
+            },
+        )
 
     assert response.status_code == 200
     mock_insight_store.index_message.assert_not_called()
 
 
-def test_chat_skips_index_for_short_messages(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_chat_skips_index_for_short_messages(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     import services.llm as llm_module
 
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
@@ -109,17 +127,22 @@ def test_chat_skips_index_for_short_messages(in_memory_qdrant, mock_embedder, mo
     client = _make_client(in_memory_qdrant, mock_embedder, mock_insight_store)
 
     with patch.object(llm_module, "chat_with_context", return_value="Advice"):
-        response = client.post("/api/chat", json={
-            "message": "hi",
-            "resume_text": None,
-            "history": [],
-        })
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": "hi",
+                "resume_text": None,
+                "history": [],
+            },
+        )
 
     assert response.status_code == 200
     mock_insight_store.index_message.assert_not_called()
 
 
-def test_chat_continues_when_insight_indexing_fails(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_chat_continues_when_insight_indexing_fails(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     import services.llm as llm_module
 
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
@@ -129,19 +152,26 @@ def test_chat_continues_when_insight_indexing_fails(in_memory_qdrant, mock_embed
     mock_insight_store.index_message.side_effect = RuntimeError("qdrant unavailable")
     client = _make_client(in_memory_qdrant, mock_embedder, mock_insight_store)
 
-    with patch.object(llm_module, "chat_with_context", return_value="Still returns response"):
-        response = client.post("/api/chat", json={
-            "message": "What should I do next?",
-            "resume_text": None,
-            "history": [],
-        })
+    with patch.object(
+        llm_module, "chat_with_context", return_value="Still returns response"
+    ):
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": "What should I do next?",
+                "resume_text": None,
+                "history": [],
+            },
+        )
 
     assert response.status_code == 200
     assert response.json()["response"] == "Still returns response"
     mock_insight_store.index_message.assert_called_once()
 
 
-def test_chat_with_no_intake_context_is_safe_when_context_flags_enabled(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_chat_with_no_intake_context_is_safe_when_context_flags_enabled(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     import services.llm as llm_module
 
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
@@ -155,11 +185,14 @@ def test_chat_with_no_intake_context_is_safe_when_context_flags_enabled(in_memor
     client = _make_client(in_memory_qdrant, mock_embedder, real_store)
 
     with patch.object(llm_module, "chat_with_context", return_value="Advice"):
-        response = client.post("/api/chat", json={
-            "message": "What concerns should I prioritize first?",
-            "resume_text": None,
-            "history": [],
-        })
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": "What concerns should I prioritize first?",
+                "resume_text": None,
+                "history": [],
+            },
+        )
 
     assert response.status_code == 200
 
@@ -176,7 +209,9 @@ def test_chat_with_no_intake_context_is_safe_when_context_flags_enabled(in_memor
     assert payload["interest"] is None
 
 
-def test_chat_indexes_message_text_only_when_resume_is_present(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_chat_indexes_message_text_only_when_resume_is_present(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     import services.llm as llm_module
 
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
@@ -192,11 +227,14 @@ def test_chat_indexes_message_text_only_when_resume_is_present(in_memory_qdrant,
     message = "How do I position my internship experience for consulting?"
     resume_text = "Private resume content that must never be indexed."
     with patch.object(llm_module, "chat_with_context", return_value="Advice"):
-        response = client.post("/api/chat", json={
-            "message": message,
-            "resume_text": resume_text,
-            "history": [],
-        })
+        response = client.post(
+            "/api/chat",
+            json={
+                "message": message,
+                "resume_text": resume_text,
+                "history": [],
+            },
+        )
 
     assert response.status_code == 200
 

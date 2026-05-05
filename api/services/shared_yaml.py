@@ -1,4 +1,5 @@
 """Tiny YAML persistence helpers shared across YAML-backed stores."""
+
 from __future__ import annotations
 
 import re
@@ -37,7 +38,13 @@ def atomic_yaml_write(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", encoding="utf-8") as handle:
-        yaml.safe_dump(payload, handle, allow_unicode=True, default_flow_style=False, sort_keys=False)
+        yaml.safe_dump(
+            payload,
+            handle,
+            allow_unicode=True,
+            default_flow_style=False,
+            sort_keys=False,
+        )
     tmp.replace(path)
 
 
@@ -81,7 +88,12 @@ def safe_slug(value: str) -> str:
 
 def safe_slug_is_valid(slug: str) -> bool:
     """Return True if slug is non-empty, alphanumeric+dash+underscore only, and contains no path traversal."""
-    return bool(slug) and slug.replace("_", "").replace("-", "").isalnum() and "/" not in slug and ".." not in slug
+    return (
+        bool(slug)
+        and slug.replace("_", "").replace("-", "").isalnum()
+        and "/" not in slug
+        and ".." not in slug
+    )
 
 
 def safe_int(value: object, default: int | None = None) -> int | None:

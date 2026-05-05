@@ -11,6 +11,7 @@ Usage:
     block     = store.to_context_block("investment_banking")  # for LLM injection
     store.invalidate()                         # force reload on next access
 """
+
 import logging
 import os
 import re
@@ -22,15 +23,25 @@ import yaml
 
 from cfg import kb_cfg
 from services.runtime_paths import knowledge_dir
-from services.shared_yaml import Singleton, atomic_yaml_write, fact_lifecycle, fact_payload, version_stamp
+from services.shared_yaml import (
+    Singleton,
+    atomic_yaml_write,
+    fact_lifecycle,
+    fact_payload,
+    version_stamp,
+)
 
 logger = logging.getLogger(__name__)
 
 # Required fields that must be present for completeness = "green"
-_COMPLETENESS_REQUIRED: frozenset = frozenset(kb_cfg["employers"]["completeness_required"])
+_COMPLETENESS_REQUIRED: frozenset = frozenset(
+    kb_cfg["employers"]["completeness_required"]
+)
 
 # Fields writable via commit-analysis (allowlist prevents hallucinated field writes)
-ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset(kb_cfg["employers"]["allowed_update_fields"])
+ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset(
+    kb_cfg["employers"]["allowed_update_fields"]
+)
 _FACTS_PREVIEW_LIMIT = 6
 _FACT_PREVIEW_CHARS = 120
 
@@ -63,7 +74,9 @@ def _default_employers_dir() -> Path:
 
 
 def _history_dir() -> Path:
-    return Path(os.environ.get("EMPLOYER_HISTORY_DIR", str(_default_employer_history_dir())))
+    return Path(
+        os.environ.get("EMPLOYER_HISTORY_DIR", str(_default_employer_history_dir()))
+    )
 
 
 def _compute_completeness(employer: dict) -> str:
@@ -83,7 +96,9 @@ def _compute_completeness(employer: dict) -> str:
     return "green"
 
 
-def employer_to_context_block(employer: dict, max_notes: int = None, max_process: int = None) -> str:
+def employer_to_context_block(
+    employer: dict, max_notes: int = None, max_process: int = None
+) -> str:
     """Format a single employer dict as a structured context entry for LLM injection.
 
     Truncates long notes and process fields to fit into context windows.
@@ -166,7 +181,9 @@ def _format_structured_fact(fact: object) -> str:
         return str(fact)
 
     slug = str(fact.get("slug") or fact_payload(fact).get("slug") or "").strip()
-    fact_type = str(fact.get("type") or fact_payload(fact).get("type") or "fact").strip()
+    fact_type = str(
+        fact.get("type") or fact_payload(fact).get("type") or "fact"
+    ).strip()
     key_field = _fact_key_field(fact)
     preview_parts = [fact_type]
     if slug:
@@ -183,7 +200,14 @@ def _format_structured_fact(fact: object) -> str:
         payload.get("reason"),
         payload.get("description"),
     ]
-    detail = next((str(value).strip() for value in detail_candidates if isinstance(value, str) and str(value).strip()), "")
+    detail = next(
+        (
+            str(value).strip()
+            for value in detail_candidates
+            if isinstance(value, str) and str(value).strip()
+        ),
+        "",
+    )
     if detail and detail not in preview_parts:
         preview_parts.append(detail)
 
@@ -199,7 +223,9 @@ def _format_structured_facts(structured: dict) -> list[str]:
     if not isinstance(facts, list) or not facts:
         return []
     active_facts = [fact for fact in facts if _fact_is_active(fact)]
-    lines = [_format_structured_fact(fact) for fact in active_facts[:_FACTS_PREVIEW_LIMIT]]
+    lines = [
+        _format_structured_fact(fact) for fact in active_facts[:_FACTS_PREVIEW_LIMIT]
+    ]
     remaining = len(active_facts) - len(lines)
     if remaining > 0:
         lines.append(f"... and {remaining} more fact(s)")
@@ -276,6 +302,7 @@ class EmployerEntityStore(Singleton):
         store.to_context_block("investment_banking") # LLM context string
         store.invalidate()                           # reload on next access
     """
+
     _instance = None
 
     def _init_singleton(self) -> None:
@@ -284,18 +311,21 @@ class EmployerEntityStore(Singleton):
     def _ensure_loaded(self) -> None:
         if self._loaded:
             return
-        self._employers: dict[str, dict] = {}   # slug → employer dict (active only)
+        self._employers: dict[str, dict] = {}  # slug → employer dict (active only)
         self._load_employers()
         self._loaded = True
 
     def _load_employers(self) -> None:
-        employers_dir = Path(os.environ.get(
-            "EMPLOYERS_DIR",
-            str(_default_employers_dir()),
-        ))
+        employers_dir = Path(
+            os.environ.get(
+                "EMPLOYERS_DIR",
+                str(_default_employers_dir()),
+            )
+        )
         if not employers_dir.exists():
             logger.warning(
-                "Employers directory not found: %s — employer injection disabled", employers_dir
+                "Employers directory not found: %s — employer injection disabled",
+                employers_dir,
             )
             return
 
@@ -308,7 +338,8 @@ class EmployerEntityStore(Singleton):
                     employer = yaml.safe_load(f)
                 if not isinstance(employer, dict):
                     logger.warning(
-                        "Employer %s: not a valid YAML mapping — skipping", yaml_path.name
+                        "Employer %s: not a valid YAML mapping — skipping",
+                        yaml_path.name,
                     )
                     continue
                 if not employer.get("employer_name"):
@@ -334,7 +365,9 @@ class EmployerEntityStore(Singleton):
 
         logger.info(
             "EmployerEntityStore: loaded %d/%d employers from %s",
-            loaded, len(yaml_files), employers_dir,
+            loaded,
+            len(yaml_files),
+            employers_dir,
         )
 
     def get_employer(self, slug: Optional[str]) -> Optional[dict]:
@@ -357,11 +390,13 @@ class EmployerEntityStore(Singleton):
         entries: list[dict] = []
         for yaml_path in sorted(history_dir.glob("*.yaml"), reverse=True):
             version = yaml_path.stem
-            entries.append({
-                "version": version,
-                "recorded_at": version,
-                "filename": yaml_path.name,
-            })
+            entries.append(
+                {
+                    "version": version,
+                    "recorded_at": version,
+                    "filename": yaml_path.name,
+                }
+            )
         return entries
 
     def snapshot_history(self, slug: str, payload: dict) -> str:
@@ -435,7 +470,9 @@ class EmployerEntityStore(Singleton):
         if not employers:
             return ""
 
-        lines = ["=== EMPLOYER FACTS (authoritative structured data — supersedes KB chunks) ==="]
+        lines = [
+            "=== EMPLOYER FACTS (authoritative structured data — supersedes KB chunks) ==="
+        ]
         for emp in employers:
             lines.append(employer_to_context_block(emp))
         lines.append("=== END EMPLOYER FACTS ===")
@@ -447,7 +484,9 @@ class EmployerEntityStore(Singleton):
         Reads the YAML, appends the entry, writes back, then invalidates the cache.
         Returns False if the employer file does not exist.
         """
-        employers_dir = Path(os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir())))
+        employers_dir = Path(
+            os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir()))
+        )
         yaml_path = employers_dir / f"{slug}.yaml"
         if not yaml_path.exists():
             logger.warning("append_source_document: %s not found", yaml_path)
@@ -459,18 +498,31 @@ class EmployerEntityStore(Singleton):
             return False
 
         docs = employer.get("source_documents") or []
-        docs.append({
-            "filename": filename,
-            "raw_text": raw_text,
-            "uploaded_at": datetime.now(timezone.utc).isoformat(),
-        })
+        docs.append(
+            {
+                "filename": filename,
+                "raw_text": raw_text,
+                "uploaded_at": datetime.now(timezone.utc).isoformat(),
+            }
+        )
         employer["source_documents"] = docs
 
         with open(yaml_path, "w", encoding="utf-8") as f:
-            yaml.dump(employer, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.dump(
+                employer,
+                f,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+            )
 
         self.invalidate()
-        logger.info("append_source_document: added %r to %s (%d docs total)", filename, slug, len(docs))
+        logger.info(
+            "append_source_document: added %r to %s (%d docs total)",
+            filename,
+            slug,
+            len(docs),
+        )
         return True
 
     def invalidate(self) -> None:

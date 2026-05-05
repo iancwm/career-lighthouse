@@ -38,11 +38,18 @@ def _sanitize_filename(raw: str | None) -> str:
     if not name:
         raise HTTPException(status_code=400, detail="Filename must not be empty.")
     if len(name) > _FILENAME_MAX_LEN:
-        raise HTTPException(status_code=400, detail=f"Filename exceeds {_FILENAME_MAX_LEN} characters.")
+        raise HTTPException(
+            status_code=400, detail=f"Filename exceeds {_FILENAME_MAX_LEN} characters."
+        )
     if any(c < " " for c in name):  # null bytes and control characters
-        raise HTTPException(status_code=400, detail="Filename contains invalid characters.")
+        raise HTTPException(
+            status_code=400, detail="Filename contains invalid characters."
+        )
     if not _FILENAME_ALLOWLIST.match(name):
-        raise HTTPException(status_code=400, detail="Filename contains invalid characters. Use letters, numbers, spaces, dots, hyphens, underscores, or parentheses.")
+        raise HTTPException(
+            status_code=400,
+            detail="Filename contains invalid characters. Use letters, numbers, spaces, dots, hyphens, underscores, or parentheses.",
+        )
     return name
 
 
@@ -70,7 +77,11 @@ def _check_deduplication(
     if not points:
         return 0.0, []
 
-    sample = points[::_DEDUP_SAMPLE_STEP] if len(points) > _DEDUP_SAMPLE_THRESHOLD else points
+    sample = (
+        points[::_DEDUP_SAMPLE_STEP]
+        if len(points) > _DEDUP_SAMPLE_THRESHOLD
+        else points
+    )
 
     overlapping_docs: set[str] = set()
     overlap_count = 0
@@ -103,7 +114,7 @@ async def ingest(
     if content_length and int(content_length) > settings.max_upload_bytes:
         raise HTTPException(
             status_code=413,
-            detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024*1024)}MB)."
+            detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024 * 1024)}MB).",
         )
     content = await file.read()
     filename = _sanitize_filename(file.filename)
@@ -144,6 +155,7 @@ async def ingest(
         # Invalidate caches — KB has changed
         health_cache.invalidate_overlap_cache()
         from routers.kb_router import _invalidate_docs_cache
+
         _invalidate_docs_cache()
         get_career_profile_store().invalidate()
         get_source_ledger_store().upsert_record(
@@ -156,9 +168,14 @@ async def ingest(
     # This makes the full document available to the fact extractor, not just the notes field.
     if employer_slug and points:
         raw_text = parse_file(content, filename)
-        stored = employer_store.append_source_document(employer_slug, filename, raw_text)
+        stored = employer_store.append_source_document(
+            employer_slug, filename, raw_text
+        )
         if not stored:
-            logger.warning("ingest: employer_slug=%r not found — source document not stored", employer_slug)
+            logger.warning(
+                "ingest: employer_slug=%r not found — source document not stored",
+                employer_slug,
+            )
 
     # Build similarity warning if overlap exceeds threshold
     similarity_warning: str | None = None

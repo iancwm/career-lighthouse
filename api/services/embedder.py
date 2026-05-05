@@ -9,6 +9,7 @@ Usage:
     vec = embedder.encode("sample text")  # returns 384-d normalized float32 array
     batch = embedder.encode_batch(["text1", "text2"])  # returns Nx384 array
 """
+
 import numpy as np
 import hashlib
 

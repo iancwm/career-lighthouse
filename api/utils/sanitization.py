@@ -25,8 +25,13 @@ _JAILBREAK_PATTERNS: list[re.Pattern] = [
     re.compile(r"ignore\s+(?:all\s+)?previous\s+instructions?", re.IGNORECASE),
     re.compile(r"system\s+prompt\s+override", re.IGNORECASE),
     re.compile(r"disregard\s+(?:all\s+)?safety\s+guidelines?", re.IGNORECASE),
-    re.compile(r"you\s+are\s+now\s+(?:in\s+)?(?:DAN|jailbreak|developer)\s+mode", re.IGNORECASE),
-    re.compile(r"forget\s+(?:all\s+)?(?:your\s+)?(?:previous\s+)?(?:instructions?|training)", re.IGNORECASE),
+    re.compile(
+        r"you\s+are\s+now\s+(?:in\s+)?(?:DAN|jailbreak|developer)\s+mode", re.IGNORECASE
+    ),
+    re.compile(
+        r"forget\s+(?:all\s+)?(?:your\s+)?(?:previous\s+)?(?:instructions?|training)",
+        re.IGNORECASE,
+    ),
 ]
 
 # Collapse runs of 3+ newlines down to two (normalise excessive whitespace)
@@ -63,6 +68,10 @@ def sanitize_for_prompt(text: str) -> str:
     text = text.strip()
 
     if text != original.strip():
-        logger.debug("sanitize_for_prompt: content modified (len %d → %d)", len(original), len(text))
+        logger.debug(
+            "sanitize_for_prompt: content modified (len %d → %d)",
+            len(original),
+            len(text),
+        )
 
     return text

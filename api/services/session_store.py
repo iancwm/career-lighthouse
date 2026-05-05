@@ -9,6 +9,7 @@ Usage:
     store.update_session_status(session_id, "published")
     sessions = store.list_sessions()
 """
+
 import json
 import os
 import re
@@ -77,7 +78,9 @@ class SessionStore(Singleton):
 
     def _get_path(self, session_id: str, counsellor_id: str) -> Path:
         """Scoped path: <SESSIONS_DIR>/<counsellor_id>/<session_id>.json"""
-        return _SESSIONS_DIR / _safe_counsellor_dir(counsellor_id) / f"{session_id}.json"
+        return (
+            _SESSIONS_DIR / _safe_counsellor_dir(counsellor_id) / f"{session_id}.json"
+        )
 
     def _legacy_path(self, session_id: str) -> Path:
         """Flat path used before counsellor-scoped directories were introduced."""
@@ -87,7 +90,9 @@ class SessionStore(Singleton):
     # Core CRUD
     # ------------------------------------------------------------------
 
-    def create_session(self, raw_input: str, created_by: str = "counsellor") -> KnowledgeSession:
+    def create_session(
+        self, raw_input: str, created_by: str = "counsellor"
+    ) -> KnowledgeSession:
         session_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc).isoformat()
         session = KnowledgeSession(
@@ -174,7 +179,9 @@ class SessionStore(Singleton):
                     exc,
                     exc_info=True,
                 )
-                raise SessionStorageError(f"Unable to read legacy session {session_id}: {exc}") from exc
+                raise SessionStorageError(
+                    f"Unable to read legacy session {session_id}: {exc}"
+                ) from exc
 
             # Backfill sessions with the old default created_by
             if session.created_by in ("counsellor", ""):
@@ -197,7 +204,9 @@ class SessionStore(Singleton):
 
         return None
 
-    def list_sessions(self, counsellor_id: Optional[str] = None) -> list[KnowledgeSession]:
+    def list_sessions(
+        self, counsellor_id: Optional[str] = None
+    ) -> list[KnowledgeSession]:
         """Return sessions sorted by updated_at descending.
 
         If *counsellor_id* is given, only sessions owned by that counsellor
@@ -213,7 +222,9 @@ class SessionStore(Singleton):
                 for path in cdir.glob("*.json"):
                     try:
                         with open(path, encoding="utf-8") as f:
-                            sessions.append(KnowledgeSession.model_validate_json(f.read()))
+                            sessions.append(
+                                KnowledgeSession.model_validate_json(f.read())
+                            )
                     except (OSError, ValueError) as exc:
                         logger.warning(
                             "Skipping unreadable session file %s under %s: %s",
@@ -229,7 +240,9 @@ class SessionStore(Singleton):
                         for path in entry.glob("*.json"):
                             try:
                                 with open(path, encoding="utf-8") as f:
-                                    sessions.append(KnowledgeSession.model_validate_json(f.read()))
+                                    sessions.append(
+                                        KnowledgeSession.model_validate_json(f.read())
+                                    )
                             except (OSError, ValueError) as exc:
                                 logger.warning(
                                     "Skipping unreadable session file %s under %s: %s",

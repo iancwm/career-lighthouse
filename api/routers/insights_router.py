@@ -18,9 +18,15 @@ def build_filters(req: StudentQuestionSearchRequest) -> Filter | None:
     """Convert a StudentQuestionSearchRequest into a Qdrant Filter, omitting fields disabled by feature flags."""
     must: list[FieldCondition] = []
     if req.career_type:
-        must.append(FieldCondition(key="active_career_type", match=MatchValue(value=req.career_type)))
+        must.append(
+            FieldCondition(
+                key="active_career_type", match=MatchValue(value=req.career_type)
+            )
+        )
     if req.background and settings.student_chat_store_background:
-        must.append(FieldCondition(key="background", match=MatchValue(value=req.background)))
+        must.append(
+            FieldCondition(key="background", match=MatchValue(value=req.background))
+        )
     if req.region and settings.student_chat_store_region:
         must.append(FieldCondition(key="region", match=MatchValue(value=req.region)))
     if req.date_from or req.date_to:
@@ -39,7 +45,9 @@ def _filters_applied(req: StudentQuestionSearchRequest) -> dict:
         "career_type": req.career_type,
         "date_from": req.date_from,
         "date_to": req.date_to,
-        "background": req.background if settings.student_chat_store_background else None,
+        "background": req.background
+        if settings.student_chat_store_background
+        else None,
         "region": req.region if settings.student_chat_store_region else None,
     }
 
@@ -75,7 +83,9 @@ def search_student_questions(
     # Embedder/query vector must stay model-compatible with indexed points.
     # If the embedding model changes, re-index the insight collection.
     query_vector = embedder.encode(req.query)
-    raw_results = insight_store.search(vector=query_vector, top_k=top_k, filters=filters)
+    raw_results = insight_store.search(
+        vector=query_vector, top_k=top_k, filters=filters
+    )
 
     results: list[StudentQuestionResult] = []
     for row in raw_results:

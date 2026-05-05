@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 # Sprint 4 — Track publishing workflow models
 
+
 class SourceRef(BaseModel):
     type: str
     label: str
@@ -12,9 +13,10 @@ class SourceRef(BaseModel):
 
 class SalaryLevel(BaseModel):
     """Per-stage salary breakdown extracted from counsellor research."""
-    stage: str        # e.g. "Junior Analyst"
-    range_sgd: str    # e.g. "80–110K"
-    notes: str = ""   # e.g. "Base + 15-20% bonus"
+
+    stage: str  # e.g. "Junior Analyst"
+    range_sgd: str  # e.g. "80–110K"
+    notes: str = ""  # e.g. "Base + 15-20% bonus"
 
 
 class DraftTrackDetail(BaseModel):

@@ -11,6 +11,7 @@ Run locally:
     # or with a specific query:
     uv run --extra dev python -m pytest tests/test_ai_eval.py -v -m integration -k NGO
 """
+
 import json
 import os
 import pathlib
@@ -36,6 +37,7 @@ def eval_queries():
 def real_embedder():
     """Real SentenceTransformer embedder (not mocked)."""
     from services.embedder import Embedder
+
     return Embedder()
 
 
@@ -44,6 +46,7 @@ def real_qdrant_client():
     """Real Qdrant client connected to the running instance."""
     from qdrant_client import QdrantClient
     from config import settings
+
     url = os.environ.get("QDRANT_URL", settings.qdrant_url)
     if not url:
         pytest.skip("QDRANT_URL not set — real Qdrant not available")
@@ -55,12 +58,20 @@ def real_llm_client():
     """Real Anthropic client (not mocked)."""
     import anthropic
     from config import settings
+
     if not settings.anthropic_api_key:
         pytest.skip("Anthropic API key not set")
     return anthropic.Anthropic(api_key=settings.anthropic_api_key)
 
 
-def _run_chat_query(message, real_embedder, real_qdrant_client, profile_store, employer_store, real_llm_client):
+def _run_chat_query(
+    message,
+    real_embedder,
+    real_qdrant_client,
+    profile_store,
+    employer_store,
+    real_llm_client,
+):
     """Run a single query through the full chat pipeline (simplified)."""
     from services.llm import chat_with_context
     from services.career_profiles import profile_to_context_block
@@ -74,10 +85,12 @@ def _run_chat_query(message, real_embedder, real_qdrant_client, profile_store, e
             limit=5,
         )
         for hit in results:
-            chunks.append({
-                "payload": hit.payload,
-                "score": hit.score,
-            })
+            chunks.append(
+                {
+                    "payload": hit.payload,
+                    "score": hit.score,
+                }
+            )
     except Exception:
         pass  # Empty KB is fine — LLM will handle it
 
@@ -116,6 +129,7 @@ ALUMNI_FIXTURES_DIR = pathlib.Path(__file__).parent / "fixtures" / "alumni_heavy
 @pytest.fixture(scope="module")
 def real_alumni_store():
     from services.alumni_store import AlumniEntityStore
+
     return AlumniEntityStore()
 
 
@@ -134,7 +148,11 @@ class TestAlumniExtractionEval:
         first = alumni_list[0]
         proposals = first.get("profile_proposals") or {}
         trajectory = proposals.get("career_trajectory_summary")
-        value = (trajectory or {}).get("value") if isinstance(trajectory, dict) else trajectory
+        value = (
+            (trajectory or {}).get("value")
+            if isinstance(trajectory, dict)
+            else trajectory
+        )
         assert value and len(str(value)) > 20, (
             f"career_trajectory_summary is empty or too short. Got: {value!r}\n"
             f"Full result: {result}"
@@ -146,11 +164,19 @@ class TestAlumniExtractionEval:
 
         note = (ALUMNI_FIXTURES_DIR / "alumni_1.txt").read_text(encoding="utf-8")
         # Provide the alumnus from the note as an existing candidate
-        existing = [{"slug": "alicia-tan", "full_name": "Alicia Tan", "current_company": "Stripe"}]
+        existing = [
+            {
+                "slug": "alicia-tan",
+                "full_name": "Alicia Tan",
+                "current_company": "Stripe",
+            }
+        ]
         result = generate_alumni_extraction(text=note, existing_alumni=existing)
         alumni_list = result.get("alumni") or []
         assert alumni_list, "No alumni entries returned"
-        matched = [a for a in alumni_list if a.get("is_update") and a.get("matched_slug")]
+        matched = [
+            a for a in alumni_list if a.get("is_update") and a.get("matched_slug")
+        ]
         assert matched, (
             "Expected at least one alumni entry with is_update=True and matched_slug set.\n"
             f"Alumni entries: {alumni_list}"
@@ -179,7 +205,9 @@ class TestAlumniExtractionEval:
 class TestEvalQueries:
     """Run real eval queries through the full chat pipeline."""
 
-    def test_ngo_query_surfaces_wwf(self, eval_queries, real_embedder, real_qdrant_client, real_llm_client):
+    def test_ngo_query_surfaces_wwf(
+        self, eval_queries, real_embedder, real_qdrant_client, real_llm_client
+    ):
         """NGO career query should surface WWF Singapore and not say 'no info'."""
         from services.career_profiles import get_career_profile_store
         from services.employer_store import EmployerEntityStore
@@ -187,9 +215,18 @@ class TestEvalQueries:
         profile_store = get_career_profile_store()
         employer_store = EmployerEntityStore()
 
-        query = next(q for q in eval_queries if "NGO" in q["query"] and "financial analyst" in q["query"].lower())
+        query = next(
+            q
+            for q in eval_queries
+            if "NGO" in q["query"] and "financial analyst" in q["query"].lower()
+        )
         response, chunks, active_type = _run_chat_query(
-            query["query"], real_embedder, real_qdrant_client, profile_store, employer_store, real_llm_client,
+            query["query"],
+            real_embedder,
+            real_qdrant_client,
+            profile_store,
+            employer_store,
+            real_llm_client,
         )
 
         if query.get("expected_employer"):
@@ -198,14 +235,20 @@ class TestEvalQueries:
                 f"Response: {response[:300]}"
             )
         if query.get("should_not_say_no_info"):
-            no_info_phrases = ["don't have enough information", "no relevant information", "I don't have"]
+            no_info_phrases = [
+                "don't have enough information",
+                "no relevant information",
+                "I don't have",
+            ]
             for phrase in no_info_phrases:
                 assert phrase.lower() not in response.lower(), (
                     f"LLM said it lacks information for query that should have data.\n"
                     f"Response: {response[:300]}"
                 )
 
-    def test_all_eval_queries_resolve_correctly(self, eval_queries, real_embedder, real_qdrant_client, real_llm_client):
+    def test_all_eval_queries_resolve_correctly(
+        self, eval_queries, real_embedder, real_qdrant_client, real_llm_client
+    ):
         """Run all eval queries and verify career type resolution."""
         from services.career_profiles import get_career_profile_store
         from services.employer_store import EmployerEntityStore
@@ -215,7 +258,12 @@ class TestEvalQueries:
 
         for q in eval_queries:
             response, chunks, active_type = _run_chat_query(
-                q["query"], real_embedder, real_qdrant_client, profile_store, employer_store, real_llm_client,
+                q["query"],
+                real_embedder,
+                real_qdrant_client,
+                profile_store,
+                employer_store,
+                real_llm_client,
             )
 
             if q.get("expected_track"):

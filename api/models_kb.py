@@ -31,6 +31,7 @@ class DeleteResponse(BaseModel):
 
 # KB Observability models
 
+
 class TestQueryResult(BaseModel):
     source_filename: str
     excerpt: str
@@ -225,9 +226,10 @@ class KBHealthResponse(BaseModel):
 
 # Sprint 3 — diff-first KB ingestion models
 
+
 class ProfileFieldChange(BaseModel):
-    old: Optional[str] = None   # current value in YAML (None if field is new)
-    new: str                    # proposed replacement value (counsellor-editable)
+    old: Optional[str] = None  # current value in YAML (None if field is new)
+    new: str  # proposed replacement value (counsellor-editable)
     source_type: str | None = None
     source_label: str | None = None
     source_timestamp: str | None = None
@@ -235,11 +237,11 @@ class ProfileFieldChange(BaseModel):
 
 class NewChunk(BaseModel):
     text: str
-    source_type: str            # "note" | "file"
-    source_label: str           # "counsellor_note" for notes; filename for uploads
+    source_type: str  # "note" | "file"
+    source_label: str  # "counsellor_note" for notes; filename for uploads
     source_timestamp: str | None = None
     career_type: Optional[str] = None
-    chunk_id: str = ""          # filled by server after Claude returns
+    chunk_id: str = ""  # filled by server after Claude returns
 
 
 class AlreadyCovered(BaseModel):
@@ -284,7 +286,9 @@ class EmployerCardDiff(BaseModel):
         if "singapore_headcount_estimate" in data or "headcount_estimate" not in data:
             return data
         normalized = dict(data)
-        normalized["singapore_headcount_estimate"] = normalized.pop("headcount_estimate")
+        normalized["singapore_headcount_estimate"] = normalized.pop(
+            "headcount_estimate"
+        )
         return normalized
 
 
@@ -390,6 +394,7 @@ class IntentCard(BaseModel):
 
 class KBAnalysisResult(BaseModel):
     """Result from LLM analysis of counsellor input (diff-first review)."""
+
     interpretation_bullets: list[str] = []
     new_chunks: list[NewChunk] = []
     profile_updates: dict[str, dict[str, ProfileFieldChange]] = {}

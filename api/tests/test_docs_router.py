@@ -32,18 +32,24 @@ def test_delete_doc_not_found(in_memory_qdrant):
 def test_delete_doc_invalidates_overlap_cache(in_memory_qdrant):
     client, store = make_client(in_memory_qdrant)
     vec = np.ones(384, dtype=np.float32)
-    store.upsert([{
-        "id": "remove-0",
-        "vector": vec,
-        "payload": {
-            "source_filename": "remove.txt",
-            "chunk_index": 0,
-            "upload_timestamp": "2026-01-01T00:00:00",
-            "text": "to delete",
-        },
-    }])
+    store.upsert(
+        [
+            {
+                "id": "remove-0",
+                "vector": vec,
+                "payload": {
+                    "source_filename": "remove.txt",
+                    "chunk_index": 0,
+                    "upload_timestamp": "2026-01-01T00:00:00",
+                    "text": "to delete",
+                },
+            }
+        ]
+    )
 
-    health_cache.set_overlap_pairs([{"doc_a": "remove.txt", "doc_b": "other.txt", "overlap_pct": 0.9}])
+    health_cache.set_overlap_pairs(
+        [{"doc_a": "remove.txt", "doc_b": "other.txt", "overlap_pct": 0.9}]
+    )
     assert health_cache.get_overlap_pairs() is not None
 
     r = client.delete("/api/docs/remove.txt")
@@ -61,16 +67,20 @@ def test_delete_doc_invalidates_overlap_cache(in_memory_qdrant):
 def test_backfill_legacy_docs_seeds_active_ledger_entries(in_memory_qdrant):
     client, store = make_client(in_memory_qdrant)
     vec = np.ones(384, dtype=np.float32)
-    store.upsert([{
-        "id": "legacy-0",
-        "vector": vec,
-        "payload": {
-            "source_filename": "legacy.txt",
-            "chunk_index": 0,
-            "upload_timestamp": "2025-01-01T00:00:00",
-            "text": "legacy content",
-        },
-    }])
+    store.upsert(
+        [
+            {
+                "id": "legacy-0",
+                "vector": vec,
+                "payload": {
+                    "source_filename": "legacy.txt",
+                    "chunk_index": 0,
+                    "upload_timestamp": "2025-01-01T00:00:00",
+                    "text": "legacy content",
+                },
+            }
+        ]
+    )
 
     from services.source_ledger import get_source_ledger_store
 

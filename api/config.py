@@ -7,7 +7,11 @@ except ImportError:  # pragma: no cover - fallback for lightweight test envs
     BaseSettings = object
     SettingsConfigDict = None
 
-from services.runtime_paths import default_data_path, default_llm_trace_log_path, default_query_log_path
+from services.runtime_paths import (
+    default_data_path,
+    default_llm_trace_log_path,
+    default_query_log_path,
+)
 
 
 class Settings(BaseSettings):
@@ -16,12 +20,14 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
     allowed_origins: str = "http://localhost:3000"
-    qdrant_url: str = ""          # set to http://host:6333 to use Qdrant server
+    qdrant_url: str = ""  # set to http://host:6333 to use Qdrant server
     data_path: str = str(default_data_path())  # fallback: embedded client for local dev
     query_log_path: str = str(default_query_log_path())
     llm_trace_log_path: str = str(default_llm_trace_log_path())
     max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
-    anthropic_model: str = ""  # ANTHROPIC_MODEL env var; empty falls back to cfg/model.yaml
+    anthropic_model: str = (
+        ""  # ANTHROPIC_MODEL env var; empty falls back to cfg/model.yaml
+    )
     # Student-chat semantic insight collection (counsellor-only, non-canonical)
     student_chat_insights_enabled: bool = False
     student_chat_collection_name: str = "student_chat_insights"
@@ -35,9 +41,15 @@ class Settings(BaseSettings):
     admin_key: str = ""
     llm_timeout_seconds: float = 60.0  # LLM_TIMEOUT_SECONDS env var
     llm_session_timeout_seconds: float = 180.0  # LLM_SESSION_TIMEOUT_SECONDS env var
-    llm_session_multi_pass_threshold_chars: int | None = None  # LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS env var
-    llm_session_multi_pass_chunk_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_CHUNK_TOKENS env var
-    llm_session_multi_pass_overlap_tokens: int | None = None  # LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS env var
+    llm_session_multi_pass_threshold_chars: int | None = (
+        None  # LLM_SESSION_MULTI_PASS_THRESHOLD_CHARS env var
+    )
+    llm_session_multi_pass_chunk_tokens: int | None = (
+        None  # LLM_SESSION_MULTI_PASS_CHUNK_TOKENS env var
+    )
+    llm_session_multi_pass_overlap_tokens: int | None = (
+        None  # LLM_SESSION_MULTI_PASS_OVERLAP_TOKENS env var
+    )
     llm_json_repair_enabled: bool | None = None
     llm_staged_extraction_enabled: bool | None = None
     llm_max_chunks_per_prompt: int | None = None
@@ -73,6 +85,7 @@ class Settings(BaseSettings):
 
 
 if SettingsConfigDict is None:
+
     @dataclass
     class Settings:  # type: ignore[no-redef]
         anthropic_api_key: str = ""
@@ -82,7 +95,9 @@ if SettingsConfigDict is None:
         query_log_path: str = str(default_query_log_path())
         llm_trace_log_path: str = str(default_llm_trace_log_path())
         max_upload_bytes: int = 10 * 1024 * 1024  # 10 MB
-        anthropic_model: str = ""  # ANTHROPIC_MODEL env var; empty falls back to cfg/model.yaml
+        anthropic_model: str = (
+            ""  # ANTHROPIC_MODEL env var; empty falls back to cfg/model.yaml
+        )
         student_chat_insights_enabled: bool = False
         student_chat_collection_name: str = "student_chat_insights"
         student_chat_top_k_default: int = 10
@@ -92,7 +107,9 @@ if SettingsConfigDict is None:
         student_chat_store_interest: bool = False
         admin_key: str = ""
         llm_timeout_seconds: float = 60.0  # LLM_TIMEOUT_SECONDS env var
-        llm_session_timeout_seconds: float = 180.0  # LLM_SESSION_TIMEOUT_SECONDS env var
+        llm_session_timeout_seconds: float = (
+            180.0  # LLM_SESSION_TIMEOUT_SECONDS env var
+        )
         llm_session_multi_pass_threshold_chars: int | None = None
         llm_session_multi_pass_chunk_tokens: int | None = None
         llm_session_multi_pass_overlap_tokens: int | None = None

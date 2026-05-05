@@ -1,4 +1,5 @@
 """Tests for the session router — Task 0 scaffolding."""
+
 import json
 import sys
 import tempfile
@@ -16,6 +17,7 @@ from fastapi.testclient import TestClient
 def reset_session_store():
     """Reset SessionStore singleton between tests."""
     from services.session_store import SessionStore
+
     SessionStore._instance = None
     yield
     SessionStore._instance = None
@@ -46,17 +48,22 @@ def app(mock_session_store):
     fake_dependencies.get_vector_store = lambda: mock_vector_store
     fake_dependencies.require_admin_key = lambda: None
 
-    with patch("services.session_store.SessionStore") as MockStore, patch(
-        "services.career_profiles.CareerProfileStore._load_profiles",
-        _load_empty_profiles,
+    with (
+        patch("services.session_store.SessionStore") as MockStore,
+        patch(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            _load_empty_profiles,
+        ),
     ):
         MockStore.return_value = mock_session_store
         MockStore._instance = mock_session_store
 
         import importlib.util
+
         original_dependencies = sys.modules.get("dependencies")
         sys.modules["dependencies"] = fake_dependencies
         import os
+
         base_dir = os.path.dirname(os.path.dirname(__file__))
         router_path = os.path.join(base_dir, "routers/session_router.py")
         spec = importlib.util.spec_from_file_location("session_router", router_path)
@@ -65,6 +72,7 @@ def app(mock_session_store):
         spec.loader.exec_module(module)
 
         from fastapi import FastAPI
+
         app = FastAPI()
         app.include_router(module.router)
         yield app
@@ -86,6 +94,7 @@ def _make_session(**overrides):
     }
     defaults.update(overrides)
     from models_session import KnowledgeSession
+
     return KnowledgeSession(**defaults)
 
 
@@ -99,26 +108,35 @@ class TestCreateSessionJsonBody:
         )
 
         client = TestClient(app)
-        resp = client.post("/api/sessions", json={
-            "raw_input": "Some research notes",
-            "counsellor_id": "alice",
-        })
+        resp = client.post(
+            "/api/sessions",
+            json={
+                "raw_input": "Some research notes",
+                "counsellor_id": "alice",
+            },
+        )
 
         assert resp.status_code == 201
         body = resp.json()
         assert body["id"] == "test-session-id"
         assert body["status"] == "in-progress"
-        mock_session_store.create_session.assert_called_once_with("Some research notes", created_by="alice")
+        mock_session_store.create_session.assert_called_once_with(
+            "Some research notes", created_by="alice"
+        )
 
     def test_create_session_uses_default_counsellor_id(self, app, mock_session_store):
         """Omitting counsellor_id should default to 'counsellor'."""
-        mock_session_store.create_session.return_value = _make_session(raw_input="Notes here")
+        mock_session_store.create_session.return_value = _make_session(
+            raw_input="Notes here"
+        )
 
         client = TestClient(app)
         resp = client.post("/api/sessions", json={"raw_input": "Notes here"})
 
         assert resp.status_code == 201
-        mock_session_store.create_session.assert_called_once_with("Notes here", created_by="counsellor")
+        mock_session_store.create_session.assert_called_once_with(
+            "Notes here", created_by="counsellor"
+        )
 
     def test_create_session_rejects_missing_body(self, app):
         """POST without a body should return 422."""
@@ -159,9 +177,13 @@ class TestAnalyzeSession:
             "cards": [],
             "already_covered": [],
         }
-        mock_session_store.get_session.return_value = _make_session(id="abc-123", status="analyzed")
+        mock_session_store.get_session.return_value = _make_session(
+            id="abc-123", status="analyzed"
+        )
         saved_statuses = []
-        mock_session_store.save_session.side_effect = lambda current: saved_statuses.append(current.status)
+        mock_session_store.save_session.side_effect = lambda current: (
+            saved_statuses.append(current.status)
+        )
 
         client = TestClient(app)
         resp = client.post("/api/sessions/abc-123/analyze")
@@ -181,12 +203,16 @@ class TestAnalyzeSession:
         assert resp.status_code == 404
 
     @patch("services.llm.generate_session_intents")
-    def test_analyze_passes_session_id_to_llm(self, mock_generate, app, mock_session_store):
+    def test_analyze_passes_session_id_to_llm(
+        self, mock_generate, app, mock_session_store
+    ):
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
         }
-        mock_session_store.get_session.return_value = _make_session(id="abc-123", status="in-progress")
+        mock_session_store.get_session.return_value = _make_session(
+            id="abc-123", status="in-progress"
+        )
         mock_session_store.save_session.side_effect = lambda current: None
 
         client = TestClient(app)
@@ -196,15 +222,19 @@ class TestAnalyzeSession:
         assert mock_generate.call_args.kwargs["session_id"] == "abc-123"
 
     @patch("services.llm.generate_session_intents")
-    def test_analyze_rejects_list_in_scalar_card_field(self, mock_generate, app, mock_session_store):
+    def test_analyze_rejects_list_in_scalar_card_field(
+        self, mock_generate, app, mock_session_store
+    ):
         mock_generate.return_value = {
-            "cards": [{
-                "card_id": "card-bad",
-                "domain": "employer",
-                "summary": "Update Goldman EP",
-                "diff": {"slug": "goldman-sachs", "ep_requirement": ["EP4"]},
-                "raw_input_ref": "Goldman raised EP",
-            }],
+            "cards": [
+                {
+                    "card_id": "card-bad",
+                    "domain": "employer",
+                    "summary": "Update Goldman EP",
+                    "diff": {"slug": "goldman-sachs", "ep_requirement": ["EP4"]},
+                    "raw_input_ref": "Goldman raised EP",
+                }
+            ],
             "already_covered": [],
         }
         session = _make_session(id="abc-123", status="in-progress")
@@ -220,7 +250,9 @@ class TestAnalyzeSession:
         assert "Invalid intent card payload" in session.analysis_error
 
     @patch("services.llm.generate_session_intents")
-    def test_analyze_marks_analyzing_then_analyzed(self, mock_generate, app, mock_session_store):
+    def test_analyze_marks_analyzing_then_analyzed(
+        self, mock_generate, app, mock_session_store
+    ):
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
@@ -228,7 +260,9 @@ class TestAnalyzeSession:
         session = _make_session(id="abc-123", status="in-progress")
         mock_session_store.get_session.return_value = session
         saved_statuses = []
-        mock_session_store.save_session.side_effect = lambda current: saved_statuses.append(current.status)
+        mock_session_store.save_session.side_effect = lambda current: (
+            saved_statuses.append(current.status)
+        )
 
         client = TestClient(app)
         resp = client.post("/api/sessions/abc-123/analyze")
@@ -238,7 +272,9 @@ class TestAnalyzeSession:
         assert saved_statuses[-1] == "analyzed"
 
     @patch("services.llm.generate_session_intents")
-    def test_retry_after_cancelled_session(self, mock_generate, app, mock_session_store):
+    def test_retry_after_cancelled_session(
+        self, mock_generate, app, mock_session_store
+    ):
         mock_generate.return_value = {
             "cards": [],
             "already_covered": [],
@@ -246,7 +282,9 @@ class TestAnalyzeSession:
         session = _make_session(id="abc-123", status="cancelled")
         mock_session_store.get_session.return_value = session
         saved_statuses = []
-        mock_session_store.save_session.side_effect = lambda current: saved_statuses.append(current.status)
+        mock_session_store.save_session.side_effect = lambda current: (
+            saved_statuses.append(current.status)
+        )
 
         client = TestClient(app)
         resp = client.post("/api/sessions/abc-123/analyze")
@@ -259,7 +297,9 @@ class TestAnalyzeSession:
         session = _make_session(id="abc-123", status="analyzing")
         mock_session_store.get_session.return_value = session
         saved_statuses = []
-        mock_session_store.save_session.side_effect = lambda current: saved_statuses.append(current.status)
+        mock_session_store.save_session.side_effect = lambda current: (
+            saved_statuses.append(current.status)
+        )
 
         client = TestClient(app)
         resp = client.post("/api/sessions/abc-123/cancel")
@@ -322,7 +362,9 @@ class TestAnalyzeSession:
         assert body["cards"][0]["diff"]["graduation_school"] == "SMU"
         assert body["cards"][0]["diff"]["current_company"] == "Grab"
 
-    def test_commit_alumni_card_dispatches_and_preserves_false_values(self, app, mock_session_store):
+    def test_commit_alumni_card_dispatches_and_preserves_false_values(
+        self, app, mock_session_store
+    ):
         session = _make_session(
             id="abc-123",
             status="analyzed",
@@ -345,7 +387,11 @@ class TestAnalyzeSession:
         mock_session_store.save_session.side_effect = lambda current: None
 
         module = sys.modules["session_router"]
-        with patch.object(module, "_apply_field_updates_to_alumni", return_value=(["available_for_mentoring"], False, None, None)) as mock_apply:
+        with patch.object(
+            module,
+            "_apply_field_updates_to_alumni",
+            return_value=(["available_for_mentoring"], False, None, None),
+        ) as mock_apply:
             client = TestClient(app)
             resp = client.post(
                 "/api/sessions/abc-123/cards/card-alumni-1/commit",
@@ -374,23 +420,29 @@ class TestModelsExist:
 
     def test_create_session_request_model(self):
         from models_session import CreateSessionRequest
+
         req = CreateSessionRequest(raw_input="test notes")
         assert req.raw_input == "test notes"
         assert req.counsellor_id == "counsellor"  # default
 
     def test_create_session_request_custom_counsellor(self):
         from models_session import CreateSessionRequest
+
         req = CreateSessionRequest(raw_input="notes", counsellor_id="bob")
         assert req.counsellor_id == "bob"
 
     def test_card_commit_response_model(self):
         from models_session import CardCommitResponse
-        resp = CardCommitResponse(card_id="c1", domain="employer", status="committed", message="done")
+
+        resp = CardCommitResponse(
+            card_id="c1", domain="employer", status="committed", message="done"
+        )
         assert resp.card_id == "c1"
         assert resp.domain == "employer"
 
     def test_card_discard_response_model(self):
         from models_session import CardDiscardResponse
+
         resp = CardDiscardResponse(card_id="c1")
         assert resp.card_id == "c1"
         assert resp.status == "discarded"
@@ -428,6 +480,7 @@ class TestSessionRouterExported:
         """Direct import of session_router module works."""
         import importlib.util
         import os
+
         base_dir = os.path.dirname(os.path.dirname(__file__))
         router_path = os.path.join(base_dir, "routers/session_router.py")
         spec = importlib.util.spec_from_file_location("session_router", router_path)
@@ -439,6 +492,7 @@ class TestSessionRouterExported:
     def test_session_router_in_all_source(self):
         """__init__.py source code includes session_router in __all__."""
         import os
+
         base_dir = os.path.dirname(os.path.dirname(__file__))
         init_path = os.path.join(base_dir, "routers/__init__.py")
         with open(init_path) as f:
@@ -447,6 +501,7 @@ class TestSessionRouterExported:
 
 
 # --- POST /api/sessions/{id}/analyze with LLM integration ---
+
 
 @pytest.fixture
 def app_with_session_router():
@@ -465,9 +520,12 @@ def app_with_session_router():
     fake_dependencies.get_vector_store = lambda: mock_vector_store
     fake_dependencies.require_admin_key = lambda: None
 
-    with tempfile.TemporaryDirectory() as tmpdir, patch(
-        "services.career_profiles.CareerProfileStore._load_profiles",
-        _load_empty_profiles,
+    with (
+        tempfile.TemporaryDirectory() as tmpdir,
+        patch(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            _load_empty_profiles,
+        ),
     ):
         tmp_path = ss_module.Path(tmpdir)
         ss_module._SESSIONS_DIR = tmp_path
@@ -478,6 +536,7 @@ def app_with_session_router():
         # which pulls in kb_router (has broken imports in this worktree)
         import importlib.util
         import os
+
         base_dir = os.path.dirname(os.path.dirname(__file__))
         router_path = os.path.join(base_dir, "routers/session_router.py")
         spec = importlib.util.spec_from_file_location(
@@ -502,7 +561,9 @@ def app_with_session_router():
 
 
 @patch("services.llm.get_client")
-def test_analyze_extracts_intents_and_stores_on_session(mock_client, app_with_session_router):
+def test_analyze_extracts_intents_and_stores_on_session(
+    mock_client, app_with_session_router
+):
     """Analyze calls LLM and stores cards on the session."""
     client = TestClient(app_with_session_router)
 
@@ -513,16 +574,24 @@ def test_analyze_extracts_intents_and_stores_on_session(mock_client, app_with_se
 
     # Mock Claude response
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=json.dumps({
-        "cards": [{
-            "card_id": "card-abc",
-            "domain": "employer",
-            "summary": "Update Goldman EP",
-            "diff": {"slug": "goldman-sachs", "ep_requirement": "EP4"},
-            "raw_input_ref": "Goldman raised EP"
-        }],
-        "already_covered": []
-    }))]
+    mock_msg.content = [
+        MagicMock(
+            text=json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_id": "card-abc",
+                            "domain": "employer",
+                            "summary": "Update Goldman EP",
+                            "diff": {"slug": "goldman-sachs", "ep_requirement": "EP4"},
+                            "raw_input_ref": "Goldman raised EP",
+                        }
+                    ],
+                    "already_covered": [],
+                }
+            )
+        )
+    ]
     mock_client.return_value.messages.create.return_value = mock_msg
 
     resp = client.post(f"/api/sessions/{session_id}/analyze")
@@ -548,10 +617,18 @@ def test_analyze_returns_already_covered(mock_client, app_with_session_router):
     session_id = resp.json()["id"]
 
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=json.dumps({
-        "cards": [],
-        "already_covered": [{"content": "Nothing changed", "reason": "Already known"}]
-    }))]
+    mock_msg.content = [
+        MagicMock(
+            text=json.dumps(
+                {
+                    "cards": [],
+                    "already_covered": [
+                        {"content": "Nothing changed", "reason": "Already known"}
+                    ],
+                }
+            )
+        )
+    ]
     mock_client.return_value.messages.create.return_value = mock_msg
 
     resp = client.post(f"/api/sessions/{session_id}/analyze")
@@ -568,6 +645,7 @@ def test_analyze_nonexistent_session_returns_404(app_with_session_router):
 
 # --- GET /api/sessions (list) ---
 
+
 def test_list_sessions_returns_all(app_with_session_router):
     client = TestClient(app_with_session_router)
     client.post("/api/sessions", json={"raw_input": "first note"})
@@ -582,6 +660,7 @@ def test_list_sessions_returns_all(app_with_session_router):
 
 # --- POST /api/sessions/{id}/cards/{card_id}/commit and /discard ---
 
+
 @patch("services.llm.get_client")
 def test_commit_track_card_updates_yaml(mock_client, app_with_session_router, tmp_path):
     """Committing a track card updates the career profile YAML."""
@@ -592,16 +671,27 @@ def test_commit_track_card_updates_yaml(mock_client, app_with_session_router, tm
     session_id = resp.json()["id"]
 
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=json.dumps({
-        "cards": [{
-            "card_id": "card-track-1",
-            "domain": "track",
-            "summary": "Update consulting timeline",
-            "diff": {"slug": "consulting", "recruiting_timeline": "Applications open March"},
-            "raw_input_ref": "Timeline changed"
-        }],
-        "already_covered": []
-    }))]
+    mock_msg.content = [
+        MagicMock(
+            text=json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_id": "card-track-1",
+                            "domain": "track",
+                            "summary": "Update consulting timeline",
+                            "diff": {
+                                "slug": "consulting",
+                                "recruiting_timeline": "Applications open March",
+                            },
+                            "raw_input_ref": "Timeline changed",
+                        }
+                    ],
+                    "already_covered": [],
+                }
+            )
+        )
+    ]
     mock_client.return_value.messages.create.return_value = mock_msg
 
     client.post(f"/api/sessions/{session_id}/analyze")
@@ -624,16 +714,24 @@ def test_discard_card_marks_as_discarded(mock_client, app_with_session_router):
     session_id = resp.json()["id"]
 
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=json.dumps({
-        "cards": [{
-            "card_id": "card-discard-1",
-            "domain": "track",
-            "summary": "Update something",
-            "diff": {"slug": "consulting", "notes": "new notes"},
-            "raw_input_ref": "Some note"
-        }],
-        "already_covered": []
-    }))]
+    mock_msg.content = [
+        MagicMock(
+            text=json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_id": "card-discard-1",
+                            "domain": "track",
+                            "summary": "Update something",
+                            "diff": {"slug": "consulting", "notes": "new notes"},
+                            "raw_input_ref": "Some note",
+                        }
+                    ],
+                    "already_covered": [],
+                }
+            )
+        )
+    ]
     mock_client.return_value.messages.create.return_value = mock_msg
 
     client.post(f"/api/sessions/{session_id}/analyze")
@@ -688,8 +786,22 @@ def test_commit_completed_session_returns_409(mock_client, app_with_session_rout
         status="analyzed",
         raw_input="test",
         intent_cards=[
-            {"card_id": "card-1", "domain": "track", "summary": "test", "diff": {"slug": "test", "notes": "x"}, "raw_input_ref": "x", "status": "committed"},
-            {"card_id": "card-2", "domain": "track", "summary": "test", "diff": {"slug": "test", "notes": "y"}, "raw_input_ref": "y", "status": "committed"},
+            {
+                "card_id": "card-1",
+                "domain": "track",
+                "summary": "test",
+                "diff": {"slug": "test", "notes": "x"},
+                "raw_input_ref": "x",
+                "status": "committed",
+            },
+            {
+                "card_id": "card-2",
+                "domain": "track",
+                "summary": "test",
+                "diff": {"slug": "test", "notes": "y"},
+                "raw_input_ref": "y",
+                "status": "committed",
+            },
         ],
         created_by="counsellor",
         created_at=now,
@@ -716,16 +828,28 @@ def test_commit_rejects_list_in_scalar_override(mock_client, app_with_session_ro
     session_id = resp.json()["id"]
 
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=json.dumps({
-        "cards": [{
-            "card_id": "card-abc",
-            "domain": "employer",
-            "summary": "Update Goldman EP",
-            "diff": {"slug": "goldman-sachs", "employer_name": "Goldman Sachs", "ep_requirement": "EP4"},
-            "raw_input_ref": "Goldman raised EP",
-        }],
-        "already_covered": [],
-    }))]
+    mock_msg.content = [
+        MagicMock(
+            text=json.dumps(
+                {
+                    "cards": [
+                        {
+                            "card_id": "card-abc",
+                            "domain": "employer",
+                            "summary": "Update Goldman EP",
+                            "diff": {
+                                "slug": "goldman-sachs",
+                                "employer_name": "Goldman Sachs",
+                                "ep_requirement": "EP4",
+                            },
+                            "raw_input_ref": "Goldman raised EP",
+                        }
+                    ],
+                    "already_covered": [],
+                }
+            )
+        )
+    ]
     mock_client.return_value.messages.create.return_value = mock_msg
 
     resp = client.post(f"/api/sessions/{session_id}/analyze")

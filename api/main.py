@@ -53,7 +53,9 @@ app = FastAPI(title="Career Lighthouse API", lifespan=lifespan)
 app.state.limiter = limiter
 
 
-async def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+async def _rate_limit_exceeded_handler(
+    request: Request, exc: RateLimitExceeded
+) -> JSONResponse:
     retry_after = getattr(exc, "retry_after", 60)
     response = JSONResponse(
         status_code=429,
@@ -66,7 +68,9 @@ async def _rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 
-async def _session_storage_error_handler(request: Request, exc: SessionStorageError) -> JSONResponse:
+async def _session_storage_error_handler(
+    request: Request, exc: SessionStorageError
+) -> JSONResponse:
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc)},

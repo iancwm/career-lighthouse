@@ -1,5 +1,6 @@
 # api/tests/test_career_profiles.py
 """Tests for the CareerProfileStore and related helpers."""
+
 import logging
 import os
 import textwrap
@@ -39,10 +40,12 @@ def write_profile(directory: Path, slug: str, overrides: dict | None = None) -> 
 # Fixtures — reset singleton between tests
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(autouse=True)
 def reset_singleton():
     """Reset CareerProfileStore singleton state before each test."""
     from services.career_profiles import CareerProfileStore
+
     CareerProfileStore._instance = None
     yield
     CareerProfileStore._instance = None
@@ -57,41 +60,54 @@ def profiles_dir(tmp_path):
 # resolve_career_type_from_intake
 # ---------------------------------------------------------------------------
 
+
 class TestResolveCareerTypeFromIntake:
     def test_finance_maps_to_investment_banking(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("finance") == "investment_banking"
 
     def test_consulting_maps_correctly(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("consulting") == "consulting"
 
     def test_tech_maps_to_tech_product(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("tech") == "tech_product"
 
     def test_public_sector_maps_correctly(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("public_sector") == "public_sector"
 
     def test_not_sure_maps_to_general_singapore(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("not_sure") == "general_singapore"
 
     def test_none_returns_default(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake(None) == "general_singapore"
 
     def test_empty_string_returns_default(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("") == "general_singapore"
 
     def test_unknown_value_returns_default(self):
         from services.career_profiles import resolve_career_type_from_intake
-        assert resolve_career_type_from_intake("underwater basket weaving") == "general_singapore"
+
+        assert (
+            resolve_career_type_from_intake("underwater basket weaving")
+            == "general_singapore"
+        )
 
     def test_case_insensitive(self):
         from services.career_profiles import resolve_career_type_from_intake
+
         assert resolve_career_type_from_intake("Finance") == "investment_banking"
         assert resolve_career_type_from_intake("CONSULTING") == "consulting"
 
@@ -100,31 +116,37 @@ class TestResolveCareerTypeFromIntake:
 # profile_to_context_block
 # ---------------------------------------------------------------------------
 
+
 class TestProfileToContextBlock:
     def test_includes_career_type_header(self):
         from services.career_profiles import profile_to_context_block
+
         block = profile_to_context_block(MINIMAL_PROFILE)
         assert "Career Track: Test Track" in block
 
     def test_includes_ep_sponsorship(self):
         from services.career_profiles import profile_to_context_block
+
         block = profile_to_context_block(MINIMAL_PROFILE)
         assert "EP Sponsorship:" in block
         assert "High" in block
 
     def test_includes_top_employers(self):
         from services.career_profiles import profile_to_context_block
+
         block = profile_to_context_block(MINIMAL_PROFILE)
         assert "Acme Corp" in block
 
     def test_includes_section_delimiters(self):
         from services.career_profiles import profile_to_context_block
+
         block = profile_to_context_block(MINIMAL_PROFILE)
         assert block.startswith("=== CAREER CONTEXT")
         assert "=== END CAREER CONTEXT ===" in block
 
     def test_missing_optional_fields_render_as_na(self):
         from services.career_profiles import profile_to_context_block
+
         # notes is optional
         profile = {**MINIMAL_PROFILE}
         del profile["notes"]
@@ -133,10 +155,15 @@ class TestProfileToContextBlock:
 
     def test_salary_levels_injected_when_present(self):
         from services.career_profiles import profile_to_context_block
+
         profile = {
             **MINIMAL_PROFILE,
             "salary_levels": [
-                {"stage": "Junior Analyst", "range_sgd": "80–110K", "notes": "Base + 15% bonus"},
+                {
+                    "stage": "Junior Analyst",
+                    "range_sgd": "80–110K",
+                    "notes": "Base + 15% bonus",
+                },
                 {"stage": "Senior Manager", "range_sgd": "160–200K", "notes": ""},
             ],
         }
@@ -150,6 +177,7 @@ class TestProfileToContextBlock:
 
     def test_visa_pathway_notes_injected_when_present(self):
         from services.career_profiles import profile_to_context_block
+
         profile = {
             **MINIMAL_PROFILE,
             "visa_pathway_notes": "EP → Tech.Pass → PR in 5y",
@@ -160,12 +188,14 @@ class TestProfileToContextBlock:
 
     def test_salary_and_visa_absent_no_injection(self):
         from services.career_profiles import profile_to_context_block
+
         block = profile_to_context_block(MINIMAL_PROFILE)
         assert "Salary Levels:" not in block
         assert "Visa Pathway Notes:" not in block
 
     def test_derive_structured_fields_parses_salary_range(self):
         from services.career_profiles import _derive_structured_fields
+
         profile = {"salary_range_2024": "SGD 80–160K"}
         derived = _derive_structured_fields(profile)
         assert derived["salary_min_sgd"] == 80000
@@ -173,6 +203,7 @@ class TestProfileToContextBlock:
 
     def test_derive_structured_fields_with_k_suffix(self):
         from services.career_profiles import _derive_structured_fields
+
         profile = {"salary_range_2024": "SGD 80K–160K base"}
         derived = _derive_structured_fields(profile)
         assert derived["salary_min_sgd"] == 80000
@@ -180,6 +211,7 @@ class TestProfileToContextBlock:
 
     def test_derive_structured_fields_no_numeric_no_extraction(self):
         from services.career_profiles import _derive_structured_fields
+
         profile = {"salary_range_2024": "TBD", "structured": {"salary_min_sgd": 50000}}
         derived = _derive_structured_fields(profile)
         # Should not overwrite manual values
@@ -187,6 +219,7 @@ class TestProfileToContextBlock:
 
     def test_derive_structured_fields_setdefault_preserves_manual(self):
         from services.career_profiles import _derive_structured_fields
+
         profile = {
             "salary_range_2024": "SGD 80–160K",
             "structured": {"salary_min_sgd": 99999},
@@ -197,7 +230,9 @@ class TestProfileToContextBlock:
         # But max should still be derived
         assert derived["salary_max_sgd"] == 160000
 
-    def test_placeholder_counselor_contact_is_not_marked_present(self, tmp_path, monkeypatch):
+    def test_placeholder_counselor_contact_is_not_marked_present(
+        self, tmp_path, monkeypatch
+    ):
         from services.career_profiles import CareerProfileStore
 
         profiles_dir = tmp_path / "profiles"
@@ -205,7 +240,9 @@ class TestProfileToContextBlock:
         write_profile(
             profiles_dir,
             "test_track",
-            {"counselor_contact": "[TODO: Fill in SMU career centre contact for test track]"},
+            {
+                "counselor_contact": "[TODO: Fill in SMU career centre contact for test track]"
+            },
         )
 
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
@@ -225,6 +262,7 @@ class TestProfileToContextBlock:
 # CareerProfileStore — loading
 # ---------------------------------------------------------------------------
 
+
 class TestCareerProfileStoreLoading:
     def test_loads_valid_profile(self, tmp_path, monkeypatch):
         profiles_dir = tmp_path / "profiles"
@@ -234,10 +272,13 @@ class TestCareerProfileStoreLoading:
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
         mock_emb = MagicMock()
         mock_emb.encode.return_value = np.ones(384, dtype=np.float32)
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
         profile = store.get_profile("test_track")
         assert profile is not None
@@ -268,6 +309,7 @@ class TestCareerProfileStoreLoading:
         services.embedder = fake_embedder_mod
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
         store._ensure_loaded()
 
@@ -277,10 +319,13 @@ class TestCareerProfileStoreLoading:
     def test_missing_directory_does_not_crash(self, tmp_path, monkeypatch):
         nonexistent = tmp_path / "does_not_exist"
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(nonexistent))
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            _load_empty_profiles)
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            _load_empty_profiles,
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
         store._ensure_loaded()  # must not raise
         assert store.list_profiles() == []
@@ -294,16 +339,21 @@ class TestCareerProfileStoreLoading:
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
         mock_emb = MagicMock()
         mock_emb.encode.return_value = np.ones(384, dtype=np.float32)
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
 
         from services.career_profiles import CareerProfileStore
+
         with caplog.at_level(logging.WARNING, logger="services.career_profiles"):
             store = CareerProfileStore()
         assert store.get_profile("good_track") is not None
         assert store.get_profile("bad") is None
 
-    def test_profile_missing_required_fields_is_skipped(self, tmp_path, monkeypatch, caplog):
+    def test_profile_missing_required_fields_is_skipped(
+        self, tmp_path, monkeypatch, caplog
+    ):
         profiles_dir = tmp_path / "profiles"
         profiles_dir.mkdir()
         # Missing most required fields
@@ -312,23 +362,31 @@ class TestCareerProfileStoreLoading:
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
         mock_emb = MagicMock()
         mock_emb.encode.return_value = np.ones(384, dtype=np.float32)
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
 
         from services.career_profiles import CareerProfileStore
+
         with caplog.at_level(logging.WARNING, logger="services.career_profiles"):
             store = CareerProfileStore()
         assert store.get_profile("incomplete") is None
         assert any("missing required fields" in r.message for r in caplog.records)
 
-    def test_get_profile_unknown_slug_returns_none_with_warning(self, tmp_path, monkeypatch, caplog):
+    def test_get_profile_unknown_slug_returns_none_with_warning(
+        self, tmp_path, monkeypatch, caplog
+    ):
         profiles_dir = tmp_path / "profiles"
         profiles_dir.mkdir()
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            _load_empty_profiles)
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            _load_empty_profiles,
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
 
         with caplog.at_level(logging.WARNING, logger="services.career_profiles"):
@@ -341,15 +399,19 @@ class TestCareerProfileStoreLoading:
 # CareerProfileStore — cosine matching
 # ---------------------------------------------------------------------------
 
+
 class TestCareerProfileStoreMatching:
     def test_match_returns_none_when_no_profiles_loaded(self, tmp_path, monkeypatch):
         profiles_dir = tmp_path / "empty"
         profiles_dir.mkdir()
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            _load_empty_profiles)
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            _load_empty_profiles,
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
         result = store.match_career_type(np.ones(384, dtype=np.float32))
         assert result is None
@@ -367,12 +429,17 @@ class TestCareerProfileStoreMatching:
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
         mock_emb = MagicMock()
         mock_emb.encode.return_value = finance_vec
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
         # Temporarily lower threshold so score=1.0 triggers a match
-        monkeypatch.setattr("services.career_profiles._CAREER_TYPE_MATCH_THRESHOLD", 0.70)
+        monkeypatch.setattr(
+            "services.career_profiles._CAREER_TYPE_MATCH_THRESHOLD", 0.70
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
         # Query with the same vector → cosine = 1.0 > threshold
         result = store.match_career_type(finance_vec)
@@ -390,10 +457,13 @@ class TestCareerProfileStoreMatching:
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(profiles_dir))
         mock_emb = MagicMock()
         mock_emb.encode.return_value = type_vec
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
 
         # Orthogonal query: unit vector in dimension 1 → dot product = 0
@@ -406,7 +476,11 @@ class TestCareerProfileStoreMatching:
         profiles_dir = tmp_path / "profiles"
         profiles_dir.mkdir()
         write_profile(profiles_dir, "quant_finance", {"career_type": "Quant Finance"})
-        write_profile(profiles_dir, "software_engineering", {"career_type": "Software Engineering"})
+        write_profile(
+            profiles_dir,
+            "software_engineering",
+            {"career_type": "Software Engineering"},
+        )
 
         quant_vec = np.zeros(384, dtype=np.float32)
         quant_vec[0] = 1.0
@@ -425,10 +499,13 @@ class TestCareerProfileStoreMatching:
             return quant_vec
 
         mock_emb.encode.side_effect = _encode
-        monkeypatch.setattr("services.career_profiles.CareerProfileStore._load_profiles",
-                            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb))
+        monkeypatch.setattr(
+            "services.career_profiles.CareerProfileStore._load_profiles",
+            lambda self: _load_with_mock_embedder(self, profiles_dir, mock_emb),
+        )
 
         from services.career_profiles import CareerProfileStore
+
         store = CareerProfileStore()
 
         query_vec = np.zeros(384, dtype=np.float32)
@@ -437,7 +514,10 @@ class TestCareerProfileStoreMatching:
 
         candidates = store.top_candidates(query_vec, limit=2)
 
-        assert [item["slug"] for item in candidates] == ["quant_finance", "software_engineering"]
+        assert [item["slug"] for item in candidates] == [
+            "quant_finance",
+            "software_engineering",
+        ]
         assert candidates[0]["score"] == pytest.approx(0.65, abs=0.001)
         assert candidates[1]["score"] == pytest.approx(0.35, abs=0.001)
 
@@ -446,6 +526,7 @@ class TestCareerProfileStoreMatching:
 # Internal helper (test-only) — bypasses Embedder import in _load_profiles
 # ---------------------------------------------------------------------------
 
+
 def _load_with_mock_embedder(store, profiles_dir, mock_emb):
     """Replaces CareerProfileStore._load_profiles for tests.
     Loads profiles from profiles_dir using a mock embedder instead of the real one.
@@ -453,6 +534,7 @@ def _load_with_mock_embedder(store, profiles_dir, mock_emb):
     import yaml as _yaml
     from services.career_profiles import _REQUIRED_FIELDS
     import logging as _logging
+
     _log = _logging.getLogger("services.career_profiles")
 
     yaml_files = sorted(profiles_dir.glob("*.yaml"))
@@ -465,21 +547,33 @@ def _load_with_mock_embedder(store, profiles_dir, mock_emb):
             with open(yaml_path) as f:
                 profile = _yaml.safe_load(f)
             if not isinstance(profile, dict):
-                _log.warning("Career profile %s: not a valid YAML mapping — skipping", yaml_path.name)
+                _log.warning(
+                    "Career profile %s: not a valid YAML mapping — skipping",
+                    yaml_path.name,
+                )
                 continue
             missing = _REQUIRED_FIELDS - set(profile.keys())
             if missing:
-                _log.warning("Career profile %s: missing required fields %s — skipping",
-                             yaml_path.name, sorted(missing))
+                _log.warning(
+                    "Career profile %s: missing required fields %s — skipping",
+                    yaml_path.name,
+                    sorted(missing),
+                )
                 continue
             store._profiles[slug] = profile
             # Respect match_cosine: false — mirrors production _load_profiles behaviour
             if profile.get("match_cosine", True):
                 store._type_embeddings[slug] = mock_emb.encode(profile["career_type"])
         except _yaml.YAMLError as exc:
-            _log.warning("Career profile %s: YAML parse error — skipping: %s", yaml_path.name, exc)
+            _log.warning(
+                "Career profile %s: YAML parse error — skipping: %s",
+                yaml_path.name,
+                exc,
+            )
         except Exception as exc:
-            _log.warning("Career profile %s: failed to load — skipping: %s", yaml_path.name, exc)
+            _log.warning(
+                "Career profile %s: failed to load — skipping: %s", yaml_path.name, exc
+            )
     store._loaded = True
 
 

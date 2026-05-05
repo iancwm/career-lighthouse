@@ -9,12 +9,17 @@ Usage:
     store.upsert([{"id": "doc-1", "vector": embedding_vector, "payload": {...}}])
     results = store.search(query_vector, top_k=5)  # returns [{"score": 0.95, "payload": {...}}, ...]
 """
+
 import uuid
 import numpy as np
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
-    VectorParams, Distance, PointStruct,
-    Filter, FieldCondition, MatchValue
+    VectorParams,
+    Distance,
+    PointStruct,
+    Filter,
+    FieldCondition,
+    MatchValue,
 )
 
 from cfg import model_cfg, kb_cfg
@@ -66,7 +71,11 @@ class VectorStore:
         self._client.upsert(
             collection_name=self._collection,
             points=[
-                PointStruct(id=_to_uuid(p["id"]), vector=p["vector"].tolist(), payload=p["payload"])
+                PointStruct(
+                    id=_to_uuid(p["id"]),
+                    vector=p["vector"].tolist(),
+                    payload=p["payload"],
+                )
                 for p in points
             ],
         )
@@ -104,7 +113,11 @@ class VectorStore:
         self._client.delete(
             collection_name=self._collection,
             points_selector=Filter(
-                must=[FieldCondition(key="source_filename", match=MatchValue(value=filename))]
+                must=[
+                    FieldCondition(
+                        key="source_filename", match=MatchValue(value=filename)
+                    )
+                ]
             ),
         )
 
@@ -124,7 +137,9 @@ class VectorStore:
         docs: dict[str, dict] = {}
         for pt in all_points:
             payload = pt.payload or {}
-            fname = str(payload.get("source_filename") or payload.get("filename") or "").strip()
+            fname = str(
+                payload.get("source_filename") or payload.get("filename") or ""
+            ).strip()
             if not fname:
                 continue
             ts = str(payload.get("upload_timestamp") or payload.get("updated_at") or "")
@@ -155,15 +170,25 @@ class VectorStore:
             ledger_doc = ledger_docs.get(fname)
             if ledger_doc:
                 merged = {
-                    "doc_id": ledger_doc.get("doc_id") or ledger_doc.get("source_record_id") or fname,
+                    "doc_id": ledger_doc.get("doc_id")
+                    or ledger_doc.get("source_record_id")
+                    or fname,
                     "source_record_id": ledger_doc.get("source_record_id") or fname,
                     "filename": fname,
-                    "chunk_count": int(qdrant_doc.get("chunk_count") or ledger_doc.get("chunk_count") or 0),
-                    "uploaded_at": ledger_doc.get("uploaded_at") or qdrant_doc.get("uploaded_at") or "",
+                    "chunk_count": int(
+                        qdrant_doc.get("chunk_count")
+                        or ledger_doc.get("chunk_count")
+                        or 0
+                    ),
+                    "uploaded_at": ledger_doc.get("uploaded_at")
+                    or qdrant_doc.get("uploaded_at")
+                    or "",
                     "lifecycle": ledger_doc.get("lifecycle") or "active",
                     "uploaded_by": ledger_doc.get("uploaded_by"),
                     "superseded_by": ledger_doc.get("superseded_by"),
-                    "linked_knowledge_object": ledger_doc.get("linked_knowledge_object"),
+                    "linked_knowledge_object": ledger_doc.get(
+                        "linked_knowledge_object"
+                    ),
                     "archived_at": ledger_doc.get("archived_at"),
                 }
             else:

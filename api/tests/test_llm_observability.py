@@ -1,4 +1,5 @@
 """Tests for structured LLM observability logging."""
+
 from __future__ import annotations
 
 import asyncio
@@ -8,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
+
 
 def _make_claude_response(text: str):
     mock_resp = MagicMock()
@@ -30,7 +32,9 @@ def test_generate_brief_writes_structured_trace(mock_client, tmp_path):
     import services.llm as llm_module
 
     trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
-    mock_client.return_value.messages.create.return_value = _make_claude_response("brief text")
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        "brief text"
+    )
 
     fake_settings = SimpleNamespace(
         anthropic_api_key="fake",
@@ -67,44 +71,54 @@ def test_llm_traces_endpoint_returns_recent_entries(tmp_path):
     trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
     trace_path.parent.mkdir(parents=True, exist_ok=True)
     with open(trace_path, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps({
-            "trace_id": "trace-1",
-            "ts": "2026-04-17T00:00:00+00:00",
-            "operation": "chat_with_context",
-            "status": "ok",
-            "model": "claude-sonnet-4-6",
-            "feature": "chat_with_context",
-            "timeout_seconds": 30.0,
-            "max_tokens": 2048,
-            "latency_ms": 1234.5,
-            "input_chars": 512,
-            "input_chars_pre_trim": 640,
-            "input_chars_sent": 512,
-            "kb_chunks_retrieved": 4,
-            "kb_chunks_sent": 2,
-            "output_chars": 128,
-            "input_preview": "hello",
-            "output_preview": "answer",
-            "error": None,
-        }) + "\n")
-        handle.write(json.dumps({
-            "trace_id": "trace-2",
-            "ts": "2026-04-17T00:01:00+00:00",
-            "operation": "generate_brief",
-            "status": "error",
-            "model": "claude-sonnet-4-6",
-            "feature": "generate_brief",
-            "timeout_seconds": 30.0,
-            "max_tokens": 2048,
-            "latency_ms": 3210.0,
-            "input_chars": 256,
-            "input_chars_pre_trim": 256,
-            "input_chars_sent": 256,
-            "output_chars": 0,
-            "input_preview": "resume",
-            "output_preview": "",
-            "error": "LLM service timeout",
-        }) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "trace_id": "trace-1",
+                    "ts": "2026-04-17T00:00:00+00:00",
+                    "operation": "chat_with_context",
+                    "status": "ok",
+                    "model": "claude-sonnet-4-6",
+                    "feature": "chat_with_context",
+                    "timeout_seconds": 30.0,
+                    "max_tokens": 2048,
+                    "latency_ms": 1234.5,
+                    "input_chars": 512,
+                    "input_chars_pre_trim": 640,
+                    "input_chars_sent": 512,
+                    "kb_chunks_retrieved": 4,
+                    "kb_chunks_sent": 2,
+                    "output_chars": 128,
+                    "input_preview": "hello",
+                    "output_preview": "answer",
+                    "error": None,
+                }
+            )
+            + "\n"
+        )
+        handle.write(
+            json.dumps(
+                {
+                    "trace_id": "trace-2",
+                    "ts": "2026-04-17T00:01:00+00:00",
+                    "operation": "generate_brief",
+                    "status": "error",
+                    "model": "claude-sonnet-4-6",
+                    "feature": "generate_brief",
+                    "timeout_seconds": 30.0,
+                    "max_tokens": 2048,
+                    "latency_ms": 3210.0,
+                    "input_chars": 256,
+                    "input_chars_pre_trim": 256,
+                    "input_chars_sent": 256,
+                    "output_chars": 0,
+                    "input_preview": "resume",
+                    "output_preview": "",
+                    "error": "LLM service timeout",
+                }
+            )
+            + "\n"
+        )
 
     with patch("routers.kb_router.settings") as mock_settings:
         mock_settings.llm_trace_log_path = str(trace_path)
@@ -124,54 +138,69 @@ def test_llm_traces_endpoint_filters_by_session_and_status(tmp_path):
     trace_path = tmp_path / "logs" / "llm_trace_log.jsonl"
     trace_path.parent.mkdir(parents=True, exist_ok=True)
     with open(trace_path, "w", encoding="utf-8") as handle:
-        handle.write(json.dumps({
-            "trace_id": "trace-1",
-            "ts": "2026-04-17T00:00:00+00:00",
-            "operation": "generate_brief",
-            "status": "started",
-            "model": "claude-sonnet-4-6",
-            "session_id": "session-a",
-            "timeout_seconds": 30.0,
-            "max_tokens": 2048,
-            "latency_ms": 0.0,
-            "input_chars": 100,
-            "output_chars": 0,
-            "input_preview": "resume",
-            "output_preview": "",
-            "error": None,
-        }) + "\n")
-        handle.write(json.dumps({
-            "trace_id": "trace-2",
-            "ts": "2026-04-17T00:01:00+00:00",
-            "operation": "generate_brief",
-            "status": "ok",
-            "model": "claude-sonnet-4-6",
-            "session_id": "session-a",
-            "timeout_seconds": 30.0,
-            "max_tokens": 2048,
-            "latency_ms": 3210.0,
-            "input_chars": 256,
-            "output_chars": 80,
-            "input_preview": "resume",
-            "output_preview": "brief",
-            "error": None,
-        }) + "\n")
-        handle.write(json.dumps({
-            "trace_id": "trace-3",
-            "ts": "2026-04-17T00:02:00+00:00",
-            "operation": "chat_with_context",
-            "status": "error",
-            "model": "claude-sonnet-4-6",
-            "session_id": "session-b",
-            "timeout_seconds": 30.0,
-            "max_tokens": 2048,
-            "latency_ms": 111.0,
-            "input_chars": 42,
-            "output_chars": 0,
-            "input_preview": "hello",
-            "output_preview": "",
-            "error": "LLM service timeout",
-        }) + "\n")
+        handle.write(
+            json.dumps(
+                {
+                    "trace_id": "trace-1",
+                    "ts": "2026-04-17T00:00:00+00:00",
+                    "operation": "generate_brief",
+                    "status": "started",
+                    "model": "claude-sonnet-4-6",
+                    "session_id": "session-a",
+                    "timeout_seconds": 30.0,
+                    "max_tokens": 2048,
+                    "latency_ms": 0.0,
+                    "input_chars": 100,
+                    "output_chars": 0,
+                    "input_preview": "resume",
+                    "output_preview": "",
+                    "error": None,
+                }
+            )
+            + "\n"
+        )
+        handle.write(
+            json.dumps(
+                {
+                    "trace_id": "trace-2",
+                    "ts": "2026-04-17T00:01:00+00:00",
+                    "operation": "generate_brief",
+                    "status": "ok",
+                    "model": "claude-sonnet-4-6",
+                    "session_id": "session-a",
+                    "timeout_seconds": 30.0,
+                    "max_tokens": 2048,
+                    "latency_ms": 3210.0,
+                    "input_chars": 256,
+                    "output_chars": 80,
+                    "input_preview": "resume",
+                    "output_preview": "brief",
+                    "error": None,
+                }
+            )
+            + "\n"
+        )
+        handle.write(
+            json.dumps(
+                {
+                    "trace_id": "trace-3",
+                    "ts": "2026-04-17T00:02:00+00:00",
+                    "operation": "chat_with_context",
+                    "status": "error",
+                    "model": "claude-sonnet-4-6",
+                    "session_id": "session-b",
+                    "timeout_seconds": 30.0,
+                    "max_tokens": 2048,
+                    "latency_ms": 111.0,
+                    "input_chars": 42,
+                    "output_chars": 0,
+                    "input_preview": "hello",
+                    "output_preview": "",
+                    "error": "LLM service timeout",
+                }
+            )
+            + "\n"
+        )
 
     with patch("routers.kb_router.settings") as mock_settings:
         mock_settings.llm_trace_log_path = str(trace_path)
@@ -265,7 +294,9 @@ def test_generate_alumni_extraction_writes_structured_trace(mock_client, tmp_pat
         )
 
     assert result["matched_slug"] == "maya_lim"
-    assert result["alumni"][0]["source_excerpt"].startswith("Maya is a Senior Product Lead")
+    assert result["alumni"][0]["source_excerpt"].startswith(
+        "Maya is a Senior Product Lead"
+    )
     with open(trace_path, encoding="utf-8") as handle:
         entries = [json.loads(line) for line in handle if line.strip()]
 
@@ -291,10 +322,13 @@ def test_call_with_trace_writes_error_row_for_unexpected_exception(tmp_path):
         langfuse_host="",
     )
 
-    with patch.object(llm_module, "settings", fake_settings), patch.object(
-        llm_module,
-        "_safe_create",
-        side_effect=RuntimeError("client blew up"),
+    with (
+        patch.object(llm_module, "settings", fake_settings),
+        patch.object(
+            llm_module,
+            "_safe_create",
+            side_effect=RuntimeError("client blew up"),
+        ),
     ):
         try:
             llm_module._call_with_trace(
@@ -303,7 +337,10 @@ def test_call_with_trace_writes_error_row_for_unexpected_exception(tmp_path):
                 max_tokens=512,
                 system="Return JSON",
                 messages=[{"role": "user", "content": "hello"}],
-                trace_metadata={"session_id": "session-123", "feature": "generate_alumni_extraction"},
+                trace_metadata={
+                    "session_id": "session-123",
+                    "feature": "generate_alumni_extraction",
+                },
             )
         except RuntimeError:
             pass
@@ -387,7 +424,9 @@ def test_llm_traces_endpoint_reads_langfuse_sessions():
 
     fake_langfuse = FakeLangfuseClient()
 
-    with patch.object(kb_router.llm_service, "_get_langfuse_client", return_value=fake_langfuse):
+    with patch.object(
+        kb_router.llm_service, "_get_langfuse_client", return_value=fake_langfuse
+    ):
         data = _read_llm_trace_log(limit=10)
 
     assert len(data) == 2
@@ -396,7 +435,10 @@ def test_llm_traces_endpoint_reads_langfuse_sessions():
     assert data[1].trace_id == "trace-123"
     assert data[1].session_id == "session-123"
     assert data[1].operation == "generate_session_intents_json_repair"
-    assert data[1].error == "SessionAnalysisResult repair did not return a valid JSON object"
+    assert (
+        data[1].error
+        == "SessionAnalysisResult repair did not return a valid JSON object"
+    )
 
 
 @patch("services.llm.get_client")
@@ -425,7 +467,9 @@ def test_generate_brief_writes_langfuse_observation(mock_client):
             self.flushed = True
 
     fake_langfuse = FakeLangfuseClient()
-    mock_client.return_value.messages.create.return_value = _make_claude_response("brief text")
+    mock_client.return_value.messages.create.return_value = _make_claude_response(
+        "brief text"
+    )
 
     fake_settings = SimpleNamespace(
         anthropic_api_key="fake",
@@ -442,10 +486,14 @@ def test_generate_brief_writes_langfuse_observation(mock_client):
         fake_langfuse.propagated = kwargs
         yield
 
-    with patch.object(llm_module, "settings", fake_settings), \
-        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse), \
-        patch.object(llm_module, "propagate_attributes", side_effect=fake_propagate_attributes), \
-        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None):
+    with (
+        patch.object(llm_module, "settings", fake_settings),
+        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse),
+        patch.object(
+            llm_module, "propagate_attributes", side_effect=fake_propagate_attributes
+        ),
+        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None),
+    ):
         result = llm_module.generate_brief("resume text", [])
 
     assert result == "brief text"
@@ -455,7 +503,10 @@ def test_generate_brief_writes_langfuse_observation(mock_client):
     assert fake_langfuse.propagated["metadata"]["environment"] == "development"
     assert fake_langfuse.propagated["metadata"]["feature"] == "generate_brief"
     assert fake_langfuse.started[0]["input"]["metadata"]["traceId"]
-    assert fake_langfuse.started[0]["input"]["metadata"]["traceId"] == fake_langfuse.propagated["metadata"]["traceId"]
+    assert (
+        fake_langfuse.started[0]["input"]["metadata"]["traceId"]
+        == fake_langfuse.propagated["metadata"]["traceId"]
+    )
     assert fake_langfuse.started[0]["input"]["message_count"] == 1
     assert fake_langfuse.started[0]["input"]["system_preview"]
     assert fake_langfuse.started[0]["input"]["system_chars"] > 0
@@ -515,17 +566,19 @@ def test_extract_facts_from_prose_writes_langfuse_observation(mock_client):
 
     fake_langfuse = FakeLangfuseClient()
     mock_client.return_value.messages.create.return_value = _make_claude_response(
-        json.dumps([
-            {
-                "slug": "google-internship",
-                "type": "timeline_phase",
-                "phase_name": "Summer internship",
-                "value": "June to August",
-                "source": "inferred",
-                "confidence": 90,
-                "timestamp": "2026-04-20T00:00:00Z",
-            }
-        ])
+        json.dumps(
+            [
+                {
+                    "slug": "google-internship",
+                    "type": "timeline_phase",
+                    "phase_name": "Summer internship",
+                    "value": "June to August",
+                    "source": "inferred",
+                    "confidence": 90,
+                    "timestamp": "2026-04-20T00:00:00Z",
+                }
+            ]
+        )
     )
 
     fake_settings = SimpleNamespace(
@@ -543,16 +596,27 @@ def test_extract_facts_from_prose_writes_langfuse_observation(mock_client):
         fake_langfuse.propagated = kwargs
         yield
 
-    with patch.object(llm_module, "settings", fake_settings), \
-        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse), \
-        patch.object(llm_module, "propagate_attributes", side_effect=fake_propagate_attributes), \
-        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None):
-        facts = asyncio.run(llm_module.extract_facts_from_prose("Alice discussed Google hiring timelines.", "Google"))
+    with (
+        patch.object(llm_module, "settings", fake_settings),
+        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse),
+        patch.object(
+            llm_module, "propagate_attributes", side_effect=fake_propagate_attributes
+        ),
+        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None),
+    ):
+        facts = asyncio.run(
+            llm_module.extract_facts_from_prose(
+                "Alice discussed Google hiring timelines.", "Google"
+            )
+        )
 
     assert len(facts) == 1
     assert facts[0]["slug"] == "google-internship"
     assert fake_langfuse.started[0]["name"] == "extract_facts_from_prose"
-    assert fake_langfuse.started[0]["input"]["metadata"]["feature"] == "extract_facts_from_prose"
+    assert (
+        fake_langfuse.started[0]["input"]["metadata"]["feature"]
+        == "extract_facts_from_prose"
+    )
     assert fake_langfuse.started[0]["input"]["metadata"]["trace_id"]
     assert fake_langfuse.propagated["metadata"]["environment"] == "development"
     assert fake_langfuse.flushed is False
@@ -578,17 +642,19 @@ def test_extract_facts_from_prose_accepts_fenced_json_without_repair(mock_client
     fake_langfuse = FakeLangfuseClient()
     mock_client.return_value.messages.create.return_value = _make_claude_response(
         "```json\n"
-        + json.dumps([
-            {
-                "slug": "google-internship",
-                "type": "timeline_phase",
-                "phase_name": "Summer internship",
-                "value": "June to August",
-                "source": "inferred",
-                "confidence": 90,
-                "timestamp": "2026-04-20T00:00:00Z",
-            }
-        ])
+        + json.dumps(
+            [
+                {
+                    "slug": "google-internship",
+                    "type": "timeline_phase",
+                    "phase_name": "Summer internship",
+                    "value": "June to August",
+                    "source": "inferred",
+                    "confidence": 90,
+                    "timestamp": "2026-04-20T00:00:00Z",
+                }
+            ]
+        )
         + "\n```"
     )
 
@@ -607,17 +673,32 @@ def test_extract_facts_from_prose_accepts_fenced_json_without_repair(mock_client
         fake_langfuse.propagated = kwargs
         yield
 
-    with patch.object(llm_module, "settings", fake_settings), \
-        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse), \
-        patch.object(llm_module, "propagate_attributes", side_effect=fake_propagate_attributes), \
-        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None), \
-        patch.object(llm_module, "_repair_json_output", side_effect=AssertionError("repair should not be needed")):
-        facts = asyncio.run(llm_module.extract_facts_from_prose("Alice discussed Google hiring timelines.", "Google"))
+    with (
+        patch.object(llm_module, "settings", fake_settings),
+        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse),
+        patch.object(
+            llm_module, "propagate_attributes", side_effect=fake_propagate_attributes
+        ),
+        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None),
+        patch.object(
+            llm_module,
+            "_repair_json_output",
+            side_effect=AssertionError("repair should not be needed"),
+        ),
+    ):
+        facts = asyncio.run(
+            llm_module.extract_facts_from_prose(
+                "Alice discussed Google hiring timelines.", "Google"
+            )
+        )
 
     assert len(facts) == 1
     assert facts[0]["slug"] == "google-internship"
     assert fake_langfuse.started[0]["name"] == "extract_facts_from_prose"
-    assert fake_langfuse.started[0]["input"]["metadata"]["feature"] == "extract_facts_from_prose"
+    assert (
+        fake_langfuse.started[0]["input"]["metadata"]["feature"]
+        == "extract_facts_from_prose"
+    )
     assert fake_langfuse.flushed is False
 
 
@@ -647,9 +728,11 @@ def test_shutdown_langfuse_traces_shuts_down_client(mock_client):
         langfuse_tracing_environment="development",
     )
 
-    with patch.object(llm_module, "settings", fake_settings), \
-        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse), \
-        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None):
+    with (
+        patch.object(llm_module, "settings", fake_settings),
+        patch.object(llm_module, "_get_langfuse_client", return_value=fake_langfuse),
+        patch.object(llm_module, "_schedule_langfuse_flush", return_value=None),
+    ):
         llm_module.shutdown_langfuse_traces()
 
     assert fake_langfuse.flushed is False
@@ -666,7 +749,9 @@ def test_workflow_detail_combines_trace_and_session_evidence(tmp_path, monkeypat
     SessionStore._instance = None
 
     store = SessionStore()
-    session = store.create_session("Met with Goldman and Maya Lim.", created_by="counsellor")
+    session = store.create_session(
+        "Met with Goldman and Maya Lim.", created_by="counsellor"
+    )
     session.status = "analyzed"
     session.intent_cards = [
         {
@@ -678,7 +763,9 @@ def test_workflow_detail_combines_trace_and_session_evidence(tmp_path, monkeypat
             "status": "pending",
         }
     ]
-    session.already_covered = [{"content": "Maya mentors students", "reason": "Already recorded"}]
+    session.already_covered = [
+        {"content": "Maya mentors students", "reason": "Already recorded"}
+    ]
     session.analysis_workflow = {
         "workflow_id": "workflow-123",
         "workflow_name": "session_card_analysis",
@@ -686,11 +773,33 @@ def test_workflow_detail_combines_trace_and_session_evidence(tmp_path, monkeypat
         "started_at": "2026-05-03T12:00:00+00:00",
         "ended_at": "2026-05-03T12:00:03+00:00",
         "drop_point": "session.intent_cards",
-        "append": {"target": "session.intent_cards", "result": "written", "card_count": 1},
+        "append": {
+            "target": "session.intent_cards",
+            "result": "written",
+            "card_count": 1,
+        },
         "validation": {"result": "accepted", "validated_cards": 1},
-        "card_counts": {"raw": 1, "repaired": 1, "committed": 1, "already_covered": 1, "alumni_built": 0},
-        "alumni": {"heavy": True, "invoked": True, "result": "invoked", "cards_built": 0},
-        "steps": [{"step_id": "router-1", "label": "Append cards", "status": "ok", "detail": "Cards written"}],
+        "card_counts": {
+            "raw": 1,
+            "repaired": 1,
+            "committed": 1,
+            "already_covered": 1,
+            "alumni_built": 0,
+        },
+        "alumni": {
+            "heavy": True,
+            "invoked": True,
+            "result": "invoked",
+            "cards_built": 0,
+        },
+        "steps": [
+            {
+                "step_id": "router-1",
+                "label": "Append cards",
+                "status": "ok",
+                "detail": "Cards written",
+            }
+        ],
     }
     store.save_session(session)
 
@@ -749,17 +858,22 @@ def test_workflow_detail_combines_trace_and_session_evidence(tmp_path, monkeypat
                         "input_chars": 200,
                         "output_chars": 420,
                         "input_preview": "Met with Goldman",
-                        "output_preview": "{\"cards\": 1}",
+                        "output_preview": '{"cards": 1}',
                         "error": None,
                     }
-                )
+                ),
             ]
         ),
         encoding="utf-8",
     )
 
     fake_settings = SimpleNamespace(llm_trace_log_path=str(trace_path))
-    with patch.object(trace_adapter, "settings", fake_settings), patch.object(trace_adapter.llm_service, "_get_langfuse_client", return_value=None):
+    with (
+        patch.object(trace_adapter, "settings", fake_settings),
+        patch.object(
+            trace_adapter.llm_service, "_get_langfuse_client", return_value=None
+        ),
+    ):
         detail = trace_adapter.get_workflow_detail(session_id=session.id)
         summaries = trace_adapter.list_workflow_summaries(session_id=session.id)
 

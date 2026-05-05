@@ -1,4 +1,5 @@
 """Helpers for adapting third-party SDK objects into plain API shapes."""
+
 from __future__ import annotations
 
 import json

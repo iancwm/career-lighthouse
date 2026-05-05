@@ -15,7 +15,9 @@ def test_build_payload_contains_required_fields(monkeypatch):
     payload = store.build_payload(
         text="What internships are realistic for me?",
         active_career_type="consulting",
-        intake_context=IntakeContext(background="undergrad", region="sea", interest="consulting"),
+        intake_context=IntakeContext(
+            background="undergrad", region="sea", interest="consulting"
+        ),
         has_resume=True,
     )
 
@@ -29,7 +31,9 @@ def test_build_payload_contains_required_fields(monkeypatch):
     assert payload.region is None
     assert payload.interest is None
 
-    payload_data = payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    payload_data = (
+        payload.model_dump() if hasattr(payload, "model_dump") else payload.dict()
+    )
     assert "resume_text" not in payload_data
 
 
@@ -42,7 +46,9 @@ def test_build_payload_includes_optional_intake_fields_when_enabled(monkeypatch)
     payload = store.build_payload(
         text="How hard is hiring in SG now?",
         active_career_type="tech_product",
-        intake_context=IntakeContext(background="masters", region="sea", interest="tech"),
+        intake_context=IntakeContext(
+            background="masters", region="sea", interest="tech"
+        ),
         has_resume=False,
     )
 
@@ -77,7 +83,9 @@ def test_ensure_collection_is_idempotent(in_memory_qdrant):
     assert collection is not None
 
 
-def test_index_message_writes_payload_without_resume_text(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_index_message_writes_payload_without_resume_text(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     monkeypatch.setattr(settings, "student_chat_store_background", True)
     monkeypatch.setattr(settings, "student_chat_store_region", True)
     monkeypatch.setattr(settings, "student_chat_store_interest", True)
@@ -89,7 +97,9 @@ def test_index_message_writes_payload_without_resume_text(in_memory_qdrant, mock
         text="What worries should I prepare for in IB recruiting?",
         embedder=mock_embedder,
         active_career_type="investment_banking",
-        intake_context=IntakeContext(background="undergrad", region="sea", interest="finance"),
+        intake_context=IntakeContext(
+            background="undergrad", region="sea", interest="finance"
+        ),
         has_resume=True,
     )
 
@@ -117,7 +127,9 @@ def test_feature_toggle_disabled_skips_collection_bootstrap(monkeypatch):
     dependencies.get_student_insight_store.cache_clear()
 
     def should_not_be_called():
-        raise AssertionError("get_qdrant_client should not be called when insights are disabled")
+        raise AssertionError(
+            "get_qdrant_client should not be called when insights are disabled"
+        )
 
     monkeypatch.setattr(dependencies, "get_qdrant_client", should_not_be_called)
 

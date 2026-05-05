@@ -22,4 +22,3 @@ def test_singleton_mixin_reuses_one_instance_across_constructors():
     assert first is second
     assert second.values == ["kept"]
     assert ExampleSingleton.init_count == 1
-

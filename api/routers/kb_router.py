@@ -10,6 +10,7 @@ Auth note: These endpoints are protected by the router-level `require_admin_key`
 dependency and by Next.js middleware (web/middleware.ts). The remaining auth
 follow-up is migrating the admin key transport off the query param.
 """
+
 import json
 import logging
 import os
@@ -83,7 +84,11 @@ from services.llm import extract_facts_from_prose
 from config import settings
 from cfg import kb_cfg
 from services.career_profiles import _default_profiles_dir, _derive_structured_fields
-from services.track_drafts import TrackDraftStore, get_track_draft_store, read_publish_journal
+from services.track_drafts import (
+    TrackDraftStore,
+    get_track_draft_store,
+    read_publish_journal,
+)
 from services.kb_writer import apply_employer_diff, apply_profile_diff, upsert_kb_chunks
 
 router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
@@ -109,7 +114,11 @@ def _get_cached_docs(store: VectorStore) -> list[dict]:
     global _docs_cache, _docs_cache_expires
     now = datetime.now(timezone.utc)
     with _docs_cache_lock:
-        if _docs_cache is not None and _docs_cache_expires is not None and now < _docs_cache_expires:
+        if (
+            _docs_cache is not None
+            and _docs_cache_expires is not None
+            and now < _docs_cache_expires
+        ):
             return _docs_cache
     # Cache miss — fetch outside lock so we don't block other readers while scrolling.
     docs = store.list_docs()
@@ -124,6 +133,8 @@ def _invalidate_docs_cache() -> None:
     with _docs_cache_lock:
         _docs_cache = None
         _docs_cache_expires = None
+
+
 # -------------------------------------------------------------------------
 _COVERAGE_THIN_THRESHOLD = _thresholds["coverage_thin"]
 _LOW_CONFIDENCE_THRESHOLD = _thresholds["low_confidence"]
@@ -165,17 +176,21 @@ def _build_employer_detail(emp: dict) -> EmployerDetail:
 
 
 def _profiles_dir() -> Path:
-    return Path(os.environ.get(
-        "CAREER_PROFILES_DIR",
-        str(_default_profiles_dir()),
-    ))
+    return Path(
+        os.environ.get(
+            "CAREER_PROFILES_DIR",
+            str(_default_profiles_dir()),
+        )
+    )
 
 
 def _employers_dir() -> Path:
-    return Path(os.environ.get(
-        "EMPLOYERS_DIR",
-        str(_default_employers_dir()),
-    ))
+    return Path(
+        os.environ.get(
+            "EMPLOYERS_DIR",
+            str(_default_employers_dir()),
+        )
+    )
 
 
 def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
@@ -198,6 +213,7 @@ def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _read_query_log(since: datetime) -> list[dict]:
     """Read JSONL query log, returning entries within the time window.
@@ -224,9 +240,7 @@ def _read_query_log(since: datetime) -> list[dict]:
                 if ts >= since:
                     entries.append(entry)
             except (json.JSONDecodeError, KeyError, ValueError):
-                logger.warning(
-                    "Skipping malformed query log line: %r", line[:120]
-                )
+                logger.warning("Skipping malformed query log line: %r", line[:120])
     except Exception:
         logger.warning("Failed to read query log", exc_info=True)
     return entries
@@ -259,7 +273,11 @@ def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
         chunk_points, _ = store._client.scroll(
             collection_name=store._collection,
             scroll_filter=Filter(
-                must=[FieldCondition(key="source_filename", match=MatchValue(value=filename))]
+                must=[
+                    FieldCondition(
+                        key="source_filename", match=MatchValue(value=filename)
+                    )
+                ]
             ),
             limit=200,
             with_vectors=True,
@@ -279,7 +297,11 @@ def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
             results = store.search(vec, top_k=2)
             for r in results:
                 matched_fn = r["payload"].get("source_filename", "")
-                if matched_fn and matched_fn != filename and r["score"] >= _OVERLAP_SCORE_THRESHOLD:
+                if (
+                    matched_fn
+                    and matched_fn != filename
+                    and r["score"] >= _OVERLAP_SCORE_THRESHOLD
+                ):
                     overlap_against[matched_fn] = overlap_against.get(matched_fn, 0) + 1
 
         for other_fn, count in overlap_against.items():
@@ -288,12 +310,14 @@ def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
                 pair_key = frozenset([filename, other_fn])
                 if pair_key not in checked:
                     checked.add(pair_key)
-                    pairs.append({
-                        "doc_a": filename,
-                        "doc_b": other_fn,
-                        "overlap_pct": round(pct, 2),
-                        "recommendation": "merge or remove one",
-                    })
+                    pairs.append(
+                        {
+                            "doc_a": filename,
+                            "doc_b": other_fn,
+                            "overlap_pct": round(pct, 2),
+                            "recommendation": "merge or remove one",
+                        }
+                    )
 
     return pairs
 
@@ -301,6 +325,7 @@ def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/career-profiles")
 def career_profiles(
@@ -346,16 +371,21 @@ def auto_complete_profile(
 
     broken = profile_store.get_broken_profile(slug)
     if broken is None:
-        raise HTTPException(status_code=404, detail=f"Broken profile '{slug}' not found")
+        raise HTTPException(
+            status_code=404, detail=f"Broken profile '{slug}' not found"
+        )
 
     # Determine which fields are missing
     from cfg import career_profiles_cfg
+
     required = set(career_profiles_cfg["required_fields"])
     existing = set(broken.keys())
     missing = required - existing
 
     # Build a prompt that asks the LLM to fill the gaps
-    profile_budget = getattr(settings, "llm_auto_complete_max_profile_chars", None) or 6000
+    profile_budget = (
+        getattr(settings, "llm_auto_complete_max_profile_chars", None) or 6000
+    )
     existing_content = "\n".join(f"{k}: {v}" for k, v in broken.items() if v)
     existing_content = existing_content[:profile_budget]
     missing_list = ", ".join(sorted(missing))
@@ -413,18 +443,26 @@ def auto_complete_profile(
 
     # Write back to disk
     from services.career_profiles import _default_profiles_dir
-    profiles_dir = Path(os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir())))
+
+    profiles_dir = Path(
+        os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir()))
+    )
     yaml_path = profiles_dir / f"{slug}.yaml"
     try:
         import yaml as _yaml
+
         tmp = yaml_path.with_suffix(".tmp")
         profiles_dir.mkdir(parents=True, exist_ok=True)
         with open(tmp, "w", encoding="utf-8") as f:
-            _yaml.safe_dump(broken, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            _yaml.safe_dump(
+                broken, f, allow_unicode=True, default_flow_style=False, sort_keys=False
+            )
         tmp.replace(yaml_path)
     except Exception as exc:
         logger.error("auto_complete_profile: failed to write %s: %s", yaml_path, exc)
-        raise HTTPException(status_code=500, detail=f"Could not save completed profile: {exc}")
+        raise HTTPException(
+            status_code=500, detail=f"Could not save completed profile: {exc}"
+        )
 
     # Invalidate the store so the completed profile is immediately loaded
     profile_store.invalidate()
@@ -461,14 +499,18 @@ def get_track_reference(
 
     path = _profiles_dir() / f"{slug}.yaml"
     if not path.exists():
-        raise HTTPException(status_code=404, detail=f"Published track '{slug}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Published track '{slug}' not found."
+        )
 
     try:
         with open(path, encoding="utf-8") as f:
             payload = yaml.safe_load(f) or {}
     except Exception as exc:
         logger.error("get_track_reference: failed to read %r: %s", slug, exc)
-        raise HTTPException(status_code=500, detail="Failed to read published track YAML.")
+        raise HTTPException(
+            status_code=500, detail="Failed to read published track YAML."
+        )
 
     return TrackReferenceDetail(
         slug=slug,
@@ -532,7 +574,9 @@ def create_draft_track(
     if not detail.track_name or not detail.track_name.strip():
         raise HTTPException(status_code=422, detail="track_name is required.")
     if draft_store.get_draft(detail.slug) is not None:
-        raise HTTPException(status_code=409, detail=f"Draft track '{detail.slug}' already exists.")
+        raise HTTPException(
+            status_code=409, detail=f"Draft track '{detail.slug}' already exists."
+        )
 
     detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
     try:
@@ -578,9 +622,13 @@ def generate_draft_track(
     if not track_name or not track_name.strip():
         raise HTTPException(status_code=422, detail="track_name is required.")
     if draft_store.get_draft(slug) is not None:
-        raise HTTPException(status_code=409, detail=f"Draft track '{slug}' already exists.")
+        raise HTTPException(
+            status_code=409, detail=f"Draft track '{slug}' already exists."
+        )
 
-    counsellor_input, source_type, source_label = extract_generation_input(text, source_type, file)
+    counsellor_input, source_type, source_label = extract_generation_input(
+        text, source_type, file
+    )
     retrieved = retrieve_generation_chunks(counsellor_input, embedder, store)
 
     try:
@@ -595,16 +643,26 @@ def generate_draft_track(
         )
     except ValueError as exc:
         logger.warning("generate_draft_track: Claude returned malformed JSON: %s", exc)
-        raise HTTPException(status_code=422, detail="We could not generate a draft from this research yet.")
+        raise HTTPException(
+            status_code=422,
+            detail="We could not generate a draft from this research yet.",
+        )
     except Exception as exc:
         logger.error("generate_draft_track: LLM call failed: %s", exc)
-        raise HTTPException(status_code=503, detail="Draft generation service unavailable")
+        raise HTTPException(
+            status_code=503, detail="Draft generation service unavailable"
+        )
 
     try:
         detail = DraftTrackDetail(**raw)
     except Exception as exc:
-        logger.warning("generate_draft_track: validation failed: %s | raw=%r", exc, str(raw)[:300])
-        raise HTTPException(status_code=422, detail="We could not generate a draft from this research yet.")
+        logger.warning(
+            "generate_draft_track: validation failed: %s | raw=%r", exc, str(raw)[:300]
+        )
+        raise HTTPException(
+            status_code=422,
+            detail="We could not generate a draft from this research yet.",
+        )
 
     detail.slug = slug
     detail.track_name = track_name.strip()
@@ -635,7 +693,9 @@ def refresh_draft_track_from_research(
     if existing is None:
         raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
 
-    counsellor_input, source_type, source_label = extract_generation_input(text, source_type, file)
+    counsellor_input, source_type, source_label = extract_generation_input(
+        text, source_type, file
+    )
     retrieved = retrieve_generation_chunks(counsellor_input, embedder, store)
 
     try:
@@ -650,22 +710,38 @@ def refresh_draft_track_from_research(
             existing_draft=existing.model_dump(),
         )
     except ValueError as exc:
-        logger.warning("refresh_draft_track_from_research: Claude returned malformed JSON: %s", exc)
-        raise HTTPException(status_code=422, detail="We could not update this draft from the new research yet.")
+        logger.warning(
+            "refresh_draft_track_from_research: Claude returned malformed JSON: %s", exc
+        )
+        raise HTTPException(
+            status_code=422,
+            detail="We could not update this draft from the new research yet.",
+        )
     except Exception as exc:
         logger.error("refresh_draft_track_from_research: LLM call failed: %s", exc)
-        raise HTTPException(status_code=503, detail="Draft generation service unavailable")
+        raise HTTPException(
+            status_code=503, detail="Draft generation service unavailable"
+        )
 
     try:
         detail = DraftTrackDetail(**raw)
     except Exception as exc:
-        logger.warning("refresh_draft_track_from_research: validation failed: %s | raw=%r", exc, str(raw)[:300])
-        raise HTTPException(status_code=422, detail="We could not update this draft from the new research yet.")
+        logger.warning(
+            "refresh_draft_track_from_research: validation failed: %s | raw=%r",
+            exc,
+            str(raw)[:300],
+        )
+        raise HTTPException(
+            status_code=422,
+            detail="We could not update this draft from the new research yet.",
+        )
 
     detail.slug = slug
     detail.track_name = existing.track_name.strip()
     detail.status = "ready_for_publish" if _draft_ready_for_publish(detail) else "draft"
-    detail.source_refs = merge_source_refs(detail.source_refs, source_type, source_label)
+    detail.source_refs = merge_source_refs(
+        detail.source_refs, source_type, source_label
+    )
     try:
         return draft_store.save_draft(detail)
     except ValueError as exc:
@@ -684,7 +760,9 @@ def publish_draft_track(
     if draft is None:
         raise HTTPException(status_code=404, detail=f"Draft track '{slug}' not found.")
     if not _draft_ready_for_publish(draft):
-        raise HTTPException(status_code=422, detail="Draft is incomplete and cannot be published yet.")
+        raise HTTPException(
+            status_code=422, detail="Draft is incomplete and cannot be published yet."
+        )
     try:
         version = draft_store.publish_draft(slug, actor="admin")
     except FileNotFoundError as exc:
@@ -693,7 +771,9 @@ def publish_draft_track(
         logger.error("publish_draft_track: failed for %r: %s", slug, exc)
         raise HTTPException(status_code=500, detail="Failed to publish draft track.")
     profile_store.invalidate()
-    return TrackPublishResponse(status="ok", slug=slug, version=version, registry_updated=True)
+    return TrackPublishResponse(
+        status="ok", slug=slug, version=version, registry_updated=True
+    )
 
 
 @router.post("/tracks/{slug}/rollback", response_model=TrackPublishResponse)
@@ -712,7 +792,9 @@ def rollback_track(
         logger.error("rollback_track: failed for %r: %s", slug, exc)
         raise HTTPException(status_code=500, detail="Failed to roll back track.")
     profile_store.invalidate()
-    return TrackPublishResponse(status="ok", slug=slug, version=version, registry_updated=True)
+    return TrackPublishResponse(
+        status="ok", slug=slug, version=version, registry_updated=True
+    )
 
 
 @router.get("/publish-journal")
@@ -786,10 +868,16 @@ def create_employer(
     disabled_path = edir / f"{slug}.yaml.disabled"
 
     if yaml_path.exists() or disabled_path.exists():
-        raise HTTPException(status_code=409, detail=f"Employer '{slug}' already exists.")
+        raise HTTPException(
+            status_code=409, detail=f"Employer '{slug}' already exists."
+        )
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    payload = detail.model_dump(exclude_unset=True) if hasattr(detail, "model_dump") else detail.dict(exclude_unset=True)
+    payload = (
+        detail.model_dump(exclude_unset=True)
+        if hasattr(detail, "model_dump")
+        else detail.dict(exclude_unset=True)
+    )
     data = {
         "employer_name": detail.employer_name.strip(),
         "slug": slug,
@@ -812,7 +900,9 @@ def create_employer(
     tmp = yaml_path.with_suffix(".tmp")
     try:
         with open(tmp, "w", encoding="utf-8") as f:
-            yaml.safe_dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(
+                data, f, allow_unicode=True, default_flow_style=False, sort_keys=False
+            )
         tmp.replace(yaml_path)
     except Exception as exc:
         tmp.unlink(missing_ok=True)
@@ -824,7 +914,10 @@ def create_employer(
 
     data["slug"] = slug
     from services.employer_store import _compute_completeness
-    return EmployerDetail(**{**data, "completeness": _compute_completeness(data), "structured": {}})
+
+    return EmployerDetail(
+        **{**data, "completeness": _compute_completeness(data), "structured": {}}
+    )
 
 
 @router.put("/employers/{slug}", response_model=EmployerDetail)
@@ -857,19 +950,31 @@ def update_employer(
     employer_store.snapshot_history(slug, existing)
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    payload = detail.model_dump(exclude_unset=True) if hasattr(detail, "model_dump") else detail.dict(exclude_unset=True)
+    payload = (
+        detail.model_dump(exclude_unset=True)
+        if hasattr(detail, "model_dump")
+        else detail.dict(exclude_unset=True)
+    )
     # Merge incoming fields; server always sets last_updated
-    existing.update({
-        "employer_name": detail.employer_name.strip() if detail.employer_name else existing.get("employer_name", ""),
-        "tracks": detail.tracks if detail.tracks is not None else existing.get("tracks", []),
-        "ep_requirement": detail.ep_requirement,
-        "intake_seasons": detail.intake_seasons if detail.intake_seasons is not None else existing.get("intake_seasons", []),
-        "singapore_headcount_estimate": detail.singapore_headcount_estimate,
-        "application_process": detail.application_process,
-        "counsellor_contact": detail.counsellor_contact,
-        "notes": detail.notes,
-        "last_updated": now,
-    })
+    existing.update(
+        {
+            "employer_name": detail.employer_name.strip()
+            if detail.employer_name
+            else existing.get("employer_name", ""),
+            "tracks": detail.tracks
+            if detail.tracks is not None
+            else existing.get("tracks", []),
+            "ep_requirement": detail.ep_requirement,
+            "intake_seasons": detail.intake_seasons
+            if detail.intake_seasons is not None
+            else existing.get("intake_seasons", []),
+            "singapore_headcount_estimate": detail.singapore_headcount_estimate,
+            "application_process": detail.application_process,
+            "counsellor_contact": detail.counsellor_contact,
+            "notes": detail.notes,
+            "last_updated": now,
+        }
+    )
     if "structured" in payload:
         existing["structured"] = dict(detail.structured or {})
     if "source_documents" in payload:
@@ -880,7 +985,13 @@ def update_employer(
     tmp = yaml_path.with_suffix(".tmp")
     try:
         with open(tmp, "w", encoding="utf-8") as f:
-            yaml.safe_dump(existing, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
+            yaml.safe_dump(
+                existing,
+                f,
+                allow_unicode=True,
+                default_flow_style=False,
+                sort_keys=False,
+            )
         tmp.replace(yaml_path)
     except Exception as exc:
         tmp.unlink(missing_ok=True)
@@ -891,7 +1002,10 @@ def update_employer(
     logger.info("update_employer: updated %r", slug)
 
     from services.employer_store import _compute_completeness
-    return EmployerDetail(**{**existing, "completeness": _compute_completeness(existing)})
+
+    return EmployerDetail(
+        **{**existing, "completeness": _compute_completeness(existing)}
+    )
 
 
 @router.delete("/employers/{slug}", status_code=204)
@@ -954,7 +1068,10 @@ async def extract_facts_from_employer_notes(
     combined = "\n\n".join(filter(None, [notes.strip(), doc_texts.strip()]))
 
     if not combined:
-        raise HTTPException(status_code=400, detail="Employer has no notes or source documents to extract from.")
+        raise HTTPException(
+            status_code=400,
+            detail="Employer has no notes or source documents to extract from.",
+        )
 
     source_label = "employer_notes+documents" if doc_texts else "employer_notes"
     try:
@@ -1129,7 +1246,7 @@ def analyse(
         if content_length and int(content_length) > settings.max_upload_bytes:
             raise HTTPException(
                 status_code=413,
-                detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024*1024)}MB)."
+                detail=f"File exceeds maximum upload size ({settings.max_upload_bytes // (1024 * 1024)}MB).",
             )
 
     return analyse_counsellor_input(
@@ -1162,14 +1279,20 @@ def commit_analysis(
     _MAX_CHUNKS = 10
     _MAX_CHUNK_TEXT = 4000  # chars
     if len(req.new_chunks) > _MAX_CHUNKS:
-        raise HTTPException(status_code=422, detail=f"Too many chunks (max {_MAX_CHUNKS}).")
+        raise HTTPException(
+            status_code=422, detail=f"Too many chunks (max {_MAX_CHUNKS})."
+        )
     for chunk in req.new_chunks:
         if chunk.source_type not in ("note", "file"):
             raise HTTPException(status_code=422, detail="Invalid source_type.")
         if len(chunk.text) > _MAX_CHUNK_TEXT:
-            raise HTTPException(status_code=422, detail=f"Chunk text exceeds {_MAX_CHUNK_TEXT} chars.")
+            raise HTTPException(
+                status_code=422, detail=f"Chunk text exceeds {_MAX_CHUNK_TEXT} chars."
+            )
 
-    chunk_result = upsert_kb_chunks(req.new_chunks, vector_store=store, embedder=embedder, source="commit-analysis")
+    chunk_result = upsert_kb_chunks(
+        req.new_chunks, vector_store=store, embedder=embedder, source="commit-analysis"
+    )
 
     # --- 2. Write profile YAML updates ---
     profiles_updated: list[str] = []
@@ -1183,7 +1306,11 @@ def commit_analysis(
         )
         if result.changed_fields:
             profiles_updated.append(slug)
-            logger.info("commit-analysis: updated profile %r fields: %s", slug, result.changed_fields)
+            logger.info(
+                "commit-analysis: updated profile %r fields: %s",
+                slug,
+                result.changed_fields,
+            )
         elif not result.skipped_missing:
             logger.info("commit-analysis: profile %r had no valid field updates", slug)
 
@@ -1200,7 +1327,11 @@ def commit_analysis(
         )
         if result.changed_fields:
             employers_updated.append(slug)
-            logger.info("commit-analysis: updated employer %r fields: %s", slug, result.changed_fields)
+            logger.info(
+                "commit-analysis: updated employer %r fields: %s",
+                slug,
+                result.changed_fields,
+            )
         elif not result.skipped_missing:
             logger.info("commit-analysis: employer %r had no valid field updates", slug)
 
@@ -1277,7 +1408,9 @@ def kb_health(
         DocCoverageItem(
             filename=d["filename"],
             chunk_count=d["chunk_count"],
-            coverage_status="good" if d["chunk_count"] >= _COVERAGE_THIN_THRESHOLD else "thin",
+            coverage_status="good"
+            if d["chunk_count"] >= _COVERAGE_THIN_THRESHOLD
+            else "thin",
             has_overlap_warning=d["filename"] in overlapping_filenames,
         )
         for d in docs
@@ -1312,7 +1445,11 @@ def kb_health(
             )
 
         # low_confidence_queries: recent queries with top score < threshold
-        lc = [e for e in entries if e.get("scores") and e["scores"][0] < _LOW_CONFIDENCE_THRESHOLD]
+        lc = [
+            e
+            for e in entries
+            if e.get("scores") and e["scores"][0] < _LOW_CONFIDENCE_THRESHOLD
+        ]
         lc.sort(key=lambda e: e.get("ts", ""), reverse=True)
         low_confidence_queries = [
             LowConfidenceQuery(
@@ -1391,7 +1528,9 @@ def workflow_detail(
 ):
     """Return a normalized session-analysis workflow detail object."""
     if not session_id and not workflow_id:
-        raise HTTPException(status_code=422, detail="session_id or workflow_id is required")
+        raise HTTPException(
+            status_code=422, detail="session_id or workflow_id is required"
+        )
     detail = get_workflow_detail(session_id=session_id, workflow_id=workflow_id)
     if detail is None:
         raise HTTPException(status_code=404, detail="Workflow detail not found")

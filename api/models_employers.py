@@ -5,8 +5,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 # Sprint 3 Addendum — Employer Entity YAML models
 
+
 class EmployerDetail(BaseModel):
     """Single employer entity. Persisted as knowledge/employers/{slug}.yaml."""
+
     slug: str
     employer_name: str
     tracks: list[str] = []

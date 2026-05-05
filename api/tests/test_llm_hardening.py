@@ -32,7 +32,9 @@ def test_multi_pass_triggered_for_large_doc(mock_chunk, mock_client):
         _make_claude_response(resp2),
     ]
 
-    result = generate_session_intents(large_input, existing_tracks=[], existing_employers=[])
+    result = generate_session_intents(
+        large_input, existing_tracks=[], existing_employers=[]
+    )
 
     assert len(result["cards"]) == 2
     assert result["cards"][0]["card_id"] == "c1"
@@ -44,13 +46,28 @@ def test_merge_intents_deduplication():
     results = [
         {
             "cards": [
-                {"domain": "employer", "summary": "Add Stripe", "diff": {"slug": "stripe"}, "card_id": "c1"}
+                {
+                    "domain": "employer",
+                    "summary": "Add Stripe",
+                    "diff": {"slug": "stripe"},
+                    "card_id": "c1",
+                }
             ]
         },
         {
             "cards": [
-                {"domain": "employer", "summary": "Add Stripe (again)", "diff": {"slug": "stripe"}, "card_id": "c2"},
-                {"domain": "track", "summary": "New Track", "diff": {"slug": "new_track"}, "card_id": "c3"},
+                {
+                    "domain": "employer",
+                    "summary": "Add Stripe (again)",
+                    "diff": {"slug": "stripe"},
+                    "card_id": "c2",
+                },
+                {
+                    "domain": "track",
+                    "summary": "New Track",
+                    "diff": {"slug": "new_track"},
+                    "card_id": "c3",
+                },
             ]
         },
     ]
@@ -61,17 +78,29 @@ def test_merge_intents_deduplication():
     assert any(card["domain"] == "track" for card in merged["cards"])
     assert any(card["card_id"] != "c1" for card in merged["cards"])
 
-    merged_identical = _merge_intents([
-        {
-            "cards": [
-                {"domain": "employer", "summary": "Add Stripe", "diff": {"slug": "stripe"}, "card_id": "c1"}
-            ]
-        },
-        {
-            "cards": [
-                {"domain": "employer", "summary": "Add Stripe", "diff": {"slug": "stripe"}, "card_id": "c2"}
-            ]
-        },
-    ])
+    merged_identical = _merge_intents(
+        [
+            {
+                "cards": [
+                    {
+                        "domain": "employer",
+                        "summary": "Add Stripe",
+                        "diff": {"slug": "stripe"},
+                        "card_id": "c1",
+                    }
+                ]
+            },
+            {
+                "cards": [
+                    {
+                        "domain": "employer",
+                        "summary": "Add Stripe",
+                        "diff": {"slug": "stripe"},
+                        "card_id": "c2",
+                    }
+                ]
+            },
+        ]
+    )
     assert len(merged_identical["cards"]) == 1
     assert merged_identical["cards"][0]["card_id"] == "c1"

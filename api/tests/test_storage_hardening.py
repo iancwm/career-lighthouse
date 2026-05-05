@@ -1,4 +1,5 @@
 """Tests for deployment-hardening storage checks."""
+
 from __future__ import annotations
 
 import pytest
@@ -9,19 +10,39 @@ def test_validate_runtime_storage_creates_configured_paths(tmp_path, monkeypatch
 
     monkeypatch.setenv("SESSIONS_DIR", str(tmp_path / "sessions"))
     monkeypatch.setenv("DATA_PATH", str(tmp_path / "data" / "qdrant"))
-    monkeypatch.setenv("CAREER_PROFILES_DIR", str(tmp_path / "knowledge" / "career_profiles"))
+    monkeypatch.setenv(
+        "CAREER_PROFILES_DIR", str(tmp_path / "knowledge" / "career_profiles")
+    )
     monkeypatch.setenv("EMPLOYERS_DIR", str(tmp_path / "knowledge" / "employers"))
     monkeypatch.setenv("DRAFT_TRACKS_DIR", str(tmp_path / "knowledge" / "draft_tracks"))
-    monkeypatch.setenv("CAREER_PROFILE_HISTORY_DIR", str(tmp_path / "knowledge" / "career_profiles_history"))
+    monkeypatch.setenv(
+        "CAREER_PROFILE_HISTORY_DIR",
+        str(tmp_path / "knowledge" / "career_profiles_history"),
+    )
     monkeypatch.setenv("SENTENCE_TRANSFORMERS_HOME", str(tmp_path / ".cache"))
     monkeypatch.setenv("UV_CACHE_DIR", str(tmp_path / ".cache" / "uv"))
     monkeypatch.setenv("QUERY_LOG_PATH", str(tmp_path / "logs" / "query_log.jsonl"))
-    monkeypatch.setenv("LLM_TRACE_LOG_PATH", str(tmp_path / "logs" / "llm_trace_log.jsonl"))
-    monkeypatch.setenv("EMERGING_TRACK_SIGNALS_PATH", str(tmp_path / "logs" / "emerging_track_signals.jsonl"))
-    monkeypatch.setenv("CAREER_TRACKS_REGISTRY_PATH", str(tmp_path / "knowledge" / "career_tracks.yaml"))
-    monkeypatch.setenv("TRACK_PUBLISH_JOURNAL_PATH", str(tmp_path / "logs" / "track_publish_journal.jsonl"))
-    monkeypatch.setenv("TRACK_PUBLISH_LOG_PATH", str(tmp_path / "logs" / "track_publish_log.jsonl"))
-    monkeypatch.setenv("TRACKS_VERSION_PATH", str(tmp_path / "knowledge" / ".tracks-version"))
+    monkeypatch.setenv(
+        "LLM_TRACE_LOG_PATH", str(tmp_path / "logs" / "llm_trace_log.jsonl")
+    )
+    monkeypatch.setenv(
+        "EMERGING_TRACK_SIGNALS_PATH",
+        str(tmp_path / "logs" / "emerging_track_signals.jsonl"),
+    )
+    monkeypatch.setenv(
+        "CAREER_TRACKS_REGISTRY_PATH",
+        str(tmp_path / "knowledge" / "career_tracks.yaml"),
+    )
+    monkeypatch.setenv(
+        "TRACK_PUBLISH_JOURNAL_PATH",
+        str(tmp_path / "logs" / "track_publish_journal.jsonl"),
+    )
+    monkeypatch.setenv(
+        "TRACK_PUBLISH_LOG_PATH", str(tmp_path / "logs" / "track_publish_log.jsonl")
+    )
+    monkeypatch.setenv(
+        "TRACKS_VERSION_PATH", str(tmp_path / "knowledge" / ".tracks-version")
+    )
 
     validate_runtime_storage()
 

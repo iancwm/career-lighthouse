@@ -1,4 +1,5 @@
 """Integration tests for the alumni admin router."""
+
 from __future__ import annotations
 
 from unittest.mock import Mock, patch
@@ -28,7 +29,9 @@ def alumni_env(tmp_path, monkeypatch):
     monkeypatch.setenv("ALUMNI_DIR", str(alumni_dir))
     monkeypatch.setenv("ALUMNI_HISTORY_DIR", str(history_dir))
     monkeypatch.setenv("ALUMNI_COMPANY_LINKS_DIR", str(links_dir))
-    monkeypatch.setenv("ALUMNI_BACKFILL_MANIFEST_PATH", str(alumni_dir / "_backfill_manifest.yaml"))
+    monkeypatch.setenv(
+        "ALUMNI_BACKFILL_MANIFEST_PATH", str(alumni_dir / "_backfill_manifest.yaml")
+    )
 
     from config import settings
 
@@ -176,7 +179,10 @@ def test_extract_preview_returns_ui_friendly_shape(alumni_env):
         },
     }
 
-    with patch("services.alumni_store.llm_service.generate_alumni_extraction", return_value=mock_preview) as mock_generate:
+    with patch(
+        "services.alumni_store.llm_service.generate_alumni_extraction",
+        return_value=mock_preview,
+    ) as mock_generate:
         resp = client.post(
             "/api/kb/alumni/extract-preview",
             json={

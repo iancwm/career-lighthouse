@@ -48,7 +48,9 @@ def _seed_insight(
     store._store.upsert([{"id": message_id, "vector": vector, "payload": payload}])
 
 
-def test_requires_admin_key_when_configured(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_requires_admin_key_when_configured(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     monkeypatch.setattr(settings, "admin_key", "super-secret")
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
 
@@ -61,7 +63,9 @@ def test_requires_admin_key_when_configured(in_memory_qdrant, mock_embedder, mon
     assert response.status_code == 401
 
 
-def test_search_returns_empty_results_on_empty_collection(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_search_returns_empty_results_on_empty_collection(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     monkeypatch.setattr(settings, "admin_key", "")
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
     monkeypatch.setattr(settings, "student_chat_store_background", False)
@@ -82,7 +86,9 @@ def test_search_returns_empty_results_on_empty_collection(in_memory_qdrant, mock
     assert data["supports_region_filter"] is False
 
 
-def test_search_applies_career_type_filter(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_search_applies_career_type_filter(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     monkeypatch.setattr(settings, "admin_key", "")
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
     monkeypatch.setattr(settings, "student_chat_store_background", True)
@@ -174,7 +180,9 @@ def test_search_applies_date_range_filter(in_memory_qdrant, mock_embedder, monke
     assert data["supports_region_filter"] is True
 
 
-def test_search_returns_disabled_response_when_feature_flag_off(mock_embedder, monkeypatch):
+def test_search_returns_disabled_response_when_feature_flag_off(
+    mock_embedder, monkeypatch
+):
     from main import app
 
     monkeypatch.setattr(settings, "admin_key", "")
@@ -183,7 +191,9 @@ def test_search_returns_disabled_response_when_feature_flag_off(mock_embedder, m
     monkeypatch.setattr(settings, "student_chat_store_region", False)
 
     mock_store = MagicMock()
-    app.dependency_overrides[dependencies.get_student_insight_store] = lambda: mock_store
+    app.dependency_overrides[dependencies.get_student_insight_store] = lambda: (
+        mock_store
+    )
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
 
     client = TestClient(app)
@@ -203,7 +213,9 @@ def test_search_returns_disabled_response_when_feature_flag_off(mock_embedder, m
     mock_store.search.assert_not_called()
 
 
-def test_search_handles_missing_optional_fields_as_null(in_memory_qdrant, mock_embedder, monkeypatch):
+def test_search_handles_missing_optional_fields_as_null(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
     monkeypatch.setattr(settings, "admin_key", "")
     monkeypatch.setattr(settings, "student_chat_insights_enabled", True)
     monkeypatch.setattr(settings, "student_chat_store_background", False)

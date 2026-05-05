@@ -17,9 +17,13 @@ def test_brief_returns_brief_text(in_memory_qdrant, mock_embedder):
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
 
-    with patch.object(llm_module, "generate_brief", return_value="# Student Brief\nGoals: finance"):
+    with patch.object(
+        llm_module, "generate_brief", return_value="# Student Brief\nGoals: finance"
+    ):
         client = TestClient(app)
-        r = client.post("/api/brief", json={"resume_text": "SMU Business Year 3, interested in GIC"})
+        r = client.post(
+            "/api/brief", json={"resume_text": "SMU Business Year 3, interested in GIC"}
+        )
 
     assert r.status_code == 200
     assert "brief" in r.json()

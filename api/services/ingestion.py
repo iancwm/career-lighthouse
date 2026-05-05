@@ -8,6 +8,7 @@ This module provides utilities for:
 Chunking strategy respects paragraph/table/list boundaries and uses a configurable
 tokens-to-words ratio for word-boundary splitting.
 """
+
 import uuid
 from datetime import datetime, timezone
 
@@ -20,31 +21,30 @@ def parse_file(content: bytes, filename: str) -> str:
     if filename.lower().endswith(".pdf"):
         import io
         from pypdf import PdfReader
+
         reader = PdfReader(io.BytesIO(content))
         return "\n".join(page.extract_text() or "" for page in reader.pages)
     elif filename.lower().endswith(".docx"):
         import io
         from docx import Document
         from docx.oxml.ns import qn
+
         doc = Document(io.BytesIO(content))
         parts = []
         for block in doc.element.body:
-            if block.tag == qn('w:p'):
+            if block.tag == qn("w:p"):
                 # Paragraph — collect run text
-                text = "".join(
-                    run.text for run in block.iter(qn('w:t'))
-                    if run.text
-                )
+                text = "".join(run.text for run in block.iter(qn("w:t")) if run.text)
                 if text.strip():
                     parts.append(text)
-            elif block.tag == qn('w:tbl'):
+            elif block.tag == qn("w:tbl"):
                 # Table — format as pipe-delimited rows
                 rows = []
-                for row in block.iter(qn('w:tr')):
+                for row in block.iter(qn("w:tr")):
                     cells = []
-                    for cell in row.iter(qn('w:tc')):
+                    for cell in row.iter(qn("w:tc")):
                         cell_text = "".join(
-                            t.text for t in cell.iter(qn('w:t')) if t.text
+                            t.text for t in cell.iter(qn("w:t")) if t.text
                         ).strip()
                         cells.append(cell_text)
                     if any(cells):

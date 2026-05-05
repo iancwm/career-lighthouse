@@ -1,4 +1,5 @@
 """Tests for the alumni YAML store."""
+
 from __future__ import annotations
 
 import textwrap
@@ -28,7 +29,9 @@ def alumni_env(tmp_path, monkeypatch):
     monkeypatch.setenv("ALUMNI_DIR", str(alumni_dir))
     monkeypatch.setenv("ALUMNI_HISTORY_DIR", str(history_dir))
     monkeypatch.setenv("ALUMNI_COMPANY_LINKS_DIR", str(links_dir))
-    monkeypatch.setenv("ALUMNI_BACKFILL_MANIFEST_PATH", str(alumni_dir / "_backfill_manifest.yaml"))
+    monkeypatch.setenv(
+        "ALUMNI_BACKFILL_MANIFEST_PATH", str(alumni_dir / "_backfill_manifest.yaml")
+    )
     monkeypatch.setenv("EMPLOYERS_DIR", str(tmp_path / "employers"))
     return alumni_dir
 
@@ -88,7 +91,9 @@ def test_create_update_and_append_only_link_history(alumni_env):
     assert store.get_alumni("aditya_mehta")["completeness"] == "green"
 
 
-def test_backfill_legacy_alumni_migrates_employer_facts(alumni_env, tmp_path, monkeypatch):
+def test_backfill_legacy_alumni_migrates_employer_facts(
+    alumni_env, tmp_path, monkeypatch
+):
     employers_dir = Path(tmp_path / "employers")
     employers_dir.mkdir(exist_ok=True)
     monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
@@ -162,12 +167,18 @@ def test_sync_company_links_upserts_and_archives_missing_links(alumni_env):
         ],
     )
 
-    initial_links = sorted(store.list_links("maya_lim"), key=lambda link: link["company_slug"])
+    initial_links = sorted(
+        store.list_links("maya_lim"), key=lambda link: link["company_slug"]
+    )
     assert [link["company_slug"] for link in initial_links] == ["google", "grab"]
     assert len(store.list_link_events("maya_lim")) == 2
 
-    grab_link_id = next(link["link_id"] for link in initial_links if link["company_slug"] == "grab")
-    google_link_id = next(link["link_id"] for link in initial_links if link["company_slug"] == "google")
+    grab_link_id = next(
+        link["link_id"] for link in initial_links if link["company_slug"] == "grab"
+    )
+    google_link_id = next(
+        link["link_id"] for link in initial_links if link["company_slug"] == "google"
+    )
 
     store.sync_company_links(
         "maya_lim",
@@ -186,7 +197,8 @@ def test_sync_company_links_upserts_and_archives_missing_links(alumni_env):
     assert active_links[0]["notes"] == "Updated note"
 
     archived_events = [
-        event for event in store.list_link_events("maya_lim")
+        event
+        for event in store.list_link_events("maya_lim")
         if event.get("link_id") == google_link_id
     ]
     assert archived_events[0]["lifecycle"] == "archived"

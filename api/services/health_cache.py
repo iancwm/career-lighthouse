@@ -21,6 +21,7 @@ Usage:
     # After any ingest:
     health_cache.invalidate_overlap_cache()
 """
+
 import threading
 from typing import Callable, Optional
 

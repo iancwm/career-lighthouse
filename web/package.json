@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "typecheck": "next build",
     "start": "next start",
     "test": "vitest",
     "test:e2e": "playwright test -c playwright.config.ts"

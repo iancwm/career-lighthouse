@@ -21,7 +21,9 @@ def _make_client(in_memory_qdrant, mock_embedder):
 
 def test_ingest_txt_file(in_memory_qdrant, mock_embedder):
     client = _make_client(in_memory_qdrant, mock_embedder)
-    r = client.post("/api/ingest", files={"file": ("test.txt", b"hello world career", "text/plain")})
+    r = client.post(
+        "/api/ingest", files={"file": ("test.txt", b"hello world career", "text/plain")}
+    )
     assert r.status_code == 200
     data = r.json()
     assert data["doc_id"] == "test.txt"
@@ -40,22 +42,35 @@ def test_ingest_invalidates_career_profile_store(in_memory_qdrant, mock_embedder
     client = _make_client(in_memory_qdrant, mock_embedder)
     with patch("routers.ingest_router.get_career_profile_store") as mock_get_store:
         mock_store = mock_get_store.return_value
-        client.post("/api/ingest", files={"file": ("test.txt", b"hello world career", "text/plain")})
+        client.post(
+            "/api/ingest",
+            files={"file": ("test.txt", b"hello world career", "text/plain")},
+        )
     mock_store.invalidate.assert_called_once()
 
 
-def test_reupload_same_filename_replaces_doc_and_invalidates_overlap_cache(in_memory_qdrant, mock_embedder):
+def test_reupload_same_filename_replaces_doc_and_invalidates_overlap_cache(
+    in_memory_qdrant, mock_embedder
+):
     client = _make_client(in_memory_qdrant, mock_embedder)
-    health_cache.set_overlap_pairs([{"doc_a": "old.txt", "doc_b": "other.txt", "overlap_pct": 0.9}])
+    health_cache.set_overlap_pairs(
+        [{"doc_a": "old.txt", "doc_b": "other.txt", "overlap_pct": 0.9}]
+    )
     assert health_cache.get_overlap_pairs() is not None
 
-    first = client.post("/api/ingest", files={"file": ("repeat.txt", b"old content", "text/plain")})
+    first = client.post(
+        "/api/ingest", files={"file": ("repeat.txt", b"old content", "text/plain")}
+    )
     assert first.status_code == 200
     assert first.json()["status"] == "ok"
     assert health_cache.get_overlap_pairs() is None
 
-    health_cache.set_overlap_pairs([{"doc_a": "repeat.txt", "doc_b": "other.txt", "overlap_pct": 0.9}])
-    second = client.post("/api/ingest", files={"file": ("repeat.txt", b"new content", "text/plain")})
+    health_cache.set_overlap_pairs(
+        [{"doc_a": "repeat.txt", "doc_b": "other.txt", "overlap_pct": 0.9}]
+    )
+    second = client.post(
+        "/api/ingest", files={"file": ("repeat.txt", b"new content", "text/plain")}
+    )
 
     assert second.status_code == 200
     assert second.json()["status"] == "ok"
@@ -68,39 +83,53 @@ def test_reupload_same_filename_replaces_doc_and_invalidates_overlap_cache(in_me
 
 
 class TestFilenameValidation:
-    @pytest.mark.parametrize("filename", [
-        "../etc/passwd",
-        "../../secret",
-        "/etc/passwd",
-        "foo/bar.txt",
-        "file\x00name.txt",
-        "file\x01name.txt",
-        "a" * 256,
-        "file;rm -rf *.txt",
-        "file$(whoami).txt",
-    ])
-    def test_rejects_dangerous_filenames(self, in_memory_qdrant, mock_embedder, filename):
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "../etc/passwd",
+            "../../secret",
+            "/etc/passwd",
+            "foo/bar.txt",
+            "file\x00name.txt",
+            "file\x01name.txt",
+            "a" * 256,
+            "file;rm -rf *.txt",
+            "file$(whoami).txt",
+        ],
+    )
+    def test_rejects_dangerous_filenames(
+        self, in_memory_qdrant, mock_embedder, filename
+    ):
         client = _make_client(in_memory_qdrant, mock_embedder)
-        r = client.post("/api/ingest", files={"file": (filename, b"content", "text/plain")})
+        r = client.post(
+            "/api/ingest", files={"file": (filename, b"content", "text/plain")}
+        )
         assert r.status_code == 400
 
-    @pytest.mark.parametrize("filename", [
-        "report.txt",
-        "my-resume_2024.txt",
-        "Career Guide v2.txt",
-        "a" * 255,
-        "Career_Services_Meeting_Memo (1).txt",
-        "report [final].txt",
-    ])
+    @pytest.mark.parametrize(
+        "filename",
+        [
+            "report.txt",
+            "my-resume_2024.txt",
+            "Career Guide v2.txt",
+            "a" * 255,
+            "Career_Services_Meeting_Memo (1).txt",
+            "report [final].txt",
+        ],
+    )
     def test_accepts_valid_filenames(self, in_memory_qdrant, mock_embedder, filename):
         client = _make_client(in_memory_qdrant, mock_embedder)
-        r = client.post("/api/ingest", files={"file": (filename, b"hello world career", "text/plain")})
+        r = client.post(
+            "/api/ingest",
+            files={"file": (filename, b"hello world career", "text/plain")},
+        )
         assert r.status_code == 200
 
 
 class TestUploadSizeLimit:
     def test_rejects_oversized_upload_via_ingest(self, in_memory_qdrant, mock_embedder):
         from unittest.mock import patch
+
         client = _make_client(in_memory_qdrant, mock_embedder)
 
         # Simulate Content-Length header > 10MB

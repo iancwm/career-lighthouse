@@ -5,6 +5,7 @@ from unittest.mock import MagicMock
 import numpy as np
 from limiter import limiter
 
+
 @pytest.fixture
 def mock_embedder():
     """Returns a fixed 384-dim vector for any input."""
@@ -12,10 +13,12 @@ def mock_embedder():
     mock.encode.return_value = np.ones(384, dtype=np.float32)
     return mock
 
+
 @pytest.fixture
 def in_memory_qdrant():
     """Qdrant client using in-memory storage for tests."""
     from qdrant_client import QdrantClient
+
     client = QdrantClient(":memory:")
     return client
 
@@ -25,12 +28,14 @@ def reset_docs_cache():
     """Invalidate the list_docs() TTL cache before and after each test."""
     try:
         from routers.kb_router import _invalidate_docs_cache
+
         _invalidate_docs_cache()
     except Exception:
         pass
     yield
     try:
         from routers.kb_router import _invalidate_docs_cache
+
         _invalidate_docs_cache()
     except Exception:
         pass
@@ -62,7 +67,9 @@ def reset_app_overrides():
 def reset_source_ledger(monkeypatch, tmp_path):
     """Keep the source ledger isolated to each test case."""
     monkeypatch.setenv("SOURCE_LEDGER_DIR", str(tmp_path / "source_ledger"))
-    monkeypatch.setenv("SOURCE_LEDGER_HISTORY_DIR", str(tmp_path / "source_ledger_history"))
+    monkeypatch.setenv(
+        "SOURCE_LEDGER_HISTORY_DIR", str(tmp_path / "source_ledger_history")
+    )
     try:
         from services.source_ledger import SourceLedgerStore
 
@@ -84,8 +91,10 @@ def reset_source_ledger(monkeypatch, tmp_path):
 # in unit tests that expect mocks.
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(scope="module")
 def real_embedder():
     """Real SentenceTransformer embedder — use ONLY in integration tests."""
     from services.embedder import Embedder
+
     return Embedder()

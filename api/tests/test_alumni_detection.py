@@ -25,7 +25,9 @@ def session_router_module():
 
     base_dir = Path(__file__).resolve().parent.parent
     router_path = base_dir / "routers" / "session_router.py"
-    spec = importlib.util.spec_from_file_location("session_router_alumni_detection", router_path)
+    spec = importlib.util.spec_from_file_location(
+        "session_router_alumni_detection", router_path
+    )
     module = importlib.util.module_from_spec(spec)
     sys.modules["session_router_alumni_detection"] = module
     assert spec.loader is not None
@@ -50,8 +52,12 @@ def session_router_module():
         ("non_alumni_2.txt", False),
     ],
 )
-def test_is_alumni_heavy_fixture_corpus(session_router_module, fixture_name: str, expected: bool):
-    fixture_path = Path(__file__).parent / "fixtures" / "alumni_heavy_notes" / fixture_name
+def test_is_alumni_heavy_fixture_corpus(
+    session_router_module, fixture_name: str, expected: bool
+):
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "alumni_heavy_notes" / fixture_name
+    )
     text = fixture_path.read_text(encoding="utf-8")
     assert session_router_module._is_alumni_heavy(text) is expected
 
@@ -72,7 +78,13 @@ def test_build_alumni_cards_downgrades_hallucinated_update(session_router_module
             ]
         },
         "session-1",
-        [{"slug": "existing-slug", "full_name": "Existing Person", "current_company": "Grab"}],
+        [
+            {
+                "slug": "existing-slug",
+                "full_name": "Existing Person",
+                "current_company": "Grab",
+            }
+        ],
     )
 
     assert len(cards) == 1
@@ -81,7 +93,9 @@ def test_build_alumni_cards_downgrades_hallucinated_update(session_router_module
     assert cards[0]["diff"]["slug"] == "alicia_tan"
 
 
-def test_build_alumni_cards_applies_slug_collision_suffix_and_confidence_defaults(session_router_module):
+def test_build_alumni_cards_applies_slug_collision_suffix_and_confidence_defaults(
+    session_router_module,
+):
     cards = session_router_module._build_alumni_cards(
         {
             "alumni": [
@@ -91,7 +105,9 @@ def test_build_alumni_cards_applies_slug_collision_suffix_and_confidence_default
                     "profile_proposals": {
                         "full_name": {"value": "Maya Lim"},
                         "current_company": {"value": "Grab"},
-                        "career_trajectory_summary": {"value": "SMU to Grab analyst path"},
+                        "career_trajectory_summary": {
+                            "value": "SMU to Grab analyst path"
+                        },
                     },
                 }
             ]

@@ -3,10 +3,19 @@ from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
 from pydantic import ValidationError
 from dependencies import require_admin_key
 from models_session import CardCommitRequest, CreateSessionRequest, KnowledgeSession
-from models_kb import AlreadyCovered, IntentCard, SessionAnalysisResponse, validate_intent_card_diff
+from models_kb import (
+    AlreadyCovered,
+    IntentCard,
+    SessionAnalysisResponse,
+    validate_intent_card_diff,
+)
 from services.session_store import SessionStore
 from services.track_guidance import build_track_guidance
-from services.kb_writer import apply_alumni_diff, apply_employer_diff, apply_profile_diff
+from services.kb_writer import (
+    apply_alumni_diff,
+    apply_employer_diff,
+    apply_profile_diff,
+)
 from typing import Any, List
 from starlette.requests import Request
 import logging
@@ -15,7 +24,9 @@ from time import perf_counter
 import re
 from uuid import uuid4
 
-_SESSION_INTENTS_EXECUTOR = ThreadPoolExecutor(max_workers=4, thread_name_prefix="session_intents")
+_SESSION_INTENTS_EXECUTOR = ThreadPoolExecutor(
+    max_workers=4, thread_name_prefix="session_intents"
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +45,7 @@ _ALUMNI_NAME_RE = re.compile(r"\b[A-Z][a-z]+ [A-Z][a-z]+\b")
 # Ownership helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_counsellor_id(request: Request) -> str | None:
     """Return the X-Counsellor-ID header value, or None if absent.
 
@@ -44,7 +56,9 @@ def _get_counsellor_id(request: Request) -> str | None:
     return request.headers.get("X-Counsellor-ID")
 
 
-def _check_session_ownership(session: KnowledgeSession, counsellor_id: str | None) -> None:
+def _check_session_ownership(
+    session: KnowledgeSession, counsellor_id: str | None
+) -> None:
     """Raise HTTP 403 if *counsellor_id* is provided and does not match the session owner.
 
     If *counsellor_id* is None (header absent), the check is skipped so that
@@ -62,10 +76,12 @@ def _check_session_ownership(session: KnowledgeSession, counsellor_id: str | Non
         )
         raise HTTPException(status_code=403, detail="Session access denied")
 
+
 # Imported from sibling modules
 from config import settings
 from routers.ingest_router import _sanitize_filename
 from services.ingestion import parse_file
+
 
 def get_session_store():
     return SessionStore()
@@ -75,6 +91,7 @@ def _get_embedder():
     from dependencies import get_embedder
 
     return get_embedder()
+
 
 def _slug_is_safe(slug: str) -> bool:
     """Reject path traversal and injection in slug values."""
@@ -121,7 +138,11 @@ def _iter_alumni_extractions(extraction: Any) -> list[dict[str, Any]]:
         alumni_items = extraction.get("alumni")
         if isinstance(alumni_items, list):
             return [item for item in alumni_items if isinstance(item, dict)]
-        if extraction.get("profile_proposals") or extraction.get("company_link_proposals") or extraction.get("summary_bullets"):
+        if (
+            extraction.get("profile_proposals")
+            or extraction.get("company_link_proposals")
+            or extraction.get("summary_bullets")
+        ):
             return [extraction]
     if isinstance(extraction, list):
         return [item for item in extraction if isinstance(item, dict)]
@@ -154,7 +175,11 @@ def _build_alumni_cards(
             proposals_payload = {}
         company_links = alumnus.get("company_link_proposals")
         if not isinstance(company_links, list):
-            company_links = alumnus.get("company_links") if isinstance(alumnus.get("company_links"), list) else []
+            company_links = (
+                alumnus.get("company_links")
+                if isinstance(alumnus.get("company_links"), list)
+                else []
+            )
 
         source_type = (
             alumnus.get("source")
@@ -182,11 +207,15 @@ def _build_alumni_cards(
                     "rationale": None,
                 }
 
-        full_name = str(diff.get("full_name") or diff.get("name") or alumnus.get("full_name") or "").strip()
+        full_name = str(
+            diff.get("full_name") or diff.get("name") or alumnus.get("full_name") or ""
+        ).strip()
         matched_slug = str(alumnus.get("matched_slug") or "").strip() or None
         resolved_matched_slug = None
         if matched_slug:
-            resolved_matched_slug = existing_slug_map.get(matched_slug) or existing_slug_map.get(safe_slug(matched_slug))
+            resolved_matched_slug = existing_slug_map.get(
+                matched_slug
+            ) or existing_slug_map.get(safe_slug(matched_slug))
         is_update = bool(alumnus.get("is_update")) and bool(resolved_matched_slug)
         if is_update and not resolved_matched_slug:
             is_update = False
@@ -196,7 +225,9 @@ def _build_alumni_cards(
         if not slug:
             slug = safe_slug(full_name) or f"alumni-{uuid4().hex[:8]}"
         canonical_slug = safe_slug(slug) or slug
-        if not is_update and (slug in existing_slug_map or canonical_slug in existing_slug_map):
+        if not is_update and (
+            slug in existing_slug_map or canonical_slug in existing_slug_map
+        ):
             slug = f"{canonical_slug}-{date_suffix}"
 
         diff["slug"] = slug
@@ -205,13 +236,30 @@ def _build_alumni_cards(
 
         summary_bullets = alumnus.get("summary_bullets")
         if not isinstance(summary_bullets, list):
-            summary_bullets = extraction.get("summary_bullets") if isinstance(extraction.get("summary_bullets"), list) else []
+            summary_bullets = (
+                extraction.get("summary_bullets")
+                if isinstance(extraction.get("summary_bullets"), list)
+                else []
+            )
         source_excerpt = str(alumnus.get("source_excerpt") or "").strip()
         if not source_excerpt:
-            source_excerpt = str(next((bullet for bullet in summary_bullets if isinstance(bullet, str) and bullet.strip()), "")).strip()
+            source_excerpt = str(
+                next(
+                    (
+                        bullet
+                        for bullet in summary_bullets
+                        if isinstance(bullet, str) and bullet.strip()
+                    ),
+                    "",
+                )
+            ).strip()
 
         display_name = full_name or slug.replace("-", " ").title()
-        summary = f"Update alumni profile for {display_name}" if is_update else f"Create alumni profile for {display_name}"
+        summary = (
+            f"Update alumni profile for {display_name}"
+            if is_update
+            else f"Create alumni profile for {display_name}"
+        )
         cards.append(
             {
                 "card_id": f"alumni-{slug}-{uuid4().hex[:8]}",
@@ -233,20 +281,31 @@ def _apply_field_updates_to_profile(slug: str, diff: dict) -> tuple[list[str], b
 
 
 def _apply_field_updates_to_employer(slug: str, diff: dict) -> tuple[list[str], bool]:
-    result = apply_employer_diff(slug, diff, create_missing=True, snapshot=False, source="Card commit")
+    result = apply_employer_diff(
+        slug, diff, create_missing=True, snapshot=False, source="Card commit"
+    )
     return result.changed_fields, result.is_new
 
 
-def _apply_field_updates_to_alumni(slug: str, diff: dict[str, Any]) -> tuple[list[str], bool, int | None, int | None]:
+def _apply_field_updates_to_alumni(
+    slug: str, diff: dict[str, Any]
+) -> tuple[list[str], bool, int | None, int | None]:
     result = apply_alumni_diff(slug, diff, source="Card commit")
-    return result.changed_fields, result.is_new, result.company_links_attempted, result.company_links_written
+    return (
+        result.changed_fields,
+        result.is_new,
+        result.company_links_attempted,
+        result.company_links_written,
+    )
 
 
 def _check_session_completion(session: KnowledgeSession) -> None:
     """Transition to 'completed' if all cards are committed/discarded."""
     if session.status != "analyzed":
         return
-    all_done = all(c.get("status") in ("committed", "discarded") for c in session.intent_cards)
+    all_done = all(
+        c.get("status") in ("committed", "discarded") for c in session.intent_cards
+    )
     if all_done and len(session.intent_cards) > 0:
         session.status = "completed"
 
@@ -262,7 +321,9 @@ def _workflow_timestamp() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _workflow_step(label: str, status: str, detail: str | None = None, **metadata: Any) -> dict[str, Any]:
+def _workflow_step(
+    label: str, status: str, detail: str | None = None, **metadata: Any
+) -> dict[str, Any]:
     return {
         "step_id": f"step-{uuid4().hex[:8]}",
         "label": label,
@@ -270,7 +331,9 @@ def _workflow_step(label: str, status: str, detail: str | None = None, **metadat
         "started_at": _workflow_timestamp(),
         "ended_at": _workflow_timestamp(),
         "detail": detail,
-        "metadata": {key: value for key, value in metadata.items() if value is not None},
+        "metadata": {
+            key: value for key, value in metadata.items() if value is not None
+        },
     }
 
 
@@ -278,6 +341,7 @@ def _ensure_analysis_workflow(session: KnowledgeSession) -> dict[str, Any]:
     if not isinstance(session.analysis_workflow, dict):
         session.analysis_workflow = {}
     return session.analysis_workflow
+
 
 @router.get("", response_model=List[KnowledgeSession])
 def list_sessions(request: Request, store: SessionStore = Depends(get_session_store)):
@@ -324,7 +388,9 @@ async def parse_session_file(
     try:
         extracted_text = parse_file(raw_content, sanitized_filename)
     except Exception:
-        logger.warning("parse_session_file: failed to parse %r", sanitized_filename, exc_info=True)
+        logger.warning(
+            "parse_session_file: failed to parse %r", sanitized_filename, exc_info=True
+        )
         raise HTTPException(
             status_code=422,
             detail="Could not extract text from this file. Try pasting the content manually.",
@@ -350,13 +416,17 @@ def create_session(
     counsellor_id = _get_counsellor_id(request) or req.counsellor_id
     return store.create_session(req.raw_input, created_by=counsellor_id)
 
+
 @router.get("/{session_id}", response_model=KnowledgeSession)
-def get_session(session_id: str, request: Request, store: SessionStore = Depends(get_session_store)):
+def get_session(
+    session_id: str, request: Request, store: SessionStore = Depends(get_session_store)
+):
     session = store.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
     _check_session_ownership(session, _get_counsellor_id(request))
     return session
+
 
 @router.post("/{session_id}/analyze", response_model=SessionAnalysisResponse)
 def analyze_session(
@@ -372,7 +442,9 @@ def analyze_session(
     _check_session_ownership(session, _get_counsellor_id(request))
 
     if session.status == "completed":
-        raise HTTPException(status_code=409, detail="Completed sessions cannot be re-analyzed")
+        raise HTTPException(
+            status_code=409, detail="Completed sessions cannot be re-analyzed"
+        )
 
     workflow_id = uuid4().hex
     session.analysis_workflow = {
@@ -424,7 +496,9 @@ def analyze_session(
     try:
         profiles = profile_store.list_profiles()
         # list_profiles returns model objects — convert to dicts
-        existing_tracks = [p if isinstance(p, dict) else p.model_dump() for p in profiles]
+        existing_tracks = [
+            p if isinstance(p, dict) else p.model_dump() for p in profiles
+        ]
     except Exception:
         pass  # Non-fatal — LLM works without track context
 
@@ -432,7 +506,9 @@ def analyze_session(
     try:
         employers = employer_store.list_employers()
         # list_employers returns dicts already
-        existing_employers = [e if isinstance(e, dict) else e.model_dump() for e in employers]
+        existing_employers = [
+            e if isinstance(e, dict) else e.model_dump() for e in employers
+        ]
     except Exception:
         pass  # Non-fatal
 
@@ -447,9 +523,14 @@ def analyze_session(
     # total can still exceed the ALB/nginx gateway timeout.
     from services.llm import generate_session_intents
     from config import settings as _settings
+
     _deadline = float(getattr(_settings, "llm_session_timeout_seconds", 180))
-    logger.info("analyze: passing %d tracks and %d employers to LLM (deadline %.0fs)",
-        len(existing_tracks), len(existing_employers), _deadline)
+    logger.info(
+        "analyze: passing %d tracks and %d employers to LLM (deadline %.0fs)",
+        len(existing_tracks),
+        len(existing_employers),
+        _deadline,
+    )
     try:
         _future = _SESSION_INTENTS_EXECUTOR.submit(
             generate_session_intents,
@@ -457,7 +538,10 @@ def analyze_session(
             existing_tracks=existing_tracks,
             existing_employers=existing_employers,
             session_id=session.id,
-            trace_metadata={"workflow_id": workflow_id, "workflow_name": "session_card_analysis"},
+            trace_metadata={
+                "workflow_id": workflow_id,
+                "workflow_name": "session_card_analysis",
+            },
         )
         result = _future.result(timeout=_deadline)
     except FuturesTimeoutError:
@@ -470,7 +554,9 @@ def analyze_session(
         workflow["ended_at"] = _workflow_timestamp()
         workflow["drop_point"] = "session_intent_generation"
         workflow["failure_summary"] = session.analysis_error
-        workflow["steps"].append(_workflow_step("Intent extraction", "error", session.analysis_error))
+        workflow["steps"].append(
+            _workflow_step("Intent extraction", "error", session.analysis_error)
+        )
         _touch_session(session)
         raise HTTPException(
             status_code=504,
@@ -489,7 +575,9 @@ def analyze_session(
         workflow["ended_at"] = _workflow_timestamp()
         workflow["drop_point"] = "session_intent_generation"
         workflow["failure_summary"] = session.analysis_error
-        workflow["steps"].append(_workflow_step("Intent extraction", "error", session.analysis_error))
+        workflow["steps"].append(
+            _workflow_step("Intent extraction", "error", session.analysis_error)
+        )
         _touch_session(session)
         raise
     except Exception as exc:
@@ -502,7 +590,9 @@ def analyze_session(
         workflow["ended_at"] = _workflow_timestamp()
         workflow["drop_point"] = "session_intent_generation"
         workflow["failure_summary"] = session.analysis_error
-        workflow["steps"].append(_workflow_step("Intent extraction", "error", session.analysis_error))
+        workflow["steps"].append(
+            _workflow_step("Intent extraction", "error", session.analysis_error)
+        )
         _touch_session(session)
         raise HTTPException(status_code=503, detail="Analysis service unavailable")
 
@@ -554,7 +644,9 @@ def analyze_session(
         }
         workflow["steps"].append(_workflow_step("Card validation", "error", str(exc)))
         _touch_session(session)
-        raise HTTPException(status_code=422, detail="Invalid intent card payload from analysis service")
+        raise HTTPException(
+            status_code=422, detail="Invalid intent card payload from analysis service"
+        )
 
     alumni_heavy = _is_alumni_heavy(session.raw_input)
     workflow["alumni"]["heavy"] = alumni_heavy
@@ -578,30 +670,56 @@ def analyze_session(
                 text=session.raw_input,
                 existing_alumni=existing_alumni,
                 session_id=session.id,
-                trace_metadata={"workflow_id": workflow_id, "workflow_name": "session_card_analysis"},
+                trace_metadata={
+                    "workflow_id": workflow_id,
+                    "workflow_name": "session_card_analysis",
+                },
             )
             workflow["alumni"]["invoked"] = True
-            built_alumni_cards = _build_alumni_cards(alumni_extraction, session.id, existing_alumni)
+            built_alumni_cards = _build_alumni_cards(
+                alumni_extraction, session.id, existing_alumni
+            )
             for alumni_card in built_alumni_cards:
                 cards.append(IntentCard(**alumni_card))
             workflow["alumni"]["result"] = "invoked"
             workflow["alumni"]["cards_built"] = len(built_alumni_cards)
             workflow["card_counts"]["alumni_built"] = len(built_alumni_cards)
-            workflow["steps"].append(_workflow_step("Alumni extraction", "ok", cards=len(built_alumni_cards)))
-            logger.info("analyze: alumni extraction took %dms", round((perf_counter() - started) * 1000))
+            workflow["steps"].append(
+                _workflow_step("Alumni extraction", "ok", cards=len(built_alumni_cards))
+            )
+            logger.info(
+                "analyze: alumni extraction took %dms",
+                round((perf_counter() - started) * 1000),
+            )
         except HTTPException:
             workflow["alumni"]["invoked"] = True
             workflow["alumni"]["result"] = "http_error"
-            workflow["steps"].append(_workflow_step("Alumni extraction", "error", "Upstream HTTP error"))
-            logger.warning("analyze: alumni extraction skipped after upstream HTTP error", exc_info=True)
+            workflow["steps"].append(
+                _workflow_step("Alumni extraction", "error", "Upstream HTTP error")
+            )
+            logger.warning(
+                "analyze: alumni extraction skipped after upstream HTTP error",
+                exc_info=True,
+            )
         except Exception:
             workflow["alumni"]["invoked"] = True
             workflow["alumni"]["result"] = "parse_error"
-            workflow["steps"].append(_workflow_step("Alumni extraction", "error", "Parse or validation error"))
-            logger.warning("analyze: alumni extraction skipped after parse/validation error", exc_info=True)
+            workflow["steps"].append(
+                _workflow_step(
+                    "Alumni extraction", "error", "Parse or validation error"
+                )
+            )
+            logger.warning(
+                "analyze: alumni extraction skipped after parse/validation error",
+                exc_info=True,
+            )
     else:
         workflow["alumni"]["result"] = "skipped_not_alumni_heavy"
-        workflow["steps"].append(_workflow_step("Alumni heavy detection", "ok", "Alumni path skipped", heavy=False))
+        workflow["steps"].append(
+            _workflow_step(
+                "Alumni heavy detection", "ok", "Alumni path skipped", heavy=False
+            )
+        )
 
     # Build AlreadyCovered objects
     already_covered = []
@@ -633,7 +751,10 @@ def analyze_session(
     }
     workflow["drop_point"] = (
         "alumni_card_build"
-        if alumni_heavy and workflow["alumni"]["invoked"] and workflow["alumni"]["cards_built"] == 0 and workflow["card_counts"]["raw"] == 0
+        if alumni_heavy
+        and workflow["alumni"]["invoked"]
+        and workflow["alumni"]["cards_built"] == 0
+        and workflow["card_counts"]["raw"] == 0
         else "session.intent_cards"
     )
     _touch_session(session)
@@ -658,7 +779,9 @@ def cancel_session(
         raise HTTPException(status_code=404, detail="Session not found")
     _check_session_ownership(session, _get_counsellor_id(request))
     if session.status == "completed":
-        raise HTTPException(status_code=409, detail="Completed sessions cannot be cancelled")
+        raise HTTPException(
+            status_code=409, detail="Completed sessions cannot be cancelled"
+        )
     session.status = "cancelled"
     session.analysis_error = "Cancelled by user"
     if isinstance(session.analysis_workflow, dict):
@@ -689,7 +812,9 @@ def commit_card(
         raise HTTPException(status_code=404, detail="Card not found")
 
     if card.get("status") != "pending":
-        raise HTTPException(status_code=409, detail=f"Card already {card.get('status')}")
+        raise HTTPException(
+            status_code=409, detail=f"Card already {card.get('status')}"
+        )
 
     domain = card.get("domain", "")
     if domain not in ("track", "employer", "alumni"):
@@ -702,7 +827,9 @@ def commit_card(
     try:
         effective_diff = validate_intent_card_diff(domain, effective_diff)
     except (ValidationError, ValueError, TypeError) as exc:
-        raise HTTPException(status_code=422, detail=f"Invalid {domain} card diff: {exc}")
+        raise HTTPException(
+            status_code=422, detail=f"Invalid {domain} card diff: {exc}"
+        )
 
     # Strip empty values to avoid writing blank fields
     effective_diff = {
@@ -713,7 +840,10 @@ def commit_card(
 
     target_slug = effective_diff.get("slug")
     if not target_slug:
-        raise HTTPException(status_code=400, detail="Card diff is missing 'slug' field — cannot determine target entity")
+        raise HTTPException(
+            status_code=400,
+            detail="Card diff is missing 'slug' field — cannot determine target entity",
+        )
 
     if not _slug_is_safe(target_slug):
         raise HTTPException(status_code=422, detail="Invalid slug format")
@@ -723,11 +853,17 @@ def commit_card(
     links_attempted: int | None = None
     links_written: int | None = None
     if domain == "track":
-        changed_fields, is_new = _apply_field_updates_to_profile(target_slug, effective_diff)
+        changed_fields, is_new = _apply_field_updates_to_profile(
+            target_slug, effective_diff
+        )
     elif domain == "employer":
-        changed_fields, is_new = _apply_field_updates_to_employer(target_slug, effective_diff)
+        changed_fields, is_new = _apply_field_updates_to_employer(
+            target_slug, effective_diff
+        )
     else:
-        changed_fields, is_new, links_attempted, links_written = _apply_field_updates_to_alumni(target_slug, effective_diff)
+        changed_fields, is_new, links_attempted, links_written = (
+            _apply_field_updates_to_alumni(target_slug, effective_diff)
+        )
 
     card["status"] = "committed"
     _check_session_completion(session)
@@ -751,7 +887,12 @@ def commit_card(
 
 
 @router.post("/{session_id}/cards/{card_id}/discard")
-def discard_card(session_id: str, card_id: str, request: Request, store: SessionStore = Depends(get_session_store)):
+def discard_card(
+    session_id: str,
+    card_id: str,
+    request: Request,
+    store: SessionStore = Depends(get_session_store),
+):
     """Discard a single card without writing anything."""
     session = store.get_session(session_id)
     if not session:
@@ -763,7 +904,9 @@ def discard_card(session_id: str, card_id: str, request: Request, store: Session
         raise HTTPException(status_code=404, detail="Card not found")
 
     if card.get("status") != "pending":
-        raise HTTPException(status_code=409, detail=f"Card already {card.get('status')}")
+        raise HTTPException(
+            status_code=409, detail=f"Card already {card.get('status')}"
+        )
 
     card["status"] = "discarded"
     _check_session_completion(session)

@@ -1,4 +1,5 @@
 """Business logic for diff-first KB ingestion and related research helpers."""
+
 from __future__ import annotations
 
 import logging
@@ -77,12 +78,18 @@ def extract_generation_input(
         try:
             counsellor_input = parse_file(raw_bytes, fname)
         except Exception as exc:
-            logger.warning("%s: failed to parse uploaded file %r: %s", error_context, fname, exc)
-            raise HTTPException(status_code=422, detail="Could not extract text from the uploaded file.") from exc
+            logger.warning(
+                "%s: failed to parse uploaded file %r: %s", error_context, fname, exc
+            )
+            raise HTTPException(
+                status_code=422, detail="Could not extract text from the uploaded file."
+            ) from exc
         return counsellor_input, "file", fname
 
     if not text or not text.strip():
-        raise HTTPException(status_code=422, detail="Provide either 'text' or a file upload.")
+        raise HTTPException(
+            status_code=422, detail="Provide either 'text' or a file upload."
+        )
     return text.strip(), "note", "counsellor_note"
 
 
@@ -104,10 +111,14 @@ def retrieve_generation_chunks(
         raise HTTPException(status_code=503, detail="KB unavailable") from exc
 
 
-def merge_source_refs(existing_refs: list[dict] | list, source_type: str, source_label: str) -> list[SourceRef]:
+def merge_source_refs(
+    existing_refs: list[dict] | list, source_type: str, source_label: str
+) -> list[SourceRef]:
     seen: set[tuple[str, str]] = set()
     merged: list[SourceRef] = []
-    for raw in list(existing_refs or []) + [{"type": source_type, "label": source_label}]:
+    for raw in list(existing_refs or []) + [
+        {"type": source_type, "label": source_label}
+    ]:
         if isinstance(raw, dict):
             ref_type = str(raw.get("type", "")).strip()
             label = str(raw.get("label", "")).strip()
@@ -153,7 +164,9 @@ def analyse_counsellor_input(
     employer_summary = build_employer_summary(employer_store)
 
     try:
-        raw = llm_service.analyse_kb_input(counsellor_input, retrieved, profile_summary, employer_summary)
+        raw = llm_service.analyse_kb_input(
+            counsellor_input, retrieved, profile_summary, employer_summary
+        )
     except ValueError as exc:
         logger.warning("analyse: Claude returned malformed JSON: %s", exc)
         raise HTTPException(
@@ -162,12 +175,16 @@ def analyse_counsellor_input(
         ) from exc
     except Exception as exc:
         logger.error("analyse: LLM call failed: %s", exc)
-        raise HTTPException(status_code=503, detail="Analysis service unavailable") from exc
+        raise HTTPException(
+            status_code=503, detail="Analysis service unavailable"
+        ) from exc
 
     try:
         result = KBAnalysisResult(**raw)
     except Exception as exc:
-        logger.warning("analyse: Pydantic validation failed: %s | raw=%r", exc, str(raw)[:300])
+        logger.warning(
+            "analyse: Pydantic validation failed: %s | raw=%r", exc, str(raw)[:300]
+        )
         raise HTTPException(
             status_code=422,
             detail="Analysis failed — please try again or rephrase your input.",
@@ -180,13 +197,17 @@ def analyse_counsellor_input(
         chunk.source_type = safe_chunk_source_type
         chunk.source_timestamp = chunk.source_timestamp or provenance_timestamp
         content_key = chunk.text.strip()[:120]
-        chunk.chunk_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_label}::{content_key}"))
+        chunk.chunk_id = str(
+            uuid.uuid5(uuid.NAMESPACE_DNS, f"{source_label}::{content_key}")
+        )
 
     for update_map in (result.profile_updates, result.employer_updates):
         for fields in update_map.values():
             for change in fields.values():
                 change.source_type = change.source_type or source_type
                 change.source_label = change.source_label or source_label
-                change.source_timestamp = change.source_timestamp or provenance_timestamp
+                change.source_timestamp = (
+                    change.source_timestamp or provenance_timestamp
+                )
 
     return result

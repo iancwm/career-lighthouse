@@ -17,6 +17,7 @@ Note on the 'structured:' sub-object in YAML files:
   (Sprint 3+). It is intentionally NOT injected into the LLM context block — the
   prose fields below are richer and better suited for natural language consumption.
 """
+
 import logging
 import os
 import re
@@ -179,37 +180,53 @@ class CareerProfileStore(Singleton):
         slug    = store.match_career_type(query_vec)       # None if score < threshold
         items   = store.list_profiles()                    # for admin endpoint
     """
+
     _instance = None
 
     def _init_singleton(self) -> None:
         self._loaded = False
 
     def _ensure_loaded(self) -> None:
-        version_path = Path(os.environ.get("TRACKS_VERSION_PATH", str(_default_tracks_version_path())))
+        version_path = Path(
+            os.environ.get("TRACKS_VERSION_PATH", str(_default_tracks_version_path()))
+        )
         current_mtime = version_path.stat().st_mtime if version_path.exists() else None
-        if self._loaded and getattr(self, "_tracks_version_mtime", None) == current_mtime:
+        if (
+            self._loaded
+            and getattr(self, "_tracks_version_mtime", None) == current_mtime
+        ):
             return
-        self._profiles: dict[str, dict] = {}            # slug → profile dict
-        self._type_embeddings: dict[str, np.ndarray] = {}  # slug → 384-dim vector (cosine-eligible only)
-        self._keyword_index: dict[str, list[str]] = {}  # slug → keyword list (lowercased)
-        self._broken_profiles: dict[str, dict] = {}     # slug → {filename, missing_fields, raw_profile}
+        self._profiles: dict[str, dict] = {}  # slug → profile dict
+        self._type_embeddings: dict[
+            str, np.ndarray
+        ] = {}  # slug → 384-dim vector (cosine-eligible only)
+        self._keyword_index: dict[
+            str, list[str]
+        ] = {}  # slug → keyword list (lowercased)
+        self._broken_profiles: dict[
+            str, dict
+        ] = {}  # slug → {filename, missing_fields, raw_profile}
         self._load_profiles()
         self._tracks_version_mtime = current_mtime
         self._loaded = True
 
     def _load_profiles(self) -> None:
-        profiles_dir = Path(os.environ.get(
-            "CAREER_PROFILES_DIR",
-            str(_default_profiles_dir()),
-        ))
+        profiles_dir = Path(
+            os.environ.get(
+                "CAREER_PROFILES_DIR",
+                str(_default_profiles_dir()),
+            )
+        )
         if not profiles_dir.exists():
             logger.warning(
-                "Career profiles directory not found: %s — profile injection disabled", profiles_dir
+                "Career profiles directory not found: %s — profile injection disabled",
+                profiles_dir,
             )
             return
 
         # Embedder is a singleton; importing here avoids circular imports at module level.
         from services.embedder import Embedder
+
         embedder = Embedder()
 
         yaml_files = sorted(profiles_dir.glob("*.yaml"))
@@ -221,7 +238,8 @@ class CareerProfileStore(Singleton):
                     profile = yaml.safe_load(f)
                 if not isinstance(profile, dict):
                     logger.warning(
-                        "Career profile %s: not a valid YAML mapping — skipping", yaml_path.name
+                        "Career profile %s: not a valid YAML mapping — skipping",
+                        yaml_path.name,
                     )
                     continue
                 missing = _REQUIRED_FIELDS - set(profile.keys())
@@ -235,7 +253,8 @@ class CareerProfileStore(Singleton):
                     logger.error(
                         "Career profile %s: BROKEN — missing required fields %s. "
                         "Visible in admin under 'Broken Profiles'.",
-                        yaml_path.name, sorted(missing),
+                        yaml_path.name,
+                        sorted(missing),
                     )
                     continue
                 counselor_contact = profile.get("counselor_contact")
@@ -248,11 +267,16 @@ class CareerProfileStore(Singleton):
                 # Use match_description if present — richer keyword text produces
                 # more reliable cosine scores against full student messages.
                 # Falls back to career_type name if match_description is absent.
-                match_text = str(profile.get("match_description") or profile["career_type"]).strip()
+                match_text = str(
+                    profile.get("match_description") or profile["career_type"]
+                ).strip()
                 self._profiles[slug] = profile
                 keywords = profile.get("match_keywords") or []
                 if not keywords:
-                    keywords = [slug.replace("_", " "), str(profile.get("career_type", slug))]
+                    keywords = [
+                        slug.replace("_", " "),
+                        str(profile.get("career_type", slug)),
+                    ]
                 cleaned_keywords: list[str] = []
                 seen: set[str] = set()
                 for keyword in keywords:
@@ -267,22 +291,33 @@ class CareerProfileStore(Singleton):
                     self._type_embeddings[slug] = embedder.encode(match_text)
                 else:
                     logger.info(
-                        "Career profile %s: match_cosine=false — excluded from cosine switching", slug
+                        "Career profile %s: match_cosine=false — excluded from cosine switching",
+                        slug,
                     )
                 loaded += 1
-                logger.info("Loaded career profile: %s (%s)", slug, profile.get("career_type", slug))
+                logger.info(
+                    "Loaded career profile: %s (%s)",
+                    slug,
+                    profile.get("career_type", slug),
+                )
             except yaml.YAMLError as exc:
                 logger.warning(
-                    "Career profile %s: YAML parse error — skipping: %s", yaml_path.name, exc
+                    "Career profile %s: YAML parse error — skipping: %s",
+                    yaml_path.name,
+                    exc,
                 )
             except Exception as exc:
                 logger.warning(
-                    "Career profile %s: failed to load — skipping: %s", yaml_path.name, exc
+                    "Career profile %s: failed to load — skipping: %s",
+                    yaml_path.name,
+                    exc,
                 )
 
         logger.info(
             "CareerProfileStore: loaded %d/%d profiles from %s",
-            loaded, len(yaml_files), profiles_dir,
+            loaded,
+            len(yaml_files),
+            profiles_dir,
         )
 
     def get_profile(self, slug: Optional[str]) -> Optional[dict]:
@@ -297,7 +332,8 @@ class CareerProfileStore(Singleton):
         profile = self._profiles.get(slug)
         if profile is None:
             logger.warning(
-                "CareerProfileStore: unknown career type slug %r — treating as no profile", slug
+                "CareerProfileStore: unknown career type slug %r — treating as no profile",
+                slug,
             )
         return profile
 
@@ -322,11 +358,13 @@ class CareerProfileStore(Singleton):
         for slug, type_vec in self._type_embeddings.items():
             score = float(np.dot(query_embedding, type_vec))
             profile = self._profiles.get(slug, {})
-            scored.append({
-                "slug": slug,
-                "label": profile.get("career_type", slug),
-                "score": score,
-            })
+            scored.append(
+                {
+                    "slug": slug,
+                    "label": profile.get("career_type", slug),
+                    "score": score,
+                }
+            )
         scored.sort(key=lambda item: item["score"], reverse=True)
         return scored[:limit]
 
@@ -369,16 +407,20 @@ class CareerProfileStore(Singleton):
         for slug, profile in self._profiles.items():
             structured = profile.get("structured") or {}
             counselor = profile.get("counselor_contact")
-            result.append({
-                "slug": slug,
-                "career_type": profile.get("career_type", slug),
-                "ep_tier": structured.get("sponsorship_tier"),
-                "ep_realistic": structured.get("ep_realistic"),
-                "salary_min_sgd": structured.get("salary_min_sgd"),
-                "salary_max_sgd": structured.get("salary_max_sgd"),
-                "compass_points_typical": structured.get("compass_points_typical"),
-                "has_counselor_contact": bool(counselor and not _is_placeholder_counselor_contact(counselor)),
-            })
+            result.append(
+                {
+                    "slug": slug,
+                    "career_type": profile.get("career_type", slug),
+                    "ep_tier": structured.get("sponsorship_tier"),
+                    "ep_realistic": structured.get("ep_realistic"),
+                    "salary_min_sgd": structured.get("salary_min_sgd"),
+                    "salary_max_sgd": structured.get("salary_max_sgd"),
+                    "compass_points_typical": structured.get("compass_points_typical"),
+                    "has_counselor_contact": bool(
+                        counselor and not _is_placeholder_counselor_contact(counselor)
+                    ),
+                }
+            )
         return result
 
     def list_broken_profiles(self) -> list[dict]:

@@ -4,6 +4,7 @@ Alumni are stored as first-class entities under knowledge/alumni/, with
 append-only company-link events under knowledge/alumni_company_links/ and
 immutable history snapshots under knowledge/alumni_history/.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -40,12 +41,14 @@ from services import llm as llm_service
 
 logger = logging.getLogger(__name__)
 
-_COMPLETENESS_REQUIRED: frozenset[str] = frozenset([
-    "full_name",
-    "current_company",
-    "current_title",
-    "last_confirmed_at",
-])
+_COMPLETENESS_REQUIRED: frozenset[str] = frozenset(
+    [
+        "full_name",
+        "current_company",
+        "current_title",
+        "last_confirmed_at",
+    ]
+)
 _CAN_REFER_MIN_CONFIDENCE = 80
 _ALLOWED_CAN_REFER = {"yes", "maybe", "no"}
 _ALLOWED_NETWORK = {"low", "medium", "high"}
@@ -73,17 +76,23 @@ def _alumni_dir() -> Path:
 
 
 def _history_dir() -> Path:
-    return Path(os.environ.get("ALUMNI_HISTORY_DIR", str(_default_alumni_history_dir())))
+    return Path(
+        os.environ.get("ALUMNI_HISTORY_DIR", str(_default_alumni_history_dir()))
+    )
 
 
 def _links_dir() -> Path:
-    return Path(os.environ.get("ALUMNI_COMPANY_LINKS_DIR", str(_default_alumni_links_dir())))
+    return Path(
+        os.environ.get("ALUMNI_COMPANY_LINKS_DIR", str(_default_alumni_links_dir()))
+    )
 
 
 def _manifest_path() -> Path:
-    return Path(os.environ.get("ALUMNI_BACKFILL_MANIFEST_PATH", str(_default_backfill_manifest_path())))
-
-
+    return Path(
+        os.environ.get(
+            "ALUMNI_BACKFILL_MANIFEST_PATH", str(_default_backfill_manifest_path())
+        )
+    )
 
 
 def _normalize_text(value: Any) -> str | None:
@@ -108,7 +117,9 @@ def _normalize_bool(value: Any) -> bool | None:
     return None
 
 
-def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, Any] | None = None) -> dict[str, Any]:
+def _normalize_profile_payload(
+    payload: dict[str, Any], *, existing: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Merge and normalize an alumni profile payload over an optional existing record.
 
     Handles field aliases (name→full_name, degree→graduation_program), coerces
@@ -152,7 +163,13 @@ def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, A
         if key in data:
             data[key] = _normalize_text(data.get(key))
 
-    for key in ("career_goals_domains", "mentoring_modes", "preferred_student_traits", "common_interests", "can_refer_evidence"):
+    for key in (
+        "career_goals_domains",
+        "mentoring_modes",
+        "preferred_student_traits",
+        "common_interests",
+        "can_refer_evidence",
+    ):
         data[key] = normalize_list(data.get(key))
 
     if data.get("graduation_year") is not None:
@@ -179,13 +196,26 @@ def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, A
     data["can_refer"] = can_refer
 
     confidence = data.get("can_refer_confidence")
-    confidence = safe_int(confidence) if confidence is not None and str(confidence).strip() else None
+    confidence = (
+        safe_int(confidence)
+        if confidence is not None and str(confidence).strip()
+        else None
+    )
     data["can_refer_confidence"] = confidence
 
     if can_refer == "yes":
-        evidence = [str(item).strip() for item in data.get("can_refer_evidence", []) if str(item).strip()]
+        evidence = [
+            str(item).strip()
+            for item in data.get("can_refer_evidence", [])
+            if str(item).strip()
+        ]
         consent = data.get("consent_for_referrals")
-        if consent is False or confidence is None or confidence < _CAN_REFER_MIN_CONFIDENCE or not evidence:
+        if (
+            consent is False
+            or confidence is None
+            or confidence < _CAN_REFER_MIN_CONFIDENCE
+            or not evidence
+        ):
             data["can_refer"] = "maybe"
             data["can_refer_evidence"] = evidence
             data.setdefault(
@@ -222,7 +252,9 @@ def _normalize_profile_payload(payload: dict[str, Any], *, existing: dict[str, A
     return data
 
 
-def _compute_completeness(profile: dict[str, Any], *, company_link_count: int = 0) -> str:
+def _compute_completeness(
+    profile: dict[str, Any], *, company_link_count: int = 0
+) -> str:
     """Return 'green' when all required fields are populated, referral consent is set, and at least one company link exists; else 'amber'."""
     for field in _COMPLETENESS_REQUIRED:
         value = profile.get(field)
@@ -230,7 +262,10 @@ def _compute_completeness(profile: dict[str, Any], *, company_link_count: int = 
             return "amber"
         if isinstance(value, str) and not value.strip():
             return "amber"
-    if profile.get("can_refer") == "yes" and profile.get("consent_for_referrals") is not True:
+    if (
+        profile.get("can_refer") == "yes"
+        and profile.get("consent_for_referrals") is not True
+    ):
         return "amber"
     if not company_link_count:
         return "amber"
@@ -259,11 +294,13 @@ def _profile_history_payload(slug: str) -> list[dict[str, Any]]:
         return []
     entries: list[dict[str, Any]] = []
     for yaml_path in sorted(history_dir.glob("*.yaml"), reverse=True):
-        entries.append({
-            "version": yaml_path.stem,
-            "recorded_at": yaml_path.stem,
-            "filename": yaml_path.name,
-        })
+        entries.append(
+            {
+                "version": yaml_path.stem,
+                "recorded_at": yaml_path.stem,
+                "filename": yaml_path.name,
+            }
+        )
     return entries
 
 
@@ -276,13 +313,15 @@ def _link_history_payload(slug: str) -> list[dict[str, Any]]:
         payload = read_yaml(yaml_path)
         if not isinstance(payload, dict):
             continue
-        entries.append({
-            "version": yaml_path.stem,
-            "recorded_at": payload.get("recorded_at") or yaml_path.stem,
-            "filename": yaml_path.name,
-            "link_id": payload.get("link_id", ""),
-            "lifecycle": payload.get("lifecycle", "active"),
-        })
+        entries.append(
+            {
+                "version": yaml_path.stem,
+                "recorded_at": payload.get("recorded_at") or yaml_path.stem,
+                "filename": yaml_path.name,
+                "link_id": payload.get("link_id", ""),
+                "lifecycle": payload.get("lifecycle", "active"),
+            }
+        )
     return entries
 
 
@@ -300,12 +339,16 @@ def _save_manifest(payload: dict[str, Any]) -> None:
 
 def _manifest_signature_set() -> set[str]:
     manifest = _load_manifest()
-    return {str(item) for item in manifest.get("source_signatures", []) if str(item).strip()}
+    return {
+        str(item) for item in manifest.get("source_signatures", []) if str(item).strip()
+    }
 
 
 def _record_manifest_signature(signature: str) -> None:
     manifest = _load_manifest()
-    signatures = {str(item) for item in manifest.get("source_signatures", []) if str(item).strip()}
+    signatures = {
+        str(item) for item in manifest.get("source_signatures", []) if str(item).strip()
+    }
     signatures.add(signature)
     manifest["source_signatures"] = sorted(signatures)
     manifest["migrated_at"] = utc_now_iso()
@@ -316,7 +359,9 @@ def _normalise_name_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (value or "").strip().lower())
 
 
-def _resolve_company(company_slug: str | None = None, company_name: str | None = None) -> tuple[str, str | None]:
+def _resolve_company(
+    company_slug: str | None = None, company_name: str | None = None
+) -> tuple[str, str | None]:
     """Derive a canonical (slug, display_name) pair for a company, cross-referencing the EmployerEntityStore for known slugs."""
     slug = _normalize_text(company_slug)
     name = _normalize_text(company_name)
@@ -334,7 +379,9 @@ def _resolve_company(company_slug: str | None = None, company_name: str | None =
             if employer_slug:
                 employer_names[_normalise_name_key(employer_slug)] = employer_slug
             if employer_name:
-                employer_names[_normalise_name_key(employer_name)] = employer_slug or safe_slug(employer_name)
+                employer_names[_normalise_name_key(employer_name)] = (
+                    employer_slug or safe_slug(employer_name)
+                )
     except Exception:
         pass
 
@@ -358,7 +405,9 @@ def _load_profile_file(path: Path) -> dict[str, Any] | None:
     return payload
 
 
-def _current_active_link_for_id(events: list[dict[str, Any]], link_id: str) -> dict[str, Any] | None:
+def _current_active_link_for_id(
+    events: list[dict[str, Any]], link_id: str
+) -> dict[str, Any] | None:
     """Return the first event matching link_id with lifecycle='active', or None if archived/absent."""
     for event in events:
         if str(event.get("link_id") or "") != link_id:
@@ -378,10 +427,14 @@ def _event_path(slug: str, link_id: str) -> Path:
     return _link_event_dir(slug) / f"{stamp}-{safe_slug(link_id)}.yaml"
 
 
-def _profile_response(profile: dict[str, Any], *, company_link_count: int) -> dict[str, Any]:
+def _profile_response(
+    profile: dict[str, Any], *, company_link_count: int
+) -> dict[str, Any]:
     response = dict(profile)
     response["company_link_count"] = company_link_count
-    response["completeness"] = _compute_completeness(profile, company_link_count=company_link_count)
+    response["completeness"] = _compute_completeness(
+        profile, company_link_count=company_link_count
+    )
     return response
 
 
@@ -389,19 +442,26 @@ def _link_id_for_payload(alumni_slug: str, payload: dict[str, Any]) -> str:
     """Build a deterministic link ID from alumni slug + company/relationship fields for idempotent link upserts."""
     company_slug = str(payload.get("company_slug") or "").strip()
     company_name = str(payload.get("company_name") or "").strip()
-    relationship = str(payload.get("relationship") or payload.get("role_title") or "").strip()
+    relationship = str(
+        payload.get("relationship") or payload.get("role_title") or ""
+    ).strip()
     start_date = str(payload.get("start_date") or "").strip()
     end_date = str(payload.get("end_date") or "").strip()
     link_type = str(payload.get("link_type") or "current").strip().lower() or "current"
-    seed = "|".join([
-        alumni_slug,
-        company_slug or safe_slug(company_name),
-        relationship,
-        link_type,
-        start_date,
-        end_date,
-    ])
-    return safe_slug(seed) or f"{alumni_slug}-{company_slug or safe_slug(company_name) or 'link'}"
+    seed = "|".join(
+        [
+            alumni_slug,
+            company_slug or safe_slug(company_name),
+            relationship,
+            link_type,
+            start_date,
+            end_date,
+        ]
+    )
+    return (
+        safe_slug(seed)
+        or f"{alumni_slug}-{company_slug or safe_slug(company_name) or 'link'}"
+    )
 
 
 def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
@@ -433,9 +493,23 @@ def _normalize_company_link(raw: Any) -> dict[str, Any] | None:
         or raw.get("slug")
         or ""
     ).strip() or safe_slug(company_name)
-    relationship = str(raw.get("relationship") or raw.get("role") or raw.get("connection") or raw.get("link_type") or "").strip()
-    role_title = str(raw.get("role_title") or raw.get("position") or "").strip() or relationship
-    notes = str(raw.get("notes") or raw.get("note") or raw.get("summary") or raw.get("rationale") or "").strip()
+    relationship = str(
+        raw.get("relationship")
+        or raw.get("role")
+        or raw.get("connection")
+        or raw.get("link_type")
+        or ""
+    ).strip()
+    role_title = (
+        str(raw.get("role_title") or raw.get("position") or "").strip() or relationship
+    )
+    notes = str(
+        raw.get("notes")
+        or raw.get("note")
+        or raw.get("summary")
+        or raw.get("rationale")
+        or ""
+    ).strip()
     link_type = str(raw.get("link_type") or "current").strip().lower() or "current"
     if link_type not in _ALLOWED_LINK_TYPES:
         link_type = "current"
@@ -511,10 +585,14 @@ class AlumniEntityStore(Singleton):
             slug = yaml_path.stem
             profile["slug"] = slug
             profile["company_link_count"] = len(self.list_links(slug))
-            profile["completeness"] = _compute_completeness(profile, company_link_count=profile["company_link_count"])
+            profile["completeness"] = _compute_completeness(
+                profile, company_link_count=profile["company_link_count"]
+            )
             self._profiles[slug] = profile
             loaded += 1
-        logger.info("AlumniEntityStore: loaded %d profile(s) from %s", loaded, alumni_dir)
+        logger.info(
+            "AlumniEntityStore: loaded %d profile(s) from %s", loaded, alumni_dir
+        )
 
     def invalidate(self) -> None:
         self._loaded = False
@@ -525,9 +603,17 @@ class AlumniEntityStore(Singleton):
         for slug, profile in self._profiles.items():
             enriched = dict(profile)
             enriched["company_link_count"] = len(self.list_links(slug))
-            enriched["completeness"] = _compute_completeness(enriched, company_link_count=enriched["company_link_count"])
+            enriched["completeness"] = _compute_completeness(
+                enriched, company_link_count=enriched["company_link_count"]
+            )
             profiles.append(enriched)
-        return sorted(profiles, key=lambda item: (str(item.get("full_name") or "").lower(), item.get("slug", "")))
+        return sorted(
+            profiles,
+            key=lambda item: (
+                str(item.get("full_name") or "").lower(),
+                item.get("slug", ""),
+            ),
+        )
 
     def get_alumni(self, slug: str | None) -> dict[str, Any] | None:
         if not slug:
@@ -538,7 +624,9 @@ class AlumniEntityStore(Singleton):
             return None
         enriched = dict(profile)
         enriched["company_link_count"] = len(self.list_links(slug))
-        enriched["completeness"] = _compute_completeness(enriched, company_link_count=enriched["company_link_count"])
+        enriched["completeness"] = _compute_completeness(
+            enriched, company_link_count=enriched["company_link_count"]
+        )
         return enriched
 
     def list_history(self, slug: str) -> list[dict[str, Any]]:
@@ -594,11 +682,15 @@ class AlumniEntityStore(Singleton):
         self.snapshot_history(slug, existing)
         merged = _normalize_profile_payload(payload, existing=existing)
         merged["slug"] = slug
-        merged.setdefault("source_timestamp", existing.get("source_timestamp") or utc_now_iso())
+        merged.setdefault(
+            "source_timestamp", existing.get("source_timestamp") or utc_now_iso()
+        )
         merged.setdefault("last_confirmed_at", utc_now_iso())
         merged["last_updated"] = utc_now_iso()
         merged["company_link_count"] = len(self.list_links(slug))
-        merged["completeness"] = _compute_completeness(merged, company_link_count=merged["company_link_count"])
+        merged["completeness"] = _compute_completeness(
+            merged, company_link_count=merged["company_link_count"]
+        )
         self._write_profile(slug, merged)
         return merged
 
@@ -643,11 +735,16 @@ class AlumniEntityStore(Singleton):
 
     def get_link(self, slug: str, link_id: str) -> dict[str, Any] | None:
         for event in self.list_link_events(slug):
-            if str(event.get("link_id") or "") == link_id and str(event.get("lifecycle") or "active") == "active":
+            if (
+                str(event.get("link_id") or "") == link_id
+                and str(event.get("lifecycle") or "active") == "active"
+            ):
                 return event
         return None
 
-    def append_link(self, slug: str, payload: dict[str, Any], link_id: str | None = None) -> dict[str, Any]:
+    def append_link(
+        self, slug: str, payload: dict[str, Any], link_id: str | None = None
+    ) -> dict[str, Any]:
         if not safe_slug_is_valid(slug):
             raise ValueError("Invalid alumni slug")
         profile = self.get_alumni(slug)
@@ -662,7 +759,9 @@ class AlumniEntityStore(Singleton):
         self.invalidate()
         return data
 
-    def update_link(self, slug: str, link_id: str, payload: dict[str, Any]) -> dict[str, Any]:
+    def update_link(
+        self, slug: str, link_id: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
         current = self.get_link(slug, link_id)
         if current is None:
             raise FileNotFoundError(f"Link '{link_id}' not found for alumni '{slug}'")
@@ -684,7 +783,9 @@ class AlumniEntityStore(Singleton):
         payload.pop("filename", None)
         return self.append_link(slug, payload, link_id=link_id)
 
-    def sync_company_links(self, slug: str, submitted_links: list[dict[str, Any]]) -> tuple[int, int]:
+    def sync_company_links(
+        self, slug: str, submitted_links: list[dict[str, Any]]
+    ) -> tuple[int, int]:
         """Reconcile submitted company links against stored links.
 
         Returns ``(attempted, written)`` counts so callers can surface
@@ -716,48 +817,70 @@ class AlumniEntityStore(Singleton):
 
         return attempted, written
 
-    def _normalize_link_payload(self, slug: str, payload: dict[str, Any], *, link_id: str | None = None) -> dict[str, Any]:
+    def _normalize_link_payload(
+        self, slug: str, payload: dict[str, Any], *, link_id: str | None = None
+    ) -> dict[str, Any]:
         data = dict(payload)
-        company_slug, company_name = _resolve_company(data.get("company_slug"), data.get("company_name"))
+        company_slug, company_name = _resolve_company(
+            data.get("company_slug"), data.get("company_name")
+        )
         if not company_slug:
             raise ValueError("company_slug or company_name is required")
         relationship = _normalize_text(data.get("relationship"))
         role_title = _normalize_text(data.get("role_title")) or relationship
-        notes = _normalize_text(data.get("notes")) or _normalize_text(data.get("rationale"))
+        notes = _normalize_text(data.get("notes")) or _normalize_text(
+            data.get("rationale")
+        )
 
         link_id = _normalize_text(link_id or data.get("link_id"))
         if not link_id:
-            signature_seed = "|".join([
-                slug,
-                company_slug,
-                _normalize_text(role_title) or "",
-                _normalize_text(data.get("link_type")) or "current",
-                _normalize_text(data.get("start_date")) or "",
-                _normalize_text(data.get("end_date")) or "",
-            ])
-            link_id = safe_slug(signature_seed) or f"{slug}-{company_slug}-{version_stamp()}"
+            signature_seed = "|".join(
+                [
+                    slug,
+                    company_slug,
+                    _normalize_text(role_title) or "",
+                    _normalize_text(data.get("link_type")) or "current",
+                    _normalize_text(data.get("start_date")) or "",
+                    _normalize_text(data.get("end_date")) or "",
+                ]
+            )
+            link_id = (
+                safe_slug(signature_seed) or f"{slug}-{company_slug}-{version_stamp()}"
+            )
         confidence = data.get("confidence")
-        confidence = safe_int(confidence) if confidence is not None and str(confidence).strip() else None
+        confidence = (
+            safe_int(confidence)
+            if confidence is not None and str(confidence).strip()
+            else None
+        )
 
-        evidence = [str(item).strip() for item in normalize_list(data.get("evidence")) if str(item).strip()]
+        evidence = [
+            str(item).strip()
+            for item in normalize_list(data.get("evidence"))
+            if str(item).strip()
+        ]
         link_type = _normalize_text(data.get("link_type")) or "current"
         link_type = link_type.lower()
         if link_type not in _ALLOWED_LINK_TYPES:
             link_type = "current"
 
-        source_timestamp = _normalize_text(data.get("source_timestamp")) or utc_now_iso()
+        source_timestamp = (
+            _normalize_text(data.get("source_timestamp")) or utc_now_iso()
+        )
         source_signature = _normalize_text(data.get("source_signature"))
         if not source_signature:
-            signature_seed = "|".join([
-                slug,
-                company_slug,
-                link_type,
-                _normalize_text(role_title) or "",
-                _normalize_text(data.get("start_date")) or "",
-                _normalize_text(data.get("end_date")) or "",
-                _normalize_text(notes) or "",
-                source_timestamp,
-            ])
+            signature_seed = "|".join(
+                [
+                    slug,
+                    company_slug,
+                    link_type,
+                    _normalize_text(role_title) or "",
+                    _normalize_text(data.get("start_date")) or "",
+                    _normalize_text(data.get("end_date")) or "",
+                    _normalize_text(notes) or "",
+                    source_timestamp,
+                ]
+            )
             source_signature = _event_signature(signature_seed)
 
         event = AlumniCompanyLink(
@@ -793,9 +916,17 @@ class AlumniEntityStore(Singleton):
     def backfill_legacy_alumni(self) -> dict[str, int]:
         """Deterministically backfill alumni files from legacy employer alumni facts."""
         self._ensure_loaded()
-        employers_dir = Path(os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir())))
+        employers_dir = Path(
+            os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir()))
+        )
         if not employers_dir.exists():
-            return {"employers_scanned": 0, "facts_scanned": 0, "profiles_written": 0, "links_written": 0, "facts_migrated": 0}
+            return {
+                "employers_scanned": 0,
+                "facts_scanned": 0,
+                "profiles_written": 0,
+                "links_written": 0,
+                "facts_migrated": 0,
+            }
 
         manifest_signatures = _manifest_signature_set()
         stats = {
@@ -806,7 +937,11 @@ class AlumniEntityStore(Singleton):
             "facts_migrated": 0,
         }
         existing_profiles = {slug: profile for slug, profile in self._profiles.items()}
-        name_index = {_normalise_name_key(profile.get("full_name", "")): slug for slug, profile in existing_profiles.items() if profile.get("full_name")}
+        name_index = {
+            _normalise_name_key(profile.get("full_name", "")): slug
+            for slug, profile in existing_profiles.items()
+            if profile.get("full_name")
+        }
 
         for yaml_path in sorted(employers_dir.glob("*.yaml")):
             stats["employers_scanned"] += 1
@@ -815,19 +950,36 @@ class AlumniEntityStore(Singleton):
                 continue
             employer_slug = str(employer.get("slug") or yaml_path.stem).strip()
             employer_name = str(employer.get("employer_name") or employer_slug).strip()
-            facts = employer.get("structured", {}).get("facts") if isinstance(employer.get("structured"), dict) else []
+            facts = (
+                employer.get("structured", {}).get("facts")
+                if isinstance(employer.get("structured"), dict)
+                else []
+            )
             if not isinstance(facts, list):
                 continue
             for fact in facts:
-                if not isinstance(fact, dict) or str(fact.get("type") or "") != "alumni":
+                if (
+                    not isinstance(fact, dict)
+                    or str(fact.get("type") or "") != "alumni"
+                ):
                     continue
                 stats["facts_scanned"] += 1
-                payload = fact.get("data") if isinstance(fact.get("data"), dict) else fact
-                inner = payload.get("data") if isinstance(payload.get("data"), dict) else payload
+                payload = (
+                    fact.get("data") if isinstance(fact.get("data"), dict) else fact
+                )
+                inner = (
+                    payload.get("data")
+                    if isinstance(payload.get("data"), dict)
+                    else payload
+                )
                 if not isinstance(inner, dict):
                     continue
 
-                full_name = _normalize_text(inner.get("full_name") or inner.get("student_name") or inner.get("name"))
+                full_name = _normalize_text(
+                    inner.get("full_name")
+                    or inner.get("student_name")
+                    or inner.get("name")
+                )
                 if not full_name:
                     continue
 
@@ -838,20 +990,47 @@ class AlumniEntityStore(Singleton):
                 profile_slug = name_index.get(_normalise_name_key(full_name))
                 if not profile_slug:
                     candidate = safe_slug(full_name)
-                    profile_slug = candidate if candidate and candidate not in existing_profiles else f"{candidate}_{hashlib.sha1(full_name.encode('utf-8')).hexdigest()[:8]}"
+                    profile_slug = (
+                        candidate
+                        if candidate and candidate not in existing_profiles
+                        else f"{candidate}_{hashlib.sha1(full_name.encode('utf-8')).hexdigest()[:8]}"
+                    )
                     name_index[_normalise_name_key(full_name)] = profile_slug
 
-                current_company = _normalize_text(inner.get("current_company") or inner.get("next_employer") or inner.get("company") or employer_name)
-                current_title = _normalize_text(inner.get("current_title") or inner.get("next_role") or inner.get("role"))
-                school = _normalize_text(inner.get("graduation_school") or inner.get("school"))
-                program = _normalize_text(inner.get("graduation_program") or inner.get("program"))
+                current_company = _normalize_text(
+                    inner.get("current_company")
+                    or inner.get("next_employer")
+                    or inner.get("company")
+                    or employer_name
+                )
+                current_title = _normalize_text(
+                    inner.get("current_title")
+                    or inner.get("next_role")
+                    or inner.get("role")
+                )
+                school = _normalize_text(
+                    inner.get("graduation_school") or inner.get("school")
+                )
+                program = _normalize_text(
+                    inner.get("graduation_program") or inner.get("program")
+                )
                 year = inner.get("graduation_year") or inner.get("year")
-                prior_company = _normalize_text(inner.get("prior_employer") or inner.get("former_employer"))
-                prior_title = _normalize_text(inner.get("prior_role") or inner.get("former_role"))
+                prior_company = _normalize_text(
+                    inner.get("prior_employer") or inner.get("former_employer")
+                )
+                prior_title = _normalize_text(
+                    inner.get("prior_role") or inner.get("former_role")
+                )
                 source_text = json.dumps(inner, ensure_ascii=False)
                 evidence_hits: list[str] = []
-                if re.search(r"available for mentoring|open to referrals|open to engagement|willing to mentor|available for guest lecture", source_text, re.I):
-                    evidence_hits.append("explicit referral availability in source note")
+                if re.search(
+                    r"available for mentoring|open to referrals|open to engagement|willing to mentor|available for guest lecture",
+                    source_text,
+                    re.I,
+                ):
+                    evidence_hits.append(
+                        "explicit referral availability in source note"
+                    )
                 if re.search(r"alumni contact|alumni mentor", source_text, re.I):
                     evidence_hits.append("alumni contact/mentor explicitly mentioned")
 
@@ -863,39 +1042,59 @@ class AlumniEntityStore(Singleton):
                     "graduation_year": year,
                     "current_title": current_title,
                     "current_company": current_company,
-                    "career_goals_domains": normalize_list(inner.get("career_goals_domains") or inner.get("mentor_for")),
+                    "career_goals_domains": normalize_list(
+                        inner.get("career_goals_domains") or inner.get("mentor_for")
+                    ),
                     "help_capacity": _normalize_text(inner.get("help_capacity")),
                     "can_refer": "yes" if evidence_hits else "maybe",
                     "can_refer_confidence": 90 if evidence_hits else 70,
                     "can_refer_evidence": evidence_hits,
-                    "can_refer_rationale": _normalize_text(inner.get("rationale") or inner.get("details")),
+                    "can_refer_rationale": _normalize_text(
+                        inner.get("rationale") or inner.get("details")
+                    ),
                     "network_strength": _normalize_text(inner.get("network_strength")),
                     "mentoring_modes": normalize_list(inner.get("mentoring_modes")),
-                    "communication_style": _normalize_text(inner.get("communication_style")),
-                    "preferred_student_traits": normalize_list(inner.get("preferred_student_traits")),
+                    "communication_style": _normalize_text(
+                        inner.get("communication_style")
+                    ),
+                    "preferred_student_traits": normalize_list(
+                        inner.get("preferred_student_traits")
+                    ),
                     "common_interests": normalize_list(inner.get("common_interests")),
                     "consent_for_referrals": True if evidence_hits else None,
-                    "consent_scope_notes": _normalize_text(inner.get("consent_scope_notes")),
+                    "consent_scope_notes": _normalize_text(
+                        inner.get("consent_scope_notes")
+                    ),
                     "source_type": "legacy_backfill",
                     "source_label": f"{employer_slug}:{fact.get('slug') or safe_slug(full_name)}",
-                    "source_timestamp": _normalize_text(fact.get("timestamp") or inner.get("timestamp")) or utc_now_iso(),
+                    "source_timestamp": _normalize_text(
+                        fact.get("timestamp") or inner.get("timestamp")
+                    )
+                    or utc_now_iso(),
                     "trace_id": _normalize_text(fact.get("trace_id")),
                     "lifecycle": "active",
                     "deleted": False,
                     "superseded_by": None,
                     "archived_at": None,
-                    "last_confirmed_at": _normalize_text(fact.get("timestamp") or inner.get("timestamp")) or utc_now_iso(),
+                    "last_confirmed_at": _normalize_text(
+                        fact.get("timestamp") or inner.get("timestamp")
+                    )
+                    or utc_now_iso(),
                     "last_updated": utc_now_iso(),
                 }
 
                 existing = existing_profiles.get(profile_slug)
                 if existing:
-                    merged = _normalize_profile_payload(profile_payload, existing=existing)
+                    merged = _normalize_profile_payload(
+                        profile_payload, existing=existing
+                    )
                 else:
                     merged = _normalize_profile_payload(profile_payload)
                 merged["slug"] = profile_slug
                 merged["company_link_count"] = len(self.list_links(profile_slug))
-                merged["completeness"] = _compute_completeness(merged, company_link_count=merged["company_link_count"])
+                merged["completeness"] = _compute_completeness(
+                    merged, company_link_count=merged["company_link_count"]
+                )
                 atomic_yaml_write(_profile_path(profile_slug), merged)
                 self.invalidate()
                 existing_profiles[profile_slug] = merged
@@ -909,7 +1108,9 @@ class AlumniEntityStore(Singleton):
                     link_targets.append((prior_company, prior_title, "former"))
 
                 for company_name, role_title, link_type in link_targets:
-                    company_slug, resolved_name = _resolve_company(company_name=company_name)
+                    company_slug, resolved_name = _resolve_company(
+                        company_name=company_name
+                    )
                     if not company_slug:
                         continue
                     link_signature = f"link:{profile_slug}:{employer_slug}:{fact.get('slug') or safe_slug(full_name)}:{company_slug}:{link_type}"
@@ -921,11 +1122,19 @@ class AlumniEntityStore(Singleton):
                         "role_title": role_title,
                         "link_type": link_type,
                         "confidence": 90 if evidence_hits else 75,
-                        "evidence": evidence_hits or [f"Backfilled from {employer_name} legacy alumni fact {fact.get('slug') or safe_slug(full_name)}"],
-                        "rationale": _normalize_text(inner.get("details") or inner.get("value")),
+                        "evidence": evidence_hits
+                        or [
+                            f"Backfilled from {employer_name} legacy alumni fact {fact.get('slug') or safe_slug(full_name)}"
+                        ],
+                        "rationale": _normalize_text(
+                            inner.get("details") or inner.get("value")
+                        ),
                         "source_type": "legacy_backfill",
                         "source_label": f"{employer_slug}:{fact.get('slug') or safe_slug(full_name)}",
-                        "source_timestamp": _normalize_text(fact.get("timestamp") or inner.get("timestamp")) or utc_now_iso(),
+                        "source_timestamp": _normalize_text(
+                            fact.get("timestamp") or inner.get("timestamp")
+                        )
+                        or utc_now_iso(),
                         "source_signature": link_signature,
                     }
                     self.append_link(profile_slug, link_payload)
@@ -963,5 +1172,7 @@ class AlumniEntityStore(Singleton):
             current_links=current_links,
         )
         return result
+
+
 def get_alumni_store() -> "AlumniEntityStore":
     return AlumniEntityStore()

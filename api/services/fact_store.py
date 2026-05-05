@@ -1,4 +1,5 @@
 """Fact loading, filtering, and grouping for the KB query surface."""
+
 from __future__ import annotations
 
 import logging
@@ -23,7 +24,9 @@ _FACT_TYPE_ALIASES = {
 def _default_fact_sources() -> list[tuple[str, Path, str]]:
     """Return the entity kinds, directories, and audit URL templates to scan."""
     employers_dir = Path(os.environ.get("EMPLOYERS_DIR", str(_default_employers_dir())))
-    profiles_dir = Path(os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir())))
+    profiles_dir = Path(
+        os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir()))
+    )
     return [
         ("employer", employers_dir, "/api/kb/employers/{slug}"),
         ("career_profile", profiles_dir, "/api/kb/career-profiles/{slug}"),
@@ -104,7 +107,9 @@ def _build_fact(
 
     fact_type = str(raw_fact.get("type") or payload_map.get("type") or "").strip()
     fact_type = _FACT_TYPE_ALIASES.get(fact_type, fact_type)
-    timestamp = str(raw_fact.get("timestamp") or payload_map.get("timestamp") or "").strip()
+    timestamp = str(
+        raw_fact.get("timestamp") or payload_map.get("timestamp") or ""
+    ).strip()
     source = str(raw_fact.get("source") or payload_map.get("source") or "").strip()
 
     if not fact_type or not timestamp or not source:
@@ -115,9 +120,17 @@ def _build_fact(
     except (TypeError, ValueError):
         return None
 
-    lifecycle = str(raw_fact.get("lifecycle") or payload_map.get("lifecycle") or "").strip().lower()
+    lifecycle = (
+        str(raw_fact.get("lifecycle") or payload_map.get("lifecycle") or "")
+        .strip()
+        .lower()
+    )
     if lifecycle not in {"active", "superseded", "archived"}:
-        lifecycle = "superseded" if bool(raw_fact.get("deleted") or payload_map.get("deleted")) else "active"
+        lifecycle = (
+            "superseded"
+            if bool(raw_fact.get("deleted") or payload_map.get("deleted"))
+            else "active"
+        )
 
     raw_data = _payload_for_fact(raw_fact)
     if not isinstance(raw_data, dict):
@@ -133,11 +146,25 @@ def _build_fact(
         "lifecycle": lifecycle,
         "deleted": bool(raw_fact.get("deleted") or payload_map.get("deleted", False)),
         "last_updated": raw_fact.get("last_updated") or payload_map.get("last_updated"),
-        "source_timestamp": raw_fact.get("source_timestamp") or payload_map.get("source_timestamp"),
-        "source_label": str(raw_fact.get("source_label") or payload_map.get("source_label") or entity_slug).strip() or entity_slug,
-        "source_type": str(raw_fact.get("source_type") or payload_map.get("source_type") or entity_kind).strip() or entity_kind,
-        "superseded_by": raw_fact.get("superseded_by") or payload_map.get("superseded_by"),
-        "audit_url": str(raw_fact.get("audit_url") or payload_map.get("audit_url") or audit_url_template.format(slug=entity_slug)).strip(),
+        "source_timestamp": raw_fact.get("source_timestamp")
+        or payload_map.get("source_timestamp"),
+        "source_label": str(
+            raw_fact.get("source_label")
+            or payload_map.get("source_label")
+            or entity_slug
+        ).strip()
+        or entity_slug,
+        "source_type": str(
+            raw_fact.get("source_type") or payload_map.get("source_type") or entity_kind
+        ).strip()
+        or entity_kind,
+        "superseded_by": raw_fact.get("superseded_by")
+        or payload_map.get("superseded_by"),
+        "audit_url": str(
+            raw_fact.get("audit_url")
+            or payload_map.get("audit_url")
+            or audit_url_template.format(slug=entity_slug)
+        ).strip(),
         "data": raw_data,
     }
     if not fact_kwargs["slug"]:
@@ -156,7 +183,9 @@ def _build_fact(
         return None
 
 
-def _read_fact_source(entity_kind: str, directory: Path, audit_url_template: str) -> list[Fact]:
+def _read_fact_source(
+    entity_kind: str, directory: Path, audit_url_template: str
+) -> list[Fact]:
     """Load all valid facts from the structured.facts list in every YAML file under directory."""
     if not directory.exists():
         return []
@@ -186,7 +215,9 @@ def _fact_is_active(fact: Fact) -> bool:
     return fact.lifecycle == "active" and not fact.deleted
 
 
-def _fact_string_matches(fact: Fact, query: str, *, include_nested: bool = False) -> bool:
+def _fact_string_matches(
+    fact: Fact, query: str, *, include_nested: bool = False
+) -> bool:
     """Return True if the normalized query appears in any of the fact's string fields (and optionally its data payload)."""
     needle = _normalize_text(query)
     if not needle:
@@ -234,10 +265,16 @@ def _fact_matches_filters(
             fact.data,
             {"school", "school_name", "graduation_school", "alma_mater", "institution"},
         )
-        if not any(_normalize_text(value) == _normalize_text(school) or _normalize_text(school) in _normalize_text(value) for value in school_values):
+        if not any(
+            _normalize_text(value) == _normalize_text(school)
+            or _normalize_text(school) in _normalize_text(value)
+            for value in school_values
+        ):
             return False
     if graduation_year is not None:
-        year_values = _collect_matching_values(fact.data, {"graduation_year", "year", "class_year", "cohort_year"})
+        year_values = _collect_matching_values(
+            fact.data, {"graduation_year", "year", "class_year", "cohort_year"}
+        )
         desired = _normalize_text(graduation_year)
         if not any(_normalize_text(value) == desired for value in year_values):
             return False

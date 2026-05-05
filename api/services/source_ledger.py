@@ -4,6 +4,7 @@ The ledger is file-backed YAML, one current record per source filename, plus a
 history directory with immutable snapshots for prior versions. It is the truth
 layer for source lifecycle state, while Qdrant keeps the semantic chunks.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,7 +19,10 @@ from typing import Any
 import yaml
 
 from models_kb import SourceStateEvidence, SourceStateSummary
-from services.runtime_paths import default_source_ledger_dir, default_source_ledger_history_dir
+from services.runtime_paths import (
+    default_source_ledger_dir,
+    default_source_ledger_history_dir,
+)
 from services.shared_yaml import Singleton, atomic_yaml_write, version_stamp
 
 logger = logging.getLogger(__name__)
@@ -31,7 +35,11 @@ def _ledger_dir() -> Path:
 
 
 def _history_dir() -> Path:
-    return Path(os.environ.get("SOURCE_LEDGER_HISTORY_DIR", str(default_source_ledger_history_dir())))
+    return Path(
+        os.environ.get(
+            "SOURCE_LEDGER_HISTORY_DIR", str(default_source_ledger_history_dir())
+        )
+    )
 
 
 def _now() -> str:
@@ -61,19 +69,27 @@ def _load_yaml(path: Path) -> dict[str, Any] | None:
     except FileNotFoundError:
         return None
     except Exception:
-        logger.warning("Skipping unreadable source ledger file: %s", path, exc_info=True)
+        logger.warning(
+            "Skipping unreadable source ledger file: %s", path, exc_info=True
+        )
     return None
 
 
-def _normalize_record(payload: dict[str, Any], filename: str | None = None) -> dict[str, Any]:
+def _normalize_record(
+    payload: dict[str, Any], filename: str | None = None
+) -> dict[str, Any]:
     """Coerce a raw YAML ledger payload into a canonical record dict with all required keys present."""
     resolved_filename = str(payload.get("filename") or filename or "").strip()
     if not resolved_filename:
-        resolved_filename = str(payload.get("doc_id") or payload.get("source_record_id") or "").strip()
+        resolved_filename = str(
+            payload.get("doc_id") or payload.get("source_record_id") or ""
+        ).strip()
     resolved_filename = resolved_filename or "unknown"
     record = dict(payload)
     record["filename"] = resolved_filename
-    record["doc_id"] = str(record.get("doc_id") or record.get("source_record_id") or resolved_filename)
+    record["doc_id"] = str(
+        record.get("doc_id") or record.get("source_record_id") or resolved_filename
+    )
     record["source_record_id"] = str(record.get("source_record_id") or record["doc_id"])
     record["lifecycle"] = str(record.get("lifecycle") or "active")
     record["uploaded_at"] = str(record.get("uploaded_at") or _now())
@@ -86,7 +102,9 @@ def _normalize_record(payload: dict[str, Any], filename: str | None = None) -> d
     return record
 
 
-def _latest_query_hits(query_entries: list[dict[str, Any]] | None = None) -> dict[str, str]:
+def _latest_query_hits(
+    query_entries: list[dict[str, Any]] | None = None,
+) -> dict[str, str]:
     """Build a filename→latest_ts map from query log entries, keeping only the most recent hit per source."""
     latest: dict[str, str] = {}
     if not query_entries:
@@ -140,17 +158,31 @@ class SourceLedgerStore(Singleton):
     def _history_path(self, filename: str, record_version: str) -> Path:
         return _history_dir() / _safe_filename(filename) / f"{record_version}.yaml"
 
-    def _snapshot_history(self, record: dict[str, Any], *, lifecycle: str | None = None, superseded_by: str | None = None) -> None:
+    def _snapshot_history(
+        self,
+        record: dict[str, Any],
+        *,
+        lifecycle: str | None = None,
+        superseded_by: str | None = None,
+    ) -> None:
         """Write an immutable history snapshot of the given record under the history directory."""
         snapshot = dict(record)
         snapshot["lifecycle"] = lifecycle or snapshot.get("lifecycle") or "superseded"
         snapshot["superseded_by"] = superseded_by or snapshot.get("superseded_by")
-        snapshot["record_version"] = str(snapshot.get("record_version") or version_stamp())
-        atomic_yaml_write(self._history_path(snapshot["filename"], snapshot["record_version"]), snapshot)
+        snapshot["record_version"] = str(
+            snapshot.get("record_version") or version_stamp()
+        )
+        atomic_yaml_write(
+            self._history_path(snapshot["filename"], snapshot["record_version"]),
+            snapshot,
+        )
 
     def list_records(self) -> list[dict[str, Any]]:
         self._ensure_loaded()
-        return sorted((dict(record) for record in self._records.values()), key=lambda item: item["filename"].lower())
+        return sorted(
+            (dict(record) for record in self._records.values()),
+            key=lambda item: item["filename"].lower(),
+        )
 
     def list_history_records(self) -> list[dict[str, Any]]:
         """Return all historical ledger snapshots sorted by filename then record_version."""
@@ -165,8 +197,14 @@ class SourceLedgerStore(Singleton):
                 payload = _load_yaml(yaml_path)
                 if not payload:
                     continue
-                records.append(_normalize_record(payload, filename=payload.get("filename") or filename_dir.name))
-        return sorted(records, key=lambda item: (item["filename"].lower(), item["record_version"]))
+                records.append(
+                    _normalize_record(
+                        payload, filename=payload.get("filename") or filename_dir.name
+                    )
+                )
+        return sorted(
+            records, key=lambda item: (item["filename"].lower(), item["record_version"])
+        )
 
     def get_record(self, filename: str | None) -> dict[str, Any] | None:
         if not filename:
@@ -182,7 +220,11 @@ class SourceLedgerStore(Singleton):
         return record.get("lifecycle") == "active"
 
     def active_filenames(self) -> set[str]:
-        return {record["filename"] for record in self.list_records() if record.get("lifecycle") == "active"}
+        return {
+            record["filename"]
+            for record in self.list_records()
+            if record.get("lifecycle") == "active"
+        }
 
     def upsert_record(
         self,
@@ -218,7 +260,9 @@ class SourceLedgerStore(Singleton):
         if current:
             # Preserve the previous record as immutable history before replacing it.
             if current.get("record_version") != record_version:
-                self._snapshot_history(current, lifecycle="superseded", superseded_by=record_version)
+                self._snapshot_history(
+                    current, lifecycle="superseded", superseded_by=record_version
+                )
 
         atomic_yaml_write(self._current_path(filename), record)
         self._records[filename] = dict(record)
@@ -279,12 +323,12 @@ class SourceLedgerStore(Singleton):
         history_records = self.list_history_records()
 
         active_current = [doc for doc in docs if doc.get("lifecycle") == "active"]
-        superseded_candidates = [doc for doc in docs if doc.get("lifecycle") == "superseded"] + [
-            doc for doc in history_records if doc.get("lifecycle") == "superseded"
-        ]
-        archived_candidates = [doc for doc in docs if doc.get("lifecycle") == "archived"] + [
-            doc for doc in history_records if doc.get("lifecycle") == "archived"
-        ]
+        superseded_candidates = [
+            doc for doc in docs if doc.get("lifecycle") == "superseded"
+        ] + [doc for doc in history_records if doc.get("lifecycle") == "superseded"]
+        archived_candidates = [
+            doc for doc in docs if doc.get("lifecycle") == "archived"
+        ] + [doc for doc in history_records if doc.get("lifecycle") == "archived"]
 
         def _dedupe(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             unique: dict[str, dict[str, Any]] = {}
@@ -313,7 +357,9 @@ class SourceLedgerStore(Singleton):
                     filename=filename,
                     reason=f"{record.get('lifecycle', 'archived')} record still has indexed chunks",
                     chunk_count=int(record.get("chunk_count") or 0),
-                    last_seen_at=str(record.get("archived_at") or record.get("uploaded_at") or ""),
+                    last_seen_at=str(
+                        record.get("archived_at") or record.get("uploaded_at") or ""
+                    ),
                 )
             )
 
@@ -325,7 +371,9 @@ class SourceLedgerStore(Singleton):
                 filename = str(doc_name).strip()
                 if not filename:
                     continue
-                lifecycle = str(current_by_filename.get(filename, {}).get("lifecycle") or "active")
+                lifecycle = str(
+                    current_by_filename.get(filename, {}).get("lifecycle") or "active"
+                )
                 if lifecycle == "active":
                     active_hit_count += 1
                 else:
@@ -337,7 +385,9 @@ class SourceLedgerStore(Singleton):
                         SourceStateEvidence(
                             filename=filename,
                             reason=f"{lifecycle} source still appears in recent retrieval results",
-                            chunk_count=int(record.get("chunk_count") or 0) if record else 0,
+                            chunk_count=int(record.get("chunk_count") or 0)
+                            if record
+                            else 0,
                             last_seen_at=latest_hits.get(filename),
                         )
                     )
@@ -358,20 +408,32 @@ def get_source_ledger_store() -> SourceLedgerStore:
     return SourceLedgerStore()
 
 
-def chunk_is_current(payload: dict[str, Any], ledger: SourceLedgerStore | None = None) -> bool:
-    lifecycle = str(payload.get("lifecycle") or payload.get("status") or "").strip().lower()
+def chunk_is_current(
+    payload: dict[str, Any], ledger: SourceLedgerStore | None = None
+) -> bool:
+    lifecycle = (
+        str(payload.get("lifecycle") or payload.get("status") or "").strip().lower()
+    )
     if lifecycle in {"superseded", "archived", "deleted"}:
         return False
-    filename = str(payload.get("source_filename") or payload.get("filename") or "").strip()
+    filename = str(
+        payload.get("source_filename") or payload.get("filename") or ""
+    ).strip()
     if not filename:
         return True
     ledger = ledger or get_source_ledger_store()
     return ledger.is_active(filename)
 
 
-def filter_active_chunks(chunks: list[dict[str, Any]], ledger: SourceLedgerStore | None = None) -> list[dict[str, Any]]:
+def filter_active_chunks(
+    chunks: list[dict[str, Any]], ledger: SourceLedgerStore | None = None
+) -> list[dict[str, Any]]:
     ledger = ledger or get_source_ledger_store()
-    return [chunk for chunk in chunks if chunk_is_current(chunk.get("payload", {}), ledger=ledger)]
+    return [
+        chunk
+        for chunk in chunks
+        if chunk_is_current(chunk.get("payload", {}), ledger=ledger)
+    ]
 
 
 def ensure_backfilled_from_store(store: Any) -> int:
