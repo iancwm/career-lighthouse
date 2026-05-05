@@ -1,9 +1,11 @@
 # Langfuse Observability Sprint: Design
 
-Status: Approved, ready for implementation  
-Last updated: 2026-05-03  
+Status: Implemented, merged to `main` on 2026-05-04  
+Last updated: 2026-05-04  
 Source artifact:
 - `/home/iancwm/.gstack/projects/iancwm-career-lighthouse/iancwm-main-design-20260503-110743.md`
+Implementation commit:
+- `7efbd83 feat: implement langfuse observability sprint`
 
 ## Goal
 
@@ -13,6 +15,15 @@ Turn the current vague trace-reading loop into a clear workflow-debugging experi
 - live handoff when analysis finishes
 - plain-English explanation first
 - technical evidence second
+
+## Shipped Outcome
+
+The sprint shipped the intended queue-first debugging flow across the existing admin surfaces:
+
+- `web/components/admin/SessionInbox.tsx` now splits the Staging Area into `Ready to review`, `Analyzing now`, and `Recent sessions`.
+- completion handoff now uses the `Your session is ready...` success banner, promotes the row visually, and exposes `Review now` plus `Debug Workflow`
+- `web/components/admin/SmartCanvas.tsx` auto-selects the first pending card after analysis completes instead of making the operator hunt manually
+- `web/components/admin/TraceExplorerTab.tsx` and the workflow watchlist inside `web/components/admin/LLMObservabilityTab.tsx` now deliver the two-layer detail model: summary first, evidence second
 
 ## Primary User
 

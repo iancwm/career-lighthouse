@@ -22,9 +22,6 @@ These docs are still maintained against the codebase:
   (P1-4 kb_health extract, P1-5 prompt externalization, P1-6 inline-import
   lift), Code Quality Phase 3 (P3-1 through P3-4 llm.py decomposition), and
   the Langfuse eval dataset sync follow-up. Started 2026-05-04.
-- `docs/langfuse_observability_sprint/` - Langfuse observability sprint specs.
-  Implementation shipped 2026-05-04 (PR #22). Design and engineering reference
-  docs retained here for the follow-up eval-sync work.
 
 ## Archived Specs And Plans
 
@@ -39,6 +36,7 @@ Completed or historical planning docs live under `docs/archived/`:
   Playwright verification on 2026-05-02.
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` - shipped launch-readiness sprint (security, reliability, KB performance, alumni follow-ups, quick wins). Residual follow-ups (B3 UX polish, E1 accuracy artifact, F3 manual verification) tracked in `TODOS.md`.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` - shipped card-native alumni integration sprint. Residual manual end-to-end verification tracked in `TODOS.md`.
+- `docs/archived/langfuse_observability_sprint/` - shipped Langfuse observability sprint. Workflow summary/detail contracts and admin debugging surfaces landed on 2026-05-04; remaining eval-sync follow-up work is tracked in `docs/sprint_cq_finish/SPRINT.md` and `TODOS.md`.
 - `docs/archived/schema/` - completed structured schema foundation specs and metadata samples
 - `docs/archived/code_smell_cleanup/` - completed Sprint 3 structural cleanup specs
 - `docs/archived/llm_hardening/` - completed LLM safety and hardening specs
@@ -65,7 +63,7 @@ Start here:
 - `README.md` for the product and setup overview
 - `DESIGN.md` for architecture and UI direction
 - `TODOS.md` for the current backlog
-- `docs/langfuse_observability_sprint/` for the active Langfuse observability sprint
+- `docs/sprint_cq_finish/` for the active cleanup + backlog-closeout sprint
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs

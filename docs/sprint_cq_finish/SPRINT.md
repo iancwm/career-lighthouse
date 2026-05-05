@@ -10,6 +10,11 @@ last_updated: 2026-05-04
 **Goal:** Clear all unblocked "Now" items from the backlog, complete Code Quality Phase 1 (which unblocks Phase 2), and run Code Quality Phase 3 in parallel. Ship the Langfuse eval dataset sync as a lightweight follow-up to the observability sprint.  
 **Branch convention:** one PR per block; `api/pytest` and `web/npm test` green before merge.
 
+**Progress snapshot (2026-05-04):**
+- A1 is already shipped in the current `SmartCanvas.tsx` implementation, even though it was still carried into this sprint from `TODOS.md`.
+- The Langfuse observability prerequisite for Block D is merged on `main` (`f318569` / `7efbd83`).
+- Still open in the repo: A2, A3, Blocks B and C, and the actual D1 dataset-sync script.
+
 **Blocks:**
 - A — Backlog close-out (Now items: B3, E1, F3)
 - B — Code Quality Phase 1 finish (P1-4, P1-5, P1-6)
@@ -27,23 +32,22 @@ last_updated: 2026-05-04
 
 ## Block A — Backlog Close-out
 
-### A1 · SmartCanvas 409 silent success *(B3 UX polish)*
+### ~~A1 · SmartCanvas 409 silent success~~ ✓ Shipped before sprint start *(B3 UX polish)*
 
 **Source:** TODOS.md "Next" block B3; carried from the launch-readiness sprint.
 
-**What:** When `commit_card()` returns HTTP 409 because a card is no longer in `pending` state, `SmartCanvas.tsx` should treat that response as a silent no-op, not an error toast. The data-safety guarantee is already in place; this is purely a UX improvement.
+**What shipped:** `SmartCanvas.tsx` now treats `409` responses from commit, discard, and cancel flows as an idempotent reload path instead of a user-facing failure.
 
-**Why:** Counsellors who refresh the browser mid-review see a jarring error flash for cards they've already committed. The 409 is a valid idempotent outcome, not a failure.
+**Why it mattered:** Counsellors who refresh mid-review should not get a false error for a card that was already finished elsewhere.
 
 **Files:**
-- `web/components/admin/SmartCanvas.tsx` — three call sites that already detect `status`; treat 409 as success when card is already committed.
+- `web/components/admin/SmartCanvas.tsx`
 
-**Estimate:** 1 h (frontend only)
+**Status note:** No new code work remains for this item.
 
-**Acceptance criteria:**
-- Repeated commit of an already-committed card shows no error toast.
-- A genuine commit failure (5xx, network error) still shows an error toast.
-- Existing SmartCanvas tests remain green.
+**Acceptance criteria now satisfied by code:**
+- Repeated commit/discard/cancel of an already-finished card/session does not raise a false error toast.
+- Genuine failures still surface as errors.
 
 ---
 
@@ -86,6 +90,8 @@ last_updated: 2026-05-04
 **Acceptance criteria:**
 - All four modes either have a passing automated test or have been manually verified with a documented note in this sprint doc.
 - Mode 2 UI path: toast visibly distinguishes attempted vs written count when they differ.
+
+**Current repo state:** backend handling for modes 1, 3, and 4 is in place, and `SmartCanvas.tsx` already renders `company_links_warning` when the write count is lower than the attempted count. The remaining gap is the explicit verification artifact, not the server/client plumbing.
 
 ---
 
@@ -223,6 +229,8 @@ These four items can be worked in parallel with Block B after P0-2 (already ship
 **What:** Add a script or admin-safe workflow that syncs the canonical repo truth set for session-card debugging into the Langfuse dataset used for prompt and workflow evals. The initial implementation is a lightweight wedge: a script that reads fixtures from `api/tests/fixtures/` (or wherever the canonical cases live), formats them as Langfuse dataset items, and upserts them via the Langfuse SDK. A small CI check or README note establishes the cadence for keeping them in sync.
 
 **Why:** The Langfuse sprint defined a dual-source eval corpus (repo fixtures + Langfuse dataset). Without a sync path, the two sources will drift as prompt or logic changes are made, making regression scores untrustworthy.
+
+**Prerequisite status:** satisfied. The workflow-summary/detail implementation from the observability sprint is already merged; this block remains open because the sync script and operating note are not yet in the repo.
 
 **Files:**
 - `scripts/sync_langfuse_eval_dataset.py` (new) — reads canonical fixtures, upserts to Langfuse dataset

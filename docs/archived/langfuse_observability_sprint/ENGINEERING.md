@@ -1,10 +1,12 @@
 # Langfuse Observability Sprint: Engineering
 
-Status: Approved, ready for implementation  
-Last updated: 2026-05-03  
+Status: Implemented, with eval-dataset follow-up still open  
+Last updated: 2026-05-04  
 Source artifacts:
 - `/home/iancwm/.gstack/projects/iancwm-career-lighthouse/iancwm-main-design-20260503-110743.md`
 - `/home/iancwm/.gstack/projects/iancwm-career-lighthouse/iancwm-main-eng-review-test-plan-20260503-122400.md`
+Implementation commit:
+- `7efbd83 feat: implement langfuse observability sprint`
 
 ## Goal
 
@@ -16,6 +18,23 @@ Make one session-card analysis run debuggable end to end so a developer can answ
 - whether the alumni path ran
 - where a card was dropped
 - whether a prompt or logic change made outcomes better or worse
+
+## Delivery Snapshot
+
+Delivered in the merged implementation:
+
+- backend-owned workflow contracts in `api/models_kb.py` and `web/types/llm-observability.ts`
+- `/api/kb/workflow-summaries` and `/api/kb/workflow-detail` in `api/routers/kb_router.py`
+- `api/services/trace_adapter.py` as the assembly layer that combines Langfuse observations, JSONL fallback traces, and router-side session evidence
+- prompt provenance capture in `api/services/llm.py`, including `prompt_name`, `prompt_source`, `prompt_label`, and `prompt_version`
+- router-side workflow state in `api/routers/session_router.py`, including step timeline, `drop_point`, alumni-path metadata, validation/append summaries, and card counts
+- queue + drilldown surfaces in `SessionInbox.tsx`, `SmartCanvas.tsx`, `TraceExplorerTab.tsx`, and `LLMObservabilityTab.tsx`
+
+Still deferred from the original plan:
+
+- repo-fixture sync into the Langfuse eval dataset
+- dedicated dual eval suite automation and prompt-version score comparison
+- broader `services/llm.py` decomposition, now tracked in `docs/sprint_cq_finish/SPRINT.md`
 
 ## Scope
 
@@ -215,73 +234,43 @@ Keep flattening for summaries, but do not use that flattened view as the only tr
 
 ### Phase 1: Workflow Evidence
 
-- richer metadata in tracing path
-- workflow-detail endpoint
-- session-router drop-point metadata
-- session-scoped debug drilldown in admin UI
+- shipped:
+  - richer metadata in the tracing path
+  - workflow summary/detail endpoints
+  - session-router drop-point and alumni-path metadata
+  - session-scoped debug drilldown in the admin UI
 
 ### Phase 2: Scores and Regression Loop
 
-- workflow-level scores
-- curated corpus of 10 canonical cases
-- Langfuse dataset mirror
-- score comparison by prompt/version
+- partially shipped:
+  - workflow-level scores now attach in `api/services/trace_adapter.py`
+- still open:
+  - curated corpus of canonical cases
+  - Langfuse dataset mirror
+  - score comparison by prompt/version
 
 ### Phase 3: Prompt Promotion
 
-- migrate `generate_session_intents` into Langfuse prompt management
-- migrate `generate_alumni_extraction` into Langfuse prompt management
-- use staging/production labels
+- partially shipped:
+  - prompt resolver seam and environment-sensitive label policy are live in `api/services/llm.py`
+  - per-flow Langfuse prompt enablement exists for `generate_session_intents` and `generate_alumni_extraction`
+- still open:
+  - full prompt-management promotion as an operational workflow rather than just code support
 
 ## Test Strategy
 
-Backend coverage to add:
+Shipped coverage:
 
-- `api/tests/test_llm_observability.py`
-  - prompt provenance fields
-  - workflow-detail endpoint shape
-  - JSONL fallback behavior
-  - score attachment and failure isolation
-- `api/tests/test_session_router.py`
-  - alumni-heavy invoked/skipped metadata
-  - committed-count metadata
-  - drop-point classification
-  - regression where alumni extraction ran but no alumni card survived
-- `api/tests/test_session_intents.py`
-  - prompt resolver behavior
-  - staging vs production prompt policy
-  - repo fallback semantics
+- `api/tests/test_llm_observability.py` covers structured trace logging, prompt provenance, Langfuse/JSONL fallback behavior, and workflow-detail assembly
+- `web/components/admin/__tests__/TraceExplorerTab.test.tsx` covers summary loading plus detail drilldown
+- `web/components/admin/__tests__/LLMObservabilityTab.test.tsx` covers the workflow watchlist embedded in the observability surface
+- `web/components/admin/__tests__/SessionInbox.test.tsx`, `SmartCanvas.test.tsx`, and `AdminWorkspace.test.tsx` keep the queue and route wiring honest
+- `web/e2e/admin-workspace.e2e.ts` remains the end-to-end guardrail for the admin workspace shell
 
-Frontend coverage to add:
+Still open:
 
-- `web/components/admin/__tests__/TraceExplorerTab.test.tsx`
-  - workflow-detail rendering
-  - partial-detail state
-  - session-filtered drilldown
-- `web/components/admin/__tests__/LLMObservabilityTab.test.tsx`
-  - failed-workflow widgets
-  - repair/card-presence summaries
-  - open-detail interactions
-- `web/components/admin/__tests__/SessionInbox.test.tsx`
-  - renamed debug affordance
-  - ready-to-review routing behavior
-- `web/components/admin/__tests__/SmartCanvas.test.tsx`
-  - auto-reveal on analysis completion
-- `web/components/admin/__tests__/AdminWorkspace.test.tsx`
-  - workflow-detail route wiring
-
-E2E coverage to add:
-
-- `web/e2e/admin-workspace.e2e.ts`
-  - Staging Area -> Debug Workflow -> session-scoped detail
-  - missing-card diagnosis happy path
-
-Eval coverage to add:
-
-- dual suites:
-  - `session_intents`
-  - `alumni_extraction`
-- run both suites whenever prompt text, prompt resolver logic, workflow scoring, workflow-detail shaping, or session-card routing changes
+- dedicated dual eval suites for `session_intents` and `alumni_extraction`
+- automated reruns whenever prompt text, resolver logic, workflow scoring, workflow-detail shaping, or session-card routing changes
 
 ## Performance Rules
 

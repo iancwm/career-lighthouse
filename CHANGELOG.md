@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Langfuse-first workflow debug contract**: `api/models_kb.py`, `api/services/trace_adapter.py`, `api/routers/kb_router.py`, and `web/types/llm-observability.ts` now define normalized workflow summary/detail objects plus `/api/kb/workflow-summaries` and `/api/kb/workflow-detail`, combining Langfuse sessions, JSONL fallback traces, and router-side session evidence.
+- **Queue-first session debugging UX**: `SessionInbox.tsx` now splits the Staging Area into `Ready to review`, `Analyzing now`, and `Recent sessions`, promotes analyzed sessions with a `Your session is ready...` banner, exposes `Review now`, and keeps `Debug Workflow` as the technical drilldown CTA.
 - **Card-native alumni staging flow**: `api/routers/session_router.py` now detects alumni-heavy Staging Area notes, calls `generate_alumni_extraction`, and appends `IntentCard(domain="alumni")` entries alongside track and employer cards. Alumni cards carry per-field `proposals`, `is_update`, and `matched_slug`, and SmartCanvas now renders an alumni-specific review surface with confidence, evidence, trajectory, and chronological company history.
 - **Alumni intent-card schema coverage**: `api/models_kb.py` now validates alumni card diffs directly, including the broader alumni field set used by the extraction prompt and the stringly-typed list/bool/int values the model sometimes emits before counsellor review.
 - **Alumni detection regression coverage**: added fixture-backed `_is_alumni_heavy` tests plus new router/model/UI coverage for alumni cards in `api/tests/test_alumni_detection.py`, `api/tests/test_models_kb.py`, and `web/components/admin/__tests__/SmartCanvas.test.tsx`.
@@ -12,6 +14,8 @@ All notable changes to this project will be documented in this file.
 - **Workspace clarity regression coverage**: targeted Vitest coverage now locks in SmartCanvas initial-analysis visibility plus Employer Fact Library sticky extracted-facts state, and Playwright covers analyzing-state persistence, dense-workspace controls at `1440x900`, and mobile stacking for the admin workbench surfaces.
 
 ### Changed
+- **Prompt provenance resolution**: `api/services/llm.py` now resolves prompt source per flow, records `prompt_name` / `prompt_source` / `prompt_label` / `prompt_version`, applies environment-aware Langfuse label and cache policy, and falls back cleanly to repo prompts when Langfuse is unavailable.
+- **Session analysis workflow assembly**: `api/routers/session_router.py` now persists a normalized `analysis_workflow` object with step timeline, context-pack summary, repair/validation/append evidence, alumni-path result, `drop_point`, and card counts so the admin UI does not have to reconstruct workflow truth from raw vendor payloads.
 - **Alumni extraction prompt contract**: `api/cfg/prompts.yaml` now asks for multi-alumnus payloads with `matched_slug`, `is_update`, and `source_excerpt`, reusing the existing alumni-field allowlists instead of a hard-coded field list.
 - **Company-link reconciliation ownership**: `_sync_company_links` now lives on `AlumniEntityStore`, with the alumni router keeping only a compatibility wrapper.
 - **Phase 0 code-quality cleanup**: `api/services/shared_yaml.py` now exposes a shared `Singleton` base used by the eight YAML-backed service singletons; `runtime_paths.knowledge_dir(name)` centralizes knowledge path resolution; `api/utils/sdk_shapes.py` owns SDK object coercion and trace preview helpers.
@@ -19,6 +23,7 @@ All notable changes to this project will be documented in this file.
 - **Workspace clarity sprint completed**: the remaining admin tabs now use the shared `ActionStatus` loading language, Employer Fact Library / SmartCanvas / Track Builder now keep active context and action bars visible inside constrained two-pane layouts, and the sprint spec moved to `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md`.
 
 ### Fixed
+- **Idempotent SmartCanvas actions**: commit, discard, and cancel flows now treat `409` responses as reload-and-sync outcomes instead of showing a false failure when the card or session was already finished.
 - **Silent alumni-card drop during session analysis**: alumni extraction results no longer fail validation just because the LLM returns valid alumni fields like `graduation_school`, `consent_for_referrals`, or `lifecycle`.
 - **Trace dead-ends on unexpected LLM client failures**: `_call_with_trace()` now writes an `error` row for non-HTTP exceptions too, which fixes the old observability gap where broken LLM calls could leave only a `started` trace behind.
 - **Student chat track preload**: the student chat now preloads career tracks from `/api/tracks/active` instead of the non-existent `/api/tracks`, fixing a Playwright-caught 404 when entering chat without a resume.
