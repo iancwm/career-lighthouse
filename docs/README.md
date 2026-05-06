@@ -16,14 +16,11 @@ The repo root holds the active project docs:
 
 These docs are still maintained against the codebase:
 
-- `docs/session_pipeline_stabilization/` - active session publishing
-  stabilization sprint. Covers Staging Area create-state trust, live queue
-  updates, malformed JSON hardening, richer workflow detail, SmartCanvas
-  scroll reduction, and alumni-card reliability. Started 2026-05-05.
-- `docs/superpowers/plans/` - active execution notes for agent-driven sprint
-  follow-through. The 2026-05-06 sprint-completion note now records the
-  verified `llm.py` Phase 3 decomposition work and the remaining backlog
-  follow-ups.
+- `docs/unified_session_and_quality/SPRINT.md` - active unified sprint for
+  session pipeline stabilization plus remaining backlog close-out artifacts.
+  Covers create-state trust, JSON/workflow-debug reliability, SmartCanvas
+  review loop usability, alumni-card reliability verification, and Langfuse
+  eval-sync follow-up. Started 2026-05-06.
 
 ## Archived Specs And Plans
 
@@ -37,6 +34,12 @@ Completed or historical planning docs live under `docs/archived/`:
   decomposition shipped and focused verification recorded; the remaining
   accuracy artifact, alumni verification artifact, and Langfuse eval-sync
   follow-up remain in `TODOS.md`.
+- `docs/archived/session_pipeline_stabilization/SPRINT-2026-05-05.md` -
+  archived standalone session pipeline stabilization spec, superseded by the
+  unified sprint spec on 2026-05-06.
+- `docs/archived/plans/2026-05-06-sprint-completion.md` - archived
+  sprint-completion execution checklist, merged into the unified sprint spec
+  on 2026-05-06.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` - shipped counsellor
   workspace clarity sprint. The follow-up pass closed the remaining admin-tab
   loading-state sweep, sticky two-pane local context, and focused Vitest /
@@ -69,8 +72,7 @@ Start here:
 - `README.md` for the product and setup overview
 - `DESIGN.md` for architecture and UI direction
 - `TODOS.md` for the current backlog
-- `docs/session_pipeline_stabilization/` for the active session publishing sprint
-- `docs/superpowers/plans/` for active execution-progress notes
+- `docs/unified_session_and_quality/SPRINT.md` for the active unified sprint
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs

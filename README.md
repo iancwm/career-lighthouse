@@ -96,8 +96,7 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 
 `docs/README.md` is the index for the docs tree.
 
-- Active specs live in `docs/session_pipeline_stabilization/`
-- Active execution-progress notes live in `docs/superpowers/plans/`
+- Active sprint spec lives in `docs/unified_session_and_quality/SPRINT.md`
 - Completed sprint specs and dated plans live in `docs/archived/`
 - Root docs for the current project state are `AUDIT.md`, `DESIGN.md`, `TODOS.md`, and `CHANGELOG.md`
 

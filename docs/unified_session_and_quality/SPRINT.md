@@ -1,0 +1,119 @@
+---
+status: active
+created: 2026-05-06
+last_updated: 2026-05-06
+---
+
+# Sprint: Session Pipeline + Backlog Close-out Unified Sprint
+
+**Duration:** ~1 week  
+**Goal:** Restore trust in the Staging Area session loop while closing the remaining high-priority backlog artifacts from the code-quality finish sprint.
+
+## Source spec diff (reconciled)
+
+This unified sprint merges (now archived):
+- `docs/archived/session_pipeline_stabilization/SPRINT-2026-05-05.md` (session UX/reliability stabilization)
+- `docs/archived/plans/2026-05-06-sprint-completion.md` (execution checklist for code-quality/backlog close-out)
+
+Key differences that are now reconciled:
+- Scope style:
+  - Session stabilization spec was problem-led and UI/workflow heavy.
+  - Sprint-completion spec was task/checklist-led and service-refactor heavy.
+- Current status:
+  - `llm.py` Phase 3 decomposition (C1-C4) is now already shipped and verified.
+  - Session-loop trust/reliability fixes are still the main active implementation stream.
+- Remaining deliverables:
+  - Backlog artifacts still open: E1 extraction-accuracy report, F3 alumni failure-mode verification, D1 Langfuse eval-sync script/docs.
+- Ownership seam:
+  - Session spec focused on product behavior.
+  - Sprint-completion spec focused on backend architecture and verification evidence.
+
+## Unified execution blocks
+
+### Block A — Session loop trust and zero-stall operator flow (active)
+
+**Why:** The app still feels unreliable when creating and reviewing sessions.
+
+**Includes:**
+- Immediate `Analyzing now` row and analysis kickoff from session creation flow.
+- Faster in-flight status transitions and promotion to `Ready to review`.
+- SmartCanvas zero-scroll review loop (sticky actions, less layout thrash).
+- Clear clustered-uncertainty guidance that is collapsible/dismissible.
+
+**Primary files:**
+- `web/components/admin/SessionInbox.tsx`
+- `web/components/admin/SmartCanvas.tsx`
+- `api/routers/session_router.py`
+- `web/components/admin/__tests__/SessionInbox.test.tsx`
+- `web/components/admin/__tests__/SmartCanvas.test.tsx`
+- `web/e2e/admin-workspace.e2e.ts`
+
+### Block B — Session JSON/observability reliability (active)
+
+**Why:** Malformed JSON and sparse workflow detail still make failures hard to diagnose.
+
+**Includes:**
+- Harden session-analysis malformed JSON behavior and preserve repair-failure evidence.
+- Surface repair, validation, append, and alumni-path decisions in workflow detail UI.
+- Add a compact reliability scorecard artifact for closure criteria.
+
+**Primary files:**
+- `api/services/llm.py`
+- `api/services/trace_adapter.py`
+- `api/models_kb.py`
+- `api/routers/kb_router.py`
+- `web/components/admin/TraceExplorerTab.tsx`
+- `web/components/admin/LLMObservabilityTab.tsx`
+- `docs/unified_session_and_quality/reliability_scorecard.md` (new)
+
+### Block C — Backlog artifact close-out (active)
+
+**Why:** Backlog now hinges on verification artifacts, not structural refactors.
+
+**Includes:**
+- E1: LLM extraction accuracy testing/report on real employer notes.
+- F3: Alumni cards end-to-end verification for the 4 failure modes.
+
+**Primary files:**
+- `docs/sprint_cq_finish/E1_accuracy_report.md` (new)
+- `api/tests/test_session_router.py`
+- `api/tests/test_session_intents.py`
+- `web/components/admin/SmartCanvas.tsx`
+
+### Block D — Langfuse eval dataset sync (active)
+
+**Why:** Repo fixtures and Langfuse eval dataset can drift without a sync path.
+
+**Includes:**
+- Script to upsert canonical fixtures into Langfuse dataset.
+- Operator doc for running and verifying sync.
+
+**Primary files:**
+- `scripts/sync_langfuse_eval_dataset.py` (new)
+- `docs/sprint_cq_finish/langfuse_eval_sync.md` (new)
+
+## Completed baseline (already shipped before this unified sprint)
+
+- Code quality Phase 1 (`kb_health`, prompt externalization, inline-import lift).
+- `llm.py` Phase 3 decomposition:
+  - `api/services/llm_tracing.py`
+  - `api/services/llm_json.py`
+  - `api/services/llm_budgets.py`
+  - `MergeSpec` + `merge_chunked_results(...)`
+- Focused verification evidence:
+  - `cd api && uv run pytest tests/test_llm_hardening.py tests/test_llm_observability.py tests/test_session_intents.py tests/test_kb_analyse.py -q` (`41 passed`)
+
+## Definition of done
+
+- Session creation and queue progression feel immediate and truthful.
+- Session workflow detail is sufficient to diagnose malformed-JSON and zero-card runs from UI evidence.
+- SmartCanvas review loop no longer requires repeated full-page scrolling.
+- E1 and F3 artifacts are complete and linked from `TODOS.md`.
+- Langfuse eval-sync script/docs exist and run safely with/without configured `LANGFUSE_*`.
+- `api/pytest` and `web/npm test` are green for merged slices.
+
+## Explicitly out of scope
+
+- Phase 2 router split from the archived code-quality plan.
+- Broad auth/RBAC and multi-user locking projects.
+- Alumni-tab migration or unrelated UI redesign work.
