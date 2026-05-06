@@ -87,7 +87,7 @@ test.describe("Admin workspace IA", () => {
         },
       })
     })
-    await page.route("**/api/kb/llm-traces?limit=25", async (route) => {
+    await page.route("**/api/kb/workflow-summaries?limit=12", async (route) => {
       await route.fulfill({ json: [] })
     })
 

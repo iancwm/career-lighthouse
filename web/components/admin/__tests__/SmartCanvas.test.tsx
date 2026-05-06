@@ -288,4 +288,47 @@ describe("SmartCanvas", () => {
     const goldmanSachs = screen.getByText("Goldman Sachs", { selector: "p" })
     expectNodeBefore(morganStanley, goldmanSachs)
   })
+
+  it("keeps commit controls sticky at the bottom of the review pane", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/api/admin/api/sessions/session-sticky")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-sticky",
+            status: "analyzed",
+            raw_input: "Update employer hiring process",
+            intent_cards: [
+              {
+                card_id: "card-sticky-1",
+                domain: "employer",
+                summary: "Update hiring process details",
+                diff: {
+                  slug: "example_employer",
+                  hiring_process: "Two rounds plus case interview",
+                },
+                raw_input_ref: "Two rounds and a case interview.",
+                status: "pending",
+              },
+            ],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-sticky" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Update hiring process details" })).toBeInTheDocument())
+
+    const actionBar = screen.getByTestId("smart-canvas-action-bar")
+    expect(actionBar.className).toContain("sticky")
+    expect(actionBar.className).toContain("bottom-0")
+  })
 })

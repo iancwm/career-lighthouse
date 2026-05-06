@@ -44,6 +44,9 @@ ALLOWED_EMPLOYER_FIELDS: frozenset = frozenset(
 )
 _FACTS_PREVIEW_LIMIT = 6
 _FACT_PREVIEW_CHARS = 120
+_MAX_CONTEXT_EMPLOYERS_PER_CAREER_TYPE = int(
+    kb_cfg["employers"]["context_block"].get("max_per_career_type", 20)
+)
 
 
 def _default_employer_history_dir() -> Path:
@@ -440,8 +443,8 @@ class EmployerEntityStore(Singleton):
         Returns empty string if no employers match (safe to skip injection).
 
         Token budget: ~6 lines per employer × 12 chars/line ≈ 72 tokens per employer.
-        At 15 employers per track, that's ~1080 tokens — acceptable at pilot scale.
-        See TODOS.md: "Employer context token budget" for >20 employers per track.
+        Track-matched injections are capped at _MAX_CONTEXT_EMPLOYERS_PER_CAREER_TYPE
+        (default 20), while explicit query/profile matches may append beyond that cap.
         """
         self._ensure_loaded()
         employers = list(self._employers.values())
@@ -449,10 +452,22 @@ class EmployerEntityStore(Singleton):
         seen_slugs: set[str] = set()
 
         if active_career_type:
+            track_matched: list[dict] = []
             for employer in employers:
                 if active_career_type in _as_list(employer.get("tracks")):
-                    selected.append(employer)
-                    seen_slugs.add(employer.get("slug", ""))
+                    track_matched.append(employer)
+
+            for employer in track_matched[:_MAX_CONTEXT_EMPLOYERS_PER_CAREER_TYPE]:
+                selected.append(employer)
+                seen_slugs.add(employer.get("slug", ""))
+
+            if len(track_matched) > _MAX_CONTEXT_EMPLOYERS_PER_CAREER_TYPE:
+                logger.info(
+                    "Employer context: capped %s track matches at %s for %s",
+                    len(track_matched),
+                    _MAX_CONTEXT_EMPLOYERS_PER_CAREER_TYPE,
+                    active_career_type,
+                )
 
         # Inject employers listed in the career profile's top_employers_smu.
         # Case-insensitive substring match catches variants like "WWF" → "WWF Singapore".

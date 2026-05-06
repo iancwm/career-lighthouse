@@ -282,8 +282,8 @@ def test_active_career_type_echoed_back_in_response(in_memory_qdrant, mock_embed
     assert r.json()["active_career_type"] == "consulting"
 
 
-def test_cosine_match_overrides_active_career_type(in_memory_qdrant, mock_embedder):
-    """If cosine score >= threshold for a new type, it overrides the client's active_career_type."""
+def test_keyword_match_overrides_active_career_type(in_memory_qdrant, mock_embedder):
+    """Explicit keyword match should override the client's current active_career_type."""
     from main import app
     import dependencies
     import services.llm as llm_module
@@ -303,10 +303,10 @@ def test_cosine_match_overrides_active_career_type(in_memory_qdrant, mock_embedd
         "typical_background": "Any",
         "notes": "",
     }
-    # Cosine matches "consulting" even though client sent "investment_banking" as active
     mock_ps = _mock_profile_store(
-        get_profile_return=fake_profile, match_return="consulting"
+        get_profile_return=fake_profile, match_return=None
     )
+    mock_ps.match_career_type_keywords.return_value = "consulting"
 
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
@@ -410,7 +410,7 @@ def test_keyword_match_activates_track_when_no_active_type(
     assert r.json()["active_career_type"] == "data_science"
 
 
-def test_active_career_type_blocks_keyword_track_flapping(
+def test_active_career_type_can_switch_when_keyword_is_explicit(
     in_memory_qdrant, mock_embedder
 ):
     from main import app
@@ -439,7 +439,7 @@ def test_active_career_type_blocks_keyword_track_flapping(
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
     app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
 
-    with patch.object(llm_module, "chat_with_context", return_value="keep track"):
+    with patch.object(llm_module, "chat_with_context", return_value="switch track"):
         client = TestClient(app)
         r = client.post(
             "/api/chat",
@@ -452,7 +452,7 @@ def test_active_career_type_blocks_keyword_track_flapping(
         )
 
     assert r.status_code == 200
-    assert r.json()["active_career_type"] == "consulting"
+    assert r.json()["active_career_type"] == "data_science"
 
 
 def test_employer_context_not_injected_without_active_career_type(

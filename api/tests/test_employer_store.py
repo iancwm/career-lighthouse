@@ -236,6 +236,70 @@ class TestToContextBlock:
         assert "Goldman Sachs" in block
         assert "McKinsey" not in block
 
+    def test_caps_track_matched_employers_for_context_budget(
+        self, employers_dir, monkeypatch
+    ):
+        for index in range(24):
+            slug = f"ib_firm_{index:02d}"
+            (employers_dir / f"{slug}.yaml").write_text(
+                textwrap.dedent(f"""\
+                employer_name: IB Firm {index:02d}
+                slug: {slug}
+                tracks:
+                  - investment_banking
+                ep_requirement: "EP3"
+                intake_seasons:
+                  - Jan
+            """),
+                encoding="utf-8",
+            )
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        block = store.to_context_block("investment_banking")
+        assert block.count("EP requirement:") == 20
+
+    def test_explicit_query_match_can_append_beyond_track_cap(
+        self, employers_dir, monkeypatch
+    ):
+        for index in range(24):
+            slug = f"ib_firm_{index:02d}"
+            (employers_dir / f"{slug}.yaml").write_text(
+                textwrap.dedent(f"""\
+                employer_name: IB Firm {index:02d}
+                slug: {slug}
+                tracks:
+                  - investment_banking
+                ep_requirement: "EP3"
+                intake_seasons:
+                  - Jan
+            """),
+                encoding="utf-8",
+            )
+        (employers_dir / "zzz_target.yaml").write_text(
+            textwrap.dedent("""\
+            employer_name: ZzzTarget
+            slug: zzz_target
+            tracks:
+              - investment_banking
+            ep_requirement: "EP5"
+            intake_seasons:
+              - Jul
+        """),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        block = store.to_context_block(
+            active_career_type="investment_banking",
+            query_text="Can you share ZzzTarget details?",
+        )
+        assert "ZzzTarget" in block
+        assert block.count("EP requirement:") == 21
+
     def test_career_type_none_returns_empty(self, employers_dir, monkeypatch):
         monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
         from services.employer_store import EmployerEntityStore

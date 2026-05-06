@@ -98,6 +98,7 @@ Key differences that are now reconciled:
 ### Block A
 - `web/components/admin/SessionInbox.tsx`: auto-kick `POST /{id}/analyze` immediately after session creation; adaptive polling (4 s when active, 30 s idle).
 - `web/components/admin/SmartCanvas.tsx`: `guidanceDismissed` state + dismiss (✕) button on clustered-uncertainty guidance panel; reset on new session load.
+- `web/components/admin/SmartCanvas.tsx`: sticky commit/discard action bar (`smart-canvas-action-bar`) to reduce repeated scrolling while reviewing multiple cards; regression coverage added in `web/components/admin/__tests__/SmartCanvas.test.tsx`.
 
 ### Block B
 - `api/routers/session_router.py`: JSON parse/repair failure now sets `drop_point = "json_parse_or_repair"` and writes `repair.applied = True` + `repair.failure` to workflow dict.

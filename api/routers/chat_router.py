@@ -138,19 +138,18 @@ def _log_query(
 
 def _resolve_career_type(
     req: ChatRequest,
-    query_vec,
     profile_store: CareerProfileStore,
 ) -> Optional[str]:
     """Determine the active career type slug for this request.
 
     Resolution order (from message 2 onward):
-      1. Query-time cosine match >= threshold → override with matched type
-      2. active_career_type from request (client echo of prior response) → use as fallback
+      1. Explicit keyword match in message → switch to matched type
+      2. active_career_type from request (client echo of prior response) → fallback
       3. Neither → None (LLM will ask for clarification)
 
     On message 1:
       intake_context.interest → rule-based slug → used as active_career_type
-      (Cosine also checked; if it scores >= threshold it overrides intake, which is fine.)
+      (Intake intent remains authoritative for the first turn.)
     """
     # Rule-based intake resolution (message 1)
     intake_slug: Optional[str] = None
@@ -166,16 +165,10 @@ def _resolve_career_type(
         if profile_store.get_profile(req.active_career_type) is not None:
             active_slug = req.active_career_type
 
-    # Deterministic keyword matching only runs when no active career type is set.
-    if active_slug is None:
-        keyword_slug = profile_store.match_career_type_keywords(req.message)
-        if keyword_slug:
-            return keyword_slug
-
-    # Query-time cosine match remains as a final fallback for legacy profiles.
-    cosine_slug = profile_store.match_career_type(query_vec)
-    if cosine_slug:
-        return cosine_slug
+    # Deterministic keyword matching replaces cosine-based switching.
+    keyword_slug = profile_store.match_career_type_keywords(req.message)
+    if keyword_slug:
+        return keyword_slug
     return active_slug
 
 
@@ -219,8 +212,8 @@ def chat(
     chunks = store.search(query_vec, top_k=5)
     active_chunks = filter_active_chunks(chunks)
 
-    # Career type resolution: intake → cosine → client fallback
-    active_career_type = _resolve_career_type(req, query_vec, profile_store)
+    # Career type resolution: intake → explicit keyword match → client fallback
+    active_career_type = _resolve_career_type(req, profile_store)
 
     # Profile injection: load YAML and format as context block (None → no injection)
     career_context: Optional[str] = None

@@ -879,7 +879,10 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                 })}
               </div>
 
-              <div className="border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+              <div
+                data-testid="smart-canvas-action-bar"
+                className="sticky bottom-0 z-10 border-t border-gray-100 bg-white/95 px-5 py-4 backdrop-blur supports-[backdrop-filter]:bg-white/80"
+              >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-gray-500">
                     Commit saves this card into the knowledge base. Discard skips it and moves on.

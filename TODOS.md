@@ -24,6 +24,7 @@ Recently archived:
 **Why:** The current session publishing flow is still not performing to spec; major refactor debt is reduced, so this sprint now centers on reliability and operator trust in the active session loop.
 **Files:** `docs/unified_session_and_quality/SPRINT.md`, `web/components/admin/SessionInbox.tsx`, `web/components/admin/SmartCanvas.tsx`, `web/components/admin/TraceExplorerTab.tsx`, `api/routers/session_router.py`, `api/services/llm.py`, `api/services/trace_adapter.py`, `scripts/sync_langfuse_eval_dataset.py`.
 **Depends on:** None. This is now the active source-of-truth sprint for the session-card loop plus residual close-out work.
+**Progress (2026-05-06):** SmartCanvas commit/discard controls now use a sticky action bar (`smart-canvas-action-bar`) so operators can move card-to-card without repeated full-page scrolling. Covered by `web/components/admin/__tests__/SmartCanvas.test.tsx`.
 
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
@@ -268,20 +269,16 @@ Shipped: `web/components/admin/SessionInbox.tsx` renders a "No sessions yet" sta
 **Why:** The new chunking strategy only affects new uploads. Existing Qdrant chunks from old word-boundary splitting remain and may still miss table content.
 **Depends on:** New chunking strategy shipped (this sprint).
 
-### Replace cosine career type switching with keyword matching
-**What:** Use keyword-based career type detection in `CareerProfileStore.match_career_type()`.
-**Why:** Cosine similarity against short career-type descriptions is unreliable for conversational questions.
-**Depends on:** None.
+### ~~Replace cosine career type switching with keyword matching~~ ✓ Done (2026-05-06)
+Shipped: `api/routers/chat_router.py` now resolves active track switching from explicit `match_keywords` detection (`match_career_type_keywords`) instead of cosine override. Intake mapping remains first-turn authoritative, and active track fallback is used only when no keyword match is present. Regression coverage updated in `api/tests/test_chat_router.py`.
 
 ### Fill in counselor_contact fields in all YAML profiles
 **What:** Replace the `[TODO: Fill in SMU career centre contact…]` placeholders in each profile YAML.
 **Why:** Placeholder text will leak into prompts if `counselor_contact` is injected later.
 **Depends on:** Getting the actual contact details from SMU career centre.
 
-### Employer context token budget — per-career-type filter at >20 employers per track
-**What:** Cap the employer context block per track once a single career type gets too many employers.
-**Why:** Per-track density, not total count, becomes the token-budget bottleneck.
-**Depends on:** Career-type filtered injection shipping in v1.
+### ~~Employer context token budget — per-career-type filter at >20 employers per track~~ ✓ Done (2026-05-06)
+Shipped: `api/services/employer_store.py` now caps track-matched employer injections to 20 records per `active_career_type`, while still appending explicit `query_text`/`profile_top_employers` matches beyond the cap for relevance. Coverage added in `api/tests/test_employer_store.py` (`test_caps_track_matched_employers_for_context_budget`, `test_explicit_query_match_can_append_beyond_track_cap`).
 
 ### ~~Durable source document ledger~~ ✓ Done (2026-04-22)
 Shipped: uploaded source files now persist in the source ledger, document deletions archive rather than erase lifecycle history, retrieval only treats active sources as current, and KB health surfaces active/superseded/stale source signals for admin review.
