@@ -12,15 +12,14 @@ All prompts and model parameters are loaded from cfg/ YAML files.
 
 import json
 import logging
-import os
 import re
 import uuid
+from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
-from time import perf_counter
-from typing import Any, Callable
+from typing import Any, Callable, Hashable
 
 import anthropic
 from fastapi import HTTPException
@@ -30,6 +29,40 @@ from constants.profile_fields import ALLOWED_ALUMNI_FIELDS, ALLOWED_ALUMNI_LINK_
 from config import settings
 from models_employers import AlumniExtractionPreview
 from services.ingestion import chunk_text
+from services.llm_budgets import (
+    budget_chunks,
+    budget_history,
+    effective_session_multi_pass_setting,
+    join_budgeted_sections,
+    llm_bool,
+    llm_int,
+    llm_setting,
+    trim_to_budget,
+)
+from services.llm_json import (
+    call_structured_json as call_structured_json_impl,
+    extract_json_block,
+    json_dumps_safe,
+    parse_json_payload,
+    repair_json_output as repair_json_output_impl,
+    validate_or_repair as validate_or_repair_impl,
+)
+from services.llm_tracing import (
+    LLMTraceRecorder,
+    append_llm_trace as append_llm_trace_impl,
+    langfuse_client_config_key,
+    langfuse_endpoint,
+    langfuse_input_payload,
+    langfuse_is_enabled,
+    langfuse_metadata_key,
+    langfuse_metadata_value,
+    langfuse_trace_metadata,
+    langfuse_usage_details,
+    load_langfuse_symbols,
+    mask_langfuse_value,
+    start_langfuse_observation,
+    truncate_preview,
+)
 from models_facts import Fact
 from models_kb import KBAnalysisResult
 from models_tracks import DraftTrackDetail
@@ -75,22 +108,15 @@ _PROMPT_FLOW_CONFIG = {
 
 
 def _llm_setting(setting_name: str, model_key: str, default: Any = None) -> Any:
-    value = getattr(settings, setting_name, None)
-    if value is not None:
-        return value
-    return _llm.get(model_key, default)
+    return llm_setting(settings, _llm, setting_name, model_key, default)
 
 
 def _llm_int(setting_name: str, model_key: str, default: int) -> int:
-    value = _llm_setting(setting_name, model_key, default)
-    if value is None:
-        return int(default)
-    return int(value)
+    return llm_int(settings, _llm, setting_name, model_key, default)
 
 
 def _llm_bool(setting_name: str, model_key: str, default: bool) -> bool:
-    value = _llm_setting(setting_name, model_key, default)
-    return bool(value)
+    return llm_bool(settings, _llm, setting_name, model_key, default)
 
 
 def _is_production_like_environment() -> bool:
@@ -192,10 +218,9 @@ def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
 
 
 def _effective_session_multi_pass_setting(setting_name: str, model_key: str) -> int:
-    value = getattr(settings, setting_name, None)
-    if value is not None:
-        return int(value)
-    return int(_llm[model_key])
+    return effective_session_multi_pass_setting(
+        settings, _llm, setting_name, model_key
+    )
 
 
 def get_model_name() -> str:
@@ -248,99 +273,48 @@ def _safe_create(
 
 
 def _truncate_preview(text: str | None, limit: int = _TRACE_PREVIEW_CHARS) -> str:
-    if not text:
-        return ""
-    clean = text.strip()
-    if len(clean) <= limit:
-        return clean
-    return clean[:limit] + "…"
+    return truncate_preview(text, limit)
 
 
 def _mask_langfuse_value(data: Any) -> Any:
-    """Best-effort SDK-side masking for trace inputs, outputs, and metadata."""
-    if isinstance(data, str):
-        masked = _LANGFUSE_EMAIL_RE.sub("[EMAIL_REDACTED]", data)
-        masked = _LANGFUSE_PHONE_RE.sub("[PHONE_REDACTED]", masked)
-        masked = _LANGFUSE_API_KEY_RE.sub("[API_KEY_REDACTED]", masked)
-        masked = _LANGFUSE_BEARER_RE.sub("Bearer [REDACTED]", masked)
-        return masked
-    if isinstance(data, dict):
-        return {key: _mask_langfuse_value(value) for key, value in data.items()}
-    if isinstance(data, list):
-        return [_mask_langfuse_value(item) for item in data]
-    if isinstance(data, tuple):
-        return [_mask_langfuse_value(item) for item in data]
-    if data is None or isinstance(data, (int, float, bool)):
-        return data
-    return str(data)
+    return mask_langfuse_value(
+        data,
+        email_re=_LANGFUSE_EMAIL_RE,
+        phone_re=_LANGFUSE_PHONE_RE,
+        api_key_re=_LANGFUSE_API_KEY_RE,
+        bearer_re=_LANGFUSE_BEARER_RE,
+    )
 
 
 def _langfuse_metadata_key(key: str) -> str:
-    """Convert a snake_case key into Langfuse-safe camelCase metadata."""
-    parts = [part for part in re.split(r"[^0-9A-Za-z]+", key) if part]
-    if not parts:
-        return ""
-    if len(parts) == 1:
-        return parts[0][0].lower() + parts[0][1:] if parts[0] else ""
-    first = parts[0][0].lower() + parts[0][1:] if parts[0] else ""
-    rest = "".join(part[:1].upper() + part[1:] for part in parts[1:] if part)
-    return first + rest
+    return langfuse_metadata_key(key)
 
 
 def _langfuse_metadata_value(value: object) -> str | None:
-    if value is None:
-        return None
-    text = str(value)
-    if not text:
-        return None
-    if len(text) > _LANGFUSE_METADATA_VALUE_LIMIT:
-        text = text[: _LANGFUSE_METADATA_VALUE_LIMIT - 1] + "…"
-    return text
+    return langfuse_metadata_value(value, limit=_LANGFUSE_METADATA_VALUE_LIMIT)
 
 
 def _langfuse_is_enabled() -> bool:
-    return bool(
-        getattr(settings, "langfuse_public_key", "")
-        and getattr(settings, "langfuse_secret_key", "")
-        and (
-            getattr(settings, "langfuse_base_url", "")
-            or getattr(settings, "langfuse_host", "")
-        )
-    )
+    return langfuse_is_enabled(settings)
 
 
 def _load_langfuse_symbols() -> None:
     global _langfuse_class, propagate_attributes
     if _langfuse_class is not None and propagate_attributes is not None:
         return
-    try:
-        from langfuse import (
-            Langfuse as _Langfuse,
-            propagate_attributes as _propagate_attributes,
-        )
-    except ImportError:  # pragma: no cover - optional dependency for local dev/tests
+    _Langfuse, _propagate_attributes = load_langfuse_symbols()
+    if _Langfuse is None or _propagate_attributes is None:
         return
     _langfuse_class = _Langfuse
     propagate_attributes = _propagate_attributes
 
 
 def _langfuse_endpoint() -> str | None:
-    endpoint = getattr(settings, "langfuse_host", "") or getattr(
-        settings, "langfuse_base_url", ""
-    )
-    return endpoint or None
+    return langfuse_endpoint(settings)
 
 
 def _langfuse_client_config_key() -> tuple:
-    return (
-        getattr(settings, "langfuse_public_key", ""),
-        getattr(settings, "langfuse_secret_key", ""),
-        _langfuse_endpoint(),
-        getattr(settings, "langfuse_timeout_seconds", None),
-        getattr(settings, "langfuse_flush_at", None),
-        getattr(settings, "langfuse_flush_interval", None),
-        getattr(settings, "langfuse_tracing_environment", "development"),
-    )
+    return langfuse_client_config_key(settings, endpoint=_langfuse_endpoint())
 
 
 def _get_langfuse_client():
@@ -377,14 +351,7 @@ def _get_langfuse_client():
 
 
 def _start_langfuse_observation(client, **kwargs):
-    try:
-        return client.start_as_current_observation(**kwargs)
-    except Exception:
-        logger.warning(
-            "Langfuse observation startup failed; continuing without tracing",
-            exc_info=True,
-        )
-        return nullcontext()
+    return start_langfuse_observation(client, logger, **kwargs)
 
 
 def _schedule_langfuse_flush() -> None:
@@ -408,84 +375,35 @@ def _langfuse_input_payload(
     max_tokens: int,
     timeout_seconds: float | None,
 ) -> dict:
-    """Build the Langfuse input payload dict with content previews and char counts instead of full text."""
-    message_summaries = []
-    for message in messages:
-        content = str(message.get("content", ""))
-        message_summaries.append(
-            {
-                "role": message.get("role", "user"),
-                "content_preview": _truncate_preview(content),
-                "content_chars": len(content),
-            }
-        )
-    normalized_metadata: dict[str, object] = dict(metadata)
-    for key, value in metadata.items():
-        normalized_key = _langfuse_metadata_key(str(key))
-        if normalized_key:
-            normalized_metadata[normalized_key] = value
-    return {
-        "system_preview": _truncate_preview(system),
-        "system_chars": len(system),
-        "messages": message_summaries,
-        "message_count": len(messages),
-        "metadata": normalized_metadata,
-        "max_tokens": max_tokens,
-        "timeout_seconds": timeout_seconds,
-    }
+    return langfuse_input_payload(
+        system,
+        messages,
+        metadata,
+        max_tokens,
+        timeout_seconds,
+        truncate_preview_fn=_truncate_preview,
+        metadata_key_fn=_langfuse_metadata_key,
+    )
 
 
 def _langfuse_trace_metadata(
     metadata: dict[str, object], trace_id: str
 ) -> dict[str, str]:
-    """Convert internal trace metadata to the camelCase string dict expected by the Langfuse SDK, stripping None values and reserved keys."""
-    out: dict[str, str] = {
-        "traceId": trace_id,
-        "environment": str(
-            getattr(settings, "langfuse_tracing_environment", "development")
-        ),
-    }
-    for key, value in metadata.items():
-        if value is None or key in {"trace_id", "traceId", "session_id", "sessionId"}:
-            continue
-        langfuse_key = _langfuse_metadata_key(key)
-        if not langfuse_key:
-            continue
-        masked_value = _langfuse_metadata_value(value)
-        if masked_value is None:
-            continue
-        out[langfuse_key] = masked_value
-    return out
+    return langfuse_trace_metadata(
+        settings,
+        metadata,
+        trace_id,
+        metadata_key_fn=_langfuse_metadata_key,
+        metadata_value_fn=_langfuse_metadata_value,
+    )
 
 
 def _langfuse_usage_details(response: object) -> dict[str, int] | None:
-    usage = getattr(response, "usage", None)
-    if usage is None:
-        return None
-    input_tokens = getattr(usage, "input_tokens", None)
-    output_tokens = getattr(usage, "output_tokens", None)
-    if input_tokens is None and output_tokens is None:
-        return None
-    details: dict[str, int] = {}
-    if input_tokens is not None:
-        details["input_tokens"] = int(input_tokens)
-    if output_tokens is not None:
-        details["output_tokens"] = int(output_tokens)
-    return details or None
+    return langfuse_usage_details(response)
 
 
 def _append_llm_trace(entry: dict) -> None:
-    path = Path(settings.llm_trace_log_path)
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with open(path, "a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-    except Exception:
-        logger.warning(
-            "Failed to write LLM trace entry — request unaffected", exc_info=True
-        )
+    append_llm_trace_impl(Path(settings.llm_trace_log_path), entry, logger)
 
 
 def _response_text(response: object) -> str:
@@ -500,48 +418,15 @@ def _response_text(response: object) -> str:
 
 
 def _extract_json_block(text: str) -> str:
-    text = text.strip()
-    if text.startswith("```"):
-        if "\n" in text:
-            text = text.split("\n", 1)[1]
-        else:
-            text = ""
-        if "```" in text:
-            text = text.rsplit("```", 1)[0]
-    text = text.strip()
-    if not text:
-        return text
-
-    # Prefer the outermost object/array if the model wrapped the JSON in prose.
-    obj_start = text.find("{")
-    obj_end = text.rfind("}")
-    arr_start = text.find("[")
-    arr_end = text.rfind("]")
-
-    has_obj = obj_start != -1 and obj_end != -1 and obj_end > obj_start
-    has_arr = arr_start != -1 and arr_end != -1 and arr_end > arr_start
-
-    if has_obj and has_arr:
-        # Return whichever bracket opens first (outermost structure)
-        if arr_start < obj_start:
-            return text[arr_start : arr_end + 1].strip()
-        return text[obj_start : obj_end + 1].strip()
-    if has_obj:
-        return text[obj_start : obj_end + 1].strip()
-    if has_arr:
-        return text[arr_start : arr_end + 1].strip()
-    return text
+    return extract_json_block(text)
 
 
 def _parse_json_payload(text: str) -> Any:
-    return json.loads(_extract_json_block(text))
+    return parse_json_payload(text)
 
 
 def _json_dumps_safe(value: Any) -> str:
-    try:
-        return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
-    except Exception:
-        return str(value)
+    return json_dumps_safe(value)
 
 
 def _json_repair_enabled() -> bool:
@@ -564,64 +449,22 @@ def _repair_json_output(
     trace_metadata: dict[str, object] | None = None,
     max_retries: int | None = 2,
 ) -> dict | list:
-    if not _json_repair_enabled():
-        raise ValueError(f"{schema_name} JSON repair is disabled")
-
-    repair_source = raw_text
-    parse_error_text: str | None = None
-    last_error: Exception | None = None
-
-    for repair_attempt in (1, 2):
-        repair_system = (
-            f"You repair malformed JSON for {schema_name}.\n"
-            "Return ONLY valid JSON. Do not add markdown or explanation.\n"
-            f"Schema hint: {schema_hint}\n"
-            "Fix the JSON below and preserve the original meaning as closely as possible."
-        )
-        if parse_error_text:
-            repair_system += (
-                f"\nThe previous JSON parse attempt failed with: {parse_error_text}"
-            )
-
-        repair_user = f"Malformed JSON:\n{repair_source}"
-        response = _call_with_trace(
-            operation=f"{operation}_json_repair",
-            model=model,
-            max_tokens=max_tokens,
-            system=repair_system,
-            messages=[{"role": "user", "content": repair_user}],
-            timeout_seconds=timeout_seconds,
-            trace_metadata={
-                **(trace_metadata or {}),
-                "phase": "json_repair",
-                "schema_name": schema_name,
-                "parse_attempt": 2,
-                "repair_attempt": repair_attempt,
-                "input_chars_pre_trim": len(repair_source),
-            },
-            max_retries=max_retries,
-        )
-        repaired_text = _response_text(response)
-        try:
-            repaired = _parse_json_payload(repaired_text)
-        except Exception as exc:
-            last_error = exc
-            parse_error_text = str(exc)
-            repair_source = repaired_text
-            continue
-
-        if isinstance(repaired, (dict, list)):
-            return repaired
-
-        last_error = ValueError(
-            f"{schema_name} repair did not return a JSON object or array"
-        )
-        parse_error_text = str(last_error)
-        repair_source = _json_dumps_safe(repaired)
-
-    raise ValueError(
-        f"{schema_name} repair did not return a valid JSON object"
-    ) from last_error
+    return repair_json_output_impl(
+        raw_text=raw_text,
+        schema_name=schema_name,
+        schema_hint=schema_hint,
+        operation=operation,
+        model=model,
+        json_repair_enabled=_json_repair_enabled,
+        call_with_trace=_call_with_trace,
+        response_text=_response_text,
+        parse_json=_parse_json_payload,
+        safe_dumps=_json_dumps_safe,
+        max_tokens=max_tokens,
+        timeout_seconds=timeout_seconds,
+        trace_metadata=trace_metadata,
+        max_retries=max_retries,
+    )
 
 
 def _validate_or_repair(
@@ -638,26 +481,22 @@ def _validate_or_repair(
     trace_metadata: dict[str, object] | None = None,
     max_retries: int | None = 2,
 ) -> Any:
-    if validator is None:
-        return parsed
-
-    try:
-        return _model_validate(validator, parsed)
-    except (ValidationError, ValueError, TypeError) as exc:
-        logger.debug("%s validation failed, attempting repair: %s", schema_name, exc)
-        parsed_text = _json_dumps_safe(parsed)
-        repaired = _repair_json_output(
-            raw_text=parsed_text if parsed_text.strip() else raw_text,
-            schema_name=schema_name,
-            schema_hint=schema_hint,
-            operation=operation,
-            model=model,
-            max_tokens=max_tokens,
-            timeout_seconds=timeout_seconds,
-            trace_metadata=trace_metadata,
-            max_retries=max_retries,
-        )
-        return _model_validate(validator, repaired)
+    return validate_or_repair_impl(
+        parsed=parsed,
+        raw_text=raw_text,
+        schema_name=schema_name,
+        schema_hint=schema_hint,
+        operation=operation,
+        model=model,
+        validator=validator,
+        model_validate=_model_validate,
+        repair_json_output_fn=_repair_json_output,
+        logger=logger,
+        max_tokens=max_tokens,
+        timeout_seconds=timeout_seconds,
+        trace_metadata=trace_metadata,
+        max_retries=max_retries,
+    )
 
 
 def call_structured_json(
@@ -675,71 +514,30 @@ def call_structured_json(
     max_repair_tokens: int = 8192,
     max_retries: int | None = 2,
 ) -> Any:
-    response = _call_with_trace(
+    return call_structured_json_impl(
         operation=operation,
         model=model,
-        max_tokens=max_tokens,
         system=system,
-        messages=[{"role": "user", "content": user}],
-        timeout_seconds=timeout_seconds,
-        trace_metadata={
-            **(trace_metadata or {}),
-            "parse_attempt": 1,
-            "repair_attempt": 0,
-            "input_chars_pre_trim": len(user),
-        },
-        temperature=0,
-        max_retries=max_retries,
-    )
-    raw_text = _response_text(response)
-    try:
-        parsed = _parse_json_payload(raw_text)
-    except Exception:
-        parsed = _repair_json_output(
-            raw_text=raw_text,
-            schema_name=schema_name,
-            schema_hint=schema_hint,
-            operation=operation,
-            model=model,
-            max_tokens=max_repair_tokens,
-            timeout_seconds=timeout_seconds,
-            trace_metadata=trace_metadata,
-        )
-    if not isinstance(parsed, dict):
-        parsed = _repair_json_output(
-            raw_text=_json_dumps_safe(parsed),
-            schema_name=schema_name,
-            schema_hint=schema_hint,
-            operation=operation,
-            model=model,
-            max_tokens=max_repair_tokens,
-            timeout_seconds=timeout_seconds,
-            trace_metadata=trace_metadata,
-        )
-    if not isinstance(parsed, dict):
-        raise ValueError(f"{schema_name} must be a JSON object")
-    return _validate_or_repair(
-        parsed=parsed,
-        raw_text=raw_text,
+        user=user,
         schema_name=schema_name,
         schema_hint=schema_hint,
-        operation=operation,
-        model=model,
-        validator=validator,
-        max_tokens=max_repair_tokens,
+        max_tokens=max_tokens,
+        call_with_trace=_call_with_trace,
+        response_text=_response_text,
+        parse_json=_parse_json_payload,
+        safe_dumps=_json_dumps_safe,
+        repair_json_output_fn=_repair_json_output,
+        validate_or_repair_fn=_validate_or_repair,
         timeout_seconds=timeout_seconds,
         trace_metadata=trace_metadata,
+        validator=validator,
+        max_repair_tokens=max_repair_tokens,
         max_retries=max_retries,
     )
 
 
 def _trim_to_budget(text: str, budget: int | None) -> str:
-    text = text.strip()
-    if budget is None or budget <= 0:
-        return text
-    if len(text) <= budget:
-        return text
-    return text[:budget].rstrip()
+    return trim_to_budget(text, budget)
 
 
 def _budget_chunks(
@@ -749,50 +547,18 @@ def _budget_chunks(
     excerpt_chars: int | None,
     max_chunk_chars: int | None = None,
 ) -> list[dict]:
-    limited = chunks[:max_chunks] if max_chunks is not None else list(chunks)
-    budgeted: list[dict] = []
-    char_budget = excerpt_chars
-    if max_chunk_chars is not None and max_chunk_chars > 0:
-        char_budget = (
-            min(char_budget, max_chunk_chars)
-            if char_budget is not None
-            else max_chunk_chars
-        )
-    for chunk in limited:
-        payload = chunk.get("payload", {}) if isinstance(chunk, dict) else {}
-        budgeted.append(
-            {
-                "score": chunk.get("score") if isinstance(chunk, dict) else None,
-                "payload": {
-                    "source_filename": payload.get("source_filename", "unknown"),
-                    "text": _trim_to_budget(str(payload.get("text", "")), char_budget),
-                },
-            }
-        )
-    return budgeted
+    return budget_chunks(
+        chunks,
+        max_chunks=max_chunks,
+        excerpt_chars=excerpt_chars,
+        max_chunk_chars=max_chunk_chars,
+    )
 
 
 def _join_budgeted_sections(
     sections: list[str], *, max_context_chars: int | None
 ) -> str:
-    cleaned = [section.strip() for section in sections if section and section.strip()]
-    if not cleaned:
-        return ""
-    if max_context_chars is None or max_context_chars <= 0:
-        return "\n\n".join(cleaned)
-
-    out: list[str] = []
-    remaining = max_context_chars
-    for section in cleaned:
-        if remaining <= 0:
-            break
-        if len(section) <= remaining:
-            out.append(section)
-            remaining -= len(section)
-            continue
-        out.append(section[:remaining].rstrip())
-        break
-    return "\n\n".join(out)
+    return join_budgeted_sections(sections, max_context_chars=max_context_chars)
 
 
 def _normalize_existing_alumni_candidates(
@@ -842,12 +608,7 @@ def _validated_alumni_preview_payload(
 def _budget_history(
     history: list[dict], *, max_turns: int, max_chars: int | None
 ) -> str:
-    lines = []
-    for message in history[-max_turns:]:
-        role = str(message.get("role", "user")).upper()
-        content = _trim_to_budget(str(message.get("content", "")), max_chars)
-        lines.append(f"{role}: {content}")
-    return "\n".join(lines) if lines else "None"
+    return budget_history(history, max_turns=max_turns, max_chars=max_chars)
 
 
 def _call_with_trace(
@@ -861,230 +622,35 @@ def _call_with_trace(
     trace_metadata: dict[str, object] | None = None,
     **kwargs,
 ) -> object:
-    """Call the Anthropic API with full observability: emits started/ok/error JSONL trace entries and a Langfuse generation span."""
-    start = perf_counter()
-    input_chars = len(system) + sum(
-        len(str(message.get("content", ""))) for message in messages
+    recorder = LLMTraceRecorder(
+        operation=operation,
+        model=model,
+        max_tokens=max_tokens,
+        system=system,
+        messages=messages,
+        timeout_seconds=timeout_seconds,
+        trace_metadata=trace_metadata or {},
+        get_langfuse_client=_get_langfuse_client,
+        start_langfuse_observation_fn=_start_langfuse_observation,
+        schedule_langfuse_flush=_schedule_langfuse_flush,
+        append_llm_trace_fn=_append_llm_trace,
+        langfuse_input_payload_fn=_langfuse_input_payload,
+        langfuse_trace_metadata_fn=_langfuse_trace_metadata,
+        langfuse_usage_details_fn=_langfuse_usage_details,
+        trace_metadata_int_fn=_trace_metadata_int,
+        truncate_preview_fn=_truncate_preview,
+        propagate_attributes=propagate_attributes,
     )
-    trace_id = uuid.uuid4().hex
-    input_preview = (
-        _truncate_preview(messages[-1].get("content", "")) if messages else ""
-    )
-    metadata = trace_metadata or {}
-    feature = str(metadata.get("feature") or operation)
-    trace_entry_metadata: dict[str, object] = {
-        **metadata,
-        "feature": feature,
-        "input_chars_pre_trim": _trace_metadata_int(
-            metadata, "input_chars_pre_trim", input_chars
-        ),
-        "input_chars_sent": _trace_metadata_int(
-            metadata, "input_chars_sent", input_chars
-        ),
-    }
-    for field in (
-        "workflow_id",
-        "workflow_name",
-        "kb_chunks_retrieved",
-        "kb_chunks_sent",
-        "parse_attempt",
-        "repair_attempt",
-        "partial_result",
-        "prompt_name",
-        "prompt_source",
-        "prompt_label",
-        "prompt_version",
-        "schema_name",
-        "domain_mix",
-        "repair_applied",
-        "card_count_raw",
-        "card_count_repaired",
-        "card_count_committed",
-    ):
-        if field in metadata and metadata[field] is not None:
-            trace_entry_metadata[field] = metadata[field]
-    langfuse_client = _get_langfuse_client()
-    observation_cm = nullcontext()
-    if langfuse_client is not None:
-        observation_cm = _start_langfuse_observation(
-            langfuse_client,
-            as_type="generation",
-            name=operation,
+    return recorder.run(
+        lambda: _safe_create(
             model=model,
-            input=_langfuse_input_payload(
-                system,
-                messages,
-                {**trace_entry_metadata, "traceId": trace_id, "trace_id": trace_id},
-                max_tokens,
-                timeout_seconds,
-            ),
+            max_tokens=max_tokens,
+            system=system,
+            messages=messages,
+            timeout_seconds=timeout_seconds,
+            **kwargs,
         )
-    _append_llm_trace(
-        {
-            "trace_id": trace_id,
-            "ts": datetime.now(timezone.utc).isoformat(),
-            "operation": operation,
-            "status": "started",
-            "model": model,
-            **trace_entry_metadata,
-            "timeout_seconds": timeout_seconds,
-            "max_tokens": max_tokens,
-            "latency_ms": 0.0,
-            "input_chars": input_chars,
-            "output_chars": 0,
-            "input_preview": input_preview,
-            "output_preview": "",
-            "error": None,
-        }
     )
-    with observation_cm as lf_observation:
-        if lf_observation is not None and propagate_attributes is not None:
-            try:
-                propagate_kwargs: dict[str, object] = {
-                    "trace_name": operation,
-                }
-                if metadata.get("session_id"):
-                    propagate_kwargs["session_id"] = str(metadata["session_id"])
-                langfuse_metadata = _langfuse_trace_metadata(metadata, trace_id)
-                if langfuse_metadata:
-                    propagate_kwargs["metadata"] = langfuse_metadata
-                attr_cm = propagate_attributes(**propagate_kwargs)
-            except Exception:
-                logger.warning(
-                    "Langfuse propagation failed; continuing without tracing",
-                    exc_info=True,
-                )
-                attr_cm = nullcontext()
-        else:
-            attr_cm = nullcontext()
-        with attr_cm:
-            try:
-                response = _safe_create(
-                    model=model,
-                    max_tokens=max_tokens,
-                    system=system,
-                    messages=messages,
-                    timeout_seconds=timeout_seconds,
-                    **kwargs,
-                )
-            except HTTPException as exc:
-                elapsed_ms = round((perf_counter() - start) * 1000, 1)
-                error_message = str(exc.detail)
-                _append_llm_trace(
-                    {
-                        "trace_id": trace_id,
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                        "operation": operation,
-                        "status": "error",
-                        "model": model,
-                        **trace_entry_metadata,
-                        "timeout_seconds": timeout_seconds,
-                        "max_tokens": max_tokens,
-                        "latency_ms": elapsed_ms,
-                        "input_chars": input_chars,
-                        "output_chars": 0,
-                        "input_preview": input_preview,
-                        "output_preview": "",
-                        "error_class": exc.__class__.__name__,
-                        "error": error_message,
-                    }
-                )
-                if lf_observation is not None:
-                    lf_observation.update(
-                        level="ERROR",
-                        status_message=error_message,
-                        metadata=_langfuse_trace_metadata(
-                            {
-                                **trace_entry_metadata,
-                                "timeout_seconds": timeout_seconds,
-                                "max_tokens": max_tokens,
-                                "error": error_message,
-                            },
-                            trace_id,
-                        ),
-                    )
-                _schedule_langfuse_flush()
-                raise
-            except Exception as exc:
-                elapsed_ms = round((perf_counter() - start) * 1000, 1)
-                error_message = str(exc) or exc.__class__.__name__
-                _append_llm_trace(
-                    {
-                        "trace_id": trace_id,
-                        "ts": datetime.now(timezone.utc).isoformat(),
-                        "operation": operation,
-                        "status": "error",
-                        "model": model,
-                        **trace_entry_metadata,
-                        "timeout_seconds": timeout_seconds,
-                        "max_tokens": max_tokens,
-                        "latency_ms": elapsed_ms,
-                        "input_chars": input_chars,
-                        "output_chars": 0,
-                        "input_preview": input_preview,
-                        "output_preview": "",
-                        "error_class": exc.__class__.__name__,
-                        "error": error_message,
-                    }
-                )
-                if lf_observation is not None:
-                    lf_observation.update(
-                        level="ERROR",
-                        status_message=error_message,
-                        metadata=_langfuse_trace_metadata(
-                            {
-                                **trace_entry_metadata,
-                                "timeout_seconds": timeout_seconds,
-                                "max_tokens": max_tokens,
-                                "error": error_message,
-                            },
-                            trace_id,
-                        ),
-                    )
-                _schedule_langfuse_flush()
-                raise
-
-            output_text = ""
-            if getattr(response, "content", None):
-                first = response.content[0]
-                output_text = getattr(first, "text", "") or ""
-
-            elapsed_ms = round((perf_counter() - start) * 1000, 1)
-            usage_details = _langfuse_usage_details(response)
-            _append_llm_trace(
-                {
-                    "trace_id": trace_id,
-                    "ts": datetime.now(timezone.utc).isoformat(),
-                    "operation": operation,
-                    "status": "ok",
-                    "model": model,
-                    **trace_entry_metadata,
-                    "timeout_seconds": timeout_seconds,
-                    "max_tokens": max_tokens,
-                    "latency_ms": elapsed_ms,
-                    "input_chars": input_chars,
-                    "output_chars": len(output_text),
-                    "input_preview": input_preview,
-                    "output_preview": _truncate_preview(output_text),
-                    "error": None,
-                }
-            )
-            if lf_observation is not None:
-                lf_observation.update(
-                    output=_truncate_preview(output_text),
-                    usage_details=usage_details,
-                    metadata=_langfuse_trace_metadata(
-                        {
-                            **trace_entry_metadata,
-                            "timeout_seconds": timeout_seconds,
-                            "max_tokens": max_tokens,
-                            "output_chars": len(output_text),
-                        },
-                        trace_id,
-                    ),
-                )
-            _schedule_langfuse_flush()
-            return response
 
 
 def flush_langfuse_traces() -> None:
@@ -1734,125 +1300,207 @@ def generate_alumni_extraction(
     }
 
 
+@dataclass(frozen=True)
+class ListMergeRule:
+    dedupe: bool = True
+    dedupe_key: Callable[[Any], Hashable | None] | None = None
+    transform: Callable[[Any, int], Any] | None = None
+
+
+@dataclass(frozen=True)
+class MergeSpec:
+    initial: dict[str, Any] = field(default_factory=dict)
+    list_fields: dict[str, ListMergeRule] = field(default_factory=dict)
+    dict_fields: set[str] = field(default_factory=set)
+
+
+def _stable_merge_key(item: Any) -> Hashable:
+    if isinstance(item, (str, int, float, bool)) or item is None:
+        return item
+    if isinstance(item, dict):
+        try:
+            return json.dumps(item, sort_keys=True, ensure_ascii=False)
+        except TypeError:
+            return str(item)
+    if isinstance(item, list):
+        try:
+            return json.dumps(item, sort_keys=True, ensure_ascii=False)
+        except TypeError:
+            return str(item)
+    return str(item)
+
+
+def merge_chunked_results(results: list[dict], spec: MergeSpec) -> dict[str, Any]:
+    merged: dict[str, Any] = {
+        key: (
+            value.copy()
+            if isinstance(value, dict)
+            else list(value)
+            if isinstance(value, list)
+            else value
+        )
+        for key, value in spec.initial.items()
+    }
+    seen: dict[str, set[Hashable | None]] = {
+        field_name: set() for field_name, rule in spec.list_fields.items() if rule.dedupe
+    }
+
+    for result_index, result in enumerate(results):
+        for field_name, rule in spec.list_fields.items():
+            items = result.get(field_name, []) or []
+            if not isinstance(items, list):
+                items = [items]
+            current = merged.setdefault(field_name, [])
+            if not isinstance(current, list):
+                current = [current]
+                merged[field_name] = current
+            for item in items:
+                transformed = (
+                    rule.transform(item, result_index)
+                    if rule.transform is not None
+                    else item
+                )
+                if not rule.dedupe:
+                    current.append(transformed)
+                    continue
+                key_fn = rule.dedupe_key or _stable_merge_key
+                dedupe_key = key_fn(transformed)
+                if dedupe_key in seen[field_name]:
+                    continue
+                seen[field_name].add(dedupe_key)
+                current.append(transformed)
+
+        for field_name in spec.dict_fields:
+            incoming = result.get(field_name) or {}
+            if not isinstance(incoming, dict):
+                continue
+            current = merged.setdefault(field_name, {})
+            if not isinstance(current, dict):
+                current = {}
+                merged[field_name] = current
+            for nested_key, nested_value in incoming.items():
+                if (
+                    isinstance(current.get(nested_key), dict)
+                    and isinstance(nested_value, dict)
+                ):
+                    current[nested_key].update(nested_value)
+                else:
+                    current[nested_key] = nested_value
+
+        for key, value in result.items():
+            if key in spec.list_fields or key in spec.dict_fields:
+                continue
+            if value in (None, "", [], {}):
+                continue
+            merged[key] = value
+
+    return merged
+
+
+def _intent_card_key(card: dict[str, Any]) -> tuple[str, str, str]:
+    summary_limit = _llm["intent_dedup_summary_chars"]
+    summary = (card.get("summary") or "")[:summary_limit].lower().strip()
+    return (
+        str(card.get("domain", "unknown")),
+        str(card.get("diff", {}).get("slug", "unknown")),
+        summary,
+    )
+
+
+def _transform_intent_card(card: Any, result_index: int) -> Any:
+    if not isinstance(card, dict):
+        return card
+    transformed = dict(card)
+    if result_index > 0:
+        transformed["card_id"] = f"card-{uuid.uuid4().hex[:8]}"
+    return transformed
+
+
+def _analysis_bullet_key(bullet: Any) -> str | None:
+    text = str(bullet).strip()
+    return text.lower() if text else None
+
+
+def _analysis_chunk_key(chunk: Any) -> tuple[str, str, str, str] | None:
+    if not isinstance(chunk, dict):
+        return None
+    text = str(chunk.get("text", "")).strip()
+    if not text:
+        return None
+    return (
+        text.lower(),
+        str(chunk.get("source_type", "")).strip().lower(),
+        str(chunk.get("source_label", "")).strip().lower(),
+        str(chunk.get("career_type", "") or "").strip().lower(),
+    )
+
+
+def _analysis_already_covered_key(item: Any) -> tuple[str, str] | None:
+    if not isinstance(item, dict):
+        return None
+    content = str(item.get("content") or item.get("excerpt") or "").strip()
+    if not content:
+        return None
+    reason = str(item.get("reason") or item.get("source_doc") or "").strip()
+    return (content.lower(), reason.lower())
+
+
 def _merge_intents(results: list[dict]) -> dict:
     """Merge and deduplicate intent extraction results from multiple chunks."""
-    merged_cards = []
-    merged_already_covered = []
-
-    seen_card_keys = set()  # (domain, slug, summary_key)
-
-    for i, res in enumerate(results):
-        for card in res.get("cards", []):
-            # Create a semi-stable key for deduplication
-            domain = card.get("domain", "unknown")
-            slug = card.get("diff", {}).get("slug", "unknown")
-            # use normalized summary prefix for deduplication (from config)
-            summary_limit = _llm["intent_dedup_summary_chars"]
-            summary = (card.get("summary") or "")[:summary_limit].lower().strip()
-            key = (domain, slug, summary)
-
-            if key not in seen_card_keys:
-                seen_card_keys.add(key)
-                # Ensure card_id is unique across chunks
-                if i > 0:
-                    card["card_id"] = f"card-{uuid.uuid4().hex[:8]}"
-                merged_cards.append(card)
-
-        for ac in res.get("already_covered", []):
-            merged_already_covered.append(ac)
-
-    return {
-        "cards": merged_cards,
-        "already_covered": merged_already_covered,
-    }
+    return merge_chunked_results(
+        results,
+        MergeSpec(
+            initial={"cards": [], "already_covered": []},
+            list_fields={
+                "cards": ListMergeRule(
+                    dedupe_key=_intent_card_key,
+                    transform=_transform_intent_card,
+                ),
+                "already_covered": ListMergeRule(dedupe=False),
+            },
+        ),
+    )
 
 
 def _merge_analysis_results(results: list[dict]) -> dict:
     """Merge KB analysis results from multiple chunks, deduplicating bullets, chunks, and already-covered items."""
-    merged = {
-        "interpretation_bullets": [],
-        "profile_updates": {},
-        "employer_updates": {},
-        "new_chunks": [],
-        "already_covered": [],
-    }
-    seen_bullets: set[str] = set()
-    seen_chunks: set[tuple[str, str, str, str]] = set()
-    seen_covered: set[tuple[str, str]] = set()
-
-    for res in results:
-        for bullet in res.get("interpretation_bullets", []) or []:
-            bullet_text = str(bullet).strip()
-            key = bullet_text.lower()
-            if bullet_text and key not in seen_bullets:
-                seen_bullets.add(key)
-                merged["interpretation_bullets"].append(bullet_text)
-
-        for slug, fields in (res.get("profile_updates", {}) or {}).items():
-            merged["profile_updates"].setdefault(slug, {})
-            merged["profile_updates"][slug].update(fields or {})
-
-        for slug, fields in (res.get("employer_updates", {}) or {}).items():
-            merged["employer_updates"].setdefault(slug, {})
-            merged["employer_updates"][slug].update(fields or {})
-
-        for chunk in res.get("new_chunks", []) or []:
-            text = str(chunk.get("text", "")).strip()
-            source_type = str(chunk.get("source_type", "")).strip()
-            source_label = str(chunk.get("source_label", "")).strip()
-            career_type = str(chunk.get("career_type", "") or "").strip()
-            key = (
-                text.lower(),
-                source_type.lower(),
-                source_label.lower(),
-                career_type.lower(),
-            )
-            if text and key not in seen_chunks:
-                seen_chunks.add(key)
-                merged["new_chunks"].append(chunk)
-
-        for ac in res.get("already_covered", []) or []:
-            content = str(ac.get("content") or ac.get("excerpt") or "").strip()
-            reason = str(ac.get("reason") or ac.get("source_doc") or "").strip()
-            key = (content.lower(), reason.lower())
-            if content and key not in seen_covered:
-                seen_covered.add(key)
-                merged["already_covered"].append(ac)
-
-    return merged
+    return merge_chunked_results(
+        results,
+        MergeSpec(
+            initial={
+                "interpretation_bullets": [],
+                "profile_updates": {},
+                "employer_updates": {},
+                "new_chunks": [],
+                "already_covered": [],
+            },
+            list_fields={
+                "interpretation_bullets": ListMergeRule(dedupe_key=_analysis_bullet_key),
+                "new_chunks": ListMergeRule(dedupe_key=_analysis_chunk_key),
+                "already_covered": ListMergeRule(
+                    dedupe_key=_analysis_already_covered_key
+                ),
+            },
+            dict_fields={"profile_updates", "employer_updates"},
+        ),
+    )
 
 
 def _merge_track_drafts(results: list[dict]) -> dict:
     """Merge track draft dicts from multiple extraction passes, combining list fields and updating scalar fields from later chunks."""
-    merged: dict[str, Any] = {}
-    list_fields = {
-        "match_keywords",
-        "top_employers_smu",
-        "entry_paths",
-        "source_refs",
-        "salary_levels",
-    }
-    for res in results:
-        for key, value in res.items():
-            if value in (None, "", [], {}):
-                continue
-            if key in list_fields:
-                current = merged.get(key) or []
-                if not isinstance(current, list):
-                    current = [current]
-                incoming = value if isinstance(value, list) else [value]
-                merged[key] = current + [
-                    item for item in incoming if item not in current
-                ]
-            elif key == "structured" and isinstance(value, dict):
-                current = merged.get(key) or {}
-                if not isinstance(current, dict):
-                    current = {}
-                current.update(value)
-                merged[key] = current
-            else:
-                merged[key] = value
-    return merged
+    return merge_chunked_results(
+        results,
+        MergeSpec(
+            list_fields={
+                "match_keywords": ListMergeRule(),
+                "top_employers_smu": ListMergeRule(),
+                "entry_paths": ListMergeRule(),
+                "source_refs": ListMergeRule(),
+                "salary_levels": ListMergeRule(),
+            },
+            dict_fields={"structured"},
+        ),
+    )
 
 
 def _collect_chunked_results(
@@ -2269,11 +1917,17 @@ async def auto_complete_profile_fields(
         "For boolean fields (international_realistic), return true or false."
     )
 
-    return await call_structured_json(
+    return call_structured_json(
         operation="auto_complete_profile",
+        model=get_model_name(),
         system=system,
         user=user,
         schema_name="auto_complete_profile",
+        schema_hint=(
+            "JSON object containing only the requested missing profile fields. "
+            "Use arrays for list fields and booleans for true/false fields."
+        ),
+        max_tokens=_llm["max_tokens_kb_analysis"],
         trace_metadata={
             "feature": "auto_complete_profile",
             "slug": slug,

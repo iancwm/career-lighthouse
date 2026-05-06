@@ -10,7 +10,7 @@ Active sprint specs:
 - `docs/session_pipeline_stabilization/SPRINT.md` — Session Pipeline Stabilization. Covers Staging Area create-state trust, live queue updates, malformed JSON hardening, richer workflow detail, SmartCanvas scroll reduction, and alumni-card reliability. Started 2026-05-05.
 
 Recently archived:
-- `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived as a partial sprint on 2026-05-06: Phase 1 (`kb_health`, prompt externalization, inline-import lift) shipped and passed focused verification; E1/F3 verification artifacts, the Phase 3 `llm.py` decomposition, and the Langfuse eval-sync follow-up remain in this backlog.
+- `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived on 2026-05-06 with Phase 1 plus the Phase 3 `llm.py` decomposition shipped; the remaining E1/F3 verification artifacts and the Langfuse eval-sync follow-up remain in this backlog.
 - `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
 - `docs/archived/langfuse_observability_sprint/` — Langfuse observability sprint. Workflow summary/detail and admin debugging shipped 2026-05-04; remaining eval dataset sync follow-up lives in this backlog and the archived code-quality finish sprint notes.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` — counsellor workspace UX sprint. Remaining A2 admin-tab sweep, D2 sticky local context, and E1/E2 verification shipped 2026-05-02.
@@ -185,10 +185,8 @@ Shipped: `api/services/kb_health.py` now owns KB-health assembly and query-log m
 **Why:** After Phase 1, `kb_router.py` should be ~600 lines of thin endpoint handlers; splitting becomes a mechanical move. Defined in `docs/code_quality_sprint/implementation_plan.md` (P2-1, P2-2).
 **Depends on:** None. Phase 1 was verified complete on 2026-05-06.
 
-### Code quality sprint — Phase 3 services/llm.py decomposition
-**What:** Extract `services/llm_tracing.py` (`LLMTraceRecorder` context manager, `_call_with_trace` collapses to a thin caller), `services/llm_json.py` (JSON repair + validation), and `services/llm_budgets.py` (trim/budget helpers, config readers). Generalize the three merge routines (`_merge_intents`, `_merge_analysis_results`, `_merge_track_drafts`) into `merge_chunked_results(results, spec=MergeSpec(...))`.
-**Why:** `services/llm.py` is ~1,800 lines mixing transport, tracing, JSON repair, budgeting, and merge logic. Defined in `docs/code_quality_sprint/implementation_plan.md` (P3-1 through P3-4). Can run in parallel with Phases 1–2 after P0-2 lands (already done).
-**Depends on:** None (parallelizable).
+### ~~Code quality sprint — Phase 3 services/llm.py decomposition~~ ✓ Done (2026-05-06 verification)
+Shipped: `api/services/llm_tracing.py`, `api/services/llm_json.py`, and `api/services/llm_budgets.py` now own the tracing, structured-JSON, and budgeting/config seams that used to live inside `api/services/llm.py`; `LLMTraceRecorder` now drives `_call_with_trace`, and `MergeSpec` plus `merge_chunked_results(...)` unify the three chunk-merge paths. Re-verified with `cd api && uv run pytest tests/test_llm_hardening.py tests/test_llm_observability.py tests/test_session_intents.py tests/test_kb_analyse.py -q` (`41 passed`) plus `uv run python -m py_compile services/llm.py services/llm_budgets.py services/llm_json.py services/llm_tracing.py tests/test_llm_hardening.py`.
 
 ### Path to multi-instance scaling
 **What:** Replace file-based query log with CloudWatch Logs or SQS; move Qdrant to standalone container; remove `WEB_CONCURRENCY=1`.

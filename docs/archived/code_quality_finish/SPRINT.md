@@ -6,22 +6,24 @@ last_updated: 2026-05-06
 
 # Sprint: Code Quality Finish & Backlog Close-out
 
-**Archive note (2026-05-06):** This sprint was verified and archived as a partially completed cleanup sprint. It is no longer the active execution plan.
+**Archive note (2026-05-06):** This sprint was verified and archived after the remaining Phase 3 `llm.py` decomposition work also landed. It is no longer the active execution plan.
 
 **Duration:** ~1 week  
 **Goal:** Clear all unblocked "Now" items from the backlog, complete Code Quality Phase 1 (which unblocks Phase 2), and run Code Quality Phase 3 in parallel. Ship the Langfuse eval dataset sync as a lightweight follow-up to the observability sprint.  
 **Branch convention:** one PR per block; `api/pytest` and `web/npm test` green before merge.
 
 **Verification snapshot (2026-05-06):**
-- Complete and verified: A1, B1, B2, B3.
+- Complete and verified: A1, B1, B2, B3, C1, C2, C3, C4.
 - Partial: A3 has stronger backend/test coverage and the `company_links_warning` UI path remains wired, but the explicit verification artifact requested by the sprint is still missing.
-- Incomplete: A2, C1-C4, and D1.
+- Incomplete: A2 and D1.
 - Evidence:
   - `api/services/kb_health.py` shipped and `kb_router.py` now delegates to it.
   - `auto_complete_profile` now uses `cfg/prompts.yaml` plus `llm.auto_complete_profile_fields(...)`.
   - `session_router.py` / `kb_router.py` no longer rely on function-local `from services...` imports for the Phase 1 seams.
   - Focused verification passed on 2026-05-06: `pytest api/tests/test_kb_router.py api/tests/test_session_router.py api/tests/test_alumni_detection.py -q` → `100 passed`; `python -m compileall api/routers api/services api/tests` passed.
-  - `api/services/llm.py` is still 2,282 lines, and `api/services/llm_tracing.py`, `api/services/llm_json.py`, `api/services/llm_budgets.py`, `scripts/sync_langfuse_eval_dataset.py`, and `docs/sprint_cq_finish/E1_accuracy_report.md` are absent.
+  - `api/services/llm_tracing.py`, `api/services/llm_json.py`, and `api/services/llm_budgets.py` now exist; `api/services/llm.py` delegates to them, and `MergeSpec` plus `merge_chunked_results(...)` unify the chunked merge paths.
+  - Follow-up verification passed in the repo `uv` environment: `cd api && uv run pytest tests/test_llm_hardening.py tests/test_llm_observability.py tests/test_session_intents.py tests/test_kb_analyse.py -q` → `41 passed`; `uv run python -m py_compile services/llm.py services/llm_budgets.py services/llm_json.py services/llm_tracing.py tests/test_llm_hardening.py` passed.
+  - `scripts/sync_langfuse_eval_dataset.py` and `docs/sprint_cq_finish/E1_accuracy_report.md` are still absent.
 
 **Blocks:**
 - A — Backlog close-out (Now items: B3, E1, F3)

@@ -20,6 +20,10 @@ These docs are still maintained against the codebase:
   stabilization sprint. Covers Staging Area create-state trust, live queue
   updates, malformed JSON hardening, richer workflow detail, SmartCanvas
   scroll reduction, and alumni-card reliability. Started 2026-05-05.
+- `docs/superpowers/plans/` - active execution notes for agent-driven sprint
+  follow-through. The 2026-05-06 sprint-completion note now records the
+  verified `llm.py` Phase 3 decomposition work and the remaining backlog
+  follow-ups.
 
 ## Archived Specs And Plans
 
@@ -29,10 +33,10 @@ Completed or historical planning docs live under `docs/archived/`:
   plan. Phase 0 and part of Phase 1 shipped; the remaining Phase 1, Phase 2,
   and Phase 3 follow-ups now live in `TODOS.md`.
 - `docs/archived/code_quality_finish/SPRINT.md` - archived code-quality
-  finish sprint. Verified on 2026-05-06 as a partial sprint: Phase 1 shipped
-  and passed focused verification; the remaining accuracy artifact, alumni
-  verification artifact, `llm.py` decomposition, and Langfuse eval-sync work
-  remain in `TODOS.md`.
+  finish sprint. Verified on 2026-05-06 with Phase 1 plus the `llm.py`
+  decomposition shipped and focused verification recorded; the remaining
+  accuracy artifact, alumni verification artifact, and Langfuse eval-sync
+  follow-up remain in `TODOS.md`.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` - shipped counsellor
   workspace clarity sprint. The follow-up pass closed the remaining admin-tab
   loading-state sweep, sticky two-pane local context, and focused Vitest /
@@ -54,9 +58,9 @@ Completed or historical planning docs live under `docs/archived/`:
 
 The structural cleanup sprint has been archived to
 `docs/archived/code_quality_sprint/`. The shipped slice covered Phase 0 plus
-the `trace_adapter`, `kb_writer`, and `kb_ingestion_service` extractions.
-Remaining work — the router split, the `services/llm.py` decomposition, and
-the Langfuse eval-sync follow-up — is now tracked in `TODOS.md`.
+the `trace_adapter`, `kb_writer`, `kb_ingestion_service`, and `llm.py`
+decomposition extractions. Remaining work — the router split and the Langfuse
+eval-sync follow-up — is now tracked in `TODOS.md`.
 
 ## Navigation
 
@@ -66,6 +70,7 @@ Start here:
 - `DESIGN.md` for architecture and UI direction
 - `TODOS.md` for the current backlog
 - `docs/session_pipeline_stabilization/` for the active session publishing sprint
+- `docs/superpowers/plans/` for active execution-progress notes
 - `docs/archived/` for completed specs and historical context
 
 ## Adding New Docs
