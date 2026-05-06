@@ -434,10 +434,47 @@ export default function TraceExplorerTab({ initialSessionId = null }: TraceExplo
 
               <section className="space-y-4">
                 <h4 className="font-display text-xl text-[var(--cl-ink)]">Evidence</h4>
-                {renderKeyValueMap(detail.context_pack_summary)}
-                {renderKeyValueMap(detail.repair_summary)}
-                {renderKeyValueMap(detail.validation_summary)}
-                {renderKeyValueMap(detail.append_summary)}
+
+                {detail.alumni_path && (
+                  <div>
+                    <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Alumni path</p>
+                    <div className="rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)]">
+                      {detail.alumni_path}
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Context pack</p>
+                  {renderKeyValueMap(detail.context_pack_summary)}
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Repair</p>
+                  {renderKeyValueMap(detail.repair_summary)}
+                </div>
+
+                {Object.keys(detail.raw_output_summary).length > 0 && (
+                  <div>
+                    <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Raw output</p>
+                    {renderKeyValueMap(detail.raw_output_summary)}
+                  </div>
+                )}
+
+                <div>
+                  <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Parsed payload</p>
+                  {renderKeyValueMap(detail.parsed_payload_summary)}
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Validation</p>
+                  {renderKeyValueMap(detail.validation_summary)}
+                </div>
+
+                <div>
+                  <p className="mb-2 text-xs uppercase tracking-[0.18em] text-[var(--cl-muted)]">Append</p>
+                  {renderKeyValueMap(detail.append_summary)}
+                </div>
               </section>
 
               <section>

@@ -588,7 +588,13 @@ def analyze_session(
         session.analysis_error = str(exc)
         workflow["status"] = "error"
         workflow["ended_at"] = _workflow_timestamp()
-        workflow["drop_point"] = "session_intent_generation"
+        err_lower = str(exc).lower()
+        if "repair" in err_lower or "json" in err_lower or "parse" in err_lower:
+            workflow["drop_point"] = "json_parse_or_repair"
+            workflow["repair"]["applied"] = True
+            workflow["repair"]["failure"] = str(exc)
+        else:
+            workflow["drop_point"] = "session_intent_generation"
         workflow["failure_summary"] = session.analysis_error
         workflow["steps"].append(
             _workflow_step("Intent extraction", "error", session.analysis_error)

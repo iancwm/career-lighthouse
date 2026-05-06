@@ -2,6 +2,7 @@
 status: active
 created: 2026-05-06
 last_updated: 2026-05-06
+session_2_shipped: 2026-05-06
 ---
 
 # Sprint: Session Pipeline + Backlog Close-out Unified Sprint
@@ -91,6 +92,26 @@ Key differences that are now reconciled:
 **Primary files:**
 - `scripts/sync_langfuse_eval_dataset.py` (new)
 - `docs/sprint_cq_finish/langfuse_eval_sync.md` (new)
+
+## Shipped this session (2026-05-06)
+
+### Block A
+- `web/components/admin/SessionInbox.tsx`: auto-kick `POST /{id}/analyze` immediately after session creation; adaptive polling (4 s when active, 30 s idle).
+- `web/components/admin/SmartCanvas.tsx`: `guidanceDismissed` state + dismiss (✕) button on clustered-uncertainty guidance panel; reset on new session load.
+
+### Block B
+- `api/routers/session_router.py`: JSON parse/repair failure now sets `drop_point = "json_parse_or_repair"` and writes `repair.applied = True` + `repair.failure` to workflow dict.
+- `web/components/admin/TraceExplorerTab.tsx`: Evidence section now surfaces `alumni_path`, `raw_output_summary`, `parsed_payload_summary`, each with a labelled sub-section header.
+- `docs/unified_session_and_quality/reliability_scorecard.md`: compact closure artifact linking failure modes to UI evidence locations.
+
+### Block C
+- `docs/sprint_cq_finish/E1_accuracy_report.md`: extraction accuracy methodology, 3 real employer note inputs, scoring rubric, manual write-path validation steps.
+- `docs/sprint_cq_finish/F3_alumni_verification.md`: all 4 failure modes documented with test references.
+- `api/tests/test_session_router.py`: mode-2 test `test_commit_alumni_card_surfaces_company_links_discrepancy` added.
+
+### Block D
+- `scripts/sync_langfuse_eval_dataset.py`: upsert canonical `eval_queries.jsonl` fixtures to Langfuse dataset; `--dry-run` safe without env vars.
+- `docs/sprint_cq_finish/langfuse_eval_sync.md`: operator guide (run, verify, add fixtures).
 
 ## Completed baseline (already shipped before this unified sprint)
 

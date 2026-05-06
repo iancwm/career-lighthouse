@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **Session auto-analysis on creation**: `SessionInbox.tsx` now immediately fires `POST /{id}/analyze` after creating a session and shows "Analyzing now…" — no manual retry needed. Polling drops to 4 s while any session is actively analyzing (was a fixed 30 s), so status transitions appear near-instantly.
+- **Langfuse eval-dataset sync script**: `scripts/sync_langfuse_eval_dataset.py` upserts the canonical `api/tests/fixtures/eval_queries.jsonl` fixtures into a Langfuse dataset. `--dry-run` is safe without any env vars. Operator guide at `docs/sprint_cq_finish/langfuse_eval_sync.md`.
+- **E1 extraction accuracy report**: `docs/sprint_cq_finish/E1_accuracy_report.md` documents the methodology, three real employer note test inputs (Grab, DBS, Accenture), the ≥ 80% field-accuracy scoring rubric, and prompt-refinement candidates for the `extract_facts_from_prose` endpoint.
+- **F3 alumni failure-mode verification**: `docs/sprint_cq_finish/F3_alumni_verification.md` records test coverage and UI-surface verification for all four failure modes (hallucinated slug downgrade, company-links discrepancy, slug collision date-suffix, unknown-field rejection). Mode-2 backend test added to `api/tests/test_session_router.py`.
+- **Session pipeline reliability scorecard**: `docs/unified_session_and_quality/reliability_scorecard.md` maps each observable failure mode (JSON parse/repair, alumni path, validation, append) to its UI evidence location in TraceExplorerTab.
+
+### Changed
+- **Workflow detail evidence sections**: `TraceExplorerTab.tsx` Evidence section now surfaces `alumni_path`, `raw_output_summary`, and `parsed_payload_summary` as labelled subsections alongside the existing repair, validation, and append evidence — previously these fields were populated in the model but not rendered.
+- **Clustered-uncertainty guidance is now dismissible**: `SmartCanvas.tsx` shows a ✕ button on the amber/rose guidance banner. Dismissed state resets automatically when navigating to a new session.
+- **JSON repair drop-point precision**: `session_router.py` now sets `drop_point = "json_parse_or_repair"` (and writes `repair.applied + repair.failure` to the workflow dict) when analysis fails due to a parse or repair error, instead of the generic `"session_intent_generation"`.
+
+### Fixed
 - **Langfuse-first workflow debug contract**: `api/models_kb.py`, `api/services/trace_adapter.py`, `api/routers/kb_router.py`, and `web/types/llm-observability.ts` now define normalized workflow summary/detail objects plus `/api/kb/workflow-summaries` and `/api/kb/workflow-detail`, combining Langfuse sessions, JSONL fallback traces, and router-side session evidence.
 - **Queue-first session debugging UX**: `SessionInbox.tsx` now splits the Staging Area into `Ready to review`, `Analyzing now`, and `Recent sessions`, promotes analyzed sessions with a `Your session is ready...` banner, exposes `Review now`, and keeps `Debug Workflow` as the technical drilldown CTA.
 - **Card-native alumni staging flow**: `api/routers/session_router.py` now detects alumni-heavy Staging Area notes, calls `generate_alumni_extraction`, and appends `IntentCard(domain="alumni")` entries alongside track and employer cards. Alumni cards carry per-field `proposals`, `is_update`, and `matched_slug`, and SmartCanvas now renders an alumni-specific review surface with confidence, evidence, trajectory, and chronological company history.

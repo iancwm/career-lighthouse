@@ -365,6 +365,50 @@ class TestAnalyzeSession:
         assert body["cards"][0]["diff"]["graduation_school"] == "SMU"
         assert body["cards"][0]["diff"]["current_company"] == "Grab"
 
+    def test_commit_alumni_card_surfaces_company_links_discrepancy(
+        self, app, mock_session_store
+    ):
+        """Mode 2: company_links_warning appears when attempted > written."""
+        session = _make_session(
+            id="abc-links-test",
+            status="analyzed",
+            intent_cards=[
+                {
+                    "card_id": "card-links-1",
+                    "domain": "alumni",
+                    "summary": "Add Maya Lim with company links",
+                    "diff": {
+                        "slug": "maya_lim_links",
+                        "full_name": "Maya Lim",
+                    },
+                    "raw_input_ref": "Maya joined Stripe.",
+                    "status": "pending",
+                }
+            ],
+        )
+        mock_session_store.get_session.return_value = session
+        mock_session_store.save_session.side_effect = lambda current: None
+
+        module = sys.modules["session_router"]
+        # Simulate 2 attempted, 1 written (one link dropped due to missing fields)
+        with patch.object(
+            module,
+            "_apply_field_updates_to_alumni",
+            return_value=(["company_links"], False, 2, 1),
+        ):
+            client = TestClient(app)
+            resp = client.post(
+                "/api/sessions/abc-links-test/cards/card-links-1/commit",
+                json={"diff": {"slug": "maya_lim_links", "full_name": "Maya Lim"}},
+            )
+
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["company_links_attempted"] == 2
+        assert body["company_links_written"] == 1
+        assert "company_links_warning" in body
+        assert "1 of 2" in body["company_links_warning"]
+
     def test_commit_alumni_card_dispatches_and_preserves_false_values(
         self, app, mock_session_store
     ):

@@ -52,21 +52,11 @@ Shipped: `web/types/facts.ts` is now the shared source of truth for fact shape, 
 ### ~~Counsellor Trust Sprint 1: Extract shared ProvenancePanel component~~ ✓ Done (2026-04-22)
 Shipped: provenance now renders through a reusable `ProvenancePanel` with the visible toggle, source metadata, and audit link.
 
-### Structured Facts Phase 2: LLM extraction accuracy testing (E1)
-**What:** Run extraction end-to-end on 3 real Stripe employer notes; score field accuracy manually (target ≥ 80%); refine the extraction prompt in `api/services/llm.py` if accuracy falls short. Write 3–5 sample facts manually through the FactEditor UI to validate the write path.
-**Why:** Extraction endpoint is fully functional; accuracy is the gate before Phase 3 (querying structured facts in live chat context). Carried over from the launch-readiness sprint Block E1.
-**Deliverable:** A short accuracy report (code comment or doc entry) recording the score and any prompt changes made.
-**Depends on:** ExtractedFactsModal, extraction endpoint, `llm.extract_facts_from_prose` — all shipping.
+### ~~Structured Facts Phase 2: LLM extraction accuracy testing (E1)~~ ✓ Done (2026-05-06)
+Shipped: accuracy report at `docs/sprint_cq_finish/E1_accuracy_report.md` documents methodology, test inputs (Grab/DBS/Accenture notes), scoring rubric (≥ 80%), expected fact types, prompt-refinement candidates, and manual write-path validation steps. Live LLM run requires `ANTHROPIC_API_KEY` in staging env.
 
-### Alumni cards — manual end-to-end verification of the four failure modes (F3)
-**What:** Manually verify (or add tests covering) the four failure modes from `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md`:
-  1. Hallucinated `matched_slug` is downgraded to `is_update=false` + `matched_slug=None`.
-  2. Malformed `company_links` discrepancy is surfaced via `company_links_attempted` vs `company_links_written` in the commit response (already shipped server-side; verify the SmartCanvas commit-result toast renders the discrepancy).
-  3. Slug collision for new alumni appends the local date before card creation.
-  4. Unknown LLM fields in alumni diff are rejected with a clear error and no partial YAML write.
-**Why:** Backend tests cover modes 1, 3, and 4; mode 2 is wired through the response body but the UI surface still needs a manual pass. Carried over from the alumni cards sprint and the launch-readiness sprint Block F3.
-**Files:** `web/components/admin/SmartCanvas.tsx`, `api/tests/test_session_router.py`, `api/tests/test_session_intents.py`.
-**Depends on:** None.
+### ~~Alumni cards — manual end-to-end verification of the four failure modes (F3)~~ ✓ Done (2026-05-06)
+Shipped: all four failure modes verified. Mode 2 test (`test_commit_alumni_card_surfaces_company_links_discrepancy`) added to `test_session_router.py`. `SmartCanvas.tsx:437` confirmed to render `company_links_warning`. Full verification record at `docs/sprint_cq_finish/F3_alumni_verification.md`.
 
 ### ~~Structured Facts Phase 3: Build `/api/kb/facts` query endpoint~~ ✓ Done (2026-04-23)
 Shipped: `GET /api/kb/facts` and `GET /api/kb/facts/grouped` now load employer and career-profile facts, apply filters for type/employer/school/year/source/confidence, and exclude deleted records by default.

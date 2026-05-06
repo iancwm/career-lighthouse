@@ -119,9 +119,14 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     })
     if (!res.ok) throw new Error("create failed")
     const session: KnowledgeSession = await res.json()
-    setNotice("Session created.")
     setRawInput("")
     onSelectSession(session.id)
+    // Kick off analysis immediately — fire and forget; reload will show status
+    adminFetch(`/api/sessions/${session.id}/analyze`, { method: "POST" }).then(() =>
+      loadSessions()
+    ).catch(() => loadSessions())
+    setNotice("Analyzing now…")
+    await loadSessions()
   }
 
   async function detectAlumniContacts(noteText: string): Promise<AlumniDetectionPreview | null> {
@@ -175,6 +180,13 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     const interval = setInterval(loadSessions, 30000)
     return () => clearInterval(interval)
   }, [])
+
+  // Fast-poll during active analysis; falls back to 30 s idle interval above
+  useEffect(() => {
+    if (!hasActiveSessions) return
+    const interval = setInterval(loadSessions, 4000)
+    return () => clearInterval(interval)
+  }, [hasActiveSessions])
 
   useEffect(() => {
     if (!promotedSessionId) return

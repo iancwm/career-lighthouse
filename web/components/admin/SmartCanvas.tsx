@@ -281,6 +281,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   const [error, setError] = useState("")
   const [notice, setNotice] = useState("")
   const [statusDots, setStatusDots] = useState(0)
+  const [guidanceDismissed, setGuidanceDismissed] = useState(false)
 
   async function loadSession() {
     setLoading(true)
@@ -391,6 +392,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   }
 
   useEffect(() => {
+    setGuidanceDismissed(false)
     loadSession()
   }, [sessionId])
 
@@ -490,7 +492,7 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   const pendingCards = session.intent_cards.filter((c) => c.status === "pending")
   const hasNoCards = session.intent_cards.length === 0
   const guidance = session.track_guidance
-  const showGuidance = guidance && guidance.status !== "safe_update"
+  const showGuidance = guidance && guidance.status !== "safe_update" && !guidanceDismissed
   const isAlumniCard = selectedCard?.domain === "alumni"
   const selectedCardName = toDisplayText(editingDiff.full_name) || toDisplayText(selectedCard?.diff.full_name) || selectedCard?.summary || ""
   const selectedCardTitle = toDisplayText(editingDiff.current_title) || toDisplayText(selectedCard?.diff.current_title)
@@ -588,9 +590,18 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                 ? "Recurring emerging track"
                 : "Clustered uncertainty"}
             </h3>
-            <span className="text-xs font-medium uppercase tracking-wide opacity-70">
-              {guidance.status.replace(/_/g, " ")}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-medium uppercase tracking-wide opacity-70">
+                {guidance.status.replace(/_/g, " ")}
+              </span>
+              <button
+                onClick={() => setGuidanceDismissed(true)}
+                className="text-xs opacity-60 hover:opacity-100 transition-opacity"
+                aria-label="Dismiss guidance"
+              >
+                ✕
+              </button>
+            </div>
           </div>
           <p className="mt-2">{guidance.recommendation}</p>
           {guidance.nearest_tracks.length > 0 && (

@@ -21,6 +21,18 @@ These docs are still maintained against the codebase:
   Covers create-state trust, JSON/workflow-debug reliability, SmartCanvas
   review loop usability, alumni-card reliability verification, and Langfuse
   eval-sync follow-up. Started 2026-05-06.
+- `docs/unified_session_and_quality/reliability_scorecard.md` - compact closure
+  artifact mapping each observable failure mode (JSON repair, alumni path,
+  validation, append) to its TraceExplorerTab evidence location.
+- `docs/sprint_cq_finish/E1_accuracy_report.md` - LLM extraction accuracy
+  test methodology for `extract_facts_from_prose`; three real employer note
+  inputs, ≥ 80% scoring rubric, and prompt-refinement guidance.
+- `docs/sprint_cq_finish/F3_alumni_verification.md` - alumni card failure-mode
+  verification record for all four modes (hallucinated slug, company-links
+  discrepancy, slug collision, unknown-field rejection).
+- `docs/sprint_cq_finish/langfuse_eval_sync.md` - operator guide for
+  `scripts/sync_langfuse_eval_dataset.py`: when to run, prereqs, verification
+  steps, and dataset schema.
 
 ## Archived Specs And Plans
 
