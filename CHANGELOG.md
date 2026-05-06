@@ -6,9 +6,9 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 - **Session auto-analysis on creation**: `SessionInbox.tsx` now immediately fires `POST /{id}/analyze` after creating a session and shows "Analyzing now…" — no manual retry needed. Polling drops to 4 s while any session is actively analyzing (was a fixed 30 s), so status transitions appear near-instantly.
-- **Langfuse eval-dataset sync script**: `scripts/sync_langfuse_eval_dataset.py` upserts the canonical `api/tests/fixtures/eval_queries.jsonl` fixtures into a Langfuse dataset. `--dry-run` is safe without any env vars. Operator guide at `docs/sprint_cq_finish/langfuse_eval_sync.md`.
-- **E1 extraction accuracy report**: `docs/sprint_cq_finish/E1_accuracy_report.md` documents the methodology, three real employer note test inputs (Grab, DBS, Accenture), the ≥ 80% field-accuracy scoring rubric, and prompt-refinement candidates for the `extract_facts_from_prose` endpoint.
-- **F3 alumni failure-mode verification**: `docs/sprint_cq_finish/F3_alumni_verification.md` records test coverage and UI-surface verification for all four failure modes (hallucinated slug downgrade, company-links discrepancy, slug collision date-suffix, unknown-field rejection). Mode-2 backend test added to `api/tests/test_session_router.py`.
+- **Langfuse eval-dataset sync script**: `scripts/sync_langfuse_eval_dataset.py` upserts the canonical `api/tests/fixtures/eval_queries.jsonl` fixtures into a Langfuse dataset. `--dry-run` is safe without any env vars. Operator guide at `docs/archived/sprint_cq_finish/langfuse_eval_sync.md`.
+- **E1 extraction accuracy report**: `docs/archived/sprint_cq_finish/E1_accuracy_report.md` documents the methodology, three real employer note test inputs (Grab, DBS, Accenture), the ≥ 80% field-accuracy scoring rubric, and prompt-refinement candidates for the `extract_facts_from_prose` endpoint.
+- **F3 alumni failure-mode verification**: `docs/archived/sprint_cq_finish/F3_alumni_verification.md` records test coverage and UI-surface verification for all four failure modes (hallucinated slug downgrade, company-links discrepancy, slug collision date-suffix, unknown-field rejection). Mode-2 backend test added to `api/tests/test_session_router.py`.
 - **Session pipeline reliability scorecard**: `docs/unified_session_and_quality/reliability_scorecard.md` maps each observable failure mode (JSON parse/repair, alumni path, validation, append) to its UI evidence location in TraceExplorerTab.
 
 ### Changed

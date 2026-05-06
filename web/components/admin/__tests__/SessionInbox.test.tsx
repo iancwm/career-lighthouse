@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { vi } from "vitest"
 import SessionInbox from "../SessionInbox"
 
@@ -131,5 +131,134 @@ describe("SessionInbox", () => {
     await waitFor(() => expect(onSelectSession).toHaveBeenCalledWith(sessionId))
     expect(onOpenAlumni).not.toHaveBeenCalled()
     expect(onOpenTraces).not.toHaveBeenCalled()
+  })
+
+  it("scrolls a session into view when it is promoted from analyzing to analyzed", async () => {
+    const onSelectSession = vi.fn()
+    const onOpenTraces = vi.fn()
+    const onOpenAlumni = vi.fn()
+    const sessionId = "session-promoted"
+    const scrollIntoView = vi.fn()
+    const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scrollIntoView,
+    })
+
+    let sessionGetCount = 0
+    let resolveAnalyze: ((value: Response) => void) | null = null
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        sessionGetCount += 1
+        if (sessionGetCount === 1) {
+          return Promise.resolve(response([]))
+        }
+        if (sessionGetCount === 2) {
+          return Promise.resolve(
+            response([
+              {
+                id: sessionId,
+                status: "in-progress",
+                raw_input: "Fresh counsellor memo",
+                intent_cards: [],
+                created_by: "counsellor",
+                created_at: "2026-05-06T00:00:00Z",
+                updated_at: "2026-05-06T00:00:00Z",
+              },
+            ])
+          )
+        }
+        return Promise.resolve(
+          response([
+            {
+              id: sessionId,
+              status: "analyzed",
+              raw_input: "Fresh counsellor memo",
+              intent_cards: [
+                {
+                  card_id: "card-1",
+                  domain: "employer",
+                  summary: "Update employer details",
+                  status: "pending",
+                },
+              ],
+              created_by: "counsellor",
+              created_at: "2026-05-06T00:00:00Z",
+              updated_at: "2026-05-06T00:00:00Z",
+            },
+          ])
+        )
+      }
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "POST") {
+        return Promise.resolve(
+          response(
+            {
+              id: sessionId,
+              status: "pending",
+              raw_input: "Fresh counsellor memo",
+              intent_cards: [],
+              created_by: "counsellor",
+              created_at: "2026-05-06T00:00:00Z",
+              updated_at: "2026-05-06T00:00:00Z",
+            },
+            201
+          )
+        )
+      }
+
+      if (url.endsWith(`/api/admin/api/sessions/${sessionId}/analyze`) && method === "POST") {
+        return new Promise<Response>((resolve) => {
+          resolveAnalyze = resolve
+        })
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={onOpenTraces} onOpenAlumni={onOpenAlumni} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Create Session/i })).toBeInTheDocument())
+    fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
+      target: { value: "Fresh counsellor memo" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /Create Session/i }))
+
+    await waitFor(() => expect(screen.getByTestId(`session-row-${sessionId}`)).toBeInTheDocument())
+
+    await waitFor(() => expect(screen.getByText("Analyzing now…")).toBeInTheDocument())
+
+    await act(async () => {
+      resolveAnalyze?.({
+        ok: true,
+        json: async () => ({ session_id: sessionId, cards: [] }),
+      } as Response)
+    })
+
+    try {
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled())
+      expect(onSelectSession).toHaveBeenCalledWith(sessionId)
+      expect(onOpenTraces).not.toHaveBeenCalled()
+      expect(onOpenAlumni).not.toHaveBeenCalled()
+    } finally {
+      if (originalScrollIntoView) {
+        Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+          configurable: true,
+          value: originalScrollIntoView,
+        })
+      } else {
+        // jsdom may not define it in this environment.
+        // Remove the override so later tests keep a clean prototype.
+        // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+        delete (HTMLElement.prototype as typeof HTMLElement.prototype & { scrollIntoView?: unknown }).scrollIntoView
+      }
+    }
   })
 })

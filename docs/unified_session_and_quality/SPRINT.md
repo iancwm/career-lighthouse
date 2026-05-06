@@ -76,7 +76,7 @@ Key differences that are now reconciled:
 - F3: Alumni cards end-to-end verification for the 4 failure modes.
 
 **Primary files:**
-- `docs/sprint_cq_finish/E1_accuracy_report.md` (new)
+- `docs/archived/sprint_cq_finish/E1_accuracy_report.md` (new)
 - `api/tests/test_session_router.py`
 - `api/tests/test_session_intents.py`
 - `web/components/admin/SmartCanvas.tsx`
@@ -91,7 +91,7 @@ Key differences that are now reconciled:
 
 **Primary files:**
 - `scripts/sync_langfuse_eval_dataset.py` (new)
-- `docs/sprint_cq_finish/langfuse_eval_sync.md` (new)
+- `docs/archived/sprint_cq_finish/langfuse_eval_sync.md` (new)
 
 ## Shipped this session (2026-05-06)
 
@@ -99,6 +99,7 @@ Key differences that are now reconciled:
 - `web/components/admin/SessionInbox.tsx`: auto-kick `POST /{id}/analyze` immediately after session creation; adaptive polling (4 s when active, 30 s idle).
 - `web/components/admin/SmartCanvas.tsx`: `guidanceDismissed` state + dismiss (✕) button on clustered-uncertainty guidance panel; reset on new session load.
 - `web/components/admin/SmartCanvas.tsx`: sticky commit/discard action bar (`smart-canvas-action-bar`) to reduce repeated scrolling while reviewing multiple cards; regression coverage added in `web/components/admin/__tests__/SmartCanvas.test.tsx`.
+- `web/components/admin/SessionInbox.tsx`: newly promoted analyzed sessions now auto-scroll into view so the ready-to-review handoff is visible immediately; regression coverage added in `web/components/admin/__tests__/SessionInbox.test.tsx`.
 
 ### Block B
 - `api/routers/session_router.py`: JSON parse/repair failure now sets `drop_point = "json_parse_or_repair"` and writes `repair.applied = True` + `repair.failure` to workflow dict.
@@ -106,13 +107,13 @@ Key differences that are now reconciled:
 - `docs/unified_session_and_quality/reliability_scorecard.md`: compact closure artifact linking failure modes to UI evidence locations.
 
 ### Block C
-- `docs/sprint_cq_finish/E1_accuracy_report.md`: extraction accuracy methodology, 3 real employer note inputs, scoring rubric, manual write-path validation steps.
-- `docs/sprint_cq_finish/F3_alumni_verification.md`: all 4 failure modes documented with test references.
+- `docs/archived/sprint_cq_finish/E1_accuracy_report.md`: extraction accuracy methodology, 3 real employer note inputs, scoring rubric, manual write-path validation steps.
+- `docs/archived/sprint_cq_finish/F3_alumni_verification.md`: all 4 failure modes documented with test references.
 - `api/tests/test_session_router.py`: mode-2 test `test_commit_alumni_card_surfaces_company_links_discrepancy` added.
 
 ### Block D
 - `scripts/sync_langfuse_eval_dataset.py`: upsert canonical `eval_queries.jsonl` fixtures to Langfuse dataset; `--dry-run` safe without env vars.
-- `docs/sprint_cq_finish/langfuse_eval_sync.md`: operator guide (run, verify, add fixtures).
+- `docs/archived/sprint_cq_finish/langfuse_eval_sync.md`: operator guide (run, verify, add fixtures).
 
 ## Completed baseline (already shipped before this unified sprint)
 

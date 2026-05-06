@@ -23,7 +23,7 @@ last_updated: 2026-05-06
   - Focused verification passed on 2026-05-06: `pytest api/tests/test_kb_router.py api/tests/test_session_router.py api/tests/test_alumni_detection.py -q` → `100 passed`; `python -m compileall api/routers api/services api/tests` passed.
   - `api/services/llm_tracing.py`, `api/services/llm_json.py`, and `api/services/llm_budgets.py` now exist; `api/services/llm.py` delegates to them, and `MergeSpec` plus `merge_chunked_results(...)` unify the chunked merge paths.
   - Follow-up verification passed in the repo `uv` environment: `cd api && uv run pytest tests/test_llm_hardening.py tests/test_llm_observability.py tests/test_session_intents.py tests/test_kb_analyse.py -q` → `41 passed`; `uv run python -m py_compile services/llm.py services/llm_budgets.py services/llm_json.py services/llm_tracing.py tests/test_llm_hardening.py` passed.
-  - `scripts/sync_langfuse_eval_dataset.py` and `docs/sprint_cq_finish/E1_accuracy_report.md` are still absent.
+  - `scripts/sync_langfuse_eval_dataset.py` and `docs/archived/sprint_cq_finish/E1_accuracy_report.md` are still absent.
 
 **Blocks:**
 - A — Backlog close-out (Now items: B3, E1, F3)
@@ -71,7 +71,7 @@ last_updated: 2026-05-06
 
 **Files:**
 - `api/services/llm.py` — `extract_facts_from_prose` prompt; adjust if needed.
-- `docs/sprint_cq_finish/E1_accuracy_report.md` — short report recording score, prompt changes, and sample facts used.
+- `docs/archived/sprint_cq_finish/E1_accuracy_report.md` — short report recording score, prompt changes, and sample facts used.
 
 **Acceptance criteria:**
 - Report exists with field-by-field accuracy score for ≥ 3 test runs.
@@ -244,7 +244,7 @@ These four items can be worked in parallel with Block B after P0-2 (already ship
 
 **Files:**
 - `scripts/sync_langfuse_eval_dataset.py` (new) — reads canonical fixtures, upserts to Langfuse dataset
-- `docs/sprint_cq_finish/langfuse_eval_sync.md` (optional) — brief note on how to run and when
+- `docs/archived/sprint_cq_finish/langfuse_eval_sync.md` (optional) — brief note on how to run and when
 
 **Estimate:** M (~4 h)
 

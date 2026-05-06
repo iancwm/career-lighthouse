@@ -24,7 +24,7 @@ Recently archived:
 **Why:** The current session publishing flow is still not performing to spec; major refactor debt is reduced, so this sprint now centers on reliability and operator trust in the active session loop.
 **Files:** `docs/unified_session_and_quality/SPRINT.md`, `web/components/admin/SessionInbox.tsx`, `web/components/admin/SmartCanvas.tsx`, `web/components/admin/TraceExplorerTab.tsx`, `api/routers/session_router.py`, `api/services/llm.py`, `api/services/trace_adapter.py`, `scripts/sync_langfuse_eval_dataset.py`.
 **Depends on:** None. This is now the active source-of-truth sprint for the session-card loop plus residual close-out work.
-**Progress (2026-05-06):** SmartCanvas commit/discard controls now use a sticky action bar (`smart-canvas-action-bar`) so operators can move card-to-card without repeated full-page scrolling. Covered by `web/components/admin/__tests__/SmartCanvas.test.tsx`.
+**Progress (2026-05-06):** SmartCanvas commit/discard controls now use a sticky action bar (`smart-canvas-action-bar`) so operators can move card-to-card without repeated full-page scrolling, and promoted sessions auto-scroll into view when they move from analyzing to analyzed. Covered by `web/components/admin/__tests__/SmartCanvas.test.tsx` and `web/components/admin/__tests__/SessionInbox.test.tsx`.
 
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
@@ -54,10 +54,10 @@ Shipped: `web/types/facts.ts` is now the shared source of truth for fact shape, 
 Shipped: provenance now renders through a reusable `ProvenancePanel` with the visible toggle, source metadata, and audit link.
 
 ### ~~Structured Facts Phase 2: LLM extraction accuracy testing (E1)~~ ✓ Done (2026-05-06)
-Shipped: accuracy report at `docs/sprint_cq_finish/E1_accuracy_report.md` documents methodology, test inputs (Grab/DBS/Accenture notes), scoring rubric (≥ 80%), expected fact types, prompt-refinement candidates, and manual write-path validation steps. Live LLM run requires `ANTHROPIC_API_KEY` in staging env.
+Shipped: accuracy report at `docs/archived/sprint_cq_finish/E1_accuracy_report.md` documents methodology, test inputs (Grab/DBS/Accenture notes), scoring rubric (≥ 80%), expected fact types, prompt-refinement candidates, and manual write-path validation steps. Live LLM run requires `ANTHROPIC_API_KEY` in staging env.
 
 ### ~~Alumni cards — manual end-to-end verification of the four failure modes (F3)~~ ✓ Done (2026-05-06)
-Shipped: all four failure modes verified. Mode 2 test (`test_commit_alumni_card_surfaces_company_links_discrepancy`) added to `test_session_router.py`. `SmartCanvas.tsx:437` confirmed to render `company_links_warning`. Full verification record at `docs/sprint_cq_finish/F3_alumni_verification.md`.
+Shipped: all four failure modes verified. Mode 2 test (`test_commit_alumni_card_surfaces_company_links_discrepancy`) added to `test_session_router.py`. `SmartCanvas.tsx:437` confirmed to render `company_links_warning`. Full verification record at `docs/archived/sprint_cq_finish/F3_alumni_verification.md`.
 
 ### ~~Structured Facts Phase 3: Build `/api/kb/facts` query endpoint~~ ✓ Done (2026-04-23)
 Shipped: `GET /api/kb/facts` and `GET /api/kb/facts/grouped` now load employer and career-profile facts, apply filters for type/employer/school/year/source/confidence, and exclude deleted records by default.
@@ -230,7 +230,7 @@ session views, and the admin Trace Explorer filters traces by session, operation
 stale API build issue that initially hid traces was fixed during verification.
 
 ### ~~Sync canonical card-debug fixtures into the Langfuse eval dataset~~ ✓ Done (2026-05-06)
-Shipped: `scripts/sync_langfuse_eval_dataset.py` now upserts canonical fixtures from `api/tests/fixtures/eval_queries.jsonl` into a Langfuse dataset, with `--dry-run` and clear exit codes. Operator runbook at `docs/sprint_cq_finish/langfuse_eval_sync.md` documents prerequisites, usage, verification, and schema.
+Shipped: `scripts/sync_langfuse_eval_dataset.py` now upserts canonical fixtures from `api/tests/fixtures/eval_queries.jsonl` into a Langfuse dataset, with `--dry-run` and clear exit codes. Operator runbook at `docs/archived/sprint_cq_finish/langfuse_eval_sync.md` documents prerequisites, usage, verification, and schema.
 
 ### Test a softer non-technical alias for `Debug Workflow`
 **What:** Run a product-language experiment for non-technical operators once they become real users, testing an alias such as `What happened?` or `Explain this run` for the workflow-debug entrypoint.

@@ -69,7 +69,7 @@
 ### Task 3: Block A - Backlog Close-out (A2, A3)
 
 **Files:**
-- Create: `docs/sprint_cq_finish/E1_accuracy_report.md`
+- Create: `docs/archived/sprint_cq_finish/E1_accuracy_report.md`
 - Modify: `api/services/llm.py` (if needed for accuracy)
 - Modify: `api/tests/test_session_router.py`
 - Modify: `api/tests/test_session_intents.py`
@@ -86,7 +86,7 @@
 
 **Files:**
 - Create: `scripts/sync_langfuse_eval_dataset.py`
-- Create: `docs/sprint_cq_finish/langfuse_eval_sync.md`
+- Create: `docs/archived/sprint_cq_finish/langfuse_eval_sync.md`
 
 - [ ] **Step 1: Implement sync script**
     - Read fixtures from `api/tests/fixtures/`.

@@ -83,6 +83,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const previousSessionStatusRef = useRef(new Map<string, string>())
+  const sessionRowRefs = useRef(new Map<string, HTMLDivElement | null>())
 
   const hasActiveSessions = sessions.some((session) => session.status === "in-progress" || session.status === "analyzing")
 
@@ -193,6 +194,18 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     const timeout = window.setTimeout(() => setPromotedSessionId(null), 5000)
     return () => window.clearTimeout(timeout)
   }, [promotedSessionId])
+
+  useEffect(() => {
+    if (!promotedSessionId) return
+    const node = sessionRowRefs.current.get(promotedSessionId)
+    if (!node) return
+
+    const frame = window.requestAnimationFrame(() => {
+      node.scrollIntoView({ behavior: "smooth", block: "center" })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [promotedSessionId, sessions])
 
   useEffect(() => {
     if (!hasActiveSessions) {
@@ -389,6 +402,11 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     return (
       <div
         key={session.id}
+        ref={(node) => {
+          if (node) sessionRowRefs.current.set(session.id, node)
+          else sessionRowRefs.current.delete(session.id)
+        }}
+        data-testid={`session-row-${session.id}`}
         className={`w-full rounded-xl border bg-[#FFFDFC] px-4 py-3 text-left transition-colors ${
           isPromoted
             ? "border-[#0F766E] shadow-[0_0_0_2px_rgba(15,118,110,0.12)]"

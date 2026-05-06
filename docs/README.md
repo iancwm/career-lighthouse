@@ -24,15 +24,6 @@ These docs are still maintained against the codebase:
 - `docs/unified_session_and_quality/reliability_scorecard.md` - compact closure
   artifact mapping each observable failure mode (JSON repair, alumni path,
   validation, append) to its TraceExplorerTab evidence location.
-- `docs/sprint_cq_finish/E1_accuracy_report.md` - LLM extraction accuracy
-  test methodology for `extract_facts_from_prose`; three real employer note
-  inputs, ≥ 80% scoring rubric, and prompt-refinement guidance.
-- `docs/sprint_cq_finish/F3_alumni_verification.md` - alumni card failure-mode
-  verification record for all four modes (hallucinated slug, company-links
-  discrepancy, slug collision, unknown-field rejection).
-- `docs/sprint_cq_finish/langfuse_eval_sync.md` - operator guide for
-  `scripts/sync_langfuse_eval_dataset.py`: when to run, prereqs, verification
-  steps, and dataset schema.
 
 ## Archived Specs And Plans
 
@@ -58,7 +49,8 @@ Completed or historical planning docs live under `docs/archived/`:
   Playwright verification on 2026-05-02.
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` - shipped launch-readiness sprint (security, reliability, KB performance, alumni follow-ups, quick wins). Residual follow-ups (B3 UX polish, E1 accuracy artifact, F3 manual verification) tracked in `TODOS.md`.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` - shipped card-native alumni integration sprint. Residual manual end-to-end verification tracked in `TODOS.md`.
-- `docs/archived/langfuse_observability_sprint/` - shipped Langfuse observability sprint. Workflow summary/detail contracts and admin debugging surfaces landed on 2026-05-04; eval-sync follow-up has since shipped via `scripts/sync_langfuse_eval_dataset.py` with operator docs in `docs/sprint_cq_finish/langfuse_eval_sync.md`.
+- `docs/archived/langfuse_observability_sprint/` - shipped Langfuse observability sprint. Workflow summary/detail contracts and admin debugging surfaces landed on 2026-05-04; eval-sync follow-up has since shipped via `scripts/sync_langfuse_eval_dataset.py` with operator docs in `docs/archived/sprint_cq_finish/langfuse_eval_sync.md`.
+- `docs/archived/sprint_cq_finish/` - archived close-out artifacts for the code-quality finish sprint: E1 extraction accuracy report, F3 alumni failure-mode verification, and Langfuse eval-sync runbook.
 - `docs/archived/schema/` - completed structured schema foundation specs and metadata samples
 - `docs/archived/code_smell_cleanup/` - completed Sprint 3 structural cleanup specs
 - `docs/archived/llm_hardening/` - completed LLM safety and hardening specs
