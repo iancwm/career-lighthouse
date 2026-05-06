@@ -7,10 +7,10 @@ This backlog is ordered by execution priority:
 - `Done` = shipped items kept here for context
 
 Active sprint specs:
-- `docs/unified_session_and_quality/SPRINT.md` — Unified session pipeline + backlog close-out sprint. Covers Staging Area create-state trust, live queue updates, malformed JSON/workflow evidence hardening, SmartCanvas scroll reduction, alumni-card reliability verification, and Langfuse eval-sync follow-up. Started 2026-05-06.
+- `docs/unified_session_and_quality/SPRINT.md` — Unified session pipeline + backlog close-out sprint. Covers Staging Area create-state trust, live queue updates, malformed JSON/workflow evidence hardening, SmartCanvas scroll reduction, alumni-card reliability verification, and remaining session-loop stabilization work. Started 2026-05-06.
 
 Recently archived:
-- `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived on 2026-05-06 with Phase 1 plus the Phase 3 `llm.py` decomposition shipped; the remaining E1/F3 verification artifacts and the Langfuse eval-sync follow-up remain in this backlog.
+- `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived on 2026-05-06 with Phase 1 plus the Phase 3 `llm.py` decomposition shipped. Follow-up artifacts E1/F3 and Langfuse eval-sync have since landed; the remaining structural follow-up is Phase 2 router split.
 - `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
 - `docs/archived/langfuse_observability_sprint/` — Langfuse observability sprint. Workflow summary/detail and admin debugging shipped 2026-05-04; remaining eval dataset sync follow-up lives in this backlog and the archived code-quality finish sprint notes.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` — counsellor workspace UX sprint. Remaining A2 admin-tab sweep, D2 sticky local context, and E1/E2 verification shipped 2026-05-02.
@@ -20,8 +20,8 @@ Recently archived:
 ## Now
 
 ### Unified session pipeline + backlog close-out sprint
-**What:** Fix the Staging Area and SmartCanvas loop so session creation immediately shows up in `Analyzing now`, analysis starts from the create path, workflow detail exposes enough repair/alumni evidence to debug malformed-JSON and zero-card runs, and SmartCanvas no longer requires repeated scrolling to commit the next card; then close the remaining verification artifacts (E1/F3) and Langfuse eval-sync follow-up.
-**Why:** The current session publishing flow is still not performing to spec, and the remaining backlog risk is now mostly artifact and verification debt, not major refactor debt.
+**What:** Fix the Staging Area and SmartCanvas loop so session creation immediately shows up in `Analyzing now`, analysis starts from the create path, workflow detail exposes enough repair/alumni evidence to debug malformed-JSON and zero-card runs, and SmartCanvas no longer requires repeated scrolling to commit the next card.
+**Why:** The current session publishing flow is still not performing to spec; major refactor debt is reduced, so this sprint now centers on reliability and operator trust in the active session loop.
 **Files:** `docs/unified_session_and_quality/SPRINT.md`, `web/components/admin/SessionInbox.tsx`, `web/components/admin/SmartCanvas.tsx`, `web/components/admin/TraceExplorerTab.tsx`, `api/routers/session_router.py`, `api/services/llm.py`, `api/services/trace_adapter.py`, `scripts/sync_langfuse_eval_dataset.py`.
 **Depends on:** None. This is now the active source-of-truth sprint for the session-card loop plus residual close-out work.
 
@@ -228,13 +228,8 @@ Shipped: `session_id` now propagates through live session analysis, Langfuse gro
 session views, and the admin Trace Explorer filters traces by session, operation, and status. The
 stale API build issue that initially hid traces was fixed during verification.
 
-### Sync canonical card-debug fixtures into the Langfuse eval dataset
-**What:** Add a small script or admin-safe workflow that syncs the canonical repo truth set for session-card debugging into the Langfuse dataset used by prompt and workflow evals.
-**Why:** The Langfuse observability sprint will keep the same 10 canonical cases in two places, repo fixtures for version-controlled review and Langfuse datasets for prompt/version scoring. Without a sync path, those sources will drift and make regressions harder to trust.
-**Context:** Approved during `/plan-eng-review` on 2026-05-03 for the Langfuse-first card extraction debugging sprint. The initial implementation should ship the wedge first, then this follow-up keeps the dual-source corpus honest as cases evolve.
-**Effort:** M
-**Priority:** P2
-**Depends on:** Initial workflow-detail + eval implementation shipping
+### ~~Sync canonical card-debug fixtures into the Langfuse eval dataset~~ ✓ Done (2026-05-06)
+Shipped: `scripts/sync_langfuse_eval_dataset.py` now upserts canonical fixtures from `api/tests/fixtures/eval_queries.jsonl` into a Langfuse dataset, with `--dry-run` and clear exit codes. Operator runbook at `docs/sprint_cq_finish/langfuse_eval_sync.md` documents prerequisites, usage, verification, and schema.
 
 ### Test a softer non-technical alias for `Debug Workflow`
 **What:** Run a product-language experiment for non-technical operators once they become real users, testing an alias such as `What happened?` or `Explain this run` for the workflow-debug entrypoint.

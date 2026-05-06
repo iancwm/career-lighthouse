@@ -43,9 +43,9 @@ Completed or historical planning docs live under `docs/archived/`:
   and Phase 3 follow-ups now live in `TODOS.md`.
 - `docs/archived/code_quality_finish/SPRINT.md` - archived code-quality
   finish sprint. Verified on 2026-05-06 with Phase 1 plus the `llm.py`
-  decomposition shipped and focused verification recorded; the remaining
-  accuracy artifact, alumni verification artifact, and Langfuse eval-sync
-  follow-up remain in `TODOS.md`.
+  decomposition shipped and focused verification recorded. Follow-up artifacts
+  (E1 accuracy, F3 alumni verification, Langfuse eval-sync script/docs) landed
+  after archival; remaining structural follow-up is tracked in `TODOS.md`.
 - `docs/archived/session_pipeline_stabilization/SPRINT-2026-05-05.md` -
   archived standalone session pipeline stabilization spec, superseded by the
   unified sprint spec on 2026-05-06.
@@ -58,7 +58,7 @@ Completed or historical planning docs live under `docs/archived/`:
   Playwright verification on 2026-05-02.
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` - shipped launch-readiness sprint (security, reliability, KB performance, alumni follow-ups, quick wins). Residual follow-ups (B3 UX polish, E1 accuracy artifact, F3 manual verification) tracked in `TODOS.md`.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` - shipped card-native alumni integration sprint. Residual manual end-to-end verification tracked in `TODOS.md`.
-- `docs/archived/langfuse_observability_sprint/` - shipped Langfuse observability sprint. Workflow summary/detail contracts and admin debugging surfaces landed on 2026-05-04; remaining eval-sync follow-up work is tracked in `TODOS.md` and the archived code-quality finish sprint notes.
+- `docs/archived/langfuse_observability_sprint/` - shipped Langfuse observability sprint. Workflow summary/detail contracts and admin debugging surfaces landed on 2026-05-04; eval-sync follow-up has since shipped via `scripts/sync_langfuse_eval_dataset.py` with operator docs in `docs/sprint_cq_finish/langfuse_eval_sync.md`.
 - `docs/archived/schema/` - completed structured schema foundation specs and metadata samples
 - `docs/archived/code_smell_cleanup/` - completed Sprint 3 structural cleanup specs
 - `docs/archived/llm_hardening/` - completed LLM safety and hardening specs
@@ -74,8 +74,8 @@ Completed or historical planning docs live under `docs/archived/`:
 The structural cleanup sprint has been archived to
 `docs/archived/code_quality_sprint/`. The shipped slice covered Phase 0 plus
 the `trace_adapter`, `kb_writer`, `kb_ingestion_service`, and `llm.py`
-decomposition extractions. Remaining work — the router split and the Langfuse
-eval-sync follow-up — is now tracked in `TODOS.md`.
+decomposition extractions. Remaining work — primarily the router split — is now
+tracked in `TODOS.md`.
 
 ## Navigation
 
