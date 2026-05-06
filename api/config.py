@@ -16,7 +16,9 @@ from services.runtime_paths import (
 
 class Settings(BaseSettings):
     if SettingsConfigDict is not None:
-        model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+        model_config = SettingsConfigDict(
+            env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        )
 
     anthropic_api_key: str = ""
     allowed_origins: str = "http://localhost:3000"

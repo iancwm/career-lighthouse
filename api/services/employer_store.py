@@ -51,7 +51,7 @@ def _default_employer_history_dir() -> Path:
     return employers_dir.parent / "employers_history"
 
 
-def _as_list(value) -> list:
+def as_list(value) -> list:
     """Normalize legacy scalar/list YAML fields into a list.
 
     Handles None, lists, tuples, and strings. Strips whitespace from strings.
@@ -68,18 +68,26 @@ def _as_list(value) -> list:
     return [value]
 
 
-def _default_employers_dir() -> Path:
+# Alias for compatibility
+_as_list = as_list
+
+
+def default_employers_dir() -> Path:
     """Resolve the default employers dir across local repo and Docker layouts."""
     return knowledge_dir("employers")
 
 
+# Alias for compatibility
+_default_employers_dir = default_employers_dir
+
+
 def _history_dir() -> Path:
     return Path(
-        os.environ.get("EMPLOYER_HISTORY_DIR", str(_default_employer_history_dir()))
+        os.environ.get("EMPLOYER_HISTORY_DIR", str(default_employers_dir().parent / "employers_history"))
     )
 
 
-def _compute_completeness(employer: dict) -> str:
+def compute_completeness(employer: dict) -> str:
     """Assess employer profile completeness.
 
     Returns 'green' if all required fields (from kb.yaml employers.completeness_required)
@@ -94,6 +102,10 @@ def _compute_completeness(employer: dict) -> str:
         if isinstance(val, str) and not val.strip():
             return "amber"
     return "green"
+
+
+# Alias for compatibility
+_compute_completeness = compute_completeness
 
 
 def employer_to_context_block(

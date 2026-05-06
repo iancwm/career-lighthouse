@@ -54,12 +54,18 @@ from models_tracks import (
     TrackVersionInfo,
 )
 from services import health_cache
-from services.career_profiles import CareerProfileStore, get_career_profile_store
+from services.career_profiles import (
+    CareerProfileStore,
+    get_career_profile_store,
+    default_profiles_dir,
+    derive_structured_fields,
+)
 from services.employer_store import (
     EmployerEntityStore,
-    _default_employers_dir,
-    _as_list,
     get_employer_store,
+    default_employers_dir,
+    compute_completeness,
+    as_list,
 )
 from services.fact_store import group_facts, list_facts
 from services.shared_yaml import safe_slug_is_valid
@@ -71,7 +77,7 @@ from services.trace_adapter import (
     list_workflow_summaries,
 )
 from services.embedder import Embedder
-from services.source_ledger import get_source_ledger_store
+from services.kb_health import assemble_kb_health, invalidate_docs_cache
 from services.vector_store import VectorStore
 from services.kb_ingestion_service import (
     analyse_counsellor_input,
@@ -82,8 +88,7 @@ from services.kb_ingestion_service import (
 from services import llm as llm_service
 from services.llm import extract_facts_from_prose
 from config import settings
-from cfg import kb_cfg
-from services.career_profiles import _default_profiles_dir, _derive_structured_fields
+from cfg import kb_cfg, career_profiles_cfg
 from services.track_drafts import (
     TrackDraftStore,
     get_track_draft_store,
@@ -93,55 +98,6 @@ from services.kb_writer import apply_employer_diff, apply_profile_diff, upsert_k
 
 router = APIRouter(prefix="/api/kb", dependencies=[Depends(require_admin_key)])
 logger = logging.getLogger(__name__)
-
-_thresholds = kb_cfg["thresholds"]
-
-# --- list_docs() TTL cache ------------------------------------------------
-# list_docs() does an O(n_chunks) Qdrant scroll on every call.  Cache the
-# result for 60 s so concurrent or rapid health checks don't hammer Qdrant.
-# The cache is invalidated on every ingest via health_cache.invalidate_overlap_cache
-# (we piggyback on the same invalidation path rather than adding a second one).
-import threading as _threading
-
-_docs_cache_lock = _threading.Lock()
-_docs_cache: Optional[list[dict]] = None
-_docs_cache_expires: Optional[datetime] = None
-_DOCS_CACHE_TTL = timedelta(seconds=60)
-
-
-def _get_cached_docs(store: VectorStore) -> list[dict]:
-    """Return list_docs() result, using a 60 s TTL cache."""
-    global _docs_cache, _docs_cache_expires
-    now = datetime.now(timezone.utc)
-    with _docs_cache_lock:
-        if (
-            _docs_cache is not None
-            and _docs_cache_expires is not None
-            and now < _docs_cache_expires
-        ):
-            return _docs_cache
-    # Cache miss — fetch outside lock so we don't block other readers while scrolling.
-    docs = store.list_docs()
-    with _docs_cache_lock:
-        _docs_cache = docs
-        _docs_cache_expires = datetime.now(timezone.utc) + _DOCS_CACHE_TTL
-    return docs
-
-
-def _invalidate_docs_cache() -> None:
-    global _docs_cache, _docs_cache_expires
-    with _docs_cache_lock:
-        _docs_cache = None
-        _docs_cache_expires = None
-
-
-# -------------------------------------------------------------------------
-_COVERAGE_THIN_THRESHOLD = _thresholds["coverage_thin"]
-_LOW_CONFIDENCE_THRESHOLD = _thresholds["low_confidence"]
-_OVERLAP_SCORE_THRESHOLD = _thresholds["overlap_score"]
-_OVERLAP_PCT_THRESHOLD = _thresholds["overlap_pct"]
-_LOG_WINDOW_DAYS = kb_cfg["log_window_days"]
-_MAX_LOW_CONF_QUERIES = kb_cfg["max_low_conf_queries"]
 
 
 def _read_langfuse_trace_log(*args, **kwargs):
@@ -162,9 +118,9 @@ def _build_employer_detail(emp: dict) -> EmployerDetail:
     return EmployerDetail(
         slug=emp.get("slug", ""),
         employer_name=emp.get("employer_name", ""),
-        tracks=_as_list(emp.get("tracks")),
+        tracks=as_list(emp.get("tracks")),
         ep_requirement=emp.get("ep_requirement"),
-        intake_seasons=_as_list(emp.get("intake_seasons")),
+        intake_seasons=as_list(emp.get("intake_seasons")),
         singapore_headcount_estimate=emp.get("singapore_headcount_estimate"),
         application_process=emp.get("application_process"),
         counsellor_contact=emp.get("counsellor_contact"),
@@ -179,7 +135,7 @@ def _profiles_dir() -> Path:
     return Path(
         os.environ.get(
             "CAREER_PROFILES_DIR",
-            str(_default_profiles_dir()),
+            str(default_profiles_dir()),
         )
     )
 
@@ -188,7 +144,7 @@ def _employers_dir() -> Path:
     return Path(
         os.environ.get(
             "EMPLOYERS_DIR",
-            str(_default_employers_dir()),
+            str(default_employers_dir()),
         )
     )
 
@@ -213,113 +169,6 @@ def _draft_ready_for_publish(detail: DraftTrackDetail) -> bool:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
-
-
-def _read_query_log(since: datetime) -> list[dict]:
-    """Read JSONL query log, returning entries within the time window.
-
-    Malformed lines are skipped with a warning (never raises).
-    Returns empty list if log file is absent or empty.
-    """
-    entries = []
-    try:
-        if not os.path.exists(settings.query_log_path):
-            return []
-        with open(settings.query_log_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-                ts_str = entry["ts"]
-                ts = datetime.fromisoformat(ts_str)
-                if ts.tzinfo is None:
-                    ts = ts.replace(tzinfo=timezone.utc)
-                if ts >= since:
-                    entries.append(entry)
-            except (json.JSONDecodeError, KeyError, ValueError):
-                logger.warning("Skipping malformed query log line: %r", line[:120])
-    except Exception:
-        logger.warning("Failed to read query log", exc_info=True)
-    return entries
-
-
-def _compute_overlap_pairs(store: VectorStore) -> list[dict]:
-    """Compute document pairs with high content overlap.
-
-    For each document, samples its chunk vectors (via Qdrant scroll) and searches
-    the KB for near-duplicates. Pairs where > 30% of sampled chunks score ≥ 0.85
-    against a chunk in another document are flagged.
-
-    Acceptable at pre-launch scale (< 30 docs ≈ < 5 seconds).
-    TODO: cache this result; invalidate on each ingest when KB exceeds 30 docs.
-          The invalidation hook is already wired in ingest_router.py via health_cache.
-    """
-    from qdrant_client.models import Filter, FieldCondition, MatchValue
-
-    docs = store.list_docs()
-    if len(docs) < 2:
-        return []
-
-    pairs: list[dict] = []
-    checked: set[frozenset] = set()
-
-    for doc in docs:
-        filename = doc["filename"]
-
-        # Retrieve chunk vectors for this document via a filtered scroll
-        chunk_points, _ = store._client.scroll(
-            collection_name=store._collection,
-            scroll_filter=Filter(
-                must=[
-                    FieldCondition(
-                        key="source_filename", match=MatchValue(value=filename)
-                    )
-                ]
-            ),
-            limit=200,
-            with_vectors=True,
-            with_payload=True,
-        )
-        if not chunk_points:
-            continue
-
-        # Note: scroll is capped at limit=200 so len(chunk_points) <= 200 always.
-        # Sampling for very large docs would require Qdrant scroll pagination; deferred
-        # until KB exceeds pre-launch scale. Use all retrieved chunks for now.
-        sample = chunk_points
-
-        overlap_against: dict[str, int] = {}
-        for pt in sample:
-            vec = np.array(pt.vector, dtype=np.float32)
-            results = store.search(vec, top_k=2)
-            for r in results:
-                matched_fn = r["payload"].get("source_filename", "")
-                if (
-                    matched_fn
-                    and matched_fn != filename
-                    and r["score"] >= _OVERLAP_SCORE_THRESHOLD
-                ):
-                    overlap_against[matched_fn] = overlap_against.get(matched_fn, 0) + 1
-
-        for other_fn, count in overlap_against.items():
-            pct = count / len(sample)
-            if pct >= _OVERLAP_PCT_THRESHOLD:
-                pair_key = frozenset([filename, other_fn])
-                if pair_key not in checked:
-                    checked.add(pair_key)
-                    pairs.append(
-                        {
-                            "doc_a": filename,
-                            "doc_b": other_fn,
-                            "overlap_pct": round(pct, 2),
-                            "recommendation": "merge or remove one",
-                        }
-                    )
-
-    return pairs
 
 
 # ---------------------------------------------------------------------------
@@ -354,7 +203,7 @@ def broken_career_profiles(
 
 
 @router.post("/career-profiles/{slug}/auto-complete", response_model=dict)
-def auto_complete_profile(
+async def auto_complete_profile(
     slug: str,
     profile_store: CareerProfileStore = Depends(get_career_profile_store),
 ):
@@ -366,9 +215,6 @@ def auto_complete_profile(
 
     Returns the completed profile dict.
     """
-    from config import settings
-    from cfg import career_profiles_cfg
-
     broken = profile_store.get_broken_profile(slug)
     if broken is None:
         raise HTTPException(
@@ -376,62 +222,21 @@ def auto_complete_profile(
         )
 
     # Determine which fields are missing
-    from cfg import career_profiles_cfg
-
     required = set(career_profiles_cfg["required_fields"])
     existing = set(broken.keys())
     missing = required - existing
 
-    # Build a prompt that asks the LLM to fill the gaps
-    profile_budget = (
-        getattr(settings, "llm_auto_complete_max_profile_chars", None) or 6000
-    )
-    existing_content = "\n".join(f"{k}: {v}" for k, v in broken.items() if v)
-    existing_content = existing_content[:profile_budget]
-    missing_list = ", ".join(sorted(missing))
-
-    system = (
-        f"You are a career data curator for {llm_service.SCHOOL_NAME}.\n"
-        "Given a partial career profile YAML and a list of missing required fields,\n"
-        "fill in the missing fields based on the existing profile content.\n"
-        "Return ONLY a JSON object with the missing field names as keys.\n"
-        "Be specific and realistic — use real-world data where possible.\n"
-        "Do not modify or repeat fields that already exist.\n"
-    )
-
-    user = (
-        f"Existing profile fields:\n{existing_content}\n\n"
-        f"Missing fields to fill: {missing_list}\n\n"
-        f"Return a JSON object with values for each missing field. "
-        f"For list fields (top_employers_smu, entry_paths), return a JSON array. "
-        f"For boolean fields (international_realistic), return true or false. "
-        f"For string fields, return a concise 1-3 sentence value."
-    )
+    if not missing:
+        return {"slug": slug, "completed_fields": [], "profile": broken}
 
     try:
-        filled = llm_service.call_structured_json(
-            operation="auto_complete_profile",
-            model=llm_service.get_model_name(),
-            max_tokens=1024,
-            system=system,
-            user=user,
-            schema_name="auto_complete_profile",
-            schema_hint=(
-                f"JSON object with only the missing fields: {missing_list}. "
-                "List fields may be arrays, boolean fields booleans, string fields short prose."
-            ),
-            trace_metadata={
-                "feature": "auto_complete_profile",
-                "slug": slug,
-                "missing_count": len(missing),
-                "input_chars_pre_trim": len(existing_content),
-            },
+        filled = await llm_service.auto_complete_profile_fields(
+            broken_profile=broken,
+            missing_fields=list(missing),
+            slug=slug,
         )
     except HTTPException:
         raise
-    except ValueError as exc:
-        logger.error("auto_complete_profile: LLM call failed: %s", exc)
-        raise HTTPException(status_code=422, detail=f"Could not auto-complete: {exc}")
     except Exception as exc:
         logger.error("auto_complete_profile: LLM call failed: %s", exc)
         raise HTTPException(status_code=500, detail=f"Could not auto-complete: {exc}")
@@ -442,19 +247,15 @@ def auto_complete_profile(
             broken[field] = value
 
     # Write back to disk
-    from services.career_profiles import _default_profiles_dir
-
     profiles_dir = Path(
-        os.environ.get("CAREER_PROFILES_DIR", str(_default_profiles_dir()))
+        os.environ.get("CAREER_PROFILES_DIR", str(default_profiles_dir()))
     )
     yaml_path = profiles_dir / f"{slug}.yaml"
     try:
-        import yaml as _yaml
-
         tmp = yaml_path.with_suffix(".tmp")
         profiles_dir.mkdir(parents=True, exist_ok=True)
         with open(tmp, "w", encoding="utf-8") as f:
-            _yaml.safe_dump(
+            yaml.safe_dump(
                 broken, f, allow_unicode=True, default_flow_style=False, sort_keys=False
             )
         tmp.replace(yaml_path)
@@ -913,10 +714,8 @@ def create_employer(
     logger.info("create_employer: created %r", slug)
 
     data["slug"] = slug
-    from services.employer_store import _compute_completeness
-
     return EmployerDetail(
-        **{**data, "completeness": _compute_completeness(data), "structured": {}}
+        **{**data, "completeness": compute_completeness(data), "structured": {}}
     )
 
 
@@ -1001,10 +800,8 @@ def update_employer(
     employer_store.invalidate()
     logger.info("update_employer: updated %r", slug)
 
-    from services.employer_store import _compute_completeness
-
     return EmployerDetail(
-        **{**existing, "completeness": _compute_completeness(existing)}
+        **{**existing, "completeness": compute_completeness(existing)}
     )
 
 
@@ -1337,7 +1134,7 @@ def commit_analysis(
 
     # --- 4. Invalidate caches ---
     health_cache.invalidate_overlap_cache()
-    _invalidate_docs_cache()
+    invalidate_docs_cache()
     profile_store.invalidate()
     employer_store.invalidate()
 
@@ -1387,103 +1184,12 @@ def kb_health(
     If Qdrant is unavailable, returns HTTP 503.
     """
     try:
-        docs = _get_cached_docs(store)
+        return assemble_kb_health(store)
     except Exception as e:
-        logger.error("Qdrant unavailable during kb_health: %s", e)
-        raise HTTPException(status_code=503, detail="KB unavailable")
-
-    total_docs = len(docs)
-    total_chunks = sum(d["chunk_count"] for d in docs)
-
-    # --- Overlap pairs (cached, thundering-herd-safe) ---
-    try:
-        cached = health_cache.compute_if_needed(lambda: _compute_overlap_pairs(store))
-    except Exception:
-        logger.warning("Failed to compute overlap pairs", exc_info=True)
-        cached = []
-
-    overlapping_filenames = {p["doc_a"] for p in cached} | {p["doc_b"] for p in cached}
-
-    doc_coverage = [
-        DocCoverageItem(
-            filename=d["filename"],
-            chunk_count=d["chunk_count"],
-            coverage_status="good"
-            if d["chunk_count"] >= _COVERAGE_THIN_THRESHOLD
-            else "thin",
-            has_overlap_warning=d["filename"] in overlapping_filenames,
-        )
-        for d in docs
-    ]
-
-    high_overlap_pairs = [OverlapPair(**p) for p in cached]
-
-    # --- Query log metrics ---
-    window_start = datetime.now(timezone.utc) - timedelta(days=_LOG_WINDOW_DAYS)
-    entries = _read_query_log(since=window_start)
-    source_state = get_source_ledger_store().summarize_source_state(docs, entries)
-
-    avg_match_score: Optional[float] = None
-    retrieval_diversity_score: Optional[float] = None
-    low_confidence_queries: list[LowConfidenceQuery] = []
-
-    if entries:
-        # avg_match_score: mean of top-1 scores across all queries in window
-        all_top_scores = [e["scores"][0] for e in entries if e.get("scores")]
-        if all_top_scores:
-            avg_match_score = round(sum(all_top_scores) / len(all_top_scores), 4)
-
-        # retrieval_diversity_score: avg distinct doc count in top-k results
-        diversity_vals = []
-        for e in entries:
-            top_docs = e.get("top_docs", [])
-            if top_docs:
-                diversity_vals.append(len(set(top_docs)))
-        if diversity_vals:
-            retrieval_diversity_score = round(
-                sum(diversity_vals) / len(diversity_vals), 2
-            )
-
-        # low_confidence_queries: recent queries with top score < threshold
-        lc = [
-            e
-            for e in entries
-            if e.get("scores") and e["scores"][0] < _LOW_CONFIDENCE_THRESHOLD
-        ]
-        lc.sort(key=lambda e: e.get("ts", ""), reverse=True)
-        low_confidence_queries = [
-            LowConfidenceQuery(
-                ts=e["ts"],
-                query_text=e["query_text"],
-                max_score=round(e["scores"][0], 4),
-                doc_matched=e.get("doc_matched"),
-            )
-            for e in lc[:_MAX_LOW_CONF_QUERIES]
-        ]
-
-    return KBHealthResponse(
-        total_docs=total_docs,
-        total_chunks=total_chunks,
-        avg_match_score=avg_match_score,
-        retrieval_diversity_score=retrieval_diversity_score,
-        low_confidence_queries=low_confidence_queries,
-        doc_coverage=doc_coverage,
-        high_overlap_pairs=high_overlap_pairs,
-        source_state=source_state,
-        active_sources=source_state.active_source_count,
-        active_source_count=source_state.active_source_count,
-        superseded_sources=source_state.superseded_source_count,
-        superseded_source_count=source_state.superseded_source_count,
-        stale_sources=source_state.stale_source_count,
-        stale_source_count=source_state.stale_source_count,
-        active_hits=source_state.active_hit_count,
-        active_hit_count=source_state.active_hit_count,
-        superseded_hits=source_state.superseded_hit_count,
-        superseded_hit_count=source_state.superseded_hit_count,
-        last_refreshed_at=source_state.last_refreshed_at,
-        updated_at=source_state.last_refreshed_at,
-        stale_source_evidence=source_state.stale_source_evidence,
-    )
+        if "Qdrant" in str(e) or "VectorStore" in str(type(e).__name__):
+            logger.error("KB health failed: %s", e)
+            raise HTTPException(status_code=503, detail="KB unavailable")
+        raise
 
 
 @router.get("/llm-traces", response_model=list[LLMTraceEntry])

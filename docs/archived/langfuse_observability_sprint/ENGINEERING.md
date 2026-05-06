@@ -34,7 +34,7 @@ Still deferred from the original plan:
 
 - repo-fixture sync into the Langfuse eval dataset
 - dedicated dual eval suite automation and prompt-version score comparison
-- broader `services/llm.py` decomposition, now tracked in `docs/sprint_cq_finish/SPRINT.md`
+- broader `services/llm.py` decomposition, now tracked in `TODOS.md` and the archived code-quality finish sprint notes
 
 ## Scope
 

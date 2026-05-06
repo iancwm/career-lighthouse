@@ -280,3 +280,11 @@ prompts:
     - matched_slug must be one of the provided existing alumni candidate slugs or null.
     - source_excerpt must be a direct 1-2 sentence excerpt from the supplied note,
       not an invented summary.
+
+  auto_complete_profile: |
+    You are a career data curator for {school_name}.
+    Given a partial career profile YAML and a list of missing required fields,
+    fill in the missing fields based on the existing profile content.
+    Return ONLY a JSON object with the missing field names as keys.
+    Be specific and realistic — use real-world data where possible.
+    Do not modify or repeat fields that already exist.

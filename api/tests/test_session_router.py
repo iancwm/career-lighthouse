@@ -98,6 +98,17 @@ def _make_session(**overrides):
     return KnowledgeSession(**defaults)
 
 
+def _patch_session_intents_submit(result):
+    """Patch the dynamically loaded session_router executor on the real module instance."""
+    import session_router
+
+    mock_future = MagicMock()
+    mock_future.result.return_value = result
+    return patch.object(
+        session_router._SESSION_INTENTS_EXECUTOR, "submit", return_value=mock_future
+    )
+
+
 class TestCreateSessionJsonBody:
     """POST /api/sessions must accept a JSON body, not a query param."""
 
@@ -171,9 +182,8 @@ class TestGetSession:
 
 
 class TestAnalyzeSession:
-    @patch("services.llm.generate_session_intents")
-    def test_analyze_existing_session(self, mock_generate, app, mock_session_store):
-        mock_generate.return_value = {
+    def test_analyze_existing_session(self, app, mock_session_store):
+        result = {
             "cards": [],
             "already_covered": [],
         }
@@ -185,8 +195,9 @@ class TestAnalyzeSession:
             saved_statuses.append(current.status)
         )
 
-        client = TestClient(app)
-        resp = client.post("/api/sessions/abc-123/analyze")
+        with _patch_session_intents_submit(result):
+            client = TestClient(app)
+            resp = client.post("/api/sessions/abc-123/analyze")
 
         assert resp.status_code == 200
         body = resp.json()
@@ -202,11 +213,8 @@ class TestAnalyzeSession:
 
         assert resp.status_code == 404
 
-    @patch("services.llm.generate_session_intents")
-    def test_analyze_passes_session_id_to_llm(
-        self, mock_generate, app, mock_session_store
-    ):
-        mock_generate.return_value = {
+    def test_analyze_passes_session_id_to_llm(self, app, mock_session_store):
+        result = {
             "cards": [],
             "already_covered": [],
         }
@@ -215,17 +223,17 @@ class TestAnalyzeSession:
         )
         mock_session_store.save_session.side_effect = lambda current: None
 
-        client = TestClient(app)
-        resp = client.post("/api/sessions/abc-123/analyze")
+        with _patch_session_intents_submit(result) as mock_submit:
+            client = TestClient(app)
+            resp = client.post("/api/sessions/abc-123/analyze")
 
         assert resp.status_code == 200
-        assert mock_generate.call_args.kwargs["session_id"] == "abc-123"
+        assert mock_submit.called
+        _, kwargs = mock_submit.call_args
+        assert kwargs["session_id"] == "abc-123"
 
-    @patch("services.llm.generate_session_intents")
-    def test_analyze_rejects_list_in_scalar_card_field(
-        self, mock_generate, app, mock_session_store
-    ):
-        mock_generate.return_value = {
+    def test_analyze_rejects_list_in_scalar_card_field(self, app, mock_session_store):
+        result = {
             "cards": [
                 {
                     "card_id": "card-bad",
@@ -241,19 +249,17 @@ class TestAnalyzeSession:
         mock_session_store.get_session.return_value = session
         mock_session_store.save_session.side_effect = lambda current: None
 
-        client = TestClient(app)
-        resp = client.post("/api/sessions/abc-123/analyze")
+        with _patch_session_intents_submit(result):
+            client = TestClient(app)
+            resp = client.post("/api/sessions/abc-123/analyze")
 
         assert resp.status_code == 422
         assert mock_session_store.save_session.called
         assert session.status == "failed"
         assert "Invalid intent card payload" in session.analysis_error
 
-    @patch("services.llm.generate_session_intents")
-    def test_analyze_marks_analyzing_then_analyzed(
-        self, mock_generate, app, mock_session_store
-    ):
-        mock_generate.return_value = {
+    def test_analyze_marks_analyzing_then_analyzed(self, app, mock_session_store):
+        result = {
             "cards": [],
             "already_covered": [],
         }
@@ -264,18 +270,16 @@ class TestAnalyzeSession:
             saved_statuses.append(current.status)
         )
 
-        client = TestClient(app)
-        resp = client.post("/api/sessions/abc-123/analyze")
+        with _patch_session_intents_submit(result):
+            client = TestClient(app)
+            resp = client.post("/api/sessions/abc-123/analyze")
 
         assert resp.status_code == 200
         assert saved_statuses[0] == "analyzing"
         assert saved_statuses[-1] == "analyzed"
 
-    @patch("services.llm.generate_session_intents")
-    def test_retry_after_cancelled_session(
-        self, mock_generate, app, mock_session_store
-    ):
-        mock_generate.return_value = {
+    def test_retry_after_cancelled_session(self, app, mock_session_store):
+        result = {
             "cards": [],
             "already_covered": [],
         }
@@ -286,8 +290,9 @@ class TestAnalyzeSession:
             saved_statuses.append(current.status)
         )
 
-        client = TestClient(app)
-        resp = client.post("/api/sessions/abc-123/analyze")
+        with _patch_session_intents_submit(result):
+            client = TestClient(app)
+            resp = client.post("/api/sessions/abc-123/analyze")
 
         assert resp.status_code == 200
         assert saved_statuses[0] == "analyzing"
@@ -308,22 +313,16 @@ class TestAnalyzeSession:
         assert resp.json()["status"] == "cancelled"
         assert saved_statuses[-1] == "cancelled"
 
-    @patch("services.alumni_store.get_alumni_store")
-    @patch("services.llm.generate_alumni_extraction")
-    @patch("services.llm.generate_session_intents")
     def test_analyze_appends_alumni_cards_for_alumni_heavy_notes(
         self,
-        mock_generate_session_intents,
-        mock_generate_alumni_extraction,
-        mock_get_alumni_store,
         app,
         mock_session_store,
     ):
-        mock_generate_session_intents.return_value = {
+        result = {
             "cards": [],
             "already_covered": [],
         }
-        mock_generate_alumni_extraction.return_value = {
+        alumni_result = {
             "alumni": [
                 {
                     "source": "counselor",
@@ -341,7 +340,6 @@ class TestAnalyzeSession:
         }
         fake_alumni_store = MagicMock()
         fake_alumni_store.list_alumni.return_value = []
-        mock_get_alumni_store.return_value = fake_alumni_store
 
         session = _make_session(
             id="abc-123",
@@ -351,8 +349,13 @@ class TestAnalyzeSession:
         mock_session_store.get_session.return_value = session
         mock_session_store.save_session.side_effect = lambda current: None
 
-        client = TestClient(app)
-        resp = client.post("/api/sessions/abc-123/analyze")
+        with (
+            _patch_session_intents_submit(result),
+            patch("services.alumni_store.get_alumni_store", return_value=fake_alumni_store),
+            patch("services.llm.call_structured_json", return_value=alumni_result),
+        ):
+            client = TestClient(app)
+            resp = client.post("/api/sessions/abc-123/analyze")
 
         assert resp.status_code == 200
         body = resp.json()

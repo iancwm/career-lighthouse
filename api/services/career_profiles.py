@@ -46,7 +46,7 @@ def _is_placeholder_counselor_contact(value: object) -> bool:
     return bool(re.search(r"(?i)(^\[?todo\b|placeholder|fill in|^\s*tbd\b)", text))
 
 
-def _derive_structured_fields(profile: dict) -> dict:
+def derive_structured_fields(profile: dict) -> dict:
     """Extract structured numeric fields from prose without overwriting manual values.
 
     Uses setdefault so manually set salary_min_sgd/salary_max_sgd are never
@@ -73,9 +73,17 @@ def _derive_structured_fields(profile: dict) -> dict:
     return structured
 
 
-def _default_profiles_dir() -> Path:
+# Alias for compatibility
+_derive_structured_fields = derive_structured_fields
+
+
+def default_profiles_dir() -> Path:
     """Resolve the default profiles dir across local repo and Docker layouts."""
     return knowledge_dir("career_profiles")
+
+
+# Alias for compatibility
+_default_profiles_dir = default_profiles_dir
 
 
 def _default_tracks_version_path() -> Path:

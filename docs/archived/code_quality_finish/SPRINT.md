@@ -1,19 +1,27 @@
 ---
-status: active
+status: archived
 created: 2026-05-04
-last_updated: 2026-05-04
+last_updated: 2026-05-06
 ---
 
 # Sprint: Code Quality Finish & Backlog Close-out
+
+**Archive note (2026-05-06):** This sprint was verified and archived as a partially completed cleanup sprint. It is no longer the active execution plan.
 
 **Duration:** ~1 week  
 **Goal:** Clear all unblocked "Now" items from the backlog, complete Code Quality Phase 1 (which unblocks Phase 2), and run Code Quality Phase 3 in parallel. Ship the Langfuse eval dataset sync as a lightweight follow-up to the observability sprint.  
 **Branch convention:** one PR per block; `api/pytest` and `web/npm test` green before merge.
 
-**Progress snapshot (2026-05-04):**
-- A1 is already shipped in the current `SmartCanvas.tsx` implementation, even though it was still carried into this sprint from `TODOS.md`.
-- The Langfuse observability prerequisite for Block D is merged on `main` (`f318569` / `7efbd83`).
-- Still open in the repo: A2, A3, Blocks B and C, and the actual D1 dataset-sync script.
+**Verification snapshot (2026-05-06):**
+- Complete and verified: A1, B1, B2, B3.
+- Partial: A3 has stronger backend/test coverage and the `company_links_warning` UI path remains wired, but the explicit verification artifact requested by the sprint is still missing.
+- Incomplete: A2, C1-C4, and D1.
+- Evidence:
+  - `api/services/kb_health.py` shipped and `kb_router.py` now delegates to it.
+  - `auto_complete_profile` now uses `cfg/prompts.yaml` plus `llm.auto_complete_profile_fields(...)`.
+  - `session_router.py` / `kb_router.py` no longer rely on function-local `from services...` imports for the Phase 1 seams.
+  - Focused verification passed on 2026-05-06: `pytest api/tests/test_kb_router.py api/tests/test_session_router.py api/tests/test_alumni_detection.py -q` → `100 passed`; `python -m compileall api/routers api/services api/tests` passed.
+  - `api/services/llm.py` is still 2,282 lines, and `api/services/llm_tracing.py`, `api/services/llm_json.py`, `api/services/llm_budgets.py`, `scripts/sync_langfuse_eval_dataset.py`, and `docs/sprint_cq_finish/E1_accuracy_report.md` are absent.
 
 **Blocks:**
 - A — Backlog close-out (Now items: B3, E1, F3)

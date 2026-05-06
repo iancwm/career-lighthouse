@@ -1,7 +1,9 @@
+from typing import Any, List
+from typing import Any, List
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
 from pydantic import ValidationError
-from dependencies import require_admin_key
+from dependencies import get_embedder, require_admin_key
 from models_session import CardCommitRequest, CreateSessionRequest, KnowledgeSession
 from models_kb import (
     AlreadyCovered,
@@ -16,7 +18,14 @@ from services.kb_writer import (
     apply_employer_diff,
     apply_profile_diff,
 )
-from typing import Any, List
+from services.career_profiles import get_career_profile_store
+from services.employer_store import get_employer_store
+from services.alumni_store import get_alumni_store
+from services.llm import (
+    generate_session_intents,
+    generate_alumni_extraction,
+)
+from services.shared_yaml import safe_slug
 from starlette.requests import Request
 import logging
 from datetime import datetime, timezone
@@ -88,8 +97,6 @@ def get_session_store():
 
 
 def _get_embedder():
-    from dependencies import get_embedder
-
     return get_embedder()
 
 
@@ -154,8 +161,6 @@ def _build_alumni_cards(
     session_id: str,
     existing_alumni: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    from services.shared_yaml import safe_slug
-
     existing_slug_map: dict[str, str] = {}
     for item in existing_alumni:
         slug = str(item.get("slug") or "").strip()
@@ -486,9 +491,6 @@ def analyze_session(
     _touch_session(session)
 
     # Gather existing knowledge for context
-    from services.career_profiles import get_career_profile_store
-    from services.employer_store import get_employer_store
-
     profile_store = get_career_profile_store()
     employer_store = get_employer_store()
 
@@ -521,10 +523,8 @@ def analyze_session(
     # Call LLM — run in a sub-thread so we can enforce an overall deadline even
     # on multi-pass notes where each chunk has its own per-call timeout but the
     # total can still exceed the ALB/nginx gateway timeout.
-    from services.llm import generate_session_intents
-    from config import settings as _settings
 
-    _deadline = float(getattr(_settings, "llm_session_timeout_seconds", 180))
+    _deadline = float(getattr(settings, "llm_session_timeout_seconds", 180))
     logger.info(
         "analyze: passing %d tracks and %d employers to LLM (deadline %.0fs)",
         len(existing_tracks),
@@ -653,9 +653,6 @@ def analyze_session(
 
     if alumni_heavy:
         try:
-            from services.alumni_store import get_alumni_store
-            from services.llm import generate_alumni_extraction
-
             alumni_store = get_alumni_store()
             existing_alumni = [
                 {

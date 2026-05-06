@@ -55,24 +55,28 @@ _ALLOWED_NETWORK = {"low", "medium", "high"}
 _ALLOWED_LINK_TYPES = {"current", "former", "advisory"}
 
 
-def _default_alumni_dir() -> Path:
+def default_alumni_dir() -> Path:
     return knowledge_dir("alumni")
 
 
+# Alias for compatibility
+_default_alumni_dir = default_alumni_dir
+
+
 def _default_alumni_history_dir() -> Path:
-    return _default_alumni_dir().parent / "alumni_history"
+    return default_alumni_dir().parent / "alumni_history"
 
 
 def _default_alumni_links_dir() -> Path:
-    return _default_alumni_dir().parent / "alumni_company_links"
+    return default_alumni_dir().parent / "alumni_company_links"
 
 
 def _default_backfill_manifest_path() -> Path:
-    return _default_alumni_dir() / "_backfill_manifest.yaml"
+    return default_alumni_dir() / "_backfill_manifest.yaml"
 
 
 def _alumni_dir() -> Path:
-    return Path(os.environ.get("ALUMNI_DIR", str(_default_alumni_dir())))
+    return Path(os.environ.get("ALUMNI_DIR", str(default_alumni_dir())))
 
 
 def _history_dir() -> Path:
@@ -117,7 +121,7 @@ def _normalize_bool(value: Any) -> bool | None:
     return None
 
 
-def _normalize_profile_payload(
+def normalize_profile_payload(
     payload: dict[str, Any], *, existing: dict[str, Any] | None = None
 ) -> dict[str, Any]:
     """Merge and normalize an alumni profile payload over an optional existing record.
@@ -250,6 +254,10 @@ def _normalize_profile_payload(
         data.pop(key, None)
 
     return data
+
+
+# Alias for compatibility
+_normalize_profile_payload = normalize_profile_payload
 
 
 def _compute_completeness(

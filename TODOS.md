@@ -7,16 +7,23 @@ This backlog is ordered by execution priority:
 - `Done` = shipped items kept here for context
 
 Active sprint specs:
-- `docs/sprint_cq_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Covers Now close-out items (B3, E1, F3), Code Quality Phase 1 finish (P1-4, P1-5, P1-6), Code Quality Phase 3 (P3-1 through P3-4), and Langfuse eval dataset sync. Started 2026-05-04.
+- `docs/session_pipeline_stabilization/SPRINT.md` — Session Pipeline Stabilization. Covers Staging Area create-state trust, live queue updates, malformed JSON hardening, richer workflow detail, SmartCanvas scroll reduction, and alumni-card reliability. Started 2026-05-05.
 
 Recently archived:
+- `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived as a partial sprint on 2026-05-06: Phase 1 (`kb_health`, prompt externalization, inline-import lift) shipped and passed focused verification; E1/F3 verification artifacts, the Phase 3 `llm.py` decomposition, and the Langfuse eval-sync follow-up remain in this backlog.
 - `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
-- `docs/archived/langfuse_observability_sprint/` — Langfuse observability sprint. Workflow summary/detail and admin debugging shipped 2026-05-04; remaining eval dataset sync follow-up lives in this backlog and `docs/sprint_cq_finish/SPRINT.md`.
+- `docs/archived/langfuse_observability_sprint/` — Langfuse observability sprint. Workflow summary/detail and admin debugging shipped 2026-05-04; remaining eval dataset sync follow-up lives in this backlog and the archived code-quality finish sprint notes.
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` — counsellor workspace UX sprint. Remaining A2 admin-tab sweep, D2 sticky local context, and E1/E2 verification shipped 2026-05-02.
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` — security/reliability/KB-perf/alumni-followups sprint. Residual items (B3 UX, E1 accuracy artifact, F3 alumni verification) live in this backlog.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
 
 ## Now
+
+### Session pipeline stabilization sprint
+**What:** Fix the Staging Area and SmartCanvas loop so session creation immediately shows up in `Analyzing now`, analysis starts from the create path, workflow detail exposes enough repair/alumni evidence to debug malformed-JSON and zero-card runs, and SmartCanvas no longer requires repeated scrolling to commit the next card.
+**Why:** The current session publishing flow is not performing to spec: the app feels frozen after `Create Session`, malformed JSON still appears regularly, Langfuse/admin workflow detail is still too shallow for real debugging, SmartCanvas wastes too much vertical space, and alumni cards can still fail to surface from valid notes.
+**Files:** `docs/session_pipeline_stabilization/SPRINT.md`, `web/components/admin/SessionInbox.tsx`, `web/components/admin/SmartCanvas.tsx`, `web/components/admin/TraceExplorerTab.tsx`, `api/routers/session_router.py`, `api/services/llm.py`, `api/services/trace_adapter.py`.
+**Depends on:** None. This sprint is the active stabilization plan for the session-card loop.
 
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
@@ -167,23 +174,16 @@ Shipped: `web/middleware.ts` accepts `?key=...` once on first hit, validates aga
 ### ~~Sanitize chat prompt injections~~ ✓ Done (2026-04-27)
 Shipped: `sanitize_for_prompt()` applied to `career_context` and `employer_context` at `api/services/llm.py:957–958`.
 
-### Session card commit idempotency — SmartCanvas 409 silent success (B3 UX polish)
-**What:** `commit_card()` already returns HTTP 409 when a card is not in `pending` state, preventing duplicate YAML writes. Remaining: make the frontend treat a 409 on a previously-committed card as a silent no-op (not an error toast) in `web/components/admin/SmartCanvas.tsx`.
-**Why:** Data corruption is prevented; the counsellor experience on browser-refresh is still broken (error flash).
-**Files:** `web/components/admin/SmartCanvas.tsx` (three 409 call sites already detect status; treat them as success when card is already committed).
-**Context:** Carried over from the launch-readiness sprint Block B3.
-**Depends on:** None.
+### ~~Session card commit idempotency — SmartCanvas 409 silent success (B3 UX polish)~~ ✓ Done (2026-05-06 verification)
+Shipped: `web/components/admin/SmartCanvas.tsx` now treats `409` responses from commit, discard, and cancel flows as reload-and-sync outcomes instead of false failures. Re-verified during the archived code-quality finish sprint review.
 
-### Code quality sprint — Phase 1 finish (kb_health extract, prompt externalization, inline-import lift)
-**What:** P1-4 extract `services/kb_health.py` (`_compute_overlap_pairs`, `_read_query_log`, `kb_health` assembly). P1-5 move the `auto_complete_profile` prompt to `cfg/prompts.yaml` and add an `llm.auto_complete_profile_fields(...)` helper. P1-6 lift inline `from cfg`/`from services` imports out of `session_router.py` and `kb_router.py`, and promote the `_default_*_dir` / `_derive_structured_fields` / `_normalize_profile_payload` helpers to public names.
-**Why:** Phase 0 plus the `trace_adapter`, `kb_writer`, and `kb_ingestion_service` extractions shipped 2026-04-27. These three items close out Phase 1 so the router split can land cleanly.
-**Files:** `api/services/kb_health.py` (new), `api/cfg/prompts.yaml`, `api/services/llm.py`, `api/routers/kb_router.py`, `api/routers/session_router.py`, plus the affected store modules.
-**Depends on:** None. Each is its own PR per `docs/code_quality_sprint/implementation_plan.md`.
+### ~~Code quality sprint — Phase 1 finish (kb_health extract, prompt externalization, inline-import lift)~~ ✓ Done (2026-05-06 verification)
+Shipped: `api/services/kb_health.py` now owns KB-health assembly and query-log metrics; `api/cfg/prompts.yaml` now carries `auto_complete_profile`; `api/services/llm.py` exposes `auto_complete_profile_fields(...)`; and the relevant imports in `session_router.py` / `kb_router.py` are lifted to module scope. Re-verified with `pytest api/tests/test_kb_router.py api/tests/test_session_router.py api/tests/test_alumni_detection.py -q` (`100 passed`) plus `python -m compileall api/routers api/services api/tests`.
 
 ### Code quality sprint — Phase 2 router split
 **What:** Split `kb_router.py` into `profile_router`, `tracks_router`, `employers_router`, `facts_router`, and `kb_admin_router`; register all five in `main.py`. Then split `tests/test_kb_router.py` into per-router test files. URL paths do not change.
 **Why:** After Phase 1, `kb_router.py` should be ~600 lines of thin endpoint handlers; splitting becomes a mechanical move. Defined in `docs/code_quality_sprint/implementation_plan.md` (P2-1, P2-2).
-**Depends on:** Phase 1 finish.
+**Depends on:** None. Phase 1 was verified complete on 2026-05-06.
 
 ### Code quality sprint — Phase 3 services/llm.py decomposition
 **What:** Extract `services/llm_tracing.py` (`LLMTraceRecorder` context manager, `_call_with_trace` collapses to a thin caller), `services/llm_json.py` (JSON repair + validation), and `services/llm_budgets.py` (trim/budget helpers, config readers). Generalize the three merge routines (`_merge_intents`, `_merge_analysis_results`, `_merge_track_drafts`) into `merge_chunked_results(results, spec=MergeSpec(...))`.

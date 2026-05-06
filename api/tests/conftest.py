@@ -24,19 +24,31 @@ def in_memory_qdrant():
 
 
 @pytest.fixture(autouse=True)
+def clear_env_secrets(monkeypatch, tmp_path):
+    """Ensure sensitive environment variables don't leak from dev .env into tests.
+    ADMIN_KEY='' forces development mode (auth bypass).
+    """
+    monkeypatch.setenv("ADMIN_KEY", "")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "")
+    monkeypatch.setenv("SENTENCE_TRANSFORMERS_HOME", str(tmp_path / "cache"))
+
+
+@pytest.fixture(autouse=True)
 def reset_docs_cache():
     """Invalidate the list_docs() TTL cache before and after each test."""
     try:
-        from routers.kb_router import _invalidate_docs_cache
+        from services.kb_health import invalidate_docs_cache
 
-        _invalidate_docs_cache()
+        invalidate_docs_cache()
     except Exception:
         pass
     yield
     try:
-        from routers.kb_router import _invalidate_docs_cache
+        from services.kb_health import invalidate_docs_cache
 
-        _invalidate_docs_cache()
+        invalidate_docs_cache()
     except Exception:
         pass
 

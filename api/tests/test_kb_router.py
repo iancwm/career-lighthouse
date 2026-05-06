@@ -18,7 +18,13 @@ def make_client(in_memory_qdrant, mock_embedder):
     store.ensure_collection(384)
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
-    return TestClient(app), store
+    
+    # Force admin key bypass
+    app.dependency_overrides[dependencies.require_admin_key] = lambda: None
+    
+    client = TestClient(app)
+    client.headers["X-Admin-Key"] = "test-key"
+    return client, store
 
 
 def seed_chunk(store, filename, chunk_text, chunk_index=0):
@@ -235,7 +241,7 @@ class TestKBHealthQueryLog:
         client, _ = make_client(in_memory_qdrant, mock_embedder)
         log_path = str(tmp_path / "no_log.jsonl")
 
-        with patch("routers.kb_router.settings") as mock_settings:
+        with patch("services.kb_health.settings") as mock_settings:
             mock_settings.query_log_path = log_path
             r = client.get("/api/kb/health")
 
@@ -271,7 +277,7 @@ class TestKBHealthQueryLog:
             ],
         )
 
-        with patch("routers.kb_router.settings") as mock_settings:
+        with patch("services.kb_health.settings") as mock_settings:
             mock_settings.query_log_path = log_path
             r = client.get("/api/kb/health")
 
@@ -306,7 +312,7 @@ class TestKBHealthQueryLog:
             ],
         )
 
-        with patch("routers.kb_router.settings") as mock_settings:
+        with patch("services.kb_health.settings") as mock_settings:
             mock_settings.query_log_path = log_path
             r = client.get("/api/kb/health")
 
@@ -339,7 +345,7 @@ class TestKBHealthQueryLog:
                 + "\n"
             )
 
-        with patch("routers.kb_router.settings") as mock_settings:
+        with patch("services.kb_health.settings") as mock_settings:
             mock_settings.query_log_path = log_path
             r = client.get("/api/kb/health")
 
@@ -378,7 +384,7 @@ class TestKBHealthQueryLog:
             ],
         )
 
-        with patch("routers.kb_router.settings") as mock_settings:
+        with patch("services.kb_health.settings") as mock_settings:
             mock_settings.query_log_path = log_path
             r = client.get("/api/kb/health")
 
@@ -415,7 +421,7 @@ class TestCareerProfilesEndpoint:
     ):
         from main import app
         from services.career_profiles import get_career_profile_store
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock
         import services.llm as llm_module
 
         monkeypatch.setenv("CAREER_PROFILES_DIR", str(tmp_path / "career_profiles"))
@@ -437,7 +443,9 @@ class TestCareerProfilesEndpoint:
 
         try:
             with patch.object(
-                llm_module, "call_structured_json", return_value=filled
+                llm_module,
+                "auto_complete_profile_fields",
+                new=AsyncMock(return_value=filled),
             ) as mock_call:
                 client, _ = make_client(in_memory_qdrant, mock_embedder)
                 resp = client.post("/api/kb/career-profiles/test_track/auto-complete")

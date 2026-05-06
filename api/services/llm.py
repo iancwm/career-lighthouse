@@ -2241,3 +2241,42 @@ Example:
         raise HTTPException(
             status_code=500, detail=f"Fact extraction failed: {str(exc)}"
         )
+
+
+async def auto_complete_profile_fields(
+    broken_profile: dict, missing_fields: list[str], slug: str = ""
+) -> dict:
+    """Call Claude to fill in missing career profile fields.
+
+    Args:
+        broken_profile: Partial profile data
+        missing_fields: List of missing field names
+        slug: Profile slug for tracing
+
+    Returns:
+        JSON dict with missing fields filled
+    """
+    system = _prompts["auto_complete_profile"].format(school_name=SCHOOL_NAME)
+
+    existing_content = "\n".join(f"{k}: {v}" for k, v in broken_profile.items() if v)
+    missing_list = ", ".join(sorted(missing_fields))
+
+    user = (
+        f"Existing profile fields:\n{existing_content}\n\n"
+        f"Missing fields to fill: {missing_list}\n\n"
+        "Return a JSON object with values for each missing field. "
+        "For list fields (top_employers_smu, entry_paths), return a JSON array. "
+        "For boolean fields (international_realistic), return true or false."
+    )
+
+    return await call_structured_json(
+        operation="auto_complete_profile",
+        system=system,
+        user=user,
+        schema_name="auto_complete_profile",
+        trace_metadata={
+            "feature": "auto_complete_profile",
+            "slug": slug,
+            "missing_fields": missing_fields,
+        },
+    )
