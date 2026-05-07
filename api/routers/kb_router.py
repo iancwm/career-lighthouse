@@ -1,10 +1,12 @@
 # api/routers/kb_router.py
 """KB observability and diff-first ingestion endpoints.
 
-POST /api/kb/test-query       — test a query, returns top-5 chunks with scores
-GET  /api/kb/health           — KB health metrics for the admin dashboard
-POST /api/kb/analyse          — analyse counsellor input, return diff (no writes)
-POST /api/kb/commit-analysis  — commit a counsellor-approved diff to KB and YAMLs
+POST  /api/kb/test-query                      — test a query, returns top-5 chunks with scores
+GET   /api/kb/health                          — KB health metrics for the admin dashboard
+POST  /api/kb/analyse                         — analyse counsellor input, return diff (no writes)
+POST  /api/kb/commit-analysis                 — commit a counsellor-approved diff to KB and YAMLs
+DELETE /api/kb/employers/{slug}               — soft-delete (renames to *.yaml.disabled)
+PATCH  /api/kb/employers/{slug}/restore       — restore a soft-deleted employer
 
 Auth note: These endpoints are protected by the router-level `require_admin_key`
 dependency and by Next.js middleware (web/middleware.ts). The remaining auth
@@ -812,10 +814,8 @@ def delete_employer(
 ):
     """Disable an employer entity by renaming its YAML to *.yaml.disabled.
 
-    Does NOT hard-delete — counsellor can restore via manual rename or future
-    PATCH /api/kb/employers/{slug}/restore endpoint.
+    Does NOT hard-delete — counsellor can restore via PATCH /api/kb/employers/{slug}/restore.
     Auth note: protected by the router-level `require_admin_key` dependency.
-    TODO: Add PATCH restore endpoint — see TODOS.md "Restore path for disabled employer entities".
     """
     if not safe_slug_is_valid(slug):
         raise HTTPException(status_code=422, detail="Invalid slug format.")
@@ -837,6 +837,42 @@ def delete_employer(
 
     employer_store.invalidate()
     logger.info("delete_employer: disabled %r (renamed to .yaml.disabled)", slug)
+
+
+@router.patch("/employers/{slug}/restore")
+def restore_employer(
+    slug: str,
+    employer_store: EmployerEntityStore = Depends(get_employer_store),
+):
+    """Restore a previously disabled employer entity by renaming *.yaml.disabled back to *.yaml.
+
+    Auth note: protected by the router-level `require_admin_key` dependency.
+    """
+    if not safe_slug_is_valid(slug):
+        raise HTTPException(status_code=422, detail="Invalid slug format.")
+
+    edir = _employers_dir()
+    disabled_path = edir / f"{slug}.yaml.disabled"
+    if not disabled_path.exists():
+        raise HTTPException(status_code=404, detail=f"Disabled employer '{slug}' not found.")
+
+    yaml_path = edir / f"{slug}.yaml"
+    if yaml_path.exists():
+        raise HTTPException(status_code=409, detail=f"Employer '{slug}' already exists as active.")
+
+    try:
+        disabled_path.rename(yaml_path)
+    except Exception as exc:
+        logger.error("restore_employer: failed to rename %r: %s", slug, exc)
+        raise HTTPException(status_code=500, detail="Failed to restore employer.")
+
+    employer_store.invalidate()
+    logger.info("restore_employer: restored %r (renamed from .yaml.disabled)", slug)
+
+    with open(yaml_path, encoding="utf-8") as f:
+        restored = yaml.safe_load(f) or {}
+    restored.setdefault("slug", slug)
+    return _build_employer_detail({**restored, "completeness": compute_completeness(restored)})
 
 
 @router.post("/employers/{slug}/extract-facts")

@@ -205,10 +205,8 @@ Shipped: `Content-Length` pre-read guard on both endpoints (413 if > 10MB). Shar
 **Why:** YAML is authoritative, but old chunks still retrieve and can confuse the LLM.
 **Depends on:** Employer entity CRUD already shipping.
 
-### Restore path for disabled employer entities
-**What:** Add an API and UI path to restore `.yaml.disabled` employer records.
-**Why:** DELETE currently disables, but there is no restore path without manual filesystem edits.
-**Depends on:** Employer entity CRUD.
+### ~~Restore path for disabled employer entities~~ ✓ Done (2026-05-07)
+Shipped: `PATCH /api/kb/employers/{slug}/restore` renames `*.yaml.disabled` back to `*.yaml`, returning 404 if no disabled file exists and 409 if an active record is already present. Invalidates the employer store cache and returns the restored `EmployerDetail`. 4 tests added to `api/tests/test_kb_router.py`.
 
 ### ~~Unsaved changes warning — KnowledgeUpdateTab mid-flow navigation~~ ✓ Done (2026-04-28)
 Shipped: `web/components/admin/KnowledgeUpdateTab.tsx` registers a `beforeunload` listener while a diff is loaded and removes it after commit or discard.

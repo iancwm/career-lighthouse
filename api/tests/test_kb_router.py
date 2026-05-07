@@ -1532,6 +1532,46 @@ class TestDeleteEmployerEndpoint:
 
 
 # ---------------------------------------------------------------------------
+# PATCH /api/kb/employers/{slug}/restore
+# ---------------------------------------------------------------------------
+
+
+class TestRestoreEmployerEndpoint:
+    def test_restore_renames_from_disabled(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+
+        client.delete("/api/kb/employers/goldman_sachs")
+        assert (d / "goldman_sachs.yaml.disabled").exists()
+
+        r = client.patch("/api/kb/employers/goldman_sachs/restore")
+        assert r.status_code == 200
+        assert (d / "goldman_sachs.yaml").exists()
+        assert not (d / "goldman_sachs.yaml.disabled").exists()
+        assert r.json()["slug"] == "goldman_sachs"
+
+    def test_404_when_no_disabled_file(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.patch("/api/kb/employers/nonexistent/restore")
+        assert r.status_code == 404
+
+    def test_409_when_active_file_already_exists(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        # Manually create a .disabled file while the active one still exists
+        (d / "goldman_sachs.yaml.disabled").write_text("employer_name: GS\n", encoding="utf-8")
+        r = client.patch("/api/kb/employers/goldman_sachs/restore")
+        assert r.status_code == 409
+
+    def test_422_unsafe_slug(self, in_memory_qdrant, mock_embedder, tmp_path):
+        d = make_employers_dir(tmp_path)
+        client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
+        r = client.patch("/api/kb/employers/../evil/restore")
+        assert r.status_code in (422, 404)
+
+
+# ---------------------------------------------------------------------------
 # GET /api/kb/facts
 # ---------------------------------------------------------------------------
 
