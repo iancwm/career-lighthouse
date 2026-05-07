@@ -5,6 +5,8 @@ sprint: unified_session_and_quality
 
 # Session Pipeline Reliability Scorecard
 
+Archived alongside the unified session pipeline sprint for historical reference.
+
 Closure artifact for Block B of the unified session + quality sprint.
 
 ## What this measures

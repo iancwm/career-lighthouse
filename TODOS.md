@@ -8,10 +8,8 @@ This backlog is ordered by execution priority:
 - `Later` = useful cleanup or scale work that can wait
 - `Done` = shipped items kept here for context
 
-Active sprint specs:
-- `docs/unified_session_and_quality/SPRINT.md` — Unified session pipeline + backlog close-out sprint. Covers Staging Area create-state trust, live queue updates, malformed JSON/workflow evidence hardening, SmartCanvas scroll reduction, alumni-card reliability verification, and remaining session-loop stabilization work. Started 2026-05-06.
-
 Recently archived:
+- `docs/archived/session_pipeline_stabilization/SPRINT-2026-05-07.md` — unified session pipeline + backlog close-out sprint. Archived on 2026-05-07 after the session loop, workflow evidence, scorecard, E1, F3, and Langfuse eval-sync artifacts shipped.
 - `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived on 2026-05-06 with Phase 1 plus the Phase 3 `llm.py` decomposition shipped. Follow-up artifacts E1/F3 and Langfuse eval-sync have since landed; the remaining structural follow-up is Phase 2 router split.
 - `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
 - `docs/archived/langfuse_observability_sprint/` — Langfuse observability sprint. Workflow summary/detail and admin debugging shipped 2026-05-04; remaining eval dataset sync follow-up lives in this backlog and the archived code-quality finish sprint notes.
@@ -20,13 +18,6 @@ Recently archived:
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
 
 ## Now
-
-### Unified session pipeline + backlog close-out sprint
-**What:** Fix the Staging Area and SmartCanvas loop so session creation immediately shows up in `Analyzing now`, analysis starts from the create path, workflow detail exposes enough repair/alumni evidence to debug malformed-JSON and zero-card runs, and SmartCanvas no longer requires repeated scrolling to commit the next card.
-**Why:** The current session publishing flow is still not performing to spec; major refactor debt is reduced, so this sprint now centers on reliability and operator trust in the active session loop.
-**Files:** `docs/unified_session_and_quality/SPRINT.md`, `web/components/admin/SessionInbox.tsx`, `web/components/admin/SmartCanvas.tsx`, `web/components/admin/TraceExplorerTab.tsx`, `api/routers/session_router.py`, `api/services/llm.py`, `api/services/trace_adapter.py`, `scripts/sync_langfuse_eval_dataset.py`.
-**Depends on:** None. This is now the active source-of-truth sprint for the session-card loop plus residual close-out work.
-**Progress (2026-05-06):** SmartCanvas commit/discard controls now use a sticky action bar (`smart-canvas-action-bar`) so operators can move card-to-card without repeated full-page scrolling, and promoted sessions auto-scroll into view when they move from analyzing to analyzed. Covered by `web/components/admin/__tests__/SmartCanvas.test.tsx` and `web/components/admin/__tests__/SessionInbox.test.tsx`.
 
 ### ~~Structured Facts Phase 2: Complete fact-entry UI (EmployerFactsTab)~~ ✓ Done (2026-04-20)
 Shipped: FactEditor component with type-specific field schemas for all 5 fact types; FactCard display component; EmployerFactsTab refactored with Details/Facts tabs; manual fact entry working with UI persistence to YAML.
