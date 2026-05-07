@@ -303,9 +303,7 @@ def test_keyword_match_overrides_active_career_type(in_memory_qdrant, mock_embed
         "typical_background": "Any",
         "notes": "",
     }
-    mock_ps = _mock_profile_store(
-        get_profile_return=fake_profile, match_return=None
-    )
+    mock_ps = _mock_profile_store(get_profile_return=fake_profile, match_return=None)
     mock_ps.match_career_type_keywords.return_value = "consulting"
 
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store

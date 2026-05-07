@@ -86,7 +86,10 @@ _default_employers_dir = default_employers_dir
 
 def _history_dir() -> Path:
     return Path(
-        os.environ.get("EMPLOYER_HISTORY_DIR", str(default_employers_dir().parent / "employers_history"))
+        os.environ.get(
+            "EMPLOYER_HISTORY_DIR",
+            str(default_employers_dir().parent / "employers_history"),
+        )
     )
 
 

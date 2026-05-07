@@ -132,7 +132,9 @@ def test_merge_chunked_results_merges_declared_lists_and_dicts():
             initial={"items": [], "nested": {}},
             list_fields={
                 "items": ListMergeRule(
-                    dedupe_key=lambda item: item.get("slug") if isinstance(item, dict) else None
+                    dedupe_key=lambda item: (
+                        item.get("slug") if isinstance(item, dict) else None
+                    )
                 )
             },
             dict_fields={"nested"},
@@ -159,7 +161,9 @@ def test_merge_analysis_and_track_drafts_preserve_existing_semantics():
                         "career_type": "software_engineering",
                     }
                 ],
-                "already_covered": [{"content": "Stripe hires interns", "reason": "KB"}],
+                "already_covered": [
+                    {"content": "Stripe hires interns", "reason": "KB"}
+                ],
             },
             {
                 "interpretation_bullets": ["Add Stripe headcount context"],
@@ -173,7 +177,9 @@ def test_merge_analysis_and_track_drafts_preserve_existing_semantics():
                         "career_type": "software_engineering",
                     }
                 ],
-                "already_covered": [{"excerpt": "Stripe hires interns", "source_doc": "KB"}],
+                "already_covered": [
+                    {"excerpt": "Stripe hires interns", "source_doc": "KB"}
+                ],
             },
         ]
     )

@@ -218,9 +218,7 @@ def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
 
 
 def _effective_session_multi_pass_setting(setting_name: str, model_key: str) -> int:
-    return effective_session_multi_pass_setting(
-        settings, _llm, setting_name, model_key
-    )
+    return effective_session_multi_pass_setting(settings, _llm, setting_name, model_key)
 
 
 def get_model_name() -> str:
@@ -1342,7 +1340,9 @@ def merge_chunked_results(results: list[dict], spec: MergeSpec) -> dict[str, Any
         for key, value in spec.initial.items()
     }
     seen: dict[str, set[Hashable | None]] = {
-        field_name: set() for field_name, rule in spec.list_fields.items() if rule.dedupe
+        field_name: set()
+        for field_name, rule in spec.list_fields.items()
+        if rule.dedupe
     }
 
     for result_index, result in enumerate(results):
@@ -1379,9 +1379,8 @@ def merge_chunked_results(results: list[dict], spec: MergeSpec) -> dict[str, Any
                 current = {}
                 merged[field_name] = current
             for nested_key, nested_value in incoming.items():
-                if (
-                    isinstance(current.get(nested_key), dict)
-                    and isinstance(nested_value, dict)
+                if isinstance(current.get(nested_key), dict) and isinstance(
+                    nested_value, dict
                 ):
                     current[nested_key].update(nested_value)
                 else:
@@ -1475,7 +1474,9 @@ def _merge_analysis_results(results: list[dict]) -> dict:
                 "already_covered": [],
             },
             list_fields={
-                "interpretation_bullets": ListMergeRule(dedupe_key=_analysis_bullet_key),
+                "interpretation_bullets": ListMergeRule(
+                    dedupe_key=_analysis_bullet_key
+                ),
                 "new_chunks": ListMergeRule(dedupe_key=_analysis_chunk_key),
                 "already_covered": ListMergeRule(
                     dedupe_key=_analysis_already_covered_key

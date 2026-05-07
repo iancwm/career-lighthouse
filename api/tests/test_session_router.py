@@ -351,7 +351,9 @@ class TestAnalyzeSession:
 
         with (
             _patch_session_intents_submit(result),
-            patch("services.alumni_store.get_alumni_store", return_value=fake_alumni_store),
+            patch(
+                "services.alumni_store.get_alumni_store", return_value=fake_alumni_store
+            ),
             patch("services.llm.call_structured_json", return_value=alumni_result),
         ):
             client = TestClient(app)

@@ -18,10 +18,10 @@ def make_client(in_memory_qdrant, mock_embedder):
     store.ensure_collection(384)
     app.dependency_overrides[dependencies.get_vector_store] = lambda: store
     app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
-    
+
     # Force admin key bypass
     app.dependency_overrides[dependencies.require_admin_key] = lambda: None
-    
+
     client = TestClient(app)
     client.headers["X-Admin-Key"] = "test-key"
     return client, store
@@ -1537,7 +1537,9 @@ class TestDeleteEmployerEndpoint:
 
 
 class TestRestoreEmployerEndpoint:
-    def test_restore_renames_from_disabled(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_restore_renames_from_disabled(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
 
@@ -1556,11 +1558,15 @@ class TestRestoreEmployerEndpoint:
         r = client.patch("/api/kb/employers/nonexistent/restore")
         assert r.status_code == 404
 
-    def test_409_when_active_file_already_exists(self, in_memory_qdrant, mock_embedder, tmp_path):
+    def test_409_when_active_file_already_exists(
+        self, in_memory_qdrant, mock_embedder, tmp_path
+    ):
         d = make_employers_dir(tmp_path)
         client, _, _ = make_employer_client(in_memory_qdrant, mock_embedder, d)
         # Manually create a .disabled file while the active one still exists
-        (d / "goldman_sachs.yaml.disabled").write_text("employer_name: GS\n", encoding="utf-8")
+        (d / "goldman_sachs.yaml.disabled").write_text(
+            "employer_name: GS\n", encoding="utf-8"
+        )
         r = client.patch("/api/kb/employers/goldman_sachs/restore")
         assert r.status_code == 409
 

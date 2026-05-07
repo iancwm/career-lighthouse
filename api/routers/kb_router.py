@@ -854,11 +854,15 @@ def restore_employer(
     edir = _employers_dir()
     disabled_path = edir / f"{slug}.yaml.disabled"
     if not disabled_path.exists():
-        raise HTTPException(status_code=404, detail=f"Disabled employer '{slug}' not found.")
+        raise HTTPException(
+            status_code=404, detail=f"Disabled employer '{slug}' not found."
+        )
 
     yaml_path = edir / f"{slug}.yaml"
     if yaml_path.exists():
-        raise HTTPException(status_code=409, detail=f"Employer '{slug}' already exists as active.")
+        raise HTTPException(
+            status_code=409, detail=f"Employer '{slug}' already exists as active."
+        )
 
     try:
         disabled_path.rename(yaml_path)
@@ -872,7 +876,9 @@ def restore_employer(
     with open(yaml_path, encoding="utf-8") as f:
         restored = yaml.safe_load(f) or {}
     restored.setdefault("slug", slug)
-    return _build_employer_detail({**restored, "completeness": compute_completeness(restored)})
+    return _build_employer_detail(
+        {**restored, "completeness": compute_completeness(restored)}
+    )
 
 
 @router.post("/employers/{slug}/extract-facts")
