@@ -1,10 +1,12 @@
 # api/routers/kb_router.py
 """KB observability and diff-first ingestion endpoints.
 
-POST /api/kb/test-query       — test a query, returns top-5 chunks with scores
-GET  /api/kb/health           — KB health metrics for the admin dashboard
-POST /api/kb/analyse          — analyse counsellor input, return diff (no writes)
-POST /api/kb/commit-analysis  — commit a counsellor-approved diff to KB and YAMLs
+POST  /api/kb/test-query                      — test a query, returns top-5 chunks with scores
+GET   /api/kb/health                          — KB health metrics for the admin dashboard
+POST  /api/kb/analyse                         — analyse counsellor input, return diff (no writes)
+POST  /api/kb/commit-analysis                 — commit a counsellor-approved diff to KB and YAMLs
+DELETE /api/kb/employers/{slug}               — soft-delete (renames to *.yaml.disabled)
+PATCH  /api/kb/employers/{slug}/restore       — restore a soft-deleted employer
 
 Auth note: These endpoints are protected by the router-level `require_admin_key`
 dependency and by Next.js middleware (web/middleware.ts). The remaining auth
