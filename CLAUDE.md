@@ -16,9 +16,9 @@ Before changing code, check these first:
 
 ## Documentation Map
 
-- `docs/README.md` is the index for the docs tree.
-- Active specs live in `docs/schema/` and `docs/llm_hardening/`.
-- Completed sprint specs and planning docs move into `docs/archived/`.
+- `docs/README.md` is the index for sprint docs and archived sprint history.
+- The only maintained documentation paths are `docs/`, `TODOS.md`, and `CHANGELOG.md`.
+- Put sprint docs under `docs/`, active backlog items in `TODOS.md`, and significant shipped feature notes in `CHANGELOG.md`.
 
 ## Implementation Learnings
 

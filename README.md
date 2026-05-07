@@ -89,16 +89,18 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | `just test` | Run all tests (API + web) |
 | `just test-api` | Run pytest suite |
 | `just test-web` | Run Vitest suite |
-| `just push-changes` | Analyze the current diff against TODOs/plans and summarize progress toward a goal |
+| `just push-changes` | Analyze the current diff against `TODOS.md` and `CHANGELOG.md` and summarize progress toward a goal |
 | `just ingest` | Ingest all `demo-data/` files into the running API |
 
 ## Documentation
 
-`docs/README.md` is the index for the docs tree.
+The repo has three maintained documentation paths:
 
-- Active sprint spec lives in `docs/unified_session_and_quality/SPRINT.md`
-- Completed sprint specs and dated plans live in `docs/archived/`
-- Root docs for the current project state are `AUDIT.md`, `DESIGN.md`, `TODOS.md`, and `CHANGELOG.md`
+- [docs/README.md](docs/README.md) for sprint docs and archived sprint history
+- [TODOS.md](TODOS.md) for the active backlog
+- [CHANGELOG.md](CHANGELOG.md) for significant shipped feature changes
+
+If you need to document a sprint, use `docs/`. If you need to capture active work, update `TODOS.md`. If you are recording a meaningful shipped feature, update `CHANGELOG.md`.
 
 ## Python Package Management
 

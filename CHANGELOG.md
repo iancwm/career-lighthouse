@@ -1,6 +1,7 @@
 # Changelog
 
 All notable changes to this project will be documented in this file.
+Use this file for significant shipped feature changes, not active planning or sprint notes.
 
 ## [Unreleased]
 

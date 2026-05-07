@@ -1,5 +1,7 @@
 # TODOS
 
+This file tracks only active backlog items. Sprint specs live under `docs/`, and significant shipped feature changes belong in `CHANGELOG.md`.
+
 This backlog is ordered by execution priority:
 - `Now` = highest-risk gaps before broader launch
 - `Next` = important follow-ups once the core security and publishing flows are stable
