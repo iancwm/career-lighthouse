@@ -72,6 +72,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
     preview: AlumniDetectionPreview
   } | null>(null)
   const [showAllSessions, setShowAllSessions] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const [uploadState, setUploadState] = useState<UploadState>("idle")
   const [parsedFile, setParsedFile] = useState<ParsedFile | null>(null)
   const [uploadError, setUploadError] = useState("")
@@ -87,12 +88,12 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
   const hasActiveSessions = sessions.some((session) => session.status === "in-progress" || session.status === "analyzing")
 
   function statusLabel(status: string): string {
-    if (status === "analyzed") return "Analyzed"
-    if (status === "completed") return "Complete"
-    if (status === "analyzing" || status === "in-progress") return `Analyzing${".".repeat(statusPulse)}`
-    if (status === "failed") return "Failed"
-    if (status === "cancelled") return "Cancelled"
-    return "In progress"
+    if (status === "analyzed") return "Ready to review"
+    if (status === "completed") return "Done"
+    if (status === "analyzing" || status === "in-progress") return `Processing${".".repeat(statusPulse)}`
+    if (status === "failed") return "Something went wrong"
+    if (status === "cancelled") return "Stopped"
+    return status
   }
 
   function statusStyle(status: string): string {
@@ -120,13 +121,24 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
     if (!res.ok) throw new Error("create failed")
     const session: KnowledgeSession = await res.json()
     setRawInput("")
+
+    // Inject optimistic card immediately — counsellor sees movement right away.
+    setSessions((prev) => [session, ...prev])
+
+    // Fire a non-awaited refresh so previousSessionStatusRef captures the real server status
+    // (in-progress) while analysis runs. The analyze-complete callback then catches the
+    // in-progress → analyzed transition and fires the scroll-into-view.
+    loadSessions()
+
     onSelectSession(session.id)
-    // Kick off analysis immediately — fire and forget; reload will show status
-    adminFetch(`/api/sessions/${session.id}/analyze`, { method: "POST" }).then(() =>
-      loadSessions()
-    ).catch(() => loadSessions())
-    setNotice("Analyzing now…")
-    await loadSessions()
+    // Kick off analysis; refresh once done (or on failure).
+    adminFetch(`/api/sessions/${session.id}/analyze`, { method: "POST" })
+      .then(() => loadSessions())
+      .catch(() => loadSessions())
+
+    // "Processing" notice persists until loadSessions() overwrites it with "Your session is ready."
+    // Do NOT add a setTimeout here — it would race against the polling and clear the "ready" notice.
+    setNotice("Processing your notes…")
   }
 
   async function detectAlumniContacts(noteText: string): Promise<AlumniDetectionPreview | null> {
@@ -152,9 +164,11 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
       const res = await adminFetch("/api/sessions")
       if (!res.ok) throw new Error("load failed")
       const data: KnowledgeSession[] = await res.json()
-      const visibleSessions = data.filter((s) => s.status !== "completed")
+      const allSessions = data
+      // Notification tracking excludes completed — no transition fires on completed sessions
+      const trackingSessions = allSessions.filter((s) => s.status !== "completed")
       const previousStatuses = previousSessionStatusRef.current
-      for (const session of visibleSessions) {
+      for (const session of trackingSessions) {
         const previous = previousStatuses.get(session.id)
         const pendingCards = session.intent_cards.filter((card) => card.status === "pending").length
         if ((previous === "analyzing" || previous === "in-progress") && session.status === "analyzed") {
@@ -166,8 +180,8 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
           setPromotedSessionId(session.id)
         }
       }
-      previousSessionStatusRef.current = new Map(visibleSessions.map((session) => [session.id, session.status]))
-      setSessions(visibleSessions)
+      previousSessionStatusRef.current = new Map(trackingSessions.map((s) => [s.id, s.status]))
+      setSessions(allSessions)  // store full list including completed
     } catch {
       setError("Could not load sessions.")
     } finally {
@@ -486,10 +500,19 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
 
   if (loading) return <p className="text-sm text-muted">Loading sessions…</p>
 
-  const displayedSessions = showAllSessions ? sessions : sessions.slice(0, SESSION_PAGE_SIZE)
-  const readySessions = displayedSessions.filter((session) => session.status === "analyzed")
-  const activeSessions = displayedSessions.filter((session) => session.status === "in-progress" || session.status === "analyzing")
-  const recentSessions = displayedSessions.filter((session) => !readySessions.includes(session) && !activeSessions.includes(session))
+  // Derive inbox sessions (excludes completed — those live in History)
+  const inboxSessions = sessions.filter((s) => s.status !== "completed")
+  const displayedSessions = showAllSessions ? inboxSessions : inboxSessions.slice(0, SESSION_PAGE_SIZE)
+
+  // History is always derived from the full list, not the paginated inbox
+  const historySessions = sessions.filter((s) => s.status === "completed")
+
+  const readySessions = displayedSessions.filter((s) => s.status === "analyzed")
+  const activeSessions = displayedSessions.filter((s) => s.status === "in-progress" || s.status === "analyzing")
+  // Use .some() not .includes() — defensive against re-created objects
+  const recentSessions = displayedSessions.filter(
+    (s) => !readySessions.some((r) => r.id === s.id) && !activeSessions.some((a) => a.id === s.id)
+  )
 
   return (
     <div>
@@ -649,7 +672,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
           className="rounded-xl bg-[#0F766E] px-4 py-2 text-sm font-medium text-white hover:bg-[#0A5C57] disabled:opacity-40"
           style={{ minHeight: "44px" }}
         >
-          {creating ? "Creating…" : "Create Session"}
+          {creating ? "Submitting…" : "Add Session Notes"}
         </button>
       </div>
 
@@ -660,9 +683,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
           <p className="text-2xl mb-3">📝</p>
           <h4 className="text-lg font-semibold text-[#1F2937] mb-2">No sessions yet</h4>
           <p className="text-sm text-[#5F6B76] max-w-md mx-auto mb-6">
-            Paste your meeting notes or upload a document above to get started.
-            The system will extract individual update cards for each employer
-            and track mentioned.
+            Upload a student's notes to get started.
           </p>
           <button
             onClick={scrollToTextarea}
@@ -674,6 +695,10 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
         </div>
       ) : (
         <>
+          {/* "All caught up!" — inbox is clear but history may exist */}
+          {activeSessions.length === 0 && readySessions.length === 0 && recentSessions.length === 0 && (
+            <p className="text-sm text-[var(--cl-muted)] py-6 text-center">All caught up!</p>
+          )}
           <div className="space-y-6">
             <section className="space-y-3">
               <div className="flex items-center justify-between">
@@ -710,17 +735,46 @@ export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionI
                 </div>
               )}
             </section>
+
+            {/* History — collapsible, collapsed by default */}
+            <section>
+              <button
+                type="button"
+                onClick={() => setShowHistory((v) => !v)}
+                className="text-xs text-[var(--cl-muted)] py-2 hover:text-[var(--cl-ink)] transition-colors"
+              >
+                {showHistory ? "Hide history" : `Show history (${historySessions.length})`}
+              </button>
+              {showHistory && (
+                historySessions.length === 0
+                  ? <p className="text-sm text-[var(--cl-muted)] py-4 text-center">No history yet.</p>
+                  : historySessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="flex items-center justify-between px-3 py-2 border-b border-[var(--cl-divider)] text-sm text-[var(--cl-muted)]"
+                      >
+                        <span className="truncate max-w-[200px]">
+                          {session.raw_input?.slice(0, 60) ?? "Session"}
+                          {(session.raw_input?.length ?? 0) > 60 ? "…" : ""}
+                        </span>
+                        <span>{session.created_by}</span>
+                        <span>{new Date(session.created_at).toLocaleDateString()}</span>
+                        <span className="text-[var(--cl-success)]">Done</span>
+                      </div>
+                    ))
+              )}
+            </section>
           </div>
 
           {/* Show more button */}
-          {sessions.length > SESSION_PAGE_SIZE && !showAllSessions && (
+          {inboxSessions.length > SESSION_PAGE_SIZE && !showAllSessions && (
             <div className="mt-4 text-center">
               <button
                 onClick={() => setShowAllSessions(true)}
                 className="rounded-lg border border-[#D8D0C4] bg-[#FFFDFC] px-4 py-2 text-sm font-medium text-[#5F6B76] hover:text-[#1F2937] transition-colors"
                 style={{ minHeight: "44px" }}
               >
-                Show more ({sessions.length - SESSION_PAGE_SIZE} more sessions)
+                Show more ({inboxSessions.length - SESSION_PAGE_SIZE} more sessions)
               </button>
             </div>
           )}

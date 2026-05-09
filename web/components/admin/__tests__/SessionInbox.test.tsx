@@ -75,12 +75,12 @@ describe("SessionInbox", () => {
 
     render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={onOpenTraces} onOpenAlumni={onOpenAlumni} />)
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /Create Session/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add Session Notes/i })).toBeInTheDocument())
 
     fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
       target: { value: "Met Aditya Mehta from Stripe Singapore to discuss referrals." },
     })
-    fireEvent.click(screen.getByRole("button", { name: /Create Session/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Add Session Notes/i }))
 
     await waitFor(() => expect(screen.getByRole("heading", { name: /This meeting note mentions alumni/i })).toBeInTheDocument())
 
@@ -117,12 +117,12 @@ describe("SessionInbox", () => {
 
     render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={onOpenTraces} onOpenAlumni={onOpenAlumni} />)
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /Create Session/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add Session Notes/i })).toBeInTheDocument())
 
     fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
       target: { value: "Met Aditya Mehta from Stripe Singapore to discuss referrals." },
     })
-    fireEvent.click(screen.getByRole("button", { name: /Create Session/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Add Session Notes/i }))
 
     await waitFor(() => expect(screen.getByRole("heading", { name: /This meeting note mentions alumni/i })).toBeInTheDocument())
 
@@ -227,15 +227,15 @@ describe("SessionInbox", () => {
 
     render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={onOpenTraces} onOpenAlumni={onOpenAlumni} />)
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /Create Session/i })).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add Session Notes/i })).toBeInTheDocument())
     fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
       target: { value: "Fresh counsellor memo" },
     })
-    fireEvent.click(screen.getByRole("button", { name: /Create Session/i }))
+    fireEvent.click(screen.getByRole("button", { name: /Add Session Notes/i }))
 
     await waitFor(() => expect(screen.getByTestId(`session-row-${sessionId}`)).toBeInTheDocument())
 
-    await waitFor(() => expect(screen.getByText("Analyzing now…")).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText("Processing your notes…")).toBeInTheDocument())
 
     await act(async () => {
       resolveAnalyze?.({
@@ -262,5 +262,257 @@ describe("SessionInbox", () => {
         delete (HTMLElement.prototype as typeof HTMLElement.prototype & { scrollIntoView?: unknown }).scrollIntoView
       }
     }
+  })
+
+  // --- New tests ---
+
+  it("optimistic card appears immediately before loadSessions resolves", async () => {
+    const onSelectSession = vi.fn()
+    const sessionId = "session-optimistic"
+
+    let resolveGetSessions: ((value: Response) => void) | null = null
+    let getCallCount = 0
+
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        getCallCount += 1
+        if (getCallCount === 1) {
+          // initial load — empty
+          return Promise.resolve(response([]))
+        }
+        // subsequent loads — delay to prove optimistic card appears first
+        return new Promise<Response>((resolve) => { resolveGetSessions = resolve })
+      }
+
+      if (url.endsWith("/api/kb/alumni/extract-preview") && method === "POST") {
+        return Promise.resolve(response({ summary_bullets: [] }))
+      }
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "POST") {
+        return Promise.resolve(response({
+          id: sessionId,
+          status: "pending",
+          raw_input: "Optimistic test note",
+          intent_cards: [],
+          created_by: "counsellor",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, 201))
+      }
+
+      if (url.includes(`/analyze`) && method === "POST") {
+        return Promise.resolve(response({ ok: true }))
+      }
+
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add Session Notes/i })).toBeInTheDocument())
+
+    fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
+      target: { value: "Optimistic test note" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /Add Session Notes/i }))
+
+    // Card should appear before the delayed GET resolves
+    await waitFor(() => expect(screen.getByTestId(`session-row-${sessionId}`)).toBeInTheDocument())
+
+    // Unblock the pending GET so the test can clean up
+    resolveGetSessions?.(response([{
+      id: sessionId,
+      status: "pending",
+      raw_input: "Optimistic test note",
+      intent_cards: [],
+      created_by: "counsellor",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }]))
+  })
+
+  it("shows 'Processing your notes…' notice after creating a session", async () => {
+    const onSelectSession = vi.fn()
+    const sessionId = "session-notice"
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response([])
+      }
+      if (url.endsWith("/api/kb/alumni/extract-preview") && method === "POST") {
+        return response({ summary_bullets: [] })
+      }
+      if (url.endsWith("/api/admin/api/sessions") && method === "POST") {
+        return response({
+          id: sessionId,
+          status: "pending",
+          raw_input: "Note text",
+          intent_cards: [],
+          created_by: "counsellor",
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }, 201)
+      }
+      if (url.includes("/analyze") && method === "POST") {
+        return response({ ok: true })
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={onSelectSession} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Add Session Notes/i })).toBeInTheDocument())
+    fireEvent.change(screen.getByPlaceholderText(/Met with Goldman Sachs/i), {
+      target: { value: "Note text" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: /Add Session Notes/i }))
+
+    await waitFor(() => expect(screen.getByText("Processing your notes…")).toBeInTheDocument())
+  })
+
+  it("history toggle shows completed sessions", async () => {
+    const completedSession = {
+      id: "session-done",
+      status: "completed",
+      raw_input: "A completed counsellor note",
+      intent_cards: [],
+      created_by: "counsellor",
+      created_at: "2026-05-01T10:00:00Z",
+      updated_at: "2026-05-01T10:00:00Z",
+    }
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response([completedSession])
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={vi.fn()} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    // History toggle is present and collapsed by default
+    await waitFor(() => expect(screen.getByRole("button", { name: /Show history \(1\)/i })).toBeInTheDocument())
+    // Completed session not yet visible
+    expect(screen.queryByText(/A completed counsellor note/i)).not.toBeInTheDocument()
+
+    // Expand history
+    fireEvent.click(screen.getByRole("button", { name: /Show history \(1\)/i }))
+    await waitFor(() => expect(screen.getByText(/A completed counsellor note/i)).toBeInTheDocument())
+  })
+
+  it("history toggle collapses on second click", async () => {
+    const completedSession = {
+      id: "session-done-2",
+      status: "completed",
+      raw_input: "Another completed note",
+      intent_cards: [],
+      created_by: "counsellor",
+      created_at: "2026-05-01T10:00:00Z",
+      updated_at: "2026-05-01T10:00:00Z",
+    }
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response([completedSession])
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={vi.fn()} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Show history \(1\)/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("button", { name: /Show history \(1\)/i }))
+    await waitFor(() => expect(screen.getByText(/Another completed note/i)).toBeInTheDocument())
+
+    fireEvent.click(screen.getByRole("button", { name: /Hide history/i }))
+    await waitFor(() => expect(screen.queryByText(/Another completed note/i)).not.toBeInTheDocument())
+  })
+
+  it("shows 'No history yet.' when history is expanded but empty", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response([{
+          id: "session-active",
+          status: "analyzed",
+          raw_input: "Some active session",
+          intent_cards: [],
+          created_by: "counsellor",
+          created_at: "2026-05-01T10:00:00Z",
+          updated_at: "2026-05-01T10:00:00Z",
+        }])
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={vi.fn()} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Show history \(0\)/i })).toBeInTheDocument())
+    fireEvent.click(screen.getByRole("button", { name: /Show history \(0\)/i }))
+    await waitFor(() => expect(screen.getByText("No history yet.")).toBeInTheDocument())
+  })
+
+  it("shows 'All caught up!' when inbox is empty but history exists", async () => {
+    const completedSession = {
+      id: "session-complete-only",
+      status: "completed",
+      raw_input: "Completed session note",
+      intent_cards: [],
+      created_by: "counsellor",
+      created_at: "2026-05-01T10:00:00Z",
+      updated_at: "2026-05-01T10:00:00Z",
+    }
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response([completedSession])
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={vi.fn()} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getByText("All caught up!")).toBeInTheDocument())
+  })
+
+  it("status label copy maps correctly", async () => {
+    const sessions = [
+      { id: "s1", status: "analyzed", raw_input: "Ready session", intent_cards: [], created_by: "c", created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
+      { id: "s2", status: "failed", raw_input: "Failed session", intent_cards: [], created_by: "c", created_at: "2026-05-01T00:00:00Z", updated_at: "2026-05-01T00:00:00Z" },
+    ]
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      const method = (init?.method ?? "GET").toUpperCase()
+      if (url.endsWith("/api/admin/api/sessions") && method === "GET") {
+        return response(sessions)
+      }
+      throw new Error(`Unexpected fetch: ${method} ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+    render(<SessionInbox onSelectSession={vi.fn()} onOpenTraces={vi.fn()} onOpenAlumni={vi.fn()} />)
+
+    await waitFor(() => expect(screen.getAllByText("Ready to review").length).toBeGreaterThan(0))
+    expect(screen.getAllByText("Something went wrong").length).toBeGreaterThan(0)
   })
 })
