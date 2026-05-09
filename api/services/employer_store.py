@@ -88,7 +88,7 @@ def _history_dir() -> Path:
     return Path(
         os.environ.get(
             "EMPLOYER_HISTORY_DIR",
-            str(default_employers_dir().parent / "employers_history"),
+            str(_default_employer_history_dir()),
         )
     )
 

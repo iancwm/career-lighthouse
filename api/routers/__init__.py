@@ -3,10 +3,15 @@ from routers import (
     brief_router,
     chat_router,
     docs_router,
+    employers_router,
+    facts_router,
     ingest_router,
     insights_router,
+    kb_admin_router,
     kb_router,
+    profile_router,
     session_router,
+    tracks_router,
 )
 
 __all__ = [
@@ -15,6 +20,11 @@ __all__ = [
     "ingest_router",
     "chat_router",
     "brief_router",
+    "profile_router",
+    "tracks_router",
+    "employers_router",
+    "facts_router",
+    "kb_admin_router",
     "kb_router",
     "session_router",
     "insights_router",

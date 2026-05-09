@@ -45,6 +45,7 @@ ENV EMPLOYERS_DIR=/app/knowledge/employers
 ENV DRAFT_TRACKS_DIR=/app/knowledge/draft_tracks
 ENV CAREER_TRACKS_REGISTRY_PATH=/app/knowledge/career_tracks.yaml
 ENV CAREER_PROFILE_HISTORY_DIR=/app/knowledge/career_profiles_history
+ENV EMPLOYER_HISTORY_DIR=/app/knowledge/employers_history
 ENV TRACK_PUBLISH_JOURNAL_PATH=/app/logs/track_publish_journal.jsonl
 ENV TRACK_PUBLISH_LOG_PATH=/app/logs/track_publish_log.jsonl
 ENV TRACKS_VERSION_PATH=/app/knowledge/.tracks-version

@@ -19,10 +19,14 @@ from routers import (
     brief_router,
     chat_router,
     docs_router,
+    employers_router,
+    facts_router,
     ingest_router,
     insights_router,
-    kb_router,
+    kb_admin_router,
+    profile_router,
     session_router,
+    tracks_router,
 )
 
 logger = logging.getLogger(__name__)
@@ -95,7 +99,11 @@ app.include_router(docs_router.router)
 app.include_router(ingest_router.router)
 app.include_router(brief_router.router)
 app.include_router(alumni_router.router)
-app.include_router(kb_router.router)
+app.include_router(profile_router.router)
+app.include_router(tracks_router.router)
+app.include_router(employers_router.router)
+app.include_router(facts_router.router)
+app.include_router(kb_admin_router.router)
 app.include_router(chat_router.router)
 app.include_router(session_router.router)
 app.include_router(insights_router.router)

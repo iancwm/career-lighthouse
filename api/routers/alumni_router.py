@@ -59,6 +59,12 @@ def _serialize_profile(
         "degree": profile.get("graduation_program") or profile.get("degree") or "",
         "school": profile.get("graduation_school") or profile.get("school") or "",
         "graduation_year": graduation_year,
+        "home_country": profile.get("home_country") or "",
+        "career_trajectory_summary": profile.get("career_trajectory_summary") or "",
+        "career_trajectory_pattern": profile.get("career_trajectory_pattern") or "",
+        "seniority_level": profile.get("seniority_level") or "",
+        "salary_band_estimate": profile.get("salary_band_estimate") or "",
+        "experience_diversity": profile.get("experience_diversity") or "",
         "available_for_mentoring": bool(available),
         "notes": profile.get("notes")
         or profile.get("help_capacity")

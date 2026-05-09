@@ -326,6 +326,10 @@ class AlumniCardDiff(BaseModel):
     graduation_program: str | None = None
     home_country: str | None = None
     career_trajectory_summary: str | None = None
+    career_trajectory_pattern: str | None = None
+    seniority_level: str | None = None
+    salary_band_estimate: str | None = None
+    experience_diversity: str | None = None
     available_for_mentoring: bool | str | None = None
     notes: str | None = None
     career_goals_domains: list[str] | str | None = None

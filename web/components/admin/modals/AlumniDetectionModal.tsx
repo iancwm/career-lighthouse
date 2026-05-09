@@ -20,8 +20,7 @@ interface AlumniDetectionPreview {
 interface AlumniDetectionModalProps {
   noteText: string
   preview: AlumniDetectionPreview
-  onOpenAlumni: () => void
-  onContinue: () => void
+  onCreateSession: () => void
   onClose: () => void
   isLoading?: boolean
 }
@@ -41,8 +40,7 @@ function hasFacts(preview: AlumniDetectionPreview): boolean {
 export default function AlumniDetectionModal({
   noteText,
   preview,
-  onOpenAlumni,
-  onContinue,
+  onCreateSession,
   onClose,
   isLoading,
 }: AlumniDetectionModalProps) {
@@ -62,7 +60,7 @@ export default function AlumniDetectionModal({
           <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">Alumni detected</p>
           <h2 className="mt-2 font-display text-2xl text-[var(--cl-ink)]">This meeting note mentions alumni</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--cl-muted)]">
-            We can move the note text into Alumni Records so it opens prefilled for extraction, or stay here and create the session anyway if this is a false positive.
+            Stay in the Staging Area and create this session here. Alumni findings from the note will be reviewed as session cards alongside employer and track updates, so you do not lose progress on the rest of the session.
           </p>
         </div>
 
@@ -100,13 +98,13 @@ export default function AlumniDetectionModal({
               <p className="font-mono-display text-[11px] uppercase tracking-[0.26em] text-[var(--cl-secondary)]">What will happen</p>
               <ol className="mt-4 space-y-3 text-sm leading-6 text-[var(--cl-muted)]">
                 <li className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] p-4">
-                  1. Save the note text in your browser session so it follows you to Alumni Records.
+                  1. Create the session from this note without leaving the Staging Area.
                 </li>
                 <li className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] p-4">
-                  2. Open the Alumni page with the note already pasted into the extraction field.
+                  2. Alumni findings from the note will appear as reviewable cards in the same session.
                 </li>
                 <li className="rounded-2xl border border-[var(--cl-line)] bg-[var(--cl-surface-2)] p-4">
-                  3. Extract, review, and save the alumni profile from one place.
+                  3. Commit the alumni cards to the alumni knowledge base from staging, just like the rest of the session.
                 </li>
               </ol>
             </div>
@@ -148,19 +146,19 @@ export default function AlumniDetectionModal({
 
         <div className="border-t border-[var(--cl-line)] px-6 py-4">
           <p className="text-xs leading-5 text-[var(--cl-muted)]">
-            If the alumni signal is wrong, choose <span className="font-medium text-[var(--cl-ink)]">Create Session Anyway</span> to keep moving in this flow.
+            If the alumni signal is wrong, keep editing the note here and adjust it before creating the session.
           </p>
         </div>
 
         <div className="flex gap-3 border-t border-[var(--cl-line)] px-6 py-5">
           <button
             type="button"
-            onClick={onContinue}
+            onClick={onCreateSession}
             disabled={isLoading}
             autoFocus
             className="flex-1 rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
           >
-            Create Session Anyway
+            Create Session With Alumni Cards
           </button>
           <button
             type="button"
@@ -168,15 +166,7 @@ export default function AlumniDetectionModal({
             disabled={isLoading}
             className="flex-1 rounded-full border border-[var(--cl-line)] bg-white/80 px-4 py-2.5 text-sm text-[var(--cl-ink)] transition-colors hover:border-[var(--cl-accent)]/60 hover:bg-white disabled:opacity-60"
           >
-            Keep in Session Editor
-          </button>
-          <button
-            type="button"
-            onClick={onOpenAlumni}
-            disabled={isLoading}
-            className="flex-1 rounded-full border border-[var(--cl-accent)] bg-[var(--cl-accent)] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-[var(--cl-accent)]/90 disabled:opacity-60"
-          >
-            Open Alumni Records
+            Keep Editing Note
           </button>
         </div>
       </div>

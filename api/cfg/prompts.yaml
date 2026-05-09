@@ -250,9 +250,47 @@ prompts:
       "alumni": [
         {{
           "summary_bullets": ["<2-5 short bullets for one alumnus>"],
-          "profile_proposals": {{}},
-          "company_link_proposals": [],
-          "fit_triad": {{}},
+          "profile_proposals": {{
+            "<field_name>": {{
+              "value": "<proposed value>",
+              "confidence": 0,
+              "evidence": ["<short evidence snippets>"],
+              "rationale": "<short note>"
+            }}
+          }},
+          "company_link_proposals": [
+            {{
+              "company_slug": "<slug or empty>",
+              "company_name": "<display name or empty>",
+              "role_title": "<title or empty>",
+              "start_date": "<YYYY-MM-DD or empty>",
+              "end_date": "<YYYY-MM-DD or empty>",
+              "link_type": "current|former|advisory",
+              "confidence": 0,
+              "evidence": ["<evidence snippets>"],
+              "rationale": "<why this link matters>"
+            }}
+          ],
+          "fit_triad": {{
+            "student_goal_fit": {{
+              "value": "<summary>",
+              "confidence": 0,
+              "evidence": ["<snippets>"],
+              "rationale": "<why the fit is credible>"
+            }},
+            "technical_depth": {{
+              "value": "<summary>",
+              "confidence": 0,
+              "evidence": ["<snippets>"],
+              "rationale": "<why the depth is credible>"
+            }},
+            "character_compatibility": {{
+              "value": "<summary>",
+              "confidence": 0,
+              "evidence": ["<snippets>"],
+              "rationale": "<why the compatibility is credible>"
+            }}
+          }},
           "source_label": "<echo the provided source label>",
           "source_type": "<echo the provided source type>",
           "is_update": false,
@@ -275,6 +313,11 @@ prompts:
       character/interest compatibility rather than blending them together.
     - Use the top-level fields for the primary alumnus that best represents the note.
     - Also populate the alumni array. Include one item per distinct alumnus found.
+    - Every item in the alumni array must be fully self-contained. Do not leave
+      profile_proposals, company_link_proposals, or fit_triad empty when that
+      alumnus has evidence in the note.
+    - For a single-alumnus note, duplicate the primary alumnus proposals into
+      alumni[0] so the array entry contains the complete payload on its own.
     - Set is_update=true only when the alumnus clearly matches one of the provided
       existing alumni candidates. When uncertain, use is_update=false and matched_slug=null.
     - matched_slug must be one of the provided existing alumni candidate slugs or null.

@@ -164,10 +164,8 @@ Shipped: `web/components/admin/SmartCanvas.tsx` now treats `409` responses from 
 ### ~~Code quality sprint — Phase 1 finish (kb_health extract, prompt externalization, inline-import lift)~~ ✓ Done (2026-05-06 verification)
 Shipped: `api/services/kb_health.py` now owns KB-health assembly and query-log metrics; `api/cfg/prompts.yaml` now carries `auto_complete_profile`; `api/services/llm.py` exposes `auto_complete_profile_fields(...)`; and the relevant imports in `session_router.py` / `kb_router.py` are lifted to module scope. Re-verified with `pytest api/tests/test_kb_router.py api/tests/test_session_router.py api/tests/test_alumni_detection.py -q` (`100 passed`) plus `python -m compileall api/routers api/services api/tests`.
 
-### Code quality sprint — Phase 2 router split
-**What:** Split `kb_router.py` into `profile_router`, `tracks_router`, `employers_router`, `facts_router`, and `kb_admin_router`; register all five in `main.py`. Then split `tests/test_kb_router.py` into per-router test files. URL paths do not change.
-**Why:** After Phase 1, `kb_router.py` should be ~600 lines of thin endpoint handlers; splitting becomes a mechanical move. Defined in `docs/code_quality_sprint/implementation_plan.md` (P2-1, P2-2).
-**Depends on:** None. Phase 1 was verified complete on 2026-05-06.
+### ~~Code quality sprint — Phase 2 router split~~ ✓ Done (2026-05-09)
+Shipped: KB endpoints now live in focused `profile_router.py`, `tracks_router.py`, `employers_router.py`, `facts_router.py`, and `kb_admin_router.py` modules, all registered directly in `main.py` with unchanged `/api/kb/*` paths. `routers/kb_router.py` remains as a tiny compatibility shim for helper imports used by existing tests and internal cache invalidation.
 
 ### ~~Code quality sprint — Phase 3 services/llm.py decomposition~~ ✓ Done (2026-05-06 verification)
 Shipped: `api/services/llm_tracing.py`, `api/services/llm_json.py`, and `api/services/llm_budgets.py` now own the tracing, structured-JSON, and budgeting/config seams that used to live inside `api/services/llm.py`; `LLMTraceRecorder` now drives `_call_with_trace`, and `MergeSpec` plus `merge_chunked_results(...)` unify the three chunk-merge paths. Re-verified with `cd api && uv run pytest tests/test_llm_hardening.py tests/test_llm_observability.py tests/test_session_intents.py tests/test_kb_analyse.py -q` (`41 passed`) plus `uv run python -m py_compile services/llm.py services/llm_budgets.py services/llm_json.py services/llm_tracing.py tests/test_llm_hardening.py`.
@@ -234,13 +232,8 @@ Shipped: `scripts/sync_langfuse_eval_dataset.py` now upserts canonical fixtures 
 ### ~~PDPA wording — query digest is not "anonymised aggregates"~~ ✓ Stale (2026-04-27)
 The phrase "anonymised aggregates" does not appear in any active code or UI file — it was never written into the product. No action needed.
 
-### Extend AlumniDetail with deferred career-trajectory fields
-**What:** Add `career_trajectory_pattern`, `seniority_level`, `salary_band_estimate`, `experience_diversity` to `AlumniDetail` (and `ALLOWED_ALUMNI_FIELDS` + the alumni extraction prompt). Reconcile `profile_tier` with the existing `completeness` field — pick one.
-**Why:** Scope reduction in `/plan-eng-review` 2026-04-26 cut 5 of the 7 fields proposed in the alumni cards design, shipping only `career_trajectory_summary` and `home_country` on day 1. The user identified career trajectory as the highest-value field; the rest were "would also be useful." Wait for real counsellor sessions to surface which fields they actually want.
-**Pros:** Avoids overengineering; fields land with proven demand. Each field is a ~10-line schema bump once the wiring is in place.
-**Cons:** If a counsellor wants seniority or salary data on day 1, they're blocked. Salary bands are often the question students ask first.
-**Context:** Office-hours design [iancwm-main-design-20260426-130438.md](/home/iancwm/.gstack/projects/iancwm-career-lighthouse/iancwm-main-design-20260426-130438.md) section 1. After the day-1 ALLOWED_ALUMNI_FIELDS extension, this is purely additive — model + constant + prompt's allowed-fields render.
-**Depends on:** Day-1 alumni card flow shipping; ≥3 counsellor sessions using it.
+### ~~Extend AlumniDetail with deferred career-trajectory fields~~ ✓ Done (2026-05-09)
+Shipped: `career_trajectory_pattern`, `seniority_level`, `salary_band_estimate`, and `experience_diversity` now flow through `AlumniDetail`, alumni card diffs, the alumni allowlist used by extraction prompts, the alumni API serializer, and the admin Alumni Records form. Kept `completeness` as the single profile-readiness field; `profile_tier` was not introduced.
 
 ### Migrate alumni tab to card-shaped data + remove AlumniDetectionModal
 **What:** Migrate `web/components/admin/AlumniFactsTab.tsx` to call a new `POST /api/kb/alumni/extract` endpoint that returns card-shaped data, render through the same `SmartCanvas` component used by sessions, then remove `AlumniDetectionModal` from `SessionInbox`.

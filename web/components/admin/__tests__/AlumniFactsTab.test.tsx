@@ -13,6 +13,12 @@ const ALUMNI_FIXTURE = [
     graduation_year: "2018",
     current_company: "Stripe Singapore",
     current_title: "Head of Compliance",
+    home_country: "Singapore",
+    career_trajectory_summary: "Started in compliance operations before leading regional risk programs.",
+    career_trajectory_pattern: "Specialist to regional leader",
+    seniority_level: "Director",
+    salary_band_estimate: "SGD 160k-210k total comp",
+    experience_diversity: "Banking, risk, and cross-border leadership.",
     available_for_mentoring: true,
     notes: "Trusted for compliance and referrals.",
     company_links: [
@@ -36,6 +42,10 @@ const PREVIEW_RESULT = {
     current_title: {
       old: "Head of Compliance",
       new: "Head of Compliance Program APAC",
+    },
+    seniority_level: {
+      old: null,
+      new: "Director",
     },
   },
   company_links: [
@@ -129,6 +139,8 @@ describe("AlumniFactsTab", () => {
     await waitFor(() => expect(screen.getByDisplayValue("Aditya Mehta")).toBeInTheDocument())
     expect(screen.getByDisplayValue("Aditya Mehta")).toBeInTheDocument()
     expect(screen.getByLabelText(/^Current company$/i)).toHaveValue("Stripe Singapore")
+    expect(screen.getByLabelText(/Seniority level/i)).toHaveValue("Director")
+    expect(screen.getByLabelText(/Salary band estimate/i)).toHaveValue("SGD 160k-210k total comp")
     expect(screen.getByLabelText(/^Company name$/i)).toHaveValue("Stripe Singapore")
     expect(screen.getByText(/1 company link/i)).toBeInTheDocument()
   })
@@ -222,6 +234,7 @@ describe("AlumniFactsTab", () => {
     expect(screen.getByText(/Suggested profile changes/i)).toBeInTheDocument()
     expect(screen.getByText(/Suggested company links/i)).toBeInTheDocument()
     expect(screen.getByText(/Raw extracted facts/i)).toBeInTheDocument()
+    expect(screen.getAllByText(/seniority level/i).length).toBeGreaterThan(0)
   })
 
   it("loads a staged meeting note from session storage into the alumni composer", async () => {

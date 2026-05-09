@@ -21,6 +21,12 @@ interface AlumniProfile {
   graduation_year: string
   current_company: string
   current_title: string
+  home_country: string
+  career_trajectory_summary: string
+  career_trajectory_pattern: string
+  seniority_level: string
+  salary_band_estimate: string
+  experience_diversity: string
   available_for_mentoring: boolean
   notes: string
   company_links: AlumniCompanyLink[]
@@ -58,6 +64,12 @@ const EMPTY_PROFILE: AlumniProfile = {
   graduation_year: "",
   current_company: "",
   current_title: "",
+  home_country: "",
+  career_trajectory_summary: "",
+  career_trajectory_pattern: "",
+  seniority_level: "",
+  salary_band_estimate: "",
+  experience_diversity: "",
   available_for_mentoring: false,
   notes: "",
   company_links: [],
@@ -144,6 +156,12 @@ function normalizeProfile(raw: unknown): AlumniProfile {
     graduation_year: toText(getFirstValue(source, ["graduation_year", "grad_year", "year"])),
     current_company: currentCompany,
     current_title: currentTitle,
+    home_country: getFirstString(source, ["home_country", "country"]),
+    career_trajectory_summary: getFirstString(source, ["career_trajectory_summary"]),
+    career_trajectory_pattern: getFirstString(source, ["career_trajectory_pattern"]),
+    seniority_level: getFirstString(source, ["seniority_level"]),
+    salary_band_estimate: getFirstString(source, ["salary_band_estimate"]),
+    experience_diversity: getFirstString(source, ["experience_diversity"]),
     available_for_mentoring: toBoolean(getFirstValue(source, ["available_for_mentoring", "availableForMentoring", "mentor_available"])),
     notes: getFirstString(source, ["notes", "summary", "background_notes"]),
     company_links: companyLinks,
@@ -225,6 +243,12 @@ function buildPayload(profile: AlumniProfile, companyLinks: AlumniCompanyLink[],
     graduation_year: profile.graduation_year.trim() ? Number(profile.graduation_year.trim()) : null,
     current_company: profile.current_company.trim() || null,
     current_title: profile.current_title.trim() || null,
+    home_country: profile.home_country.trim() || null,
+    career_trajectory_summary: profile.career_trajectory_summary.trim() || null,
+    career_trajectory_pattern: profile.career_trajectory_pattern.trim() || null,
+    seniority_level: profile.seniority_level.trim() || null,
+    salary_band_estimate: profile.salary_band_estimate.trim() || null,
+    experience_diversity: profile.experience_diversity.trim() || null,
     available_for_mentoring: profile.available_for_mentoring,
     notes: profile.notes.trim() || null,
     company_links: cleanedLinks,
@@ -747,6 +771,60 @@ export default function AlumniFactsTab() {
                   className="w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
                   placeholder="2018"
                   inputMode="numeric"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-[var(--cl-ink)]">Home country</span>
+                <input
+                  value={form.home_country}
+                  onChange={(event) => updateField("home_country", event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                  placeholder="India"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-[var(--cl-ink)]">Seniority level</span>
+                <input
+                  value={form.seniority_level}
+                  onChange={(event) => updateField("seniority_level", event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                  placeholder="Director"
+                />
+              </label>
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-sm font-medium text-[var(--cl-ink)]">Career trajectory summary</span>
+                <textarea
+                  value={form.career_trajectory_summary}
+                  onChange={(event) => updateField("career_trajectory_summary", event.target.value)}
+                  className="min-h-[120px] w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                  placeholder="Started in risk, moved into product strategy, and now mentors students exploring fintech careers."
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-[var(--cl-ink)]">Trajectory pattern</span>
+                <input
+                  value={form.career_trajectory_pattern}
+                  onChange={(event) => updateField("career_trajectory_pattern", event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                  placeholder="Specialist to regional leader"
+                />
+              </label>
+              <label className="space-y-2">
+                <span className="text-sm font-medium text-[var(--cl-ink)]">Salary band estimate</span>
+                <input
+                  value={form.salary_band_estimate}
+                  onChange={(event) => updateField("salary_band_estimate", event.target.value)}
+                  className="w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                  placeholder="SGD 160k-210k total comp"
+                />
+              </label>
+              <label className="space-y-2 md:col-span-2">
+                <span className="text-sm font-medium text-[var(--cl-ink)]">Experience diversity</span>
+                <textarea
+                  value={form.experience_diversity}
+                  onChange={(event) => updateField("experience_diversity", event.target.value)}
+                  className="min-h-[96px] w-full rounded-2xl border border-[var(--cl-line)] bg-white px-4 py-3 text-sm text-[var(--cl-ink)] outline-none transition-colors focus:border-[var(--cl-accent)]"
+                  placeholder="Banking, risk, and cross-border leadership."
                 />
               </label>
             </div>

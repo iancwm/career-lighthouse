@@ -53,7 +53,6 @@ interface SessionInboxProps {
 }
 
 type UploadState = "idle" | "uploading" | "parsed" | "error"
-const ALUMNI_NOTE_STORAGE_KEY = "alumni_note_draft"
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -61,7 +60,7 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlumni }: SessionInboxProps) {
+export default function SessionInbox({ onSelectSession, onOpenTraces }: SessionInboxProps) {
   const [sessions, setSessions] = useState<KnowledgeSession[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -240,12 +239,6 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
     } finally {
       setCreating(false)
     }
-  }
-
-  function openAlumniRecords(noteText: string) {
-    sessionStorage.setItem(ALUMNI_NOTE_STORAGE_KEY, noteText)
-    setAlumniPrompt(null)
-    onOpenAlumni()
   }
 
   async function stopSession(sessionId: string) {
@@ -515,8 +508,7 @@ export default function SessionInbox({ onSelectSession, onOpenTraces, onOpenAlum
         <AlumniDetectionModal
           noteText={alumniPrompt.notes}
           preview={alumniPrompt.preview}
-          onOpenAlumni={() => openAlumniRecords(alumniPrompt.notes)}
-          onContinue={async () => {
+          onCreateSession={async () => {
             const noteText = alumniPrompt.notes
             setAlumniPrompt(null)
             setCreating(true)

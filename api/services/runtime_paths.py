@@ -107,6 +107,10 @@ def runtime_storage_targets() -> dict[str, tuple[str, Path]]:
             "dir",
             _env_path("CAREER_PROFILE_HISTORY_DIR", default_history_dir()),
         ),
+        "EMPLOYER_HISTORY_DIR": (
+            "dir",
+            _env_path("EMPLOYER_HISTORY_DIR", default_employers_dir().parent / "employers_history"),
+        ),
         "SENTENCE_TRANSFORMERS_HOME": (
             "dir",
             _env_path(

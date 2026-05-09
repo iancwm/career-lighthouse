@@ -57,6 +57,12 @@ def test_create_update_and_list_round_trip(alumni_env):
             "graduation_year": 2021,
             "current_company": "Grab",
             "current_title": "Product Lead",
+            "home_country": "Singapore",
+            "career_trajectory_summary": "Moved from analyst work into product leadership.",
+            "career_trajectory_pattern": "Operator to people manager",
+            "seniority_level": "Director",
+            "salary_band_estimate": "SGD 180k-220k total comp",
+            "experience_diversity": "Consumer tech, platform work, and regional leadership.",
             "available_for_mentoring": True,
             "notes": "Known for product mentoring and referrals.",
             "company_links": [
@@ -76,6 +82,8 @@ def test_create_update_and_list_round_trip(alumni_env):
     assert created["degree"] == "BSc Economics"
     assert created["available_for_mentoring"] is True
     assert created["company_link_count"] == 1
+    assert created["career_trajectory_pattern"] == "Operator to people manager"
+    assert created["salary_band_estimate"] == "SGD 180k-220k total comp"
     assert created["company_links"][0]["relationship"] == "Mentor contact"
     assert created["company_links"][0]["notes"] == "Can refer product students"
 
@@ -92,6 +100,7 @@ def test_create_update_and_list_round_trip(alumni_env):
             "graduation_year": 2021,
             "current_company": "Grab",
             "current_title": "Senior Product Lead",
+            "seniority_level": "Senior director",
             "available_for_mentoring": True,
             "notes": "Known for product mentoring and referrals.",
             "company_links": [
@@ -108,6 +117,7 @@ def test_create_update_and_list_round_trip(alumni_env):
     assert update_resp.status_code == 200
     updated = update_resp.json()
     assert updated["current_title"] == "Senior Product Lead"
+    assert updated["seniority_level"] == "Senior director"
     assert updated["company_links"][0]["notes"] == "Updated note"
 
 

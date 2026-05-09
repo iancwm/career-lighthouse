@@ -35,6 +35,7 @@ services:
       - DRAFT_TRACKS_DIR=/app/knowledge/draft_tracks
       - CAREER_TRACKS_REGISTRY_PATH=/app/knowledge/career_tracks.yaml
       - CAREER_PROFILE_HISTORY_DIR=/app/knowledge/career_profiles_history
+      - EMPLOYER_HISTORY_DIR=/app/knowledge/employers_history
       - SOURCE_LEDGER_DIR=/app/knowledge/source_ledger
       - SOURCE_LEDGER_HISTORY_DIR=/app/knowledge/source_ledger_history
       - QUERY_LOG_PATH=/app/logs/query_log.jsonl
@@ -248,7 +249,15 @@ services:
     volumes:
       - langfuse_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        [
+          "CMD",
+          "redis-cli",
+          "--no-auth-warning",
+          "-a",
+          "${LANGFUSE_REDIS_AUTH:-myredissecret}",
+          "ping",
+        ]
       interval: 3s
       timeout: 10s
       retries: 10

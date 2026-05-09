@@ -104,6 +104,10 @@ class AlumniDetail(BaseModel):
     current_company: str | None = None
     home_country: str | None = None
     career_trajectory_summary: str | None = None
+    career_trajectory_pattern: str | None = None
+    seniority_level: str | None = None
+    salary_band_estimate: str | None = None
+    experience_diversity: str | None = None
     available_for_mentoring: bool | None = None
     notes: str | None = None
     career_goals_domains: list[str] = Field(default_factory=list)
