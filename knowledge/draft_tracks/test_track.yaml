@@ -1,17 +1,32 @@
-career_type: Test Track
+slug: test_track
+track_name: Test Track
+status: draft
+match_description: ''
+match_keywords: []
 ep_sponsorship: High
+compass_score_typical: ''
 top_employers_smu:
 - Grab
 - DBS
-entry_paths:
-- Internship
-international_realistic: true
 recruiting_timeline: Internship applications open September–November for Summer cycle
   (May–August); full-time recruiting peaks January–March with offers typically by
   April
+international_realistic: true
+entry_paths:
+- Internship
 salary_range_2024: SGD 4,200–6,500 per month for fresh graduates; senior QA/test engineers
   with 3–5 years experience range SGD 7,000–10,500 per month
 typical_background: Computer Science, Information Systems, or Software Engineering
   degree; strong foundation in programming (Python, Java, or JavaScript); familiarity
   with testing frameworks (Selenium, JUnit, Pytest); exposure to Agile/Scrum methodologies;
   internship experience in QA or software development preferred
+counselor_contact: null
+notes: ''
+source_refs:
+- type: seeded
+  label: published profile:test_track
+structured: {}
+last_updated: '2026-05-09'
+archived_at: null
+salary_levels: null
+visa_pathway_notes: null

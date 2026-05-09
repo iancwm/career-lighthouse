@@ -1,4 +1,6 @@
-track_name: Model Validation & Model Risk
+slug: model_validation_risk
+track_name: Specialist / Technical
+status: ready_for_publish
 match_description: Highly technical specialist track within banking risk functions.
   Validators independently assess credit, market, and operational risk models against
   regulatory standards (MAS Model Governance Guidelines, Basel III). Requires deep
@@ -36,9 +38,7 @@ top_employers_smu:
 recruiting_timeline: 'Campus recruiting: MQF thesis presentations (Oct–Dec), offers
   typically Jan–Mar for June start. Undergrad internships (Year 3, 6-month rotations)
   serve as pipeline. Big 3 banks attend MQF thesis presentations directly.'
-international_realistic: Realistic at major Singapore banks for MQF graduates with
-  strong thesis and internship track record. EP sponsorship likely but verify per
-  employer.
+international_realistic: true
 entry_paths:
 - SMU MQF (MSc Quantitative Finance) direct hire
 - Quantitative Finance undergrad + MQF pipeline
@@ -66,4 +66,11 @@ notes: 'Supply-constrained field: SMU MQF cohort ~30/year; all grads placed in m
   thesis signals to banks; ML/fintech thesis signals to tech companies. Alumni contact:
   Cayden Lee (Senior Model Validator, OCBC, SMU QF ''21 + MQF ''23) — available for
   SMU quant alumni mentoring.'
-career_type: Specialist / Technical
+source_refs:
+- type: seeded
+  label: published profile:model_validation_risk
+structured: {}
+last_updated: '2026-05-09'
+archived_at: null
+salary_levels: null
+visa_pathway_notes: null

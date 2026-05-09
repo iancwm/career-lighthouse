@@ -10,20 +10,21 @@ tracks:
 - quantitative_finance
 ep_requirement: Will sponsor
 intake_seasons:
-- rolling
+- June (primary MQF full-time intake)
+- January (internship rotation start)
 singapore_headcount_estimate: '15–20 PM/BA roles/year; 70% internal promotion from
   analyst pool, 30% external (consulting: Accenture, Infosys; fintech: Grab)'
 application_process: Entry via BA or Scrum Master roles (not direct PM). Computing
   degree or IT-related background required. 3–5 years experience typical. DBS Academy
   internal PM certification path common.
 counsellor_contact: Atina
-last_updated: '2026-05-03'
-notes: 'Active model validation hiring driven by MAS 2023 Model Governance Guidelines.
-  DBS hired +2 model validators 2023–2025. Offers 6-month Model Risk Management internship
-  rotation (Cayden Lee completed year 3 internship at DBS — backtesting and validation
-  exposure). Internship-to-full-time conversion pathway exists. Recruits from SMU
-  MQF cohort at thesis presentations. Comp benchmarks consistent with Big 3 bank standard:
-  SGD 70–85K entry validator, SGD 90–120K senior validator.'
+last_updated: '2026-05-09'
+notes: 'Model Risk team: +2 validators hired 2023–2025 driven by MAS 2023 Model Governance
+  Guidelines. DBS offers Year 3 6-month Model Risk Management internship rotation
+  (backtesting + validation exposure) — confirmed pipeline for full-time model validation
+  roles. DBS attends SMU MQF thesis presentations for direct recruitment. Internship
+  alumni: Cayden Lee completed DBS Model Risk rotation Year 3 before joining OCBC
+  full-time. Counselor: Dr. Suresh Kumar.'
 counselor_contact: 'Dr. Suresh Kumar. Alumni contact: Sophia Lim (NUS Computing ''18),
   Senior PM Digital Banking Transformation — available for guest lecture on PM careers
   (target: May 2025, NUS Computing). Follow-up: Connect with NUS Computing faculty

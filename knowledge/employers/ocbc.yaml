@@ -9,24 +9,23 @@ tracks:
 ep_requirement: Likely sponsors EP for qualified MQF graduates entering model validation.
   Verify current policy with HR.
 counselor_contact: Dr. Patricia Lim, Career Counselor - Law & Governance
-notes: 'Active model validation hiring driven by MAS 2023 Model Governance Guidelines.
-  Hired +3 validators 2023–2025. Model Validation team validates credit risk models
-  (PD, LGD, EAD) against MAS Model Governance Guidelines and Basel III Endgame requirements.
-  Tools used: Python, R, SAS, VBA. Comp: SGD 75K base (entry validator) → SGD 95K
-  (senior validator) + 12–15% bonus + 2–3% annual increment. OTE ~SGD 109K at senior
-  level. Accelerated promotion possible: Cayden Lee promoted Senior Validator in <2
-  years (9 months). Current projects include IRB revalidation (PD/LGD models vs Basel
-  III Endgame) and Model Validation Policy documentation for MAS submission Q2 2025.
-  Alumni contact: Cayden Lee (Senior Model Validator, MQF ''23) — available for student
-  referrals and SMU quant alumni mentoring.'
-last_updated: '2026-05-03'
+notes: 'Credit Risk team ~80–100 people (modelers, validators, business users). Model
+  Validation team: 4–5 validators + 1 manager. Hiring +3 validators 2023–2025 driven
+  by MAS 2023 Model Governance Guidelines. MQF pipeline: OCBC attends SMU MQF thesis
+  presentations directly; hired Cayden Lee (MQF ''23) based on thesis ''PD Model Backtesting
+  Under Basel III Endgame Revalidation''. Comp: Validator entry SGD 75K base + 12%
+  bonus; Senior Validator SGD 95K base + 15% bonus; OTE ~SGD 109K at senior level.
+  Promotion timeline: typical 2–3 years validator → senior; accelerated cases <2 years
+  possible. Current projects: IRB revalidation (Basel III Endgame), Model Validation
+  Policy documentation for MAS submission Q2 2025. Tools used: Python, R, SAS, VBA.
+  Alumni contact: Cayden Lee (Senior Model Validator, Credit Risk, SMU QF ''21 + MQF
+  ''23) — mentors SMU quant alumni cohort.'
+last_updated: '2026-05-09'
 intake_seasons:
-- Q1 (post-MQF graduation)
-- Q3 (mid-year intake for regulatory project needs)
-application_process: 'Campus recruiting: attends SMU MQF thesis presentations (Q4
-  each year). Direct hire from MQF cohort. Thesis topic relevance (Basel III, PD backtesting,
-  model governance) is a strong hire signal. Internship-to-full-time conversion also
-  observed (DBS model risk internship → OCBC full-time).'
-singapore_headcount_estimate: 'Credit risk team ~80–100 (modelers, validators, business
-  users). Model validation sub-team: 4–5 validators + 1 manager. Hired +3 model validators
-  2023–2025 (MAS regulatory compliance driven).'
+- June (primary MQF intake)
+- January (secondary)
+application_process: MQF thesis presentation recruitment (Oct–Dec) is primary pipeline.
+  Direct application via OCBC careers portal. Year 3 internship rotation in Model
+  Risk Management also feeds full-time pipeline.
+singapore_headcount_estimate: 'Credit Risk division: 80–100. Model Validation team:
+  5–6 (validators + manager).'

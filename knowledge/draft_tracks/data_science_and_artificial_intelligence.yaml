@@ -1,3 +1,12 @@
+slug: data_science_and_artificial_intelligence
+track_name: Data Analytics & Data Science (FinTech)
+status: ready_for_publish
+match_description: Data analysts and data scientists in fintech and tech companies.
+  Roles span fraud detection, payments analytics, A/B testing, and business intelligence.
+  Strong demand in Singapore fintech sector (Stripe, Wise, Grab). MITB AI/Data Track
+  is primary SMU entry pathway. Domain knowledge in banking/payments is a significant
+  differentiator. Career ladder leads to Analytics Manager, Data Science Manager,
+  or Product Management transition.
 match_keywords:
 - SQL
 - Python
@@ -13,6 +22,8 @@ match_keywords:
 - MITB AI
 ep_sponsorship: Varies by employer. Stripe Singapore likely sponsors; Wise, Grab verify
   directly.
+compass_score_typical: MITB AI/Data Track graduates with domain knowledge and strong
+  capstone portfolio typically competitive. EP sponsorship available at major fintechs.
 top_employers_smu:
 - stripe_singapore
 - wise_singapore
@@ -22,6 +33,7 @@ recruiting_timeline: 'Hiring ongoing; 10–20 new analysts/year at major fintech
   presentations attended by hiring managers — direct outreach before formal recruitment
   opens observed. Skill-based hiring: portfolio + coding test (SQL, Python) weighted
   over credentials.'
+international_realistic: true
 entry_paths:
 - MITB AI Track (SMU)
 - MITB Data Track (SMU)
@@ -34,6 +46,9 @@ typical_background: MITB AI/Data Track (1 year, technical + business literacy) i
   sweet spot. Domain knowledge (2–3 yrs banking/fintech) + ML skills = strong differentiator.
   Pure data engineering background requires 6 months to learn payments domain vs.
   3 months for domain-knowledgeable candidates.
+counselor_contact: 'Dr. James Tay (fintech data roles, MITB AI Track pipeline). Alumni
+  contact: Jane Teoh (Stripe Singapore, Data Analyst, MITB AI ''23) — available for
+  capstone recruitment presentations and mentoring.'
 notes: 'ACTION (Dr. James Tay, April 2025): Develop ''Data Analytics in FinTech''
   case study for SMU career advisory use. Core narrative: domain knowledge (UOB banking,
   5 yrs) + technical upskilling (MITB AI Track, 1 yr) + capstone project (fraud detection
@@ -41,21 +56,13 @@ notes: 'ACTION (Dr. James Tay, April 2025): Develop ''Data Analytics in FinTech'
   banking domain knowledge accelerates onboarding vs. pure data engineers, (2) capstone
   portfolio > resume/interviews for fintech data analyst roles, (3) business impact
   storytelling as career differentiator beyond SQL/Python.'
+source_refs:
+- type: seeded
+  label: published profile:data_science_and_artificial_intelligence
 structured:
   salary_min_sgd: 80000
   salary_max_sgd: 110000
-match_description: Data analysts and data scientists in fintech and tech companies.
-  Roles span fraud detection, payments analytics, A/B testing, and business intelligence.
-  Strong demand in Singapore fintech sector (Stripe, Wise, Grab). MITB AI/Data Track
-  is primary SMU entry pathway. Domain knowledge in banking/payments is a significant
-  differentiator. Career ladder leads to Analytics Manager, Data Science Manager,
-  or Product Management transition.
-compass_score_typical: MITB AI/Data Track graduates with domain knowledge and strong
-  capstone portfolio typically competitive. EP sponsorship available at major fintechs.
-international_realistic: Yes, at major fintechs (Stripe, Wise, Grab). Verify EP sponsorship
-  per employer. Skill-based hiring reduces credential barriers for international candidates
-  with strong portfolios.
-counselor_contact: 'Dr. James Tay (fintech data roles, MITB AI Track pipeline). Alumni
-  contact: Jane Teoh (Stripe Singapore, Data Analyst, MITB AI ''23) — available for
-  capstone recruitment presentations and mentoring.'
-career_type: Data Analytics & Data Science (FinTech)
+last_updated: '2026-05-09'
+archived_at: null
+salary_levels: null
+visa_pathway_notes: null
