@@ -1,9 +1,11 @@
 from typing import Any, List
-from typing import Any, List
 from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from fastapi import APIRouter, File, HTTPException, Depends, UploadFile
 from pydantic import ValidationError
+from config import settings
 from dependencies import get_embedder, require_admin_key
+from routers.ingest_router import _sanitize_filename
+from services.ingestion import parse_file
 from models_session import CardCommitRequest, CreateSessionRequest, KnowledgeSession
 from models_kb import (
     AlreadyCovered,
@@ -84,12 +86,6 @@ def _check_session_ownership(
             counsellor_id,
         )
         raise HTTPException(status_code=403, detail="Session access denied")
-
-
-# Imported from sibling modules
-from config import settings
-from routers.ingest_router import _sanitize_filename
-from services.ingestion import parse_file
 
 
 def get_session_store():

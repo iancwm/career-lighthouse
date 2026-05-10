@@ -132,7 +132,6 @@ describe("AdminWorkspace", () => {
     render(<AdminWorkspace />)
 
     expect(screen.getByRole("button", { name: /^Quick Update$/i })).toBeInTheDocument()
-    expect(screen.getByText(/Review one note or file update before saving it\./i)).toBeInTheDocument()
     expect(screen.getByRole("heading", { name: /Quick Update/i })).toBeInTheDocument()
   })
 

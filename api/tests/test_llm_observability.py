@@ -6,7 +6,6 @@ import asyncio
 import json
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 

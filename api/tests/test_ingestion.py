@@ -1,7 +1,5 @@
 # api/tests/test_ingestion.py
 import numpy as np
-import pytest
-from unittest.mock import MagicMock
 from services.ingestion import chunk_text, parse_file, ingest_document
 
 
@@ -79,7 +77,6 @@ def test_parse_file_docx_merged_cells_no_duplication():
     """DOCX with merged header row — merged cell text appears exactly once."""
     from io import BytesIO
     from docx import Document
-    from docx.oxml.ns import qn
     from lxml import etree
 
     doc = Document()

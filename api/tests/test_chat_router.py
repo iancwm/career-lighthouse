@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 
 # ---------------------------------------------------------------------------

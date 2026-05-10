@@ -3,7 +3,6 @@
 
 import numpy as np
 from fastapi.testclient import TestClient
-from unittest.mock import MagicMock
 
 
 def make_ingest_client(in_memory_qdrant, mock_embedder):

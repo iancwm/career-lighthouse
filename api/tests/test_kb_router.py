@@ -1,7 +1,7 @@
 # api/tests/test_kb_router.py
 import json
 import os
-import tempfile
+import textwrap
 import numpy as np
 import pytest
 import yaml
@@ -823,9 +823,8 @@ class TestTrackBuilderEndpoints:
         self, in_memory_qdrant, mock_embedder, monkeypatch, tmp_path
     ):
         """Old draft YAMLs without salary_levels or visa_pathway_notes should deserialise cleanly."""
-        from models_tracks import DraftTrackDetail
 
-        paths = configure_track_paths(monkeypatch, tmp_path)
+        configure_track_paths(monkeypatch, tmp_path)
         client, _ = make_client(in_memory_qdrant, mock_embedder)
 
         # Old-style payload (no salary_levels, no visa_pathway_notes)
@@ -882,8 +881,6 @@ class TestTrackBuilderEndpoints:
 # ---------------------------------------------------------------------------
 # Employer CRUD — helpers
 # ---------------------------------------------------------------------------
-
-import textwrap
 
 
 def make_employer_client(in_memory_qdrant, mock_embedder, employers_dir):

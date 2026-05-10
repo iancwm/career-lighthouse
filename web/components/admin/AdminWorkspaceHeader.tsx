@@ -33,11 +33,10 @@ export default function AdminWorkspaceHeader({
       {/* Row 1: wordmark + active page + shortcuts */}
       <div className="flex items-center justify-between gap-4 px-4 py-3 border-b border-[var(--cl-line)]">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="shrink-0 font-display text-sm font-medium text-[var(--cl-ink)]">Career Lighthouse</span>
+          <span className="shrink-0 font-display text-base font-semibold text-[var(--cl-ink)]">Career Lighthouse</span>
           <span className="text-[var(--cl-line)]" aria-hidden="true">·</span>
           <div className="min-w-0">
             <span className="block text-sm font-medium text-[var(--cl-ink)] truncate">{currentSurface.label}</span>
-            <span className="block text-xs text-[var(--cl-muted)] truncate max-w-sm">{currentSurface.description}</span>
           </div>
         </div>
 

@@ -1,14 +1,9 @@
 # api/tests/test_kb_analyse.py
 """Tests for POST /api/kb/analyse and POST /api/kb/commit-analysis endpoints."""
 
-import json
 import os
-import tempfile
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import numpy as np
-import pytest
 import yaml
 from fastapi.testclient import TestClient
 

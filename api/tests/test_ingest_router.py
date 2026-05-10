@@ -128,7 +128,6 @@ class TestFilenameValidation:
 
 class TestUploadSizeLimit:
     def test_rejects_oversized_upload_via_ingest(self, in_memory_qdrant, mock_embedder):
-        from unittest.mock import patch
 
         client = _make_client(in_memory_qdrant, mock_embedder)
 
