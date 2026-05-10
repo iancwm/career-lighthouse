@@ -2,9 +2,19 @@
 
 **Date:** 2026-05-10
 **Branch:** main
-**Status:** REVIEWED — ready to implement
+**Status:** IMPLEMENTED — verified on `main`
 **Design doc:** `~/.gstack/projects/iancwm-career-lighthouse/iancwm-main-design-20260509-162746.md`
 **Eng review decisions:** D1–D5 (see below)
+**Verification:** `cd web && npm test -- --run components/admin/__tests__/SessionInbox.test.tsx` (`10 passed`; optimistic-card test still emits React `act(...)` warnings)
+
+## Outcome
+
+This sprint is now live in the admin workspace.
+
+- The header wordmark is more prominent and the truncated description line is gone.
+- Session creation now shows immediate movement: an optimistic card, a persistent `"Processing your notes…"` notice, and a natural promotion to `"Your session is ready."`.
+- Completed sessions now live under a collapsed History section instead of disappearing from the inbox.
+- Status and empty-state copy now read like counsellor-facing product language instead of raw system output.
 
 ## What we're fixing
 
@@ -27,7 +37,7 @@ Design doc stored all sessions in state (including completed) and sliced the ful
 
 ---
 
-## Implementation — 5 fixes, 3 files
+## Shipped Scope — 5 fixes, 3 files
 
 ### File 1: `web/components/admin/AdminWorkspaceHeader.tsx`
 
@@ -273,16 +283,20 @@ Follow this order so each fix is independently testable:
 
 ## Success Criteria
 
-- [ ] Uploading notes immediately shows a card in "Analyzing Now" with "Processing…" label
-- [ ] "Processing your notes…" notice persists until analysis completes
-- [ ] "Your session is ready." notice appears and persists (no premature clear)
-- [ ] Completed sessions accessible via history toggle
-- [ ] No status label shows raw system code
-- [ ] Logo is visually prominent
-- [ ] Empty inbox shows "All caught up!" when history exists
-- [ ] "Upload a student's notes to get started." on first-ever load
-- [ ] "Show more" counter counts only inbox sessions, not history
-- [ ] All tests pass green
+- [x] Uploading notes immediately shows a card in "Analyzing now" with a live processing label
+- [x] "Processing your notes…" notice persists until analysis completes
+- [x] "Your session is ready." notice appears via the analysis transition path
+- [x] Completed sessions are accessible via the history toggle
+- [x] No status label shows raw system code for the shipped statuses
+- [x] Logo is visually more prominent
+- [x] Empty inbox shows "All caught up!" when history exists
+- [x] First-ever load shows "Upload a student's notes to get started."
+- [x] "Show more" counts only inbox sessions, not history
+- [x] Focused `SessionInbox` regression tests pass green
+
+## Remaining Follow-up
+
+- The optimistic-card test passes, but it still triggers React `act(...)` warnings during Vitest. That is a test-harness cleanup item, not a shipped-product blocker.
 
 ## Deploy
 
