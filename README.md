@@ -100,7 +100,7 @@ The repo has three maintained documentation paths:
 - [TODOS.md](TODOS.md) for the active backlog
 - [CHANGELOG.md](CHANGELOG.md) for significant shipped feature changes
 
-If you need to document a sprint, use `docs/`. If you need to capture active work, update `TODOS.md`. If you are recording a meaningful shipped feature, update `CHANGELOG.md`.
+If you need to document an active sprint, use the `docs/` root. Once a sprint ships, move that note into `docs/archived/`. If you need to capture active work, update `TODOS.md`. If you are recording a meaningful shipped feature, update `CHANGELOG.md`.
 
 ## Python Package Management
 
@@ -119,7 +119,7 @@ Use `uv lock` after editing `api/pyproject.toml`, then commit both the manifest 
 
 The career office dashboard (`/admin`) includes:
 
-- **Session Editor** — the starting point for counsellors. Turn notes into reviewable intent cards, inspect track guidance when the note points to a new or unclear career path, and commit or discard changes from one place. Alumni-heavy Staging Area notes now emit `alumni` cards alongside track and employer cards, and SmartCanvas renders an alumni-specific review surface with confidence, evidence, trajectory, and company-history context. Session extraction emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so bad payloads fail fast instead of leaking into YAML writes.
+- **Session Editor** — the starting point for counsellors. New notes now create an optimistic Staging Area row immediately, keep a persistent `"Processing your notes…"` notice visible while analysis runs, promote finished work into `Ready to review`, and keep completed sessions under a collapsed History section so work does not disappear. Alumni-heavy Staging Area notes still emit `alumni` cards alongside track and employer cards, and SmartCanvas renders an alumni-specific review surface with confidence, evidence, trajectory, and company-history context. Session extraction emits flat JSON-only intent cards, and the backend validates card diffs with Pydantic so bad payloads fail fast instead of leaking into YAML writes.
 - **Knowledge Review** — structured review of proposed KB edits before anything is written.
 - **Source Documents** — upload PDF/DOCX/TXT, with similarity warning if the document overlaps an existing one.
 - **Employer Facts** — maintain employer YAMLs, review track coverage for employer context, inspect the full extracted fact `data` payload before saving structured updates, and keep sticky save/discard context visible during long extracted-fact reviews.

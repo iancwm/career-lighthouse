@@ -1,6 +1,6 @@
 # Docs Index
 
-This directory holds sprint docs and their archived history.
+This directory holds active sprint docs plus archived sprint history.
 
 ## The Only Update Paths
 
@@ -12,12 +12,19 @@ Keep repo documentation updates in one of these three places:
 
 ## How To Use It
 
-- Put active sprint work under `docs/`
+- Put active sprint work in the `docs/` root
+- Move completed sprint docs into `docs/archived/`
 - Put new or changing backlog items in `TODOS.md`
 - Put user-visible shipped changes in `CHANGELOG.md`
 - Avoid creating new top-level documentation files unless they are one of the three paths above
 
 ## Layout
 
+- `docs/` root contains active sprint docs only
 - `docs/archived/` contains completed sprint specs and historical planning docs
-- `docs/` subdirectories are still the right home for sprint-specific material when a sprint is active
+
+## Current State
+
+- No active sprint docs are currently open in the `docs/` root.
+- The most recent completed sprint is [SPRINT-UX-POLISH-2026-05-10.md](/home/iancwm/git/career-lighthouse/docs/archived/SPRINT-UX-POLISH-2026-05-10.md:1).
+- Other archived top-level sprint docs include [SPRINT-UX-WORKSPACE-CLARITY.md](/home/iancwm/git/career-lighthouse/docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md:1) and [SPRINT-LAUNCH-READINESS.md](/home/iancwm/git/career-lighthouse/docs/archived/SPRINT-LAUNCH-READINESS.md:1).

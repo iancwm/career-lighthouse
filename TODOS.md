@@ -9,6 +9,7 @@ This backlog is ordered by execution priority:
 - `Done` = shipped items kept here for context
 
 Recently archived:
+- `docs/archived/SPRINT-UX-POLISH-2026-05-10.md` — friendly-feedback sprint for the Staging Area. Archived on 2026-05-10 after the header polish, optimistic session creation, history section, status-copy cleanup, and focused `SessionInbox` regression pass were verified.
 - `docs/archived/session_pipeline_stabilization/SPRINT-2026-05-07.md` — unified session pipeline + backlog close-out sprint. Archived on 2026-05-07 after the session loop, workflow evidence, scorecard, E1, F3, and Langfuse eval-sync artifacts shipped.
 - `docs/archived/code_quality_finish/SPRINT.md` — Code Quality Finish & Backlog Close-out. Verified and archived on 2026-05-06 with Phase 1 plus the Phase 3 `llm.py` decomposition shipped. Follow-up artifacts E1/F3 and Langfuse eval-sync have since landed; the remaining structural follow-up is Phase 2 router split.
 - `docs/archived/code_quality_sprint/` — structural cleanup Phase 0 and partial Phase 1. Remaining P1-4 onward, Phase 2, and Phase 3 items live in this backlog. Shipped 2026-05-03.
