@@ -2,8 +2,6 @@
 """Tests for the CareerProfileStore and related helpers."""
 
 import logging
-import os
-import textwrap
 from pathlib import Path
 from unittest.mock import MagicMock
 

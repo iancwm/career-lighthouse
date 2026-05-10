@@ -68,8 +68,9 @@ from models_kb import KBAnalysisResult
 from models_tracks import DraftTrackDetail
 from utils.sanitization import sanitize_for_prompt
 
-logger = logging.getLogger(__name__)
 from cfg import model_cfg, kb_cfg, prompts_cfg
+
+logger = logging.getLogger(__name__)
 
 _clients: dict[int, anthropic.Anthropic] = {}
 _langfuse_client = None

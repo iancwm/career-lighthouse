@@ -13,16 +13,11 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
-import yaml
 
 from models_employers import (
     AlumniCompanyLink,
-    AlumniCompanyLinkInput,
-    AlumniDetail,
-    AlumniHistoryVersion,
-    AlumniLinkVersion,
 )
 from services.employer_store import _default_employers_dir
 from services.runtime_paths import knowledge_dir

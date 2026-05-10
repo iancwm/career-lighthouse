@@ -50,7 +50,10 @@ def analyse(
     """Analyse counsellor input and return a structured KB diff."""
     if source_type == "file" and file is not None:
         content_length = request.headers.get("content-length")
-        if content_length and int(content_length) > kb_router_compat.settings.max_upload_bytes:
+        if (
+            content_length
+            and int(content_length) > kb_router_compat.settings.max_upload_bytes
+        ):
             raise HTTPException(
                 status_code=413,
                 detail=f"File exceeds maximum upload size ({kb_router_compat.settings.max_upload_bytes // (1024 * 1024)}MB).",

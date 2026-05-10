@@ -269,7 +269,6 @@ class TestEvalQueries:
             if q.get("expected_track"):
                 profile = profile_store.get_profile(q["expected_track"])
                 if profile:
-                    career_type_label = profile.get("career_type", q["expected_track"])
                     # The LLM should mention something relevant to this track
                     assert response, f"No response for query: {q['query'][:80]}"
 

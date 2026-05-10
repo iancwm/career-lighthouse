@@ -10,7 +10,7 @@ Usage:
     sessions = store.list_sessions()
 """
 
-import json
+import logging
 import os
 import re
 import uuid
@@ -22,6 +22,8 @@ from typing import Optional
 from models_session import KnowledgeSession
 from services.runtime_paths import default_sessions_dir, ensure_writable_directory
 from services.shared_yaml import Singleton
+
+logger = logging.getLogger(__name__)
 
 # Storage directory within the API root or repo checkout.
 _SESSIONS_DIR = Path(os.environ.get("SESSIONS_DIR", str(default_sessions_dir())))

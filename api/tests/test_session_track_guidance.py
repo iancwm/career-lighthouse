@@ -5,7 +5,6 @@ import os
 import sys
 import tempfile
 import types
-from datetime import datetime, timezone
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 

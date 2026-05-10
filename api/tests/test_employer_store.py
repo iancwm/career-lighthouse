@@ -6,7 +6,6 @@ Test run command:
         python -m pytest tests/test_employer_store.py -v
 """
 
-import os
 import textwrap
 import pytest
 

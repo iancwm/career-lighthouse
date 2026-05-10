@@ -5,8 +5,6 @@ import numpy as np
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
 from starlette.requests import Request
 
-logger = logging.getLogger(__name__)
-
 from dependencies import get_embedder, get_vector_store
 from config import settings
 from models_kb import IngestResponse
@@ -18,6 +16,8 @@ from services.ingestion import parse_file, prepare_document
 from services.source_ledger import get_source_ledger_store
 from services.vector_store import VectorStore
 from limiter import limiter
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api")
 
