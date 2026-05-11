@@ -6,7 +6,9 @@ from services.llm import (
     _merge_analysis_results,
     _merge_intents,
     _merge_track_drafts,
+    _validated_alumni_preview_payload,
     generate_session_intents,
+    generate_alumni_extraction,
     merge_chunked_results,
 )
 
@@ -211,3 +213,62 @@ def test_merge_analysis_and_track_drafts_preserve_existing_semantics():
     assert draft["match_keywords"] == ["sql", "python", "spark"]
     assert draft["structured"] == {"hiring_bar": "high", "team_size": "mid"}
     assert draft["notes"] == "second pass"
+
+
+def test_validated_alumni_preview_payload_normalizes_shorthand_fit_triad():
+    payload = {
+        "summary_bullets": ["Philip can mentor macro students."],
+        "fit_triad": {
+            "reach": "high",
+            "relevance": "medium",
+            "reciprocity": "high",
+        },
+    }
+
+    preview = _validated_alumni_preview_payload(
+        payload,
+        source_label="counsellor_note",
+        source_type="note",
+    )
+
+    assert preview["fit_triad"]["reach"]["value"] == "high"
+    assert preview["fit_triad"]["reach"]["confidence"] == 0
+    assert preview["fit_triad"]["reach"]["evidence"] == []
+    assert preview["fit_triad"]["relevance"]["value"] == "medium"
+    assert preview["fit_triad"]["reciprocity"]["value"] == "high"
+
+
+@patch("services.llm.call_structured_json")
+def test_generate_alumni_extraction_accepts_shorthand_fit_triad(mock_call_structured_json):
+    mock_call_structured_json.return_value = {
+        "summary_bullets": ["Philip can mentor macro students."],
+        "profile_proposals": {},
+        "company_link_proposals": [],
+        "fit_triad": {
+            "mentoring_fit": "high",
+            "referral_fit": "medium",
+            "engagement_fit": "high",
+        },
+        "alumni": [
+            {
+                "summary_bullets": ["Philip can mentor macro students."],
+                "profile_proposals": {},
+                "company_link_proposals": [],
+                "fit_triad": {
+                    "mentoring_fit": "high",
+                    "referral_fit": "medium",
+                    "engagement_fit": "high",
+                },
+                "source_excerpt": "Philip mentors postgraduate alumni.",
+            }
+        ],
+    }
+
+    result = generate_alumni_extraction(
+        text="Philip mentors postgraduate alumni.",
+        existing_alumni=[],
+    )
+
+    assert result["fit_triad"]["mentoring_fit"]["value"] == "high"
+    assert result["fit_triad"]["referral_fit"]["value"] == "medium"
+    assert result["alumni"][0]["fit_triad"]["engagement_fit"]["value"] == "high"

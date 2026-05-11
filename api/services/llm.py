@@ -584,6 +584,31 @@ def _normalize_existing_alumni_candidates(
     return candidates
 
 
+def _normalize_alumni_field_proposal_map(
+    payload: Any,
+) -> dict[str, Any]:
+    """Coerce shorthand proposal values into AlumniFieldProposal-like dicts."""
+
+    if not isinstance(payload, dict):
+        return {}
+
+    normalized: dict[str, Any] = {}
+    for raw_key, value in payload.items():
+        key = str(raw_key).strip()
+        if not key:
+            continue
+        if isinstance(value, BaseModel) or isinstance(value, dict):
+            normalized[key] = value
+            continue
+        normalized[key] = {
+            "value": value,
+            "confidence": 0,
+            "evidence": [],
+            "rationale": None,
+        }
+    return normalized
+
+
 def _validated_alumni_preview_payload(
     payload: dict[str, Any],
     *,
@@ -596,7 +621,9 @@ def _validated_alumni_preview_payload(
             "summary_bullets": payload.get("summary_bullets") or [],
             "profile_proposals": payload.get("profile_proposals") or {},
             "company_link_proposals": payload.get("company_link_proposals") or [],
-            "fit_triad": payload.get("fit_triad") or {},
+            "fit_triad": _normalize_alumni_field_proposal_map(
+                payload.get("fit_triad") or {}
+            ),
             "source_label": payload.get("source_label") or source_label,
             "source_type": payload.get("source_type") or source_type,
         },
