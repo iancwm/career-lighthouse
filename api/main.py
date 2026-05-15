@@ -1,6 +1,7 @@
 # api/main.py
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
@@ -42,14 +43,15 @@ async def lifespan(app: FastAPI):
     # for concurrent multi-worker deployments. Single-worker only for this iteration.
     workers = int(os.environ.get("WEB_CONCURRENCY", "1"))
     if workers > 1:
-        logger.warning(
-            "WEB_CONCURRENCY=%d detected — multi-worker mode is not fully validated "
-            "with the embedded Qdrant client and file-backed session/track flows. "
-            "Keep WEB_CONCURRENCY=1 unless you have explicitly verified the full stack.",
-            workers,
+        sys.exit(
+            f"WEB_CONCURRENCY={workers} is not supported with file-based storage. "
+            "Interleaved writes to query_log.jsonl and session JSON files will corrupt data. "
+            "Set WEB_CONCURRENCY=1 or migrate to distributed storage first."
         )
 
     yield
+    chat_router._INSIGHT_EXECUTOR.shutdown(wait=True)
+    session_router._SESSION_INTENTS_EXECUTOR.shutdown(wait=True)
     shutdown_langfuse_traces()
 
 

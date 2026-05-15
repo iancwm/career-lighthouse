@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import logging
 from typing import Any, Callable
 
 from pydantic import BaseModel, ValidationError
+
+_logger = logging.getLogger(__name__)
 
 
 def extract_json_block(text: str) -> str:
@@ -116,6 +119,20 @@ def repair_json_output(
             continue
 
         if isinstance(repaired, (dict, list)):
+            diff = list(difflib.unified_diff(
+                repair_source.splitlines(),
+                repaired_text.splitlines(),
+                fromfile="pre-repair",
+                tofile="post-repair",
+                lineterm="",
+            ))
+            if diff:
+                _logger.warning(
+                    "llm_json repair applied for %s (attempt %d):\n%s",
+                    schema_name,
+                    repair_attempt,
+                    "\n".join(diff),
+                )
             return repaired
 
         last_error = ValueError(

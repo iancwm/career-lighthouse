@@ -52,6 +52,11 @@ def sanitize_for_prompt(text: str) -> str:
     if not text:
         return text
 
+    if len(text) > 50_000:
+        raise ValueError(
+            f"Input too large for sanitization ({len(text)} chars; max 50 000)"
+        )
+
     original = text
 
     # 1. Remove angle-bracket directives

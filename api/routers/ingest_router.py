@@ -1,6 +1,7 @@
 # api/routers/ingest_router.py
 import logging
 import re
+import magic
 import numpy as np
 from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, File
 from starlette.requests import Request
@@ -23,6 +24,12 @@ router = APIRouter(prefix="/api")
 
 _FILENAME_ALLOWLIST = re.compile(r"^[A-Za-z0-9._\-()\[\] ]+$")
 _FILENAME_MAX_LEN = 255
+
+_ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+}
 
 
 def _sanitize_filename(raw: str | None) -> str:
@@ -118,6 +125,15 @@ async def ingest(
         )
     content = await file.read()
     filename = _sanitize_filename(file.filename)
+
+    # Magic-byte validation — reject files whose content doesn't match an allowed type.
+    # Extension-only checks can be bypassed by renaming any file; magic bytes cannot.
+    detected_mime = magic.from_buffer(content[:2048], mime=True)
+    if detected_mime not in _ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Unsupported file type detected: {detected_mime}. Upload PDF, DOCX, or plain text files only.",
+        )
 
     # Prepare (parse + chunk + embed) BEFORE deleting the existing version.
     # This ensures that if parsing or embedding fails, the previous document
