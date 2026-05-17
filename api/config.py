@@ -84,6 +84,7 @@ class Settings(BaseSettings):
     langfuse_prompt_production_label: str = "production"
     langfuse_prompt_cache_ttl_seconds: int = 300
     langfuse_prompt_fetch_timeout_seconds: int = 5
+    langfuse_enabled: bool = True
 
 
 if SettingsConfigDict is None:
@@ -147,6 +148,7 @@ if SettingsConfigDict is None:
         langfuse_prompt_production_label: str = "production"
         langfuse_prompt_cache_ttl_seconds: int = 300
         langfuse_prompt_fetch_timeout_seconds: int = 5
+        langfuse_enabled: bool = True
 
 
 settings = Settings()

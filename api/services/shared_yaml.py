@@ -46,6 +46,7 @@ def atomic_yaml_write(path: Path, payload: Any) -> None:
             sort_keys=False,
         )
     tmp.replace(path)
+    path.chmod(0o600)
 
 
 def read_yaml(path: Path) -> Any:

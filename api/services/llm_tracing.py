@@ -100,6 +100,8 @@ def langfuse_metadata_value(value: object, *, limit: int) -> str | None:
 
 
 def langfuse_is_enabled(settings: object) -> bool:
+    if not getattr(settings, "langfuse_enabled", True):
+        return False
     return bool(
         getattr(settings, "langfuse_public_key", "")
         and getattr(settings, "langfuse_secret_key", "")
