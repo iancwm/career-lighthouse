@@ -4,6 +4,13 @@
 **Branch:** `claude/address-todos-gwShn`
 **Status:** IN PROGRESS
 
+## Verification snapshot
+
+Verified against `main` on 2026-05-19:
+
+- **Shipped:** S1-S4, R1-R3, T1, and T2 are implemented in repo code and tests.
+- **Still open:** T3 is only partially landed. `api/tests/test_prompt_injection_e2e.py` verifies ingest-time sanitization, but it does not yet drive `/api/chat` or assert that retrieved dirty chunks cannot affect the final LLM prompt/response path.
+
 ## What we're fixing
 
 Twelve items from the active TODOS backlog can be addressed independently — no infrastructure decisions required. This sprint closes them in a single pass, ordered by risk and blast radius.
@@ -201,8 +208,9 @@ updates:
 
 ### T3 · End-to-end prompt injection pipeline tests
 **File:** `api/tests/test_prompt_injection_e2e.py` (new file)
-**What:** Parametrize adversarial payloads through `/api/ingest` → vector store → `/api/chat` and assert injected directives do not appear in chat responses.
-**Why:** `sanitize_text()` is unit-tested in isolation but no tests verify end-to-end neutralisation. (TEST-1)
+**Status:** Partial — ingest-time coverage landed; `/api/chat` coverage is still missing.
+**What:** Keep the existing ingest assertions, then add the missing `/api/chat` leg so adversarial payloads flow through retrieval and the test proves the injected directives do not reach the final LLM prompt or response.
+**Why:** `sanitize_text()` is now covered at ingest time, but the sprint goal was an end-to-end guarantee across both ingest and chat. That last assertion still does not exist. (TEST-1)
 **Effort:** M — requires a test fixture that stubs Qdrant and the LLM response but exercises the real sanitization and retrieval pipeline.
 
 Representative payloads to test:

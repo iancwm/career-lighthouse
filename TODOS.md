@@ -18,7 +18,23 @@ Recently archived:
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` — security/reliability/KB-perf/alumni-followups sprint. Residual items (B3 UX, E1 accuracy artifact, F3 alumni verification) live in this backlog.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
 
+Active sprint planning:
+- `docs/SPRINT-SECURITY-RELIABILITY-2026-05-15.md` — current security/reliability close-out sprint. Most code-level hardening items have shipped; the remaining open work is Claude retry/circuit-breaker handling plus the missing `/api/chat` leg of prompt-injection coverage.
+
 ## Now
+
+### Complete `/api/chat` coverage in prompt-injection pipeline tests
+**What:** Extend `api/tests/test_prompt_injection_e2e.py` so it actually exercises `/api/chat` with retrieved dirty chunks and asserts injected directives do not reach the LLM system prompt or the final response.
+**Why:** The test file exists, but today it only verifies ingest-time sanitization. The chat-time helper is stubbed out without a corresponding assertion, so the end-to-end guarantee is incomplete.
+**Depends on:** Nothing.
+
+### Circuit breaker and retry backoff on Claude API calls
+**What:** Wrap all Anthropic SDK calls in `api/services/llm.py` with `tenacity` retry logic (3 attempts, exponential backoff 2–10 s) on `APITimeoutError`. Add a circuit-breaker so repeated failures stop generating new calls rather than queuing them.
+**Why:** A degraded Anthropic API currently exhausts the uvicorn thread pool with blocked coroutines, causing cascading latency across all endpoints. See review PERF-1.
+**Depends on:** Nothing; `tenacity` is a small addition to `pyproject.toml`.
+
+### Blocked or decision-gated launch risk
+These remain top-tier risks, but they need upstream decisions or broader model changes before they become a good execution sprint.
 
 ### Counsellor RBAC
 **What:** Replace the advisory `X-Counsellor-ID` header with JWT-verified identity. `_get_counsellor_id()` in `api/routers/session_router.py:64` currently reads the header value at face value — any caller can impersonate any counsellor and access or corrupt their sessions.
@@ -31,27 +47,10 @@ Recently archived:
 **Why:** A leaked env var has no invalidation path. There is no current mechanism to rotate the key without a redeploy. See review CRIT-2.
 **Depends on:** Infrastructure / deployment environment decisions.
 
-### Enforce single-worker constraint at startup
-**What:** In `api/main.py`, change the `WEB_CONCURRENCY > 1` log warning to a hard `RuntimeError` (or `sys.exit(1)`) so misconfigured deployments fail loudly rather than silently corrupting `query_log.jsonl` and session JSON files with interleaved writes.
-**Why:** A log warning is not visible to operators who don't watch startup logs. The only safe path until storage is migrated is to refuse to start. See review CRIT-3.
-**Context:** The long-term fix (CloudWatch Logs + server-mode Qdrant + distributed sessions) is tracked under "Path to multi-instance scaling" in Next.
-**Depends on:** Nothing.
-
-### Magic-byte file type validation on uploads
-**What:** In `api/routers/ingest_router.py`, validate the first 2 KB of uploaded files against known PDF/DOCX magic bytes before processing. The current check is extension-only and can be bypassed by renaming any file.
-**Why:** A malicious file disguised as a PDF could trigger unexpected behaviour in `pypdf` or `python-docx`. See review CRIT-4.
-**Remediation:** Add `python-magic` to `pyproject.toml`; call `magic.from_buffer(header, mime=True)` and reject anything not in `{"application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"}`.
-**Depends on:** Nothing.
-
 ### Langfuse data egress compliance audit
-**What:** Audit what content is included in Langfuse trace `input`/`output` payloads (KB chunks, counsellor notes, student chat context). Confirm Langfuse's DPA covers SMU's PDPA obligations. Add a `LANGFUSE_ENABLED` env-var circuit-breaker that disables remote tracing without a redeploy.
+**What:** Audit what content is included in Langfuse trace `input`/`output` payloads (KB chunks, counsellor notes, student chat context). Confirm Langfuse's DPA covers SMU's PDPA obligations.
 **Why:** Semantic content of student career discussions is leaving the system. PII masking is implemented but does not cover KB content. See review SEC-1.
-**Depends on:** Nothing; circuit-breaker is a one-line config change.
-
-### Regex DoS length guard in sanitization
-**What:** Add an explicit length check (≤ 50,000 chars) before running the `_ANGLE_DIRECTIVE_RE` pattern in `api/utils/sanitization.py`. The `re.DOTALL` + `.*?` combination can backtrack catastrophically on adversarial input.
-**Why:** Document chunk size currently caps this in practice, but the guarantee is implicit. Making it explicit is a two-line fix and prevents the assumption from breaking silently if chunk sizes change. See review SEC-2.
-**Depends on:** Nothing.
+**Depends on:** DPA/legal review and an owner for policy sign-off.
 
 ### Basic multi-user edit protection
 **What:** Add optimistic locking or version checks on structured KB writes so concurrent counselors do not silently overwrite each other.
@@ -60,45 +59,10 @@ Recently archived:
 
 ## Next
 
-### Circuit breaker and retry backoff on Claude API calls
-**What:** Wrap all Anthropic SDK calls in `api/services/llm.py` with `tenacity` retry logic (3 attempts, exponential backoff 2–10 s) on `APITimeoutError`. Add a circuit-breaker so repeated failures stop generating new calls rather than queuing them.
-**Why:** A degraded Anthropic API currently exhausts the uvicorn thread pool with blocked coroutines, causing cascading latency across all endpoints. See review PERF-1.
-**Depends on:** Nothing; `tenacity` is a small addition to `pyproject.toml`.
-
-### Graceful ThreadPool shutdown in lifespan
-**What:** In `api/main.py` lifespan teardown, call `shutdown(wait=True)` on `_INSIGHT_EXECUTOR` (chat_router) and `_SESSION_INTENTS_EXECUTOR` (session_router) so in-flight YAML writes complete before the container exits on SIGTERM.
-**Why:** Background tasks are currently killed mid-write on container shutdown, risking partial session or insight records. See review PERF-2.
-**Depends on:** Nothing.
-
-### JSON repair audit trail
-**What:** When `api/services/llm_json.py` invokes Claude to repair malformed structured output, log the before/after diff and surface a `was_repaired: bool` flag in the response so the caller can warn the counsellor.
-**Why:** A repair pass can hallucinate field values (invented salary ranges, alumnus names) that pass schema validation while being factually wrong. Without a diff there is no way to audit what changed. See review LOGIC-1.
-**Depends on:** Nothing.
-
-### YAML file permissions after atomic write
-**What:** In `api/services/shared_yaml.py`, call `path.chmod(0o600)` immediately after the atomic `replace()` so career profile and employer YAMLs are owner-readable only.
-**Why:** The atomic write correctly prevents partial files on crash but inherits the process umask (typically `0022`, world-readable). Career profiles contain salary guidance that should not be world-readable on shared hosts. See review LOGIC-2.
-**Depends on:** Nothing; trivial one-liner.
-
-### End-to-end prompt injection pipeline tests
-**What:** Add parametrized tests that send adversarial payloads through the full `/api/ingest` → vector store → `/api/chat` pipeline and assert the injected directives do not appear in responses.
-**Why:** `sanitize_text()` is unit-tested in isolation but there are no tests verifying that injected content is neutralized end-to-end. See review TEST-1.
-**Depends on:** Nothing.
-
-### Automated dependency scanning (Dependabot)
-**What:** Add `.github/dependabot.yml` with weekly pip scanning of `/api`.
-**Why:** There is no automated alert path for CVEs in pinned packages (`anthropic`, `pypdf`, `fastapi`, `pydantic`). A silent vulnerability in any of these would require manual discovery. See review TEST-4.
-**Depends on:** GitHub repository settings (Dependabot must be enabled at the org level).
-
-### Security header integration tests
-**What:** Add tests asserting that `X-Content-Type-Options`, `X-Frame-Options`, and `Content-Security-Policy` headers are present on real HTTP responses from the test client.
-**Why:** Security headers are set by middleware, but no tests verify they survive the middleware registration order. A future middleware addition could silently drop them. See review TEST-5.
-**Depends on:** Nothing.
-
 ### Path to multi-instance scaling
 **What:** Replace file-based query log with CloudWatch Logs or SQS; move Qdrant to standalone container; remove `WEB_CONCURRENCY=1` constraint.
 **Why:** Single-worker constraint blocks horizontal scaling; file-based log corrupts with multiple writers.
-**Depends on:** Infrastructure decision (managed Qdrant vs sidecar). Prerequisite: "Enforce single-worker constraint at startup" in Now.
+**Depends on:** Infrastructure decision (managed Qdrant vs sidecar). Prerequisite: the shipped single-worker startup guard in `api/main.py`.
 
 ### Stale chunk deprecation on employer entity update
 **What:** When an employer entity changes, scan for stale Qdrant chunks and surface them for deletion.
@@ -124,8 +88,8 @@ Recently archived:
 ## Later
 
 ### Restructure `test_kb_router.py` into focused modules
-**What:** Split `api/tests/test_kb_router.py` (73K lines) into `test_kb_analysis.py`, `test_kb_commit.py`, and `test_kb_health.py`. Replace repeated assertion patterns with `@pytest.mark.parametrize`.
-**Why:** A single 73K-line test file is unmaintainable and slows navigation. Restructuring before further test additions reduces long-term debt. See review TEST-3.
+**What:** Split `api/tests/test_kb_router.py` (~1,958 lines) into `test_kb_analysis.py`, `test_kb_commit.py`, and `test_kb_health.py`. Replace repeated assertion patterns with `@pytest.mark.parametrize`.
+**Why:** A single ~2K-line test file is already hard to navigate and keeps growing. Restructuring before further test additions reduces long-term debt. See review TEST-3.
 **Depends on:** Nothing; pure test reorganization, no logic change.
 
 ### Re-ingest documents with improved chunking
@@ -148,6 +112,7 @@ Recently archived:
 All completed items are documented in the archived sprint files under `docs/archived/`. Key milestones:
 
 - **2026-05-10** UX Polish Sprint — header polish, optimistic session creation, SessionInbox regression pass
+- **2026-05-15** Security/reliability close-out — single-worker startup guard, magic-byte upload validation, Langfuse kill switch, YAML permission hardening, graceful executor shutdown, JSON repair audit trail, Dependabot, and security-header coverage
 - **2026-05-09** Session pipeline stabilization, alumni career-trajectory fields, router split (Phase 2)
 - **2026-05-06** Code Quality Finish — `llm.py` decomposition (Phase 3), E1 accuracy report, F3 alumni verification, Langfuse eval-sync, cosine→keyword career-type switching, employer context token budget
 - **2026-05-04** Langfuse observability — workflow summary/detail, admin debugging, session grouping, Trace Explorer
