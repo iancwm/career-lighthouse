@@ -5,6 +5,24 @@ Use this file for significant shipped feature changes, not active planning or sp
 
 ## [Unreleased]
 
+### Security & Reliability (2026-05-15 sprint — all items shipped)
+
+#### Added
+- **Magic-byte file type validation on uploads**: `python-magic` reads the first 2 KB of every upload and validates the real MIME type before any parsing; a renamed `.exe` file returns HTTP 415 immediately instead of being passed to `pypdf` or `python-docx`.
+- **Langfuse kill switch**: set `LANGFUSE_ENABLED=false` to disable all remote tracing without a code change — useful for compliance audits and local-only runs.
+- **Dependabot weekly pip scanning**: `.github/dependabot.yml` scans `/api` Python dependencies every Monday and opens up to 5 PRs automatically when CVEs surface in pinned packages.
+- **End-to-end prompt-injection pipeline tests**: `api/tests/test_prompt_injection_e2e.py` now covers both ingest-time sanitization and chat-time LLM prompt construction; six adversarial payloads are asserted absent from stored chunks and from the final LLM system/user prompt.
+- **Security header integration tests**: `api/tests/test_security_headers.py` asserts `X-Content-Type-Options`, `X-Frame-Options`, and `Content-Security-Policy` are present on live FastAPI test-client responses.
+
+#### Changed
+- **Single-worker startup guard hardened**: `WEB_CONCURRENCY > 1` now calls `sys.exit()` instead of logging a warning — misconfigured deployments fail loudly rather than silently corrupting file-based storage.
+- **YAML file permissions tightened**: every atomic YAML write now applies `chmod 0o600` after the temp-file replace, so career profiles and session files are owner-readable only.
+- **Sanitization ReDoS guard**: `sanitize_text()` raises `ValueError` for inputs exceeding 50,000 characters before running the `re.DOTALL` angle-directive regex, making the size cap a hard code-level guarantee.
+- **Graceful executor shutdown on SIGTERM**: lifespan teardown now calls `executor.shutdown(wait=True)` on both background write thread pools so in-flight YAML writes complete cleanly before the process exits.
+- **JSON repair audit trail**: `llm_json.py` logs a unified diff of before/after when Claude repairs malformed structured output, and callers receive a `was_repaired` flag for downstream auditing.
+
+---
+
 ### Added
 - **Session auto-analysis on creation**: `SessionInbox.tsx` now immediately fires `POST /{id}/analyze` after creating a session, injects an optimistic in-progress row, and shows a persistent `"Processing your notes…"` notice — no manual retry needed. Polling drops to 4 s while any session is actively analyzing (was a fixed 30 s), so status transitions appear near-instantly.
 - **Langfuse eval-dataset sync script**: `scripts/sync_langfuse_eval_dataset.py` upserts the canonical `api/tests/fixtures/eval_queries.jsonl` fixtures into a Langfuse dataset. `--dry-run` is safe without any env vars. Operator guide at `docs/archived/sprint_cq_finish/langfuse_eval_sync.md`.

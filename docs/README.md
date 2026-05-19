@@ -25,6 +25,6 @@ Keep repo documentation updates in one of these three places:
 
 ## Current State
 
-- Active sprint: [SPRINT-SECURITY-RELIABILITY-2026-05-15.md](/home/iancwm/git/career-lighthouse/docs/SPRINT-SECURITY-RELIABILITY-2026-05-15.md:1).
-- The most recent completed sprint is [SPRINT-UX-POLISH-2026-05-10.md](/home/iancwm/git/career-lighthouse/docs/archived/SPRINT-UX-POLISH-2026-05-10.md:1).
-- Other archived top-level sprint docs include [SPRINT-UX-WORKSPACE-CLARITY.md](/home/iancwm/git/career-lighthouse/docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md:1) and [SPRINT-LAUNCH-READINESS.md](/home/iancwm/git/career-lighthouse/docs/archived/SPRINT-LAUNCH-READINESS.md:1).
+- No active sprint. The backlog lives in `TODOS.md`.
+- The most recent completed sprint is [SPRINT-SECURITY-RELIABILITY-2026-05-15.md](archived/SPRINT-SECURITY-RELIABILITY-2026-05-15.md) — all 10 security/reliability/test items shipped and archived 2026-05-20.
+- Other archived top-level sprint docs include [SPRINT-UX-POLISH-2026-05-10.md](archived/SPRINT-UX-POLISH-2026-05-10.md), [SPRINT-UX-WORKSPACE-CLARITY.md](archived/SPRINT-UX-WORKSPACE-CLARITY.md), and [SPRINT-LAUNCH-READINESS.md](archived/SPRINT-LAUNCH-READINESS.md).

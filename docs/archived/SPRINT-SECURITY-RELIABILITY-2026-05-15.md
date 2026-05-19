@@ -2,14 +2,13 @@
 
 **Date:** 2026-05-15
 **Branch:** `claude/address-todos-gwShn`
-**Status:** IN PROGRESS
+**Status:** COMPLETE
 
 ## Verification snapshot
 
 Verified against `main` on 2026-05-19:
 
-- **Shipped:** S1-S4, R1-R3, T1, and T2 are implemented in repo code and tests.
-- **Still open:** T3 is only partially landed. `api/tests/test_prompt_injection_e2e.py` verifies ingest-time sanitization, but it does not yet drive `/api/chat` or assert that retrieved dirty chunks cannot affect the final LLM prompt/response path.
+- **Shipped:** S1-S4, R1-R3, T1, T2, and T3 are implemented in repo code and tests. All sprint items are complete.
 
 ## What we're fixing
 
@@ -208,7 +207,7 @@ updates:
 
 ### T3 · End-to-end prompt injection pipeline tests
 **File:** `api/tests/test_prompt_injection_e2e.py` (new file)
-**Status:** Partial — ingest-time coverage landed; `/api/chat` coverage is still missing.
+**Status:** Complete — ingest-time and `/api/chat` coverage both landed (2026-05-19).
 **What:** Keep the existing ingest assertions, then add the missing `/api/chat` leg so adversarial payloads flow through retrieval and the test proves the injected directives do not reach the final LLM prompt or response.
 **Why:** `sanitize_text()` is now covered at ingest time, but the sprint goal was an end-to-end guarantee across both ingest and chat. That last assertion still does not exist. (TEST-1)
 **Effort:** M — requires a test fixture that stubs Qdrant and the LLM response but exercises the real sanitization and retrieval pipeline.

@@ -152,3 +152,78 @@ def test_ingest_pipeline_sanitizes_before_storage(in_memory_qdrant, mock_embedde
         assert payload.lower() not in text.lower(), (
             f"Payload {payload!r} found verbatim in stored chunk after ingest"
         )
+
+
+# ---------------------------------------------------------------------------
+# Part 3: chat-time — injections don't reach the LLM prompt after clean ingest
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("payload", INJECTION_PAYLOADS)
+def test_chat_prompt_clean_after_sanitized_ingest(in_memory_qdrant, mock_embedder, payload):
+    """Full pipeline: ingest (with sanitization) → retrieve → chat → LLM prompt must be clean.
+
+    The ingest pipeline strips injection directives before storing chunks.
+    This test proves that those clean chunks, when retrieved at chat time,
+    do not reintroduce the injection into the LLM system/user prompt.
+    """
+    import services.llm as llm_module
+    from main import app
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+    import dependencies
+
+    # Step 1: ingest a document containing the injection — sanitization fires here.
+    ingest_client, store = _make_ingest_client(in_memory_qdrant, mock_embedder)
+    body = f"Useful career tips for students.\n\n{payload}\n\nMore useful content here."
+    r = ingest_client.post(
+        "/api/ingest",
+        files={"file": ("tips.txt", body.encode(), "text/plain")},
+    )
+    assert r.status_code == 200, r.text
+
+    # Step 2: wire chat dependencies to the same (now-clean) store.
+    mock_embedder.encode.return_value = np.ones(384, dtype=np.float32)
+
+    mock_profile_store = MagicMock()
+    mock_profile_store.get_profile.return_value = None
+    mock_profile_store.match_career_type.return_value = None
+    mock_profile_store.match_career_type_keywords.return_value = None
+
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_profile_store
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    # Step 3: intercept the LLM call to capture the exact prompt sent.
+    captured: list[dict] = []
+
+    def _fake_call(**kwargs):
+        captured.append({"system": kwargs.get("system", ""), "messages": kwargs.get("messages", [])})
+        mock_resp = MagicMock()
+        mock_resp.content = [MagicMock(text="Safe career advice.")]
+        return mock_resp
+
+    with patch.object(llm_module, "_call_with_trace", side_effect=_fake_call):
+        chat_client = TestClient(app)
+        r = chat_client.post(
+            "/api/chat",
+            json={"message": "How do I apply?", "resume_text": None, "history": []},
+        )
+
+    assert r.status_code == 200, r.text
+    assert captured, "_call_with_trace was never called — test setup is broken"
+
+    # Step 4: assert the injection payload is absent from every prompt section.
+    for call in captured:
+        system = call["system"]
+        user_content = " ".join(m.get("content", "") for m in call["messages"])
+        full_prompt = system + " " + user_content
+        assert payload.lower() not in full_prompt.lower(), (
+            f"Injection {payload!r} leaked into LLM prompt after sanitized ingest.\n"
+            f"System (first 300): {system[:300]!r}\n"
+            f"User (first 300): {user_content[:300]!r}"
+        )

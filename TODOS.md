@@ -19,14 +19,9 @@ Recently archived:
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
 
 Active sprint planning:
-- `docs/SPRINT-SECURITY-RELIABILITY-2026-05-15.md` — current security/reliability close-out sprint. Most code-level hardening items have shipped; the remaining open work is Claude retry/circuit-breaker handling plus the missing `/api/chat` leg of prompt-injection coverage.
+- `docs/archived/SPRINT-SECURITY-RELIABILITY-2026-05-15.md` — security/reliability close-out sprint. All 10 items (S1-S4, R1-R3, T1-T3) are complete and the sprint doc has been archived.
 
 ## Now
-
-### Complete `/api/chat` coverage in prompt-injection pipeline tests
-**What:** Extend `api/tests/test_prompt_injection_e2e.py` so it actually exercises `/api/chat` with retrieved dirty chunks and asserts injected directives do not reach the LLM system prompt or the final response.
-**Why:** The test file exists, but today it only verifies ingest-time sanitization. The chat-time helper is stubbed out without a corresponding assertion, so the end-to-end guarantee is incomplete.
-**Depends on:** Nothing.
 
 ### Circuit breaker and retry backoff on Claude API calls
 **What:** Wrap all Anthropic SDK calls in `api/services/llm.py` with `tenacity` retry logic (3 attempts, exponential backoff 2–10 s) on `APITimeoutError`. Add a circuit-breaker so repeated failures stop generating new calls rather than queuing them.
@@ -112,6 +107,7 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 All completed items are documented in the archived sprint files under `docs/archived/`. Key milestones:
 
 - **2026-05-10** UX Polish Sprint — header polish, optimistic session creation, SessionInbox regression pass
+- **2026-05-20** Security/reliability sprint T3 complete — end-to-end prompt-injection pipeline tests now cover both ingest-time sanitization and chat-time LLM prompt construction
 - **2026-05-15** Security/reliability close-out — single-worker startup guard, magic-byte upload validation, Langfuse kill switch, YAML permission hardening, graceful executor shutdown, JSON repair audit trail, Dependabot, and security-header coverage
 - **2026-05-09** Session pipeline stabilization, alumni career-trajectory fields, router split (Phase 2)
 - **2026-05-06** Code Quality Finish — `llm.py` decomposition (Phase 3), E1 accuracy report, F3 alumni verification, Langfuse eval-sync, cosine→keyword career-type switching, employer context token budget
