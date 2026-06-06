@@ -13,6 +13,7 @@ All prompts and model parameters are loaded from cfg/ YAML files.
 import json
 import logging
 import re
+import time
 import uuid
 from dataclasses import dataclass, field
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,14 @@ from contextlib import nullcontext
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Hashable
+
+from tenacity import (
+    Retrying,
+    before_sleep_log,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 import anthropic
 from fastapi import HTTPException
@@ -73,6 +82,14 @@ from cfg import model_cfg, kb_cfg, prompts_cfg
 logger = logging.getLogger(__name__)
 
 _clients: dict[int, anthropic.Anthropic] = {}
+
+# Circuit breaker state — opens after _CB_FAILURE_THRESHOLD consecutive failures
+# and rejects new calls until the cooldown expires.
+_cb_failure_count: int = 0
+_cb_open_until: float = 0.0
+_CB_FAILURE_THRESHOLD = 5
+_CB_COOLDOWN_SECONDS = 30.0
+
 _langfuse_client = None
 _langfuse_client_config: tuple | None = None
 _langfuse_class = None
@@ -250,24 +267,67 @@ def get_client(max_retries: int = 2):
     return client
 
 
+def _check_circuit_breaker() -> None:
+    if time.monotonic() < _cb_open_until:
+        raise HTTPException(status_code=503, detail="LLM service temporarily unavailable")
+
+
+def _record_cb_success() -> None:
+    global _cb_failure_count, _cb_open_until
+    _cb_failure_count = 0
+    _cb_open_until = 0.0
+
+
+def _record_cb_failure() -> None:
+    global _cb_failure_count, _cb_open_until
+    _cb_failure_count += 1
+    if _cb_failure_count >= _CB_FAILURE_THRESHOLD:
+        _cb_open_until = time.monotonic() + _CB_COOLDOWN_SECONDS
+        logger.error(
+            "LLM circuit breaker opened after %d consecutive failures; "
+            "blocking new calls for %.0fs",
+            _cb_failure_count,
+            _CB_COOLDOWN_SECONDS,
+        )
+
+
+def _create_with_retry(client: anthropic.Anthropic, **kwargs) -> object:
+    """Call client.messages.create with tenacity retry on APITimeoutError.
+
+    3 attempts, exponential backoff 2–10s. Re-raises on exhaustion.
+    """
+    retryer = Retrying(
+        retry=retry_if_exception_type(anthropic.APITimeoutError),
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True,
+    )
+    return retryer(client.messages.create, **kwargs)
+
+
 def _safe_create(
     *, timeout_seconds: float | None = None, max_retries: int | None = None, **kwargs
 ):
-    """Call client.messages.create() with timeout/connection error handling.
+    """Call client.messages.create() with retry backoff and circuit-breaker protection.
 
-    Raises HTTP 504 on timeout and HTTP 502 on connection failure so callers
-    receive a structured error response instead of hanging workers.
+    Retries on APITimeoutError (3 attempts, exponential backoff 2–10s).
+    Opens circuit after _CB_FAILURE_THRESHOLD consecutive failures.
+    Raises HTTP 503 when circuit is open, 504 on timeout, 502 on connection failure.
     """
+    _check_circuit_breaker()
     if timeout_seconds is not None:
         kwargs["timeout"] = timeout_seconds
+    client = get_client() if max_retries is None else get_client(max_retries=max_retries)
     try:
-        client = (
-            get_client() if max_retries is None else get_client(max_retries=max_retries)
-        )
-        return client.messages.create(**kwargs)
+        result = _create_with_retry(client, **kwargs)
+        _record_cb_success()
+        return result
     except anthropic.APITimeoutError:
+        _record_cb_failure()
         raise HTTPException(status_code=504, detail="LLM service timeout")
     except anthropic.APIConnectionError:
+        _record_cb_failure()
         raise HTTPException(status_code=502, detail="LLM service unavailable")
 
 

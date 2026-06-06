@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml==6.0.3",
     "qdrant-client==1.11.1",
     "sentence-transformers==3.1.1",
+    "tenacity>=8.2.0",
     "uvicorn[standard]==0.30.6",
 ]
 
