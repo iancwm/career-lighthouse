@@ -23,11 +23,6 @@ Active sprint planning:
 
 ## Now
 
-### Circuit breaker and retry backoff on Claude API calls
-**What:** Wrap all Anthropic SDK calls in `api/services/llm.py` with `tenacity` retry logic (3 attempts, exponential backoff 2–10 s) on `APITimeoutError`. Add a circuit-breaker so repeated failures stop generating new calls rather than queuing them.
-**Why:** A degraded Anthropic API currently exhausts the uvicorn thread pool with blocked coroutines, causing cascading latency across all endpoints. See review PERF-1.
-**Depends on:** Nothing; `tenacity` is a small addition to `pyproject.toml`.
-
 ### Blocked or decision-gated launch risk
 These remain top-tier risks, but they need upstream decisions or broader model changes before they become a good execution sprint.
 
@@ -106,6 +101,7 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 
 All completed items are documented in the archived sprint files under `docs/archived/`. Key milestones:
 
+- **2026-06-06** Circuit breaker + tenacity retry — `_safe_create` in `llm.py` now retries `APITimeoutError` (3 attempts, exp backoff 2–10s) and opens circuit after 5 consecutive failures
 - **2026-05-10** UX Polish Sprint — header polish, optimistic session creation, SessionInbox regression pass
 - **2026-05-20** Security/reliability sprint T3 complete — end-to-end prompt-injection pipeline tests now cover both ingest-time sanitization and chat-time LLM prompt construction
 - **2026-05-15** Security/reliability close-out — single-worker startup guard, magic-byte upload validation, Langfuse kill switch, YAML permission hardening, graceful executor shutdown, JSON repair audit trail, Dependabot, and security-header coverage
