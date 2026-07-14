@@ -1,0 +1,91 @@
+# Ontology & Metadata Layer — Evaluation Plan
+
+Status: plan only, no production code changed.
+
+## 1. Existing evaluation precedent to reuse
+
+The repo already has a gold-fixture evaluation convention, established for KB retrieval quality:
+
+- `api/tests/fixtures/eval_queries.jsonl` — one JSON object per line, each a query plus expected-answer assertions (`expected_employer`, `expected_track`, `should_not_say_no_info`).
+- `scripts/sync_langfuse_eval_dataset.py` — syncs the fixture file into a Langfuse dataset for online eval tracking, with a `--dry-run` mode that works without Langfuse credentials.
+- `docs/archived/sprint_cq_finish/E1_accuracy_report.md` — a hand-written accuracy report against three real employer-note inputs (Grab, DBS, Accenture) with an explicit ≥80% field-accuracy rubric.
+
+The ontology evaluation plan follows this exact shape rather than introducing a new methodology: a new gold-fixture file, a scoring script, and a written accuracy report, all under the same directories the repo already uses for eval artifacts.
+
+## 2. Gold dataset
+
+New fixture: `api/tests/fixtures/ontology_gold_claims.jsonl`. Each line is one **source document** (not one query) paired with the claims a human reviewer expects the pipeline to produce from it:
+
+```json
+{
+  "source_id": "goldman-singapore-guide.txt",
+  "source_kind": "counsellor_note",
+  "authority_tier": "internal_counsellor",
+  "text_ref": "demo-data/goldman-singapore-guide.txt",
+  "expected_claims": [
+    {
+      "claim_type": "recruitment_stage",
+      "subject_entity_name": "Goldman Sachs Singapore",
+      "payload": {"stage_name": "HireVue video interview", "sequence": 2, "stage_type": "recruiter_screen", "modality": "video"},
+      "scope": {"organization_unit_id": null, "programme_id": null},
+      "must_be_evidence_grounded": true
+    }
+  ],
+  "expected_non_claims": [
+    "GS Singapore culture is intense — should NOT become a global Goldman Sachs employer-wide policy claim; source is SG-specific"
+  ]
+}
+```
+
+`expected_non_claims` captures the spec's overgeneralization risks directly (SG-specific → global, one role's process → all roles) as explicit negative test cases, not just positive coverage.
+
+### 2.1 Source material for the initial dataset (spec-required categories → concrete repo files)
+
+| Spec category | Source in this repo |
+|---|---|
+| Official employer information | `knowledge/employers/goldman_sachs.yaml`, `stripe_singapore.yaml` `notes`/`application_process` fields |
+| Counsellor notes | `demo-data/goldman-singapore-guide.txt`, `demo-data/gic-recruiting-guide.txt`, `demo-data/big-four-recruiting.txt` |
+| Alumni notes | `demo-data/smu-alumni-paths.txt`, `demo-data/networking-and-coffee-chats.txt` |
+| Compensation information | Salary figures embedded in `demo-data/goldman-singapore-guide.txt` and `knowledge/draft_tracks/*.yaml` `salary_range_2024`/`salary_levels` |
+| Interview processes | `demo-data/goldman-singapore-guide.txt` (Superday process), `demo-data/consulting-paths.txt` |
+| Application windows | `demo-data/goldman-singapore-guide.txt` ("September deadline for summer analyst") |
+| Ambiguous organization/programme names | Constructed pair: "MITB" appears in `stripe_singapore.yaml`'s `application_process` field meaning "Master of IT in Business" — a fixture item should test that this does not collide with an unrelated "MITB" acronym elsewhere, since employer notes freely use programme abbreviations without disambiguation today |
+| Contradictory/stale information | Constructed: two source snippets giving different EP-sponsorship guidance for the same employer at different dates, to exercise `assertion_status="contradicted"` and `lifecycle="superseded"` |
+
+Where the spec's category has no natural repo source (ambiguous names, contradictions), the dataset includes **hand-authored fixture text**, clearly marked as synthetic in the fixture file (`"synthetic": true`), rather than waiting for real data to surface these cases. This mirrors how `test_prompt_injection_e2e.py` already uses hand-authored adversarial payloads rather than only real-world ones.
+
+### 2.2 Dataset size for Milestone 1
+
+10-15 source documents, chosen to cover both Milestone-1 claim types (`application_window`, `recruitment_stage`) with at least 3 items per spec category above. This is intentionally small — large enough to catch systematic errors, small enough for a human to hand-score every item after each pipeline change (per the E1 report's precedent of 3 real inputs scored by hand). Expand once Milestone 1's claim-type coverage grows.
+
+## 3. Evaluation categories and how each is scored
+
+| Category | Definition | Scoring method |
+|---|---|---|
+| Entity detection | Did Stage 1 find the mentions a human would find? | Precision/recall of `mention.text` spans against hand-labeled spans in the fixture |
+| Entity resolution | Did Stage 2 resolve mentions to the right `entity_id`, or correctly flag ambiguity/new? | Exact match of `resolution_status` + `resolved_entity_id` against fixture expectation |
+| Claim extraction | Did Stage 3 produce the expected `claim_type` + core payload fields? | Field-level match against `expected_claims[].payload`, same ≥80% threshold rubric as `E1_accuracy_report.md` |
+| Relation accuracy | Is `subject_entity_id`/`object_entity_id` correct? | Exact match against fixture |
+| Scope accuracy | Does `scope` correctly narrow (or correctly *not* narrow) per `expected_non_claims`? | Boolean: did the pipeline avoid every listed overgeneralization? |
+| Temporal accuracy | Is `valid_time`/`observation_time`/`date_precision` classified correctly (e.g., "September deadline" → `month` precision, not `exact_date`)? | Exact match against fixture |
+| Evidence grounding | Is every claim's evidence excerpt an exact substring of the source document? | Automated: `excerpt in source_text` — see `test_ontology_extraction.py` in `ONTOLOGY-DESIGN.md` §9, run here as an eval-time check with a pass rate reported rather than a pytest assertion |
+| Duplicate detection | Does Stage 4 recognize a second extraction pass over the same source doesn't create a second identical claim? | Re-run the pipeline twice over the same fixture; assert `claim_id` sets are equal (idempotency, per the deterministic-hash `claim_id` design) |
+| Contradiction detection | Does Stage 4 flag the contradictory-source fixture item as `contradicted` rather than silently adding a second `active` claim? | Exact match against the contradiction fixture item's expected `assertion_status` |
+| Unsupported-claim rate | % of produced claims whose evidence does NOT actually support them, per human review | Manual review pass over every claim produced from the gold set, logged in the accuracy report (below) |
+
+## 4. Primary quality metric
+
+**% of extracted claims that are valid (schema-passing), correctly scoped (no `expected_non_claims` violations), and directly evidence-grounded (excerpt substring-verified).**
+
+Computed as: `valid_and_grounded_claims / total_claims_produced`, run over the full gold set after every extraction-pipeline change. Target for Milestone 1 sign-off: **≥80%**, matching the field-accuracy bar already established in `E1_accuracy_report.md` for `extract_facts_from_prose` — the new pipeline should not ship at a lower bar than the one it's improving on, and comparing against the same threshold lets the two be compared meaningfully.
+
+## 5. Deliverables
+
+- `api/tests/fixtures/ontology_gold_claims.jsonl` — the gold dataset (§2).
+- `scripts/eval_ontology_claims.py` — reads the gold fixture, runs the Stage 1-4 pipeline (no LLM calls skipped — this is an integration eval, not a unit test) against each `text_ref`, computes the category scores in §3 and the primary metric in §4, and writes a report. Mirrors `sync_langfuse_eval_dataset.py`'s CLI shape (`--dry-run` supported by simply not writing the report file).
+- `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md` (written once Milestone 1's pipeline exists and is run against the gold set — not authored speculatively in this planning pass, since it must report real numbers) — follows `E1_accuracy_report.md`'s format: methodology, per-category scores, primary metric, and a short list of prompt-refinement candidates for the next iteration.
+- Optional: sync the gold set into the existing Langfuse eval dataset infrastructure (`LANGFUSE_EVAL_DATASET`) as a second dataset (`career-lighthouse-ontology-evals`) once online tracking is wanted — deferred to a later milestone, not required for Milestone 1 sign-off.
+
+## 6. What this evaluation plan deliberately does not cover
+
+Per the spec's non-goals, this plan does not build an ontology-quality dashboard, does not wire evaluation into CI as a blocking gate (the existing pytest suite blocking gate is unaffected — see `MIGRATION-PLAN.md` §1 invariant 4), and does not attempt statistical significance testing given the intentionally small (10-15 item) Milestone-1 gold set. These are reasonable follow-ups once claim-type coverage and real usage volume justify the investment.
