@@ -46,6 +46,20 @@ Two concrete instances found while inspecting `knowledge/employers/stripe_singap
 
 Recommendation: fix the `counsellor_contact`/`counselor_contact` spelling mismatch as a small, separate PR before or alongside Milestone 1 — it is unrelated to the ontology work but was found during this assessment and is cheap to fix.
 
+3. **`knowledge/employers/deloitte.yaml` and `knowledge/employers/deloitte_singapore.yaml` are two unreconciled records for what is plausibly the same organization** — different slugs (`deloitte` vs. `deloitte_singapore`), different `tracks` lists (`consulting`/`model_validation_risk` vs. `management_consulting`/`sustainability_esg`), no cross-reference between them. This is not a hypothetical entity-resolution edge case for the ontology design to plan around in the abstract — it is live production data demonstrating that "same organization, different name variant" collisions already exist and are already unresolved under the current slug-as-identity model. See ONTOLOGY-DESIGN.md §5 and §11 for why this materially raises the risk on Stage 2 (entity resolution).
+
+## 3a. Config loading is import-time, not request-time (relevant to any future flag-gated rollout)
+
+`api/cfg.py` loads every `api/cfg/*.yaml` file exactly once, at module import:
+
+```python
+kb_cfg = _load("kb.yaml")   # api/cfg.py:22 — read once at process start, never re-read
+```
+
+Every consumer of `kb_cfg` — whether the read happens at module level (`employer_store.py:37`'s `_COMPLETENESS_REQUIRED = frozenset(kb_cfg[...])`) or inside a function body called per-request (`employer_store.py:133`'s `max_notes = kb_cfg["employers"]["context_block"]["max_notes_chars"]`) — is reading the same in-memory dict populated at process boot. **Editing `kb.yaml` on disk has no effect until the process restarts.** There is no hot-reload, file-watch, or per-request re-read anywhere in the config-loading path.
+
+This matters directly for ONTOLOGY-DESIGN.md's proposed `ontology.extraction_enabled` / `ontology.pilot_employer_slugs` feature flags: toggling them requires a redeploy/restart, not just a config edit, and any rollback plan that assumes otherwise is wrong. Corrected in MIGRATION-PLAN.md §4.
+
 ## 3. Entity identity today
 
 There is no entity table anywhere. Every "entity" is implicitly identified by a YAML filename stem:
