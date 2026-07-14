@@ -25,6 +25,7 @@ Keep repo documentation updates in one of these three places:
 
 ## Current State
 
-- No active sprint. The backlog lives in `TODOS.md`.
+- Active design work: `docs/ontology/` holds the ontology & metadata layer design set (repository assessment, ontology design, migration plan, evaluation plan, and Milestone 1 scope) for typed claims/evidence/entities. Design only — no production code has shipped from it yet.
+- No active sprint beyond the above. The backlog lives in `TODOS.md`.
 - The most recent completed sprint is [SPRINT-SECURITY-RELIABILITY-2026-05-15.md](archived/SPRINT-SECURITY-RELIABILITY-2026-05-15.md) — all 10 security/reliability/test items shipped and archived 2026-05-20.
 - Other archived top-level sprint docs include [SPRINT-UX-POLISH-2026-05-10.md](archived/SPRINT-UX-POLISH-2026-05-10.md), [SPRINT-UX-WORKSPACE-CLARITY.md](archived/SPRINT-UX-WORKSPACE-CLARITY.md), and [SPRINT-LAUNCH-READINESS.md](archived/SPRINT-LAUNCH-READINESS.md).
