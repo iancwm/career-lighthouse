@@ -97,6 +97,23 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Why:** Current Terraform has task definition but no service to run it, no HTTPS listener, no auto-scaling, no WAF for rate limiting.
 **Depends on:** AWS infrastructure design decisions.
 
+### Relevance-ordered claim injection in VERIFIED CLAIMS block
+**What:** Sort claims in the VERIFIED CLAIMS block by `claim_type` affinity to the student's query intent before injecting into the LLM prompt.
+**Why:** At pilot scale (<10 claims per employer) file-system iteration order is acceptable. When claims per employer exceed ~15, a student asking about interview prep could receive salary or WFH claims first (injected by file order), with interview-stage claims truncated by the 2,000-char budget cap.
+**Pros:** Students get the most relevant verified facts first; budget truncation cuts irrelevant claims rather than relevant ones.
+**Cons:** Requires query-intent detection (heuristic or lightweight LLM call) — adds latency and complexity to the claim context service.
+**Context:** Claims are currently injected in `ClaimStore` iteration order (YAML file order). The 2,000-char cap (`max_context_chars // 6`) can truncate when claims are verbose or numerous. Registered as a known limitation in `docs/ontology/GROUNDING-DESIGN.md`. Deferred from M2 eng review.
+**Effort:** M (human ~4h / CC ~20min). **Priority:** P3.
+**Depends on:** M2 `ClaimContextService` shipping + pilot data showing ordering causes quality degradation.
+
+### Add TTL cache to EntityStore.list_entities() and ClaimStore.list_claims_for_entity()
+**What:** Add a TTL in-memory cache to `EntityStore.list_entities(entity_type)` and `ClaimStore.list_claims_for_entity()`. Follow the same pattern as `list_docs` TTL cache (shipped 2026-04-28).
+**Why:** At pilot scale (25 entities, 15 claims) file I/O per request is ~10-15ms and acceptable. At 50 concurrent users with 200+ entities and 500+ claims, every NER-fallback chat request triggers 200+ YAML reads per request.
+**Pros:** Maintains the existing YAML-backed file store without infrastructure changes. Pattern already exists.
+**Cons:** In-memory cache is per-process — single-worker constraint must remain (already enforced by startup guard). Stale reads possible if claims are updated between TTL expiry.
+**Effort:** S (human ~2h / CC ~15min). **Priority:** P3.
+**Depends on:** M1 EntityStore and ClaimStore implementation (Milestone 1 must ship first).
+
 ## Done
 
 All completed items are documented in the archived sprint files under `docs/archived/`. Key milestones:
