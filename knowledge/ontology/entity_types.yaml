@@ -1,0 +1,37 @@
+# Entity types for the ontology/metadata layer (Milestone 1).
+#
+# This file is hand-maintained config, NOT read by any runtime code in
+# Milestone 1 — see docs/ontology/ONTOLOGY-DESIGN.md §2 ("create now, wire
+# later"). The single source of truth today is the `EntityType` Literal in
+# api/models_ontology.py; this file exists so the directory layout and value
+# set are stable ahead of a later milestone that wires it into extraction
+# prompts / validators, following the same pattern as api/cfg/kb.yaml's
+# `employers.allowed_update_fields`.
+#
+# Keep this list in sync with api/models_ontology.py's `EntityType` Literal
+# by hand until runtime wiring lands.
+
+entity_types:
+  - name: organization
+    description: A company or employer, e.g. "Stripe Singapore" — the top-level hiring entity.
+
+  - name: organization_unit
+    description: A sub-unit of an organization (team, division, regional office) distinct from the parent org.
+
+  - name: programme
+    description: An academic or training programme, e.g. an MITB track, that produces candidates.
+
+  - name: role
+    description: A job role or position type that an organization hires for.
+
+  - name: career_track
+    description: A career-track taxonomy entry used to group roles/programmes by discipline.
+
+  - name: person
+    description: An individual — alumni, counsellor, or other named person referenced in source material.
+
+  - name: institution
+    description: A school, university, or accrediting body distinct from an employer organization.
+
+  - name: source_document
+    description: A source document itself, represented as an entity so claims/evidence can reference it directly.
