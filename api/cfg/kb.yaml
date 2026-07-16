@@ -37,3 +37,10 @@ ingestion:
 vector_store:
   default_top_k: 5              # default number of nearest-neighbor results returned
   scroll_limit: 10000           # de facto ceiling on indexed chunks that can be listed
+
+# Ontology & metadata layer (Milestone 1) — extraction pipeline feature flag.
+# MUST default to false: the /extract-claims pipeline ships dark until a pilot
+# employer is explicitly enabled. See docs/ontology/ONTOLOGY-DESIGN.md §10.
+ontology:
+  extraction_enabled: false
+  pilot_employer_slugs: []

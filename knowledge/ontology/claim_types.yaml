@@ -1,0 +1,47 @@
+# Claim types for the ontology/metadata layer (Milestone 1).
+#
+# This file is hand-maintained config, NOT read by any runtime code in
+# Milestone 1 — see docs/ontology/ONTOLOGY-DESIGN.md §2 ("create now, wire
+# later"). The single source of truth today is the `ClaimType` Literal in
+# api/models_ontology.py; this file exists so the directory layout and value
+# set are stable ahead of a later milestone that wires it into extraction
+# prompts / validators.
+#
+# `implemented: true` marks the two claim types that actually have a typed
+# `ClaimPayload` member (`ApplicationWindowPayload`, `RecruitmentStagePayload`)
+# and are reachable via the Milestone-1 extraction pipeline. The remaining six
+# are specified in the design doc's field lists but deferred to a later
+# milestone — see docs/ontology/ONTOLOGY-DESIGN.md §1.5 and §12.
+
+claim_types:
+  - name: application_window
+    description: When an organization's/programme's application process opens and closes.
+    implemented: true
+
+  - name: recruitment_stage
+    description: A single stage in a recruitment process (interview, assessment, offer, etc.).
+    implemented: true
+
+  - name: skill_requirement
+    description: A skill or competency an organization/role expects of candidates.
+    implemented: false
+
+  - name: compensation_observation
+    description: An observed or reported compensation figure for a role/organization.
+    implemented: false
+
+  - name: employment_relationship
+    description: A person's employment relationship with an organization (current/former hire).
+    implemented: false
+
+  - name: education_relationship
+    description: A person's relationship with an institution/programme (student, alumni).
+    implemented: false
+
+  - name: programme_offering
+    description: A programme offered by an institution, including intake/format details.
+    implemented: false
+
+  - name: sponsorship_policy
+    description: An organization's employment-pass/visa sponsorship policy.
+    implemented: false

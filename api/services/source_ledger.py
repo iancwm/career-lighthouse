@@ -19,6 +19,7 @@ from typing import Any
 import yaml
 
 from models_kb import SourceStateEvidence, SourceStateSummary
+from models_ontology import SourceMetadata
 from services.runtime_paths import (
     default_source_ledger_dir,
     default_source_ledger_history_dir,
@@ -99,6 +100,22 @@ def _normalize_record(
     record["chunk_count"] = int(record.get("chunk_count") or 0)
     record["archived_at"] = record.get("archived_at")
     record["record_version"] = str(record.get("record_version") or version_stamp())
+
+    # --- Ontology / SourceMetadata extension fields (additive, all optional) ---
+    # See docs/ontology/ONTOLOGY-DESIGN.md §1.2: these fields live directly on the
+    # existing ledger record rather than in a separate store. `SourceMetadata` is
+    # a validation view over this dict (see `SourceLedgerStore.to_source_metadata`).
+    record["source_kind"] = str(record.get("source_kind") or "unknown")
+    record["publisher_name"] = record.get("publisher_name")
+    record["publisher_entity_id"] = record.get("publisher_entity_id")
+    record["published_at"] = record.get("published_at")
+    record["jurisdiction"] = record.get("jurisdiction")
+    record["coverage_geographies"] = list(record.get("coverage_geographies") or [])
+    record["coverage_entity_ids"] = list(record.get("coverage_entity_ids") or [])
+    record["authority_tier"] = str(record.get("authority_tier") or "unknown")
+    record["contains_personal_data"] = bool(record.get("contains_personal_data") or False)
+    record["content_hash"] = record.get("content_hash")
+
     return record
 
 
@@ -212,6 +229,42 @@ class SourceLedgerStore(Singleton):
         self._ensure_loaded()
         record = self._records.get(filename)
         return dict(record) if record else None
+
+    def to_source_metadata(self, filename: str | None) -> SourceMetadata | None:
+        """Build a `SourceMetadata` validation view over the ledger record for `filename`.
+
+        Returns None if no ledger record exists for the given filename. Maps the
+        existing `uploaded_at` field to `SourceMetadata.retrieved_at` (parsed from
+        its ISO string) and `filename` to both `source_id` and `filename` — no
+        separate `retrieved_at` is persisted on the ledger record itself.
+        """
+        record = self.get_record(filename)
+        if record is None:
+            return None
+        uploaded_at = str(record.get("uploaded_at") or _now())
+        try:
+            retrieved_at = datetime.fromisoformat(uploaded_at)
+        except ValueError:
+            retrieved_at = datetime.now(timezone.utc)
+        return SourceMetadata.model_validate(
+            {
+                "source_id": record["filename"],
+                "filename": record["filename"],
+                "source_kind": record.get("source_kind") or "unknown",
+                "publisher_name": record.get("publisher_name"),
+                "publisher_entity_id": record.get("publisher_entity_id"),
+                "published_at": record.get("published_at"),
+                "retrieved_at": retrieved_at,
+                "jurisdiction": record.get("jurisdiction"),
+                "coverage_geographies": record.get("coverage_geographies") or [],
+                "coverage_entity_ids": record.get("coverage_entity_ids") or [],
+                "authority_tier": record.get("authority_tier") or "unknown",
+                "contains_personal_data": bool(record.get("contains_personal_data") or False),
+                "content_hash": record.get("content_hash"),
+                "lifecycle": record.get("lifecycle") or "active",
+                "superseded_by": record.get("superseded_by"),
+            }
+        )
 
     def is_active(self, filename: str | None) -> bool:
         record = self.get_record(filename)

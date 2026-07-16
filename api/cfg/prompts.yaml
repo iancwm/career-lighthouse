@@ -331,3 +331,152 @@ prompts:
     Return ONLY a JSON object with the missing field names as keys.
     Be specific and realistic — use real-world data where possible.
     Do not modify or repeat fields that already exist.
+
+  ontology_mention_extraction: |
+    You are extracting candidate entity mentions and claim-worthy fact spans from
+    a single source document for {school_name}'s career-advising knowledge base.
+    Return ONLY valid JSON. Do not add prose, markdown, or commentary.
+
+    You will be given the exact SOURCE TEXT below. Every offset you return MUST be a
+    character_start/character_end pair into that exact text, counting from 0, such
+    that SOURCE_TEXT[character_start:character_end] reproduces the mention or span
+    verbatim. Do NOT invent or paraphrase text. Do NOT return an "excerpt" field —
+    only offsets; the excerpt is sliced by the caller from your offsets, so incorrect
+    offsets simply produce garbage and will be discarded.
+
+    Two kinds of spans to find:
+    1. Entity mentions: any organization, organization unit, programme, role, career
+       track, person, institution, or source document named in the text. Infer the
+       most specific entity_type you can from this allowed list:
+       organization, organization_unit, programme, role, career_track, person,
+       institution, source_document.
+    2. Claim-worthy fact spans: any short span of text that asserts a concrete,
+       checkable fact about an application window (dates, deadlines, intake cycles)
+       or a recruitment stage (interview rounds, assessment types, process order).
+       Keep each span tight — a sentence or clause, not a whole paragraph.
+
+    Be conservative: only extract a mention or span when the text is genuinely
+    specific. Skip vague or generic statements.
+
+    Output schema:
+    {{
+      "mentions": [
+        {{
+          "text": "<the mention text, for your own reference only>",
+          "entity_type": "organization|organization_unit|programme|role|career_track|person|institution|source_document",
+          "character_start": 0,
+          "character_end": 0
+        }}
+      ],
+      "claim_spans": [
+        {{
+          "character_start": 0,
+          "character_end": 0
+        }}
+      ]
+    }}
+
+    Rules:
+    - character_start and character_end are 0-indexed offsets into the SOURCE TEXT
+      you were given, with character_end exclusive (Python slice semantics).
+    - Every mention and every claim span must correspond to real, contiguous text in
+      the source — never a synthesized or summarized offset.
+    - If nothing qualifies, return empty arrays for "mentions" and/or "claim_spans".
+
+  ontology_claim_extraction: |
+    You are extracting typed claims for {school_name}'s career-advising knowledge base,
+    given a small set of already-resolved entity mentions and evidence spans pulled
+    from a source document (not the full document itself).
+    Return ONLY valid JSON. Do not add prose, markdown, or commentary.
+
+    Only produce claims of these types: {allowed_claim_types}
+
+    You will be given:
+    - SOURCE AUTHORITY: the source's kind and authority tier. Weight anecdotal or
+      internal-counsellor sources conservatively — prefer a lower extraction_confidence
+      and assertion_status of "reported" or "estimated" rather than "asserted" when the
+      source authority is weak.
+    - RESOLVED ENTITIES: a numbered list of entity mentions already resolved against
+      the knowledge base. Reference these ONLY by their index (an integer) as
+      subject_mention_ref / object_mention_ref. Never invent an index that is not in
+      this list.
+    - EVIDENCE SPANS: a numbered list of exact excerpts from the source document.
+      Every claim you produce must cite the index (or indices) of the evidence spans
+      that directly support it via evidence_span_refs. Never cite a span that does not
+      actually support the claim.
+
+    Output schema:
+    {{
+      "claims": [
+        {{
+          "claim_type": "application_window|recruitment_stage",
+          "subject_mention_ref": 0,
+          "object_mention_ref": null,
+          "payload": {{
+            "claim_type": "application_window",
+            "programme_id": null,
+            "opens_on": null,
+            "closes_on": null,
+            "date_precision": "exact_date|month|quarter|approximate",
+            "intake_year": null
+          }},
+          "scope": {{
+            "geography": null,
+            "organization_unit_id": null,
+            "programme_id": null,
+            "role_id": null,
+            "seniority": null,
+            "candidate_segment": null,
+            "academic_year": null
+          }},
+          "assertion_status": "asserted|inferred|estimated|reported",
+          "extraction_confidence": 0.0,
+          "evidence_span_refs": [0]
+        }}
+      ]
+    }}
+
+    For a "recruitment_stage" claim, "payload" instead has the shape:
+    {{
+      "claim_type": "recruitment_stage",
+      "process_id": null,
+      "sequence": null,
+      "stage_name": "<short stage name>",
+      "stage_type": "application|online_assessment|recruiter_screen|technical_interview|case_interview|assessment_centre|final_interview|offer|other",
+      "modality": "online|phone|video|onsite|hybrid|unknown",
+      "duration_minutes": null,
+      "assessed_competencies": []
+    }}
+
+    Rules:
+    - "payload"."claim_type" must exactly match the top-level "claim_type".
+    - Leave scope fields null unless the evidence spans explicitly support that
+      narrower scope — do not guess a geography or organization_unit_id that is not
+      stated. Broader scope defaults are applied by the caller from source metadata,
+      not by you.
+    - subject_mention_ref must index into RESOLVED ENTITIES; do not fabricate a claim
+      about an entity that is not in that list.
+    - If no claim is well-supported by the evidence spans, return an empty "claims" array.
+
+  ontology_claim_verification: |
+    You are a careful fact-checker for {school_name}'s career-advising knowledge base.
+    Return ONLY valid JSON. Do not add prose, markdown, or commentary.
+
+    You will be given one proposed claim (as structured JSON) and the evidence
+    excerpt(s) that are claimed to support it, both copied verbatim from a source
+    document. Decide whether the evidence excerpt(s) plausibly support the claim as
+    stated — not whether the claim is likely true in the world, only whether the cited
+    text actually supports it.
+
+    Output schema:
+    {{
+      "verified": true,
+      "note": "<one short sentence explaining your decision, or null>"
+    }}
+
+    Rules:
+    - Set verified=false if the evidence excerpt(s) do not mention the specific fact
+      asserted in the claim, even if the claim sounds plausible in general.
+    - Set verified=false if the claim's payload contradicts what the evidence excerpt
+      actually says (e.g. a different date or a different stage name).
+    - Be strict: when in doubt, set verified=false and explain why in "note".

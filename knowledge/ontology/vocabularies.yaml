@@ -1,0 +1,62 @@
+# Controlled vocabularies for the ontology/metadata layer (Milestone 1):
+# `SourceKind` and `AuthorityTier` from api/models_ontology.py.
+#
+# This file is hand-maintained config, NOT read by any runtime code in
+# Milestone 1 — see docs/ontology/ONTOLOGY-DESIGN.md §2 ("create now, wire
+# later"). The single source of truth today is the corresponding `Literal`
+# types in api/models_ontology.py; this file exists so the value set is
+# stable ahead of a later milestone that wires it into extraction prompts.
+#
+# `authority_tier` in particular is the rubric ONTOLOGY-DESIGN.md §6
+# references for weighing source reliability during claim extraction and
+# verification — the ordering below (roughly most to least authoritative) is
+# intended to convey that anecdotal/internal_counsellor sources should be
+# weighted conservatively relative to official/institutional ones, not to
+# imply any code currently enforces this ordering.
+
+source_kinds:
+  - name: official_employer_page
+    description: Content published directly by the employer (careers page, official posting).
+
+  - name: institutional_report
+    description: A report or publication from a school/institution (e.g. placement statistics).
+
+  - name: job_posting
+    description: A job listing, whether first- or third-party hosted.
+
+  - name: counsellor_note
+    description: A note authored by an internal counsellor, not sourced from an external document.
+
+  - name: alumni_interview
+    description: Notes or transcript from an interview with an alumni/direct participant.
+
+  - name: student_report
+    description: A report or account submitted by a current student.
+
+  - name: secondary_article
+    description: A third-party article or write-up (e.g. news coverage) not authored by the org/institution.
+
+  - name: unknown
+    description: Source kind not yet classified. Default for records predating this field.
+
+authority_tiers:
+  - name: official_primary
+    description: Directly published by the organization/institution itself — highest confidence.
+
+  - name: institutional_primary
+    description: Published by an accredited institution about itself or its programmes.
+
+  - name: direct_participant
+    description: First-hand account from someone directly involved (e.g. a hired alumnus).
+
+  - name: internal_counsellor
+    description: Internal counsellor observation — weigh conservatively; not independently verified.
+
+  - name: secondary_reputable
+    description: Reputable third-party reporting, not first-hand.
+
+  - name: anecdotal
+    description: Informal, unverified, or secondhand account — weigh most conservatively.
+
+  - name: unknown
+    description: Authority tier not yet classified. Default for records predating this field.

@@ -25,6 +25,7 @@ from routers import (
     ingest_router,
     insights_router,
     kb_admin_router,
+    ontology_router,
     profile_router,
     session_router,
     tracks_router,
@@ -109,6 +110,7 @@ app.include_router(kb_admin_router.router)
 app.include_router(chat_router.router)
 app.include_router(session_router.router)
 app.include_router(insights_router.router)
+app.include_router(ontology_router.router)
 
 
 @app.get("/health")

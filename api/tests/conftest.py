@@ -103,6 +103,30 @@ def reset_source_ledger(monkeypatch, tmp_path):
 # ---------------------------------------------------------------------------
 
 
+@pytest.fixture(autouse=True)
+def reset_ontology_stores(monkeypatch, tmp_path):
+    """Keep the entity/claim/evidence ontology stores isolated to each test case."""
+    monkeypatch.setenv("ONTOLOGY_ENTITIES_DIR", str(tmp_path / "entities"))
+    monkeypatch.setenv("ONTOLOGY_CLAIMS_DIR", str(tmp_path / "claims"))
+    monkeypatch.setenv("ONTOLOGY_EVIDENCE_DIR", str(tmp_path / "evidence"))
+
+    def _reset():
+        for module_name, class_name in (
+            ("services.entity_store", "EntityStore"),
+            ("services.claim_store", "ClaimStore"),
+            ("services.evidence_store", "EvidenceStore"),
+        ):
+            try:
+                module = __import__(module_name, fromlist=[class_name])
+                getattr(module, class_name)._instance = None
+            except Exception:
+                pass
+
+    _reset()
+    yield
+    _reset()
+
+
 @pytest.fixture(scope="module")
 def real_embedder():
     """Real SentenceTransformer embedder — use ONLY in integration tests."""

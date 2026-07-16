@@ -77,6 +77,18 @@ def default_source_ledger_history_dir() -> Path:
     return knowledge_dir("source_ledger_history")
 
 
+def default_ontology_entities_dir() -> Path:
+    return knowledge_dir("entities")
+
+
+def default_ontology_claims_dir() -> Path:
+    return knowledge_dir("claims")
+
+
+def default_ontology_evidence_dir() -> Path:
+    return knowledge_dir("evidence")
+
+
 def default_tracks_version_path() -> Path:
     return repo_root() / "knowledge" / ".tracks-version"
 
@@ -158,6 +170,18 @@ def runtime_storage_targets() -> dict[str, tuple[str, Path]]:
         "SOURCE_LEDGER_HISTORY_DIR": (
             "dir",
             _env_path("SOURCE_LEDGER_HISTORY_DIR", default_source_ledger_history_dir()),
+        ),
+        "ONTOLOGY_ENTITIES_DIR": (
+            "dir",
+            _env_path("ONTOLOGY_ENTITIES_DIR", default_ontology_entities_dir()),
+        ),
+        "ONTOLOGY_CLAIMS_DIR": (
+            "dir",
+            _env_path("ONTOLOGY_CLAIMS_DIR", default_ontology_claims_dir()),
+        ),
+        "ONTOLOGY_EVIDENCE_DIR": (
+            "dir",
+            _env_path("ONTOLOGY_EVIDENCE_DIR", default_ontology_evidence_dir()),
         ),
     }
 

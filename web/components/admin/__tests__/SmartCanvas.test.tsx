@@ -331,4 +331,205 @@ describe("SmartCanvas", () => {
     expect(actionBar.className).toContain("sticky")
     expect(actionBar.className).toContain("bottom-0")
   })
+
+  function claimIntentCard(overrides: Record<string, unknown> = {}) {
+    return {
+      card_id: "card-claim-1",
+      domain: "claim",
+      summary: "application_window claim for Goldman Sachs",
+      raw_input_ref: "employer:goldman_sachs:notes",
+      status: "pending",
+      diff: {
+        claim_type: "application_window",
+        subject_entity_id: "entity-goldman-sachs",
+        subject_mention_text: "Goldman Sachs",
+        object_entity_id: null,
+        object_mention_text: null,
+        payload: {
+          claim_type: "application_window",
+          programme_id: null,
+          opens_on: "2026-08-01",
+          closes_on: "2026-09-30",
+          date_precision: "exact_date",
+          intake_year: 2027,
+        },
+        scope: {
+          geography: "Singapore",
+          organization_unit_id: null,
+          programme_id: null,
+          role_id: null,
+          seniority: null,
+          candidate_segment: null,
+          academic_year: null,
+        },
+        assertion_status: "inferred",
+        confidence: {
+          extraction: 0.82,
+          evidence_strength: 0.82,
+          source_reliability: 0.5,
+        },
+        evidence_ids: ["evidence-1"],
+        evidence_excerpts: ["Applications open August 1 and close September 30 for the 2027 intake."],
+        source_id: "employer:goldman_sachs:notes",
+      },
+      ...overrides,
+    }
+  }
+
+  it("renders the claim card variant with a dedicated summary instead of the generic diff editor", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      if (url.endsWith("/api/admin/api/sessions/session-claim")) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-claim",
+            status: "analyzed",
+            raw_input: "Goldman Sachs application window notes",
+            intent_cards: [claimIntentCard()],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    const { container } = render(<SmartCanvas sessionId="session-claim" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "application_window claim for Goldman Sachs" })).toBeInTheDocument()
+    )
+
+    // Dedicated claim summary line, not the generic textarea-per-key editor.
+    expect(screen.getByText(/Opens 2026-08-01, closes 2026-09-30 \(intake 2027\)/)).toBeInTheDocument()
+    expect(
+      screen.getByText("Applications open August 1 and close September 30 for the 2027 intake.")
+    ).toBeInTheDocument()
+    expect(screen.getAllByText("Claim").length).toBeGreaterThan(0)
+    // The generic diff-fields loop renders one <textarea> per top-level diff
+    // key (see e.g. the "renders nested follow-up data" test above); claim
+    // cards must skip that loop entirely in favor of the dedicated block.
+    expect(container.querySelectorAll("textarea").length).toBe(0)
+  })
+
+  it("shows an unresolved-entity warning and commits claim cards to the dedicated claim-commit endpoint", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/api/admin/api/sessions/session-claim-2") && (!init || init.method === undefined)) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-claim-2",
+            status: "analyzed",
+            raw_input: "Goldman Sachs application window notes",
+            intent_cards: [
+              claimIntentCard({
+                card_id: "card-claim-2",
+                diff: {
+                  ...claimIntentCard().diff,
+                  subject_entity_id: null,
+                },
+              }),
+            ],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response
+      }
+      if (url.endsWith("/api/admin/api/kb/session/session-claim-2/claims/card-claim-2/commit") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({
+            card_id: "card-claim-2",
+            domain: "claim",
+            status: "committed",
+            claim_id: "claim-abc123",
+            message: "Created claim 'claim-abc123'",
+          }),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url} ${init?.method ?? ""}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-claim-2" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "application_window claim for Goldman Sachs" })).toBeInTheDocument()
+    )
+
+    expect(screen.getByText(/Entity not yet resolved — cannot commit until created/i)).toBeInTheDocument()
+
+    const commitButton = screen.getByRole("button", { name: /^Commit$/i })
+    await act(async () => {
+      commitButton.click()
+    })
+
+    await waitFor(() => expect(screen.getByText("Card committed.")).toBeInTheDocument())
+
+    const commitCall = fetchMock.mock.calls.find(([reqUrl]) =>
+      String(reqUrl).endsWith("/api/admin/api/kb/session/session-claim-2/claims/card-claim-2/commit")
+    )
+    expect(commitCall).toBeTruthy()
+    expect((commitCall?.[1] as RequestInit | undefined)?.method).toBe("POST")
+
+    // Regression check: the generic session-router commit URL must never be hit for a claim card.
+    const genericCommitCall = fetchMock.mock.calls.find(([reqUrl]) =>
+      String(reqUrl).includes("/api/admin/api/sessions/session-claim-2/cards/")
+    )
+    expect(genericCommitCall).toBeUndefined()
+  })
+
+  it("discards claim cards through the existing generic discard endpoint, unmodified", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input)
+      if (url.endsWith("/api/admin/api/sessions/session-claim-3") && (!init || init.method === undefined)) {
+        return {
+          ok: true,
+          json: async () => ({
+            id: "session-claim-3",
+            status: "analyzed",
+            raw_input: "Goldman Sachs application window notes",
+            intent_cards: [claimIntentCard({ card_id: "card-claim-3" })],
+            created_by: "counsellor",
+            created_at: "2026-04-12T00:00:00Z",
+            updated_at: "2026-04-12T00:00:00Z",
+          }),
+        } as Response
+      }
+      if (url.endsWith("/api/admin/api/sessions/session-claim-3/cards/card-claim-3/discard") && init?.method === "POST") {
+        return {
+          ok: true,
+          json: async () => ({}),
+        } as Response
+      }
+      throw new Error(`Unexpected fetch: ${url} ${init?.method ?? ""}`)
+    })
+
+    vi.stubGlobal("fetch", fetchMock)
+
+    render(<SmartCanvas sessionId="session-claim-3" onBack={vi.fn()} onOpenTraces={vi.fn()} />)
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "application_window claim for Goldman Sachs" })).toBeInTheDocument()
+    )
+
+    const discardButton = screen.getByRole("button", { name: /^Discard$/i })
+    await act(async () => {
+      discardButton.click()
+    })
+
+    await waitFor(() => expect(screen.getByText("Card discarded.")).toBeInTheDocument())
+
+    const discardCall = fetchMock.mock.calls.find(([reqUrl]) =>
+      String(reqUrl).endsWith("/api/admin/api/sessions/session-claim-3/cards/card-claim-3/discard")
+    )
+    expect(discardCall).toBeTruthy()
+  })
 })

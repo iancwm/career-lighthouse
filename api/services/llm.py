@@ -122,6 +122,21 @@ _PROMPT_FLOW_CONFIG = {
         "langfuse_enabled_setting": "langfuse_prompt_alumni_extraction_enabled",
         "langfuse_name": "generate_alumni_extraction",
     },
+    "ontology_mention_extraction": {
+        "repo_key": "ontology_mention_extraction",
+        "langfuse_enabled_setting": "langfuse_prompt_ontology_mention_extraction_enabled",
+        "langfuse_name": "ontology_mention_extraction",
+    },
+    "ontology_claim_extraction": {
+        "repo_key": "ontology_claim_extraction",
+        "langfuse_enabled_setting": "langfuse_prompt_ontology_claim_extraction_enabled",
+        "langfuse_name": "ontology_claim_extraction",
+    },
+    "ontology_claim_verification": {
+        "repo_key": "ontology_claim_verification",
+        "langfuse_enabled_setting": "langfuse_prompt_ontology_claim_verification_enabled",
+        "langfuse_name": "ontology_claim_verification",
+    },
 }
 
 
