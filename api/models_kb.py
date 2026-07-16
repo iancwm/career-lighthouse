@@ -2,6 +2,15 @@ from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from models_ontology import (
+    ClaimConfidence,
+    ClaimObservationTime,
+    ClaimPayload,
+    ClaimScope,
+    ClaimType,
+    ClaimValidTime,
+)
+
 
 class DocInfo(BaseModel):
     doc_id: str
@@ -358,6 +367,42 @@ class AlumniCardDiff(BaseModel):
     company_links: list[dict[str, Any]] | None = None
 
 
+class ClaimCardDiff(BaseModel):
+    """`IntentCard.diff` shape for `domain="claim"` (ontology/metadata layer,
+    Milestone 1 Phase 4). Round-trips everything `ClaimStore.create_claim()`
+    needs, via the real `models_ontology` nested models rather than loose
+    `dict[str, Any]` fields — this is what lets `ConfigDict(extra="forbid")`
+    on `ClaimScope` (and friends) catch a silently-dropped field instead of
+    the drop happening invisibly inside a dict. See
+    docs/ontology/MILESTONE-1.md §4 acceptance criterion 4.
+
+    `subject_entity_id`/`object_entity_id`/`subject_mention_text`/
+    `object_mention_text` are all optional here (unlike `Claim.subject_entity_id`,
+    which is required) because a Stage-2 "proposed_new" mention has no
+    resolved `entity_id` yet at proposal time — the commit endpoint is
+    responsible for rejecting a commit attempt when `subject_entity_id` is
+    still None, not this schema.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    claim_type: ClaimType
+    subject_entity_id: str | None = None
+    subject_mention_text: str | None = None
+    object_entity_id: str | None = None
+    object_mention_text: str | None = None
+    payload: ClaimPayload
+    scope: ClaimScope = Field(default_factory=ClaimScope)
+    valid_time: ClaimValidTime = Field(default_factory=ClaimValidTime)
+    observation_time: ClaimObservationTime
+    assertion_status: str = "inferred"
+    confidence: ClaimConfidence
+    evidence_ids: list[str] = Field(default_factory=list)
+    # Display-only — not passed to ClaimStore.create_claim().
+    evidence_excerpts: list[str] | None = None
+    source_id: str | None = None
+
+
 def _model_validate(model_cls: type[BaseModel], data: Any) -> BaseModel:
     validator = getattr(model_cls, "model_validate", None)
     if callable(validator):
@@ -373,6 +418,8 @@ def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
         validated = _model_validate(TrackCardDiff, diff)
     elif domain == "alumni":
         validated = _model_validate(AlumniCardDiff, diff)
+    elif domain == "claim":
+        validated = _model_validate(ClaimCardDiff, diff)
     else:
         raise ValueError(f"Unknown intent card domain: {domain!r}")
     return validated.model_dump(exclude_none=True)
@@ -380,7 +427,7 @@ def validate_intent_card_diff(domain: str, diff: Any) -> dict[str, Any]:
 
 class IntentCard(BaseModel):
     card_id: str
-    domain: Literal["employer", "track", "alumni"]
+    domain: Literal["employer", "track", "alumni", "claim"]
     summary: str
     diff: dict[str, Any]  # structured representation of the proposed change
     raw_input_ref: str  # reference back to the originating text chunk
