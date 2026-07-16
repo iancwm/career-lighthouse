@@ -70,6 +70,64 @@ interface AlumniCompanyLink {
   current?: boolean
 }
 
+/**
+ * Claim payload is a display-only need (Milestone 1 review UI has no
+ * per-field editing for claims), so this is deliberately a loose
+ * all-optional interface covering the union of both Milestone-1 typed
+ * payloads (`ApplicationWindowPayload` | `RecruitmentStagePayload` in
+ * api/models_ontology.py) rather than a discriminated union — nothing here
+ * validates or writes data, it only reads whichever fields are present.
+ */
+interface ClaimPayload {
+  claim_type?: string
+  // application_window fields
+  programme_id?: string | null
+  opens_on?: string | null
+  closes_on?: string | null
+  date_precision?: string | null
+  intake_year?: number | null
+  // recruitment_stage fields
+  process_id?: string | null
+  sequence?: number | null
+  stage_name?: string | null
+  stage_type?: string | null
+  modality?: string | null
+  duration_minutes?: number | null
+  assessed_competencies?: string[] | null
+}
+
+interface ClaimScope {
+  geography?: string | null
+  organization_unit_id?: string | null
+  programme_id?: string | null
+  role_id?: string | null
+  seniority?: string | null
+  candidate_segment?: string | null
+  academic_year?: string | null
+}
+
+interface ClaimConfidence {
+  extraction?: number | null
+  evidence_strength?: number | null
+  source_reliability?: number | null
+}
+
+/** Mirrors `ClaimCardDiff` in api/models_kb.py — the `IntentCard.diff` shape for domain="claim". */
+interface ClaimCardDiff {
+  claim_type?: string
+  subject_entity_id?: string | null
+  subject_mention_text?: string | null
+  object_entity_id?: string | null
+  object_mention_text?: string | null
+  payload?: ClaimPayload
+  scope?: ClaimScope
+  assertion_status?: string
+  confidence?: ClaimConfidence
+  evidence_ids?: string[]
+  evidence_excerpts?: string[] | null
+  source_id?: string | null
+}
+
 interface SmartCanvasProps {
   sessionId: string
   onBack: () => void
@@ -154,7 +212,38 @@ function coerceEditedValue(originalValue: unknown, editedValue: unknown): unknow
 function getBadgeClasses(domain: CardDomain): string {
   if (domain === "employer") return "bg-purple-100 text-purple-700"
   if (domain === "alumni") return "bg-emerald-100 text-emerald-700"
+  if (domain === "claim") return "bg-indigo-100 text-indigo-700"
   return "bg-blue-100 text-blue-700"
+}
+
+/** One-line human-readable summary of a claim's typed payload, per claim_type. */
+function summarizeClaimPayload(claimType: string | undefined, payload: ClaimPayload | undefined): string {
+  if (!payload) return ""
+  if (claimType === "application_window") {
+    const opens = toDisplayText(payload.opens_on) || "?"
+    const closes = toDisplayText(payload.closes_on) || "?"
+    const intake = toDisplayText(payload.intake_year)
+    return `Opens ${opens}, closes ${closes}${intake ? ` (intake ${intake})` : ""}`
+  }
+  if (claimType === "recruitment_stage") {
+    const stageName = toDisplayText(payload.stage_name) || "Unnamed stage"
+    const details = [toDisplayText(payload.stage_type), toDisplayText(payload.modality)].filter(Boolean).join(", ")
+    return details ? `${stageName} (${details})` : stageName
+  }
+  return ""
+}
+
+/** Non-null, non-empty scope fields as [label, value] pairs, for chip rendering. */
+function nonNullScopeEntries(scope: ClaimScope | undefined): Array<[string, string]> {
+  if (!scope) return []
+  return Object.entries(scope)
+    .map(([key, value]) => [key, toDisplayText(value)] as [string, string])
+    .filter(([, value]) => value.length > 0)
+}
+
+function formatConfidencePercent(value: number | null | undefined): string | null {
+  if (typeof value !== "number" || Number.isNaN(value)) return null
+  return `${Math.round(value * 100)}%`
 }
 
 function getLinkDateValue(value: unknown): number {
@@ -417,6 +506,25 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
     setError("")
     setNotice("")
     try {
+      // Claim cards have their own dedicated commit endpoint (no `slug` field,
+      // no field-level editing in Milestone 1 — the backend re-reads the
+      // card's own stored diff). The generic session-router commit endpoint
+      // below rejects domain="claim" with a 400, so it must not be used here.
+      if (selectedCard?.domain === "claim") {
+        const res = await adminFetch(`/api/kb/session/${session.id}/claims/${selectedCardId}/commit`, {
+          method: "POST",
+        })
+        if (res.status === 409) {
+          // Card already committed/discarded — reload to sync state
+          await loadSession()
+          return
+        }
+        if (!res.ok) throw new Error("commit failed")
+        setNotice("Card committed.")
+        await loadSession()
+        return
+      }
+
       const nextDiff = selectedCard
         ? Object.fromEntries(
             Object.entries(editingDiff).map(([key, value]) => [key, coerceEditedValue(selectedCard.diff[key], value)])
@@ -499,6 +607,15 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
   const selectedCardCompany = toDisplayText(editingDiff.current_company) || toDisplayText(selectedCard?.diff.current_company)
   const selectedCardHeadline = [selectedCardTitle, selectedCardCompany].filter(Boolean).join(" @ ")
   const companyLinks = isAlumniCard ? normalizeCompanyLinks(editingDiff.company_links) : []
+
+  const isClaimCard = selectedCard?.domain === "claim"
+  const claimDiff = isClaimCard ? (editingDiff as unknown as ClaimCardDiff) : null
+  const claimSummaryLine = isClaimCard ? summarizeClaimPayload(claimDiff?.claim_type, claimDiff?.payload) : ""
+  const claimScopeEntries = isClaimCard ? nonNullScopeEntries(claimDiff?.scope) : []
+  const claimEvidenceExcerpts = isClaimCard ? normalizeEvidence(claimDiff?.evidence_excerpts) : []
+  const claimSubjectResolved = Boolean(claimDiff?.subject_entity_id)
+  const claimHasObject = Boolean(toDisplayText(claimDiff?.object_mention_text) || claimDiff?.object_entity_id)
+  const claimObjectResolved = Boolean(claimDiff?.object_entity_id)
 
   return (
     <div>
@@ -774,6 +891,104 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                   </div>
                 )}
 
+                {isClaimCard && (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <h4 className="text-sm font-semibold text-indigo-900">
+                          {formatFieldLabel(toDisplayText(claimDiff?.claim_type) || "Claim")}
+                        </h4>
+                        {claimDiff?.assertion_status && (
+                          <span className="inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-medium text-indigo-800">
+                            {formatFieldLabel(claimDiff.assertion_status)}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-2 text-sm text-indigo-950">
+                        {claimSummaryLine || "No summary available for this claim type."}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <h4 className="text-sm font-semibold text-gray-700">Subject &amp; object</h4>
+                      <div className="mt-3 space-y-3">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500">Subject</p>
+                          <p className="text-sm text-gray-800">{toDisplayText(claimDiff?.subject_mention_text) || "—"}</p>
+                          {!claimSubjectResolved && (
+                            <p className="mt-1 inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                              Entity not yet resolved — cannot commit until created
+                            </p>
+                          )}
+                        </div>
+                        {claimHasObject && (
+                          <div>
+                            <p className="text-xs font-medium text-gray-500">Object</p>
+                            <p className="text-sm text-gray-800">{toDisplayText(claimDiff?.object_mention_text) || "—"}</p>
+                            {!claimObjectResolved && (
+                              <p className="mt-1 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+                                Entity not yet resolved
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {claimScopeEntries.length > 0 && (
+                      <div className="rounded-lg border border-gray-200 bg-white p-4">
+                        <h4 className="text-sm font-semibold text-gray-700">Scope</h4>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {claimScopeEntries.map(([key, value]) => (
+                            <span
+                              key={key}
+                              className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700"
+                            >
+                              {formatFieldLabel(key)}: {value}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <h4 className="text-sm font-semibold text-gray-700">Confidence</h4>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {formatConfidencePercent(claimDiff?.confidence?.extraction) && (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            Extraction {formatConfidencePercent(claimDiff?.confidence?.extraction)}
+                          </span>
+                        )}
+                        {formatConfidencePercent(claimDiff?.confidence?.evidence_strength) && (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            Evidence strength {formatConfidencePercent(claimDiff?.confidence?.evidence_strength)}
+                          </span>
+                        )}
+                        {formatConfidencePercent(claimDiff?.confidence?.source_reliability) && (
+                          <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            Source reliability {formatConfidencePercent(claimDiff?.confidence?.source_reliability)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-gray-200 bg-white p-4">
+                      <h4 className="text-sm font-semibold text-gray-700">Evidence</h4>
+                      {claimEvidenceExcerpts.length > 0 ? (
+                        <ul className="mt-2 space-y-2 text-sm text-gray-700">
+                          {claimEvidenceExcerpts.map((item, index) => (
+                            <li key={`claim-evidence-${index}`} className="rounded bg-gray-50 px-3 py-2">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-sm text-gray-500">No evidence excerpts available.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {isAlumniCard && companyLinks.length > 0 && (
                   <div className="rounded-xl border border-emerald-100 bg-emerald-50/60 p-4">
                     <div className="flex items-center justify-between gap-3">
@@ -813,8 +1028,10 @@ export default function SmartCanvas({ sessionId, onBack, onOpenTraces }: SmartCa
                   </div>
                 )}
 
-                {/* Diff fields */}
-                {Object.entries(editingDiff).map(([key, value]) => {
+                {/* Diff fields — generic textarea-per-key editor. Not used for claim cards:
+                    Milestone 1 claim review is read-mostly (see the dedicated claim block
+                    above), so claim diffs skip this loop entirely. */}
+                {!isClaimCard && Object.entries(editingDiff).map(([key, value]) => {
                   const proposal = selectedCard.proposals?.[key]
                   const evidence = normalizeEvidence(proposal?.evidence)
                   const rationale = toDisplayText(proposal?.rationale)
