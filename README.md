@@ -147,6 +147,13 @@ The career office dashboard (`/admin`) includes:
 | `GET` | `/api/kb/tracks/{slug}/history` | List published versions for a track |
 | `POST` | `/api/kb/draft-tracks/{slug}/generate-update` | Refresh a draft track from new counsellor research |
 | `POST` | `/api/kb/employers/{slug}/extract-facts` | Extract structured facts from employer notes using LLM |
+| `GET` | `/api/kb/entities` | List ontology entities |
+| `GET` | `/api/kb/entities/{entity_id}` | Read one ontology entity |
+| `GET` | `/api/kb/claims` | List ontology claims with optional filters |
+| `GET` | `/api/kb/claims/{claim_id}` | Read one ontology claim with evidence |
+| `GET` | `/api/kb/evidence/{evidence_id}` | Read claim evidence metadata |
+| `POST` | `/api/kb/employers/{slug}/extract-claims` | Propose typed claims from employer notes; feature-flagged off by default |
+| `POST` | `/api/kb/session/{session_id}/claims/{card_id}/commit` | Approve a reviewed claim card and write the claim |
 
 ## Architecture
 
@@ -177,6 +184,7 @@ That means:
 - Sessions are stored as JSON under `data/sessions/`
 - Employer YAMLs are loaded from [knowledge/employers](/home/iancwm/git/career-lighthouse/knowledge/employers)
 - Career profile YAMLs are loaded from [knowledge/career_profiles](/home/iancwm/git/career-lighthouse/knowledge/career_profiles)
+- Ontology entities, claims, and evidence are stored under `knowledge/entities/`, `knowledge/claims/`, and `knowledge/evidence/` when the dark-shipped ontology workflows are enabled; extraction may create idempotent evidence and known-employer entities, while claim files are written only after a counsellor approves a claim card
 - Draft tracks and track history stay under `knowledge/...`, and missing draft copies are seeded from valid published profiles on first access so the Track Builder stays in sync with the published catalog
 - Query logs are written to [logs/query_log.jsonl](/home/iancwm/git/career-lighthouse/logs/query_log.jsonl)
 
@@ -184,6 +192,7 @@ Important distinction:
 
 - Admin edits to employer facts and career profile YAML fields are written back to `knowledge/...`
 - Extracted employer facts are saved under `structured.facts` in the relevant employer YAML and are shown in the admin fact cards and extraction modal before commit
+- Ontology extraction returns proposals and may create idempotent evidence plus known-employer entity records; only the dedicated reviewed claim-commit path writes a claim
 - Uploaded documents from the Knowledge Base tab are not saved as files under `knowledge/`; they are chunked, embedded, and stored in Qdrant
 
 So if you upload a PDF or TXT and then look in `knowledge/`, you will not see a new file there. The source document becomes vector-store data, not a repo file.

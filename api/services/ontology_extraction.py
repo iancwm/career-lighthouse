@@ -27,8 +27,10 @@ call timing out leaves the claim proposal in a distinct
 `verification_status="unverified_timeout"` state rather than defaulting to
 verified. See docs/ontology/MILESTONE-1.md §6 for why this is not optional.
 
-Nothing in this module writes a `Claim` — it returns proposals only. Stage 5
-(review + commit via `IntentCard`) is a later phase's job.
+This module never writes a `Claim`. It does create idempotent `Evidence`
+records for the extracted spans and may create a known-employer organization
+entity during resolution. Stage 5 (review + claim commit via `IntentCard`) is
+the later write path for claims.
 """
 
 from __future__ import annotations
@@ -648,9 +650,12 @@ def extract_claims_for_source(
     trace_metadata: dict[str, Any] | None = None,
     timeout_seconds: float | None = None,
 ) -> OntologyExtractionResult:
-    """Run Stages 1-4 over `source_text` and return proposals (nothing persisted
-    except the `Evidence` records backing each mention/claim span — Evidence is
-    idempotent and content-addressed, so re-running extraction is safe).
+    """Run Stages 1-4 over `source_text` and return claim proposals.
+
+    Extraction does not persist a ``Claim``. It does persist idempotent,
+    content-addressed ``Evidence`` records for mention/claim spans and may
+    persist a known-employer organization ``Entity`` during resolution, so
+    re-running extraction is safe.
     """
     trace_metadata = dict(trace_metadata or {})
     if employer_slug:

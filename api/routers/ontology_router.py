@@ -6,9 +6,10 @@ extraction pipeline described in docs/ontology/ONTOLOGY-DESIGN.md §5 and §7:
 
   - `POST /api/kb/employers/{slug}/extract-claims` runs Stages 1-4
     (`services.ontology_extraction.extract_claims_for_source`) and returns
-    `IntentCard(domain="claim")` proposals. It persists nothing — no card is
-    written to a session, no `Claim` is written to `ClaimStore` — matching
-    ONTOLOGY-DESIGN.md §7 ("does not persist"). Gated behind
+    `IntentCard(domain="claim")` proposals. It does not write a card to a
+    session or a `Claim` to `ClaimStore`, but the Stage 1-2 pipeline may create
+    idempotent `Evidence` records and a known-employer organization entity as
+    it resolves the proposal. Gated behind
     `kb_cfg["ontology"]["extraction_enabled"]`.
   - `POST /api/kb/session/{session_id}/claims/{card_id}/commit` is the
     approve path for a claim card: it re-validates the card's diff and calls
@@ -214,7 +215,8 @@ def extract_claims_from_employer_notes(
     notes + source documents. Mirrors `employers_router.extract_facts_from_employer_notes`
     exactly, but calls `ontology_extraction.extract_claims_for_source` instead
     of `extract_facts_from_prose`, and returns `IntentCard(domain="claim")`
-    proposals instead of raw fact dicts. Nothing is persisted by this call.
+    proposals instead of raw fact dicts. No claim is persisted by this call;
+    evidence and known-employer entity records may be created by the pipeline.
     """
     if not kb_cfg.get("ontology", {}).get("extraction_enabled", False):
         raise HTTPException(

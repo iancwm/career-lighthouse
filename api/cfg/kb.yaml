@@ -39,10 +39,13 @@ vector_store:
   scroll_limit: 10000           # de facto ceiling on indexed chunks that can be listed
 
 # Ontology & metadata layer (Milestone 1) — extraction pipeline feature flag.
-# MUST default to false: the /extract-claims pipeline ships dark until a pilot
-# employer is explicitly enabled. See docs/ontology/ONTOLOGY-DESIGN.md §10.
+# MUST default to false: the /extract-claims pipeline ships dark. The current
+# route gate is global; operators must restrict enabled use to the pilot
+# employer until per-employer gating is implemented. See docs/ontology/ONTOLOGY-DESIGN.md §10.
 ontology:
   extraction_enabled: false
+  # Reserved for the pilot rollout; the current router does not enforce this
+  # list and still uses the global extraction_enabled flag.
   pilot_employer_slugs: []
   # Milestone 2 claim-injection (grounding) feature flag. MUST default to false,
   # same dark-ship pattern as extraction_enabled. See docs/ontology/GROUNDING-DESIGN.md.

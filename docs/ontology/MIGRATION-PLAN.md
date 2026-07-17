@@ -1,6 +1,6 @@
 # Ontology & Metadata Layer — Migration Plan
 
-Status: plan only, no production code changed. Complements `ONTOLOGY-DESIGN.md` §4/§10.
+Status: rollout plan for the shipped, dark-flagged implementation. Milestone 1 shipped 2026-07-16 and Milestone 2 shipped 2026-07-17; Phase 3 pilot enablement and Phase 4 wider rollout remain pending. Complements `ONTOLOGY-DESIGN.md` §4/§10.
 
 ## 1. Compatibility contract
 
@@ -28,17 +28,17 @@ Phased enablement:
 
 | Phase | What ships | What's live | Rollback if needed |
 |---|---|---|---|
-| 0 | `models_ontology.py`, store classes, unit tests | Nothing — no router wires to them | Revert the PR; no data was ever written |
-| 1 | Source ledger extension (§2) | New fields present on new/updated ledger records only | Revert the PR; extra YAML keys are inert |
-| 2 | `/extract-claims` endpoint, feature-flagged off | Endpoint exists but returns 404/disabled unless flag is on | Flip flag off; endpoint becomes a no-op |
-| 3 | Flag on for one pilot employer (config-gated, not code-gated — e.g. `ontology.pilot_employer_slugs: ["stripe_singapore"]` in `kb.yaml`) | Real `Claim`/`Evidence` files start appearing under `knowledge/claims/`, `knowledge/evidence/`, all with `review_status="proposed"` until a counsellor reviews them | Remove the slug from the pilot list; stop new writes. Existing claim files are inert (nothing reads `review_status="proposed"` claims outside the review UI) and can be left in place or deleted — see §4 |
-| 4 | Wider rollout | All employers | N/A — by this point the pipeline has been validated against `EVALUATION-PLAN.md` |
+| 0 | **Shipped 2026-07-16:** `models_ontology.py`, store classes, unit tests | No extraction route was wired at this phase; the current extraction route's persistence behavior is described in Phase 2 | Revert the ontology implementation; no legacy data needs migration |
+| 1 | **Shipped 2026-07-16:** Source ledger extension (§2) | New metadata fields are additive and optional | Revert the code; extra YAML keys remain inert |
+| 2 | **Shipped dark 2026-07-16:** `/extract-claims` endpoint | With the flag off, the endpoint returns HTTP 403; with it on, it returns proposals, may create idempotent `Evidence`/known-employer `Entity` records, and does not write a `Claim` | Flip the flag off and restart/redeploy |
+| 3 | **Pending pilot:** enable the global extraction/grounding flags in staging after review and governance sign-off; restrict operator use to one pilot employer | Approved review cards write the `Claim`; evidence is normally already present from extraction, and writes remain idempotent | Disable the global flags and restart/redeploy; existing ontology files are not read by legacy paths |
+| 4 | **Pending:** wider rollout | All employers after evaluation and pilot approval | Keep the flags off until the rollout decision is made |
 
 ## 4. Rollback instructions
 
 **Any phase, at any time:**
 
-1. Set `ontology.extraction_enabled: false` in `api/cfg/kb.yaml` (or remove pilot slugs from `ontology.pilot_employer_slugs`), then **restart/redeploy the API process.** Correction from an earlier draft of this plan: `api/cfg.py` loads every `api/cfg/*.yaml` file exactly once at module import (`kb_cfg = _load("kb.yaml")`) and never re-reads it — confirmed by inspecting `api/cfg.py` and every existing `kb_cfg[...]` call site, none of which re-read the file. There is no request-time or hot-reload path anywhere in the config system today. **Editing `kb.yaml` alone has no effect until the next process restart** — plan rollback timing accordingly (this is a redeploy, on the order of minutes, not an instant toggle), and do not treat the flag as an emergency kill switch for an in-progress incident unless a restart is also fast in the target environment. If sub-minute disabling is actually required (e.g., the pipeline is producing bad claims in front of a counsellor mid-session), the faster lever is disabling the `/extract-claims` route itself (return 503) or pulling the `SmartCanvas.tsx` claim-card renderer, not the config flag.
+1. Set `ontology.extraction_enabled: false` and `ontology.grounding_enabled: false` in `api/cfg/kb.yaml`, then **restart/redeploy the API process.** `pilot_employer_slugs` is currently a reserved rollout field; the router does not enforce it. Correction from an earlier draft of this plan: `api/cfg.py` loads every `api/cfg/*.yaml` file exactly once at module import (`kb_cfg = _load("kb.yaml")`) and never re-reads it — confirmed by inspecting `api/cfg.py` and every existing `kb_cfg[...]` call site, none of which re-read the file. There is no request-time or hot-reload path anywhere in the config system today. **Editing `kb.yaml` alone has no effect until the next process restart** — plan rollback timing accordingly (this is a redeploy, on the order of minutes, not an instant toggle), and do not treat the flag as an emergency kill switch for an in-progress incident unless a restart is also fast in the target environment. If sub-minute disabling is actually required (e.g., the pipeline is producing bad claims in front of a counsellor mid-session), the faster lever is disabling the `/extract-claims` route itself (return 503) or pulling the `SmartCanvas.tsx` claim-card renderer, not the config flag.
 2. If a code rollback is also needed (e.g., a bug in the extraction pipeline itself, not just "we want to pause"): revert the ontology router/service PRs. Because no existing router or store is modified by this design (§1, invariant 1), reverting is a clean `git revert` with no merge-conflict risk against unrelated concurrent work on `employer_store.py`/`alumni_store.py`/etc.
 3. **Data left behind by a rollback is safe to leave in place.** `knowledge/claims/*.yaml` and `knowledge/evidence/*.yaml` files are not referenced by any code path outside the ontology router/services being rolled back — no other part of the system reads them (they do not feed `fact_store.list_facts()`, employer context blocks, or chat retrieval). If a clean slate is preferred, `rm -rf knowledge/claims knowledge/evidence knowledge/entities` is safe and reversible only in the sense that the extraction work would need to be re-run — no other store's integrity depends on these directories existing.
 4. **Source ledger extension rollback** (§2): safe to leave the extra fields in place even if the code reading them is reverted, per the backward-compatibility note in §2. No cleanup required.
@@ -53,12 +53,12 @@ Phased enablement:
 
 **Mechanical / testing**
 
-- [ ] `pytest api/tests/` green, including new ontology test files.
+- [x] `pytest api/tests/` green, including the ontology test files. Latest local run: 480 passed, 7 skipped; the skips are integration/eval gates.
 - [ ] `EVALUATION-PLAN.md`'s gold dataset run against the pipeline at least once, with the unsupported-claim rate reviewed by a human (not just a passing threshold — this is a new pipeline, first real run deserves eyes-on review). The Deloitte/Deloitte Singapore fixture pair (`EVALUATION-PLAN.md` §2) specifically must resolve to `ambiguous`, not a silent merge or a silent duplicate.
 - [ ] `ONTOLOGY_ENTITIES_DIR`/`ONTOLOGY_CLAIMS_DIR`/`ONTOLOGY_EVIDENCE_DIR` confirmed writable in the target environment (Docker bind mount or local dev), per the CLAUDE.md pre-flight checklist item on filesystem writes — checked with the same `ensure_writable_directory()` helper `runtime_paths.py` already uses for every other storage root, added to `runtime_storage_targets()`.
 - [ ] `X-Admin-Key` verified on the new `/extract-claims` and claim-commit endpoints via a live request, not just code inspection (per CLAUDE.md's admin/API pre-flight item).
 - [ ] Pilot employer slug confirmed to have a source ledger record with `source_kind`/`authority_tier` populated (so the prompt actually receives authority context, not `"unknown"` defaults for every field).
-- [ ] Per-stage LLM timeouts and non-fatal-fallback behavior (`ONTOLOGY-DESIGN.md` §5, "Two implementation details are genuinely open") are implemented, not just planned — verify with a forced-timeout test, not inspection.
+- [x] Per-stage LLM timeouts and non-fatal-fallback behavior are implemented and covered by forced-timeout tests. Target-environment latency and failure-rate measurement remain open.
 - [ ] `ontology.extraction_enabled` toggle timing confirmed against the target environment's actual restart/deploy latency (§4 above) — know how long "off" takes before you need it to be fast.
 
 **Governance / owner sign-off (not mechanical — needs an explicit decision from someone other than the implementer)**

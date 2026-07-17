@@ -1,6 +1,6 @@
 # Ontology & Metadata Layer — Evaluation Plan
 
-Status: plan only, no production code changed.
+Status: evaluation plan for the shipped ontology implementation. The Milestone 1 minimal fixture and Milestone 2 gold query test are checked in; the full gold-set run and human accuracy report remain pending before pilot enablement.
 
 ## 1. Existing evaluation precedent to reuse
 
@@ -54,9 +54,17 @@ New fixture: `api/tests/fixtures/ontology_gold_claims.jsonl`. Each line is one *
 
 Where the spec's category has no natural repo source (ambiguous names, contradictions), the dataset includes **hand-authored fixture text**, clearly marked as synthetic in the fixture file (`"synthetic": true`), rather than waiting for real data to surface these cases. This mirrors how `test_prompt_injection_e2e.py` already uses hand-authored adversarial payloads rather than only real-world ones.
 
-### 2.2 Dataset size for Milestone 1
+### 2.2 Dataset size and shipped slice
 
-10-15 source documents, chosen to cover both Milestone-1 claim types (`application_window`, `recruitment_stage`) with at least 3 items per spec category above. This is intentionally small — large enough to catch systematic errors, small enough for a human to hand-score every item after each pipeline change (per the E1 report's precedent of 3 real inputs scored by hand). Expand once Milestone 1's claim-type coverage grows.
+Milestone 1 shipped with a minimal three-entry fixture in
+`api/tests/fixtures/ontology_gold_claims.jsonl`: two Goldman positive cases
+and one synthetic Deloitte ambiguity case. That slice is enough for the
+Milestone 1 acceptance tests, but it is not the full evaluation set.
+
+The evaluation target remains 10-15 source documents covering both
+Milestone-1 claim types (`application_window`, `recruitment_stage`) with at
+least 3 items per spec category above. Expand the fixture before enabling the
+pilot and hand-score the resulting claims.
 
 ## 3. Evaluation categories and how each is scored
 
@@ -81,10 +89,16 @@ Computed as: `valid_and_grounded_claims / total_claims_produced`, run over the f
 
 ## 5. Deliverables
 
-- `api/tests/fixtures/ontology_gold_claims.jsonl` — the gold dataset (§2).
-- `scripts/eval_ontology_claims.py` — reads the gold fixture, runs the Stage 1-4 pipeline (no LLM calls skipped — this is an integration eval, not a unit test) against each `text_ref`, computes the category scores in §3 and the primary metric in §4, and writes a report. Mirrors `sync_langfuse_eval_dataset.py`'s CLI shape (`--dry-run` supported by simply not writing the report file).
-- `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md` (written once Milestone 1's pipeline exists and is run against the gold set — not authored speculatively in this planning pass, since it must report real numbers) — follows `E1_accuracy_report.md`'s format: methodology, per-category scores, primary metric, and a short list of prompt-refinement candidates for the next iteration.
-- Optional: sync the gold set into the existing Langfuse eval dataset infrastructure (`LANGFUSE_EVAL_DATASET`) as a second dataset (`career-lighthouse-ontology-evals`) once online tracking is wanted — deferred to a later milestone, not required for Milestone 1 sign-off.
+- **Shipped, minimal:** `api/tests/fixtures/ontology_gold_claims.jsonl` and the
+  checked-in unit/e2e tests that exercise it.
+- **Pending before pilot:** `scripts/eval_ontology_claims.py` to run the full
+  Stage 1-4 pipeline and compute the category scores in §3 and the primary
+  metric in §4.
+- **Pending before pilot:**
+  `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md`, written from a real run of
+  the expanded gold set rather than speculatively.
+- **Optional later:** sync the gold set into the existing Langfuse eval
+  dataset infrastructure as `career-lighthouse-ontology-evals`.
 
 ## 6. What this evaluation plan deliberately does not cover
 
@@ -103,7 +117,9 @@ skipped in CI by default — same shape as the `@pytest.mark.integration` tests 
 | "What are Goldman's interview stages in Singapore?" | 3 approved, non-stale, high-confidence `recruitment_stage` claims for `organization-goldman_sachs`, `scope.geography="SG"` (online application → HireVue video interview → Superday final round) | `chat_with_context()` response contains at least one of `["knowledge base", "per our knowledge base", "based on our records"]` — the VERIFIED CLAIMS block should change model behavior, not just be present in the prompt unused |
 | Same query, `claim_context=None` | — (no claims injected) | Response should NOT contain the KB-attribution phrases above — a negative control proving the eval isn't trivially satisfied by every response |
 
-Both assertions run in `TestGroundingEval` in `test_grounding_eval.py`. This is
-deliberately a single gold query at pilot scope (one employer, one claim type),
-matching `GROUNDING-DESIGN.md`'s "narrowest wedge" framing — expand alongside the
-Milestone-1 gold dataset as more claim types and employers are covered.
+Both assertions are implemented in `TestGroundingEval` in
+`test_grounding_eval.py`. The test is deliberately a single gold query at
+pilot scope and is skipped unless `ANTHROPIC_API_KEY` is available. It is a
+real-LLM eval, not part of the standard 480-passing unit/integration test run.
+Expand it alongside the Milestone 1 gold dataset as more claim types and
+employers are covered.

@@ -5,13 +5,17 @@ Use this file for significant shipped feature changes, not active planning or sp
 
 ## [Unreleased]
 
+### Documentation
+
+- Synchronized the ontology design, milestone, migration, evaluation, and M2 sprint documents with the shipped Milestone 1/2 implementation. Clarified the dedicated claim approval route, dark-flagged pilot state, current trace metadata, and remaining evaluation/governance gates.
+
 ### Ontology & Metadata Layer — Milestone 1 (typed claims/evidence/entities)
 
 #### Added
 - **Typed claim/evidence/entity models**: `api/models_ontology.py` adds `Entity`, `SourceMetadata`, `Evidence`, and a `Claim` envelope with a Pydantic discriminated-union `ClaimPayload` covering the two Milestone-1 claim types, `application_window` and `recruitment_stage`. A claim cannot be constructed without at least one `evidence_id`, enforced at both the Pydantic and store layers.
 - **File-backed stores**: `EntityStore` (`knowledge/entities/{entity_type}/{entity_id}.yaml`), `EvidenceStore` (`knowledge/evidence/{evidence_id}.yaml`, content-addressed and idempotent), and `ClaimStore` (`knowledge/claims/{claim_id}.yaml`, deterministic claim IDs so re-extraction is idempotent, append-only supersede semantics).
 - **Stage 1-4 extraction pipeline** (`api/services/ontology_extraction.py`): mention extraction with server-sliced, offset-verified evidence excerpts; entity resolution that correctly returns `ambiguous` (not a silent merge or guess) for real unreconciled name variants like `knowledge/employers/deloitte.yaml` vs. `deloitte_singapore.yaml`; typed claim extraction with server-side scope narrowing from source geography; and a verification stage combining deterministic substring/collision checks with one soft LLM check. Every LLM call has an explicit timeout and a non-fatal fallback — a Stage 4 verification timeout never silently promotes a claim to verified.
-- **New endpoints** under `/api/kb`: read access to entities/claims/evidence, `POST /employers/{slug}/extract-claims` (proposals only, nothing persisted, gated behind `ontology.extraction_enabled`), and `POST /session/{session_id}/claims/{card_id}/commit` (the review-approval path, writing a real `Claim` with `review_status="approved"`).
+- **New endpoints** under `/api/kb`: read access to entities/claims/evidence, `POST /employers/{slug}/extract-claims` (claim proposals, with idempotent evidence and known-employer entity records created during extraction but no claim write, gated behind `ontology.extraction_enabled`), and `POST /session/{session_id}/claims/{card_id}/commit` (the review-approval path, writing a real `Claim` with `review_status="approved"`).
 - **Claim review card** in `SmartCanvas.tsx`: a dedicated, read-mostly display (claim summary, subject/object resolution status, scope, confidence, evidence excerpts shown open) for `IntentCard(domain="claim")`, routed to its own commit endpoint rather than the generic session-card commit path.
 - **Feature-flagged off by default**: `kb.yaml`'s `ontology.extraction_enabled` is `false` in checked-in config — this pipeline ships dark until a pilot employer is explicitly enabled, per `docs/ontology/MIGRATION-PLAN.md`.
 

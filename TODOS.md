@@ -51,10 +51,15 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 ## Next
 
 ### Enable ontology pilot flags for a real employer
-**What:** Seed ≥3 approved `recruitment_stage`/`application_window` claims for Goldman Sachs Singapore in `knowledge/claims/`, set `ontology.extraction_enabled: true` and `ontology.grounding_enabled: true` for that employer in staging `kb.yaml`, then verify via Langfuse that `grounding_claims_injected_count > 0` for a Goldman query before evaluating against `EVALUATION-PLAN.md` gold queries.
+**What:** Seed ≥3 approved `recruitment_stage`/`application_window` claims for Goldman Sachs Singapore in `knowledge/claims/`, set the global `ontology.extraction_enabled: true` and `ontology.grounding_enabled: true` flags in staging `kb.yaml`, restrict enabled use to Goldman until per-employer gating exists, then verify via Langfuse that `grounding_claims_injected_count > 0` for a Goldman query before evaluating against `EVALUATION-PLAN.md` gold queries.
 **Why:** Milestones 1 (extraction pipeline) and 2 (claim injection) are both fully shipped but dark-flagged by design — this is a product/business decision, not further engineering, and is the actual next step referenced in `docs/README.md`'s Current State section.
 **Context:** Rollout sequence spelled out in `docs/ontology/GROUNDING-DESIGN.md` ("Rollout sequence" section, steps 4-6) and `docs/ontology/MIGRATION-PLAN.md`.
-**Depends on:** Counsellor time to review/approve claim proposals for the pilot employer; nothing technical is blocking.
+**Depends on:** Counsellor time to review/approve claim proposals, completion of the pilot checklist in `MIGRATION-PLAN.md`, and governance sign-off. No implementation task is blocking this decision.
+
+### Complete the ontology gold evaluation
+**What:** Expand `api/tests/fixtures/ontology_gold_claims.jsonl` from the shipped three-entry slice to the planned 10–15 source documents, add `scripts/eval_ontology_claims.py`, run the full Stage 1–4 evaluation, and publish `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md`.
+**Why:** The current unit/e2e tests prove the pipeline mechanics, but the pilot still needs a hand-scored quality baseline for scope, evidence grounding, ambiguity handling, and unsupported-claim rate.
+**Depends on:** A staging source set and an operator with time to review the generated claims.
 
 ### Path to multi-instance scaling
 **What:** Replace file-based query log with CloudWatch Logs or SQS; move Qdrant to standalone container; remove `WEB_CONCURRENCY=1` constraint.
