@@ -17,6 +17,19 @@ Use this file for significant shipped feature changes, not active planning or sp
 
 See `docs/ontology/MILESTONE-1.md` for the full scope and acceptance criteria (all satisfied) and `docs/ontology/ONTOLOGY-DESIGN.md` for the design rationale.
 
+### Ontology & Metadata Layer — Milestone 2 (grounded chat answers)
+
+#### Added
+- **`ClaimContextService`** (`api/services/claim_context.py`): resolves an organization entity from a chat query — fast path via an explicit employer slug (`organization-{slug}`, no store lookup), falling back to keyword-normalization matching against `EntityStore` when no slug is named — then fetches its approved, active, scope-filtered claims and scores them into a `coverage_confidence` tier (`high`/`medium`/`low`/`none`). Any store failure falls through to `coverage_confidence="none"` rather than breaking chat.
+- **VERIFIED CLAIMS prompt injection**: `chat_with_context()` (`api/services/llm.py`) now accepts a `claim_context` parameter and, when present, injects a sanitized, budget-capped (`max_context_chars // 6`) block ahead of career profile/employer facts/KB chunks, instructing the model to trust and cite these facts over general training knowledge, with a staleness caveat when every claim is out of date.
+- **Fast-path entity resolution**: `EmployerEntityStore.get_matched_slugs()` (`api/services/employer_store.py`) does strict name/slug-only employer matching (deliberately narrower than the existing broad `to_context_block()` matcher) so `chat_router.py` can pass an unambiguous employer slug straight through to claim resolution.
+- **Entity-id convention fix**: `EntityStore.create_entity()` gained an explicit `entity_id` override, and Stage 2 mention resolution (`ontology_extraction.py`) now matches unresolved organization mentions against known `knowledge/employers/` records before drafting a new entity, so claims land on the same `organization-{employer_slug}` id the chat-side fast path expects — closing a gap where `safe_slug(canonical_name)` could diverge from the employer YAML's filename slug (e.g. `ao_shearman.yaml`).
+- **Langfuse grounding metrics**: `chat_with_context()`'s trace metadata gains `grounding_entity_resolved`, `grounding_claims_injected_count`, `grounding_coverage_confidence`, and `grounding_employer_slug`.
+- **Gold eval query**: `api/tests/test_grounding_eval.py` (`@pytest.mark.eval`, real-LLM, skipped without `ANTHROPIC_API_KEY`) exercises the "Goldman SG interview stages" gold query from `docs/ontology/EVALUATION-PLAN.md` §7.
+- **Feature-flagged off by default**: `kb.yaml`'s `ontology.grounding_enabled` is `false` — same dark-ship pattern as Milestone 1's `extraction_enabled`. Enabling it requires at least 3 approved claims for a pilot employer first, per `docs/ontology/GROUNDING-DESIGN.md`'s rollout sequence.
+
+See `docs/ontology/GROUNDING-DESIGN.md` for the design rationale and `docs/ontology/SPRINT-M2-TASKS.md` for the implementation task list (all P0/P1 tasks shipped; P2 tasks 11-14 config/lazy-import polish also included).
+
 ### Security & Reliability (2026-05-15 sprint — all items shipped)
 
 #### Added

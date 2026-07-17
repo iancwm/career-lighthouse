@@ -104,7 +104,7 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Cons:** Requires query-intent detection (heuristic or lightweight LLM call) — adds latency and complexity to the claim context service.
 **Context:** Claims are currently injected in `ClaimStore` iteration order (YAML file order). The 2,000-char cap (`max_context_chars // 6`) can truncate when claims are verbose or numerous. Registered as a known limitation in `docs/ontology/GROUNDING-DESIGN.md`. Deferred from M2 eng review.
 **Effort:** M (human ~4h / CC ~20min). **Priority:** P3.
-**Depends on:** M2 `ClaimContextService` shipping + pilot data showing ordering causes quality degradation.
+**Depends on:** `ClaimContextService` has shipped (2026-07-17) — remaining blocker is pilot data showing ordering causes quality degradation, once `ontology.grounding_enabled` is turned on for a real employer.
 
 ### Add TTL cache to EntityStore.list_entities() and ClaimStore.list_claims_for_entity()
 **What:** Add a TTL in-memory cache to `EntityStore.list_entities(entity_type)` and `ClaimStore.list_claims_for_entity()`. Follow the same pattern as `list_docs` TTL cache (shipped 2026-04-28).
