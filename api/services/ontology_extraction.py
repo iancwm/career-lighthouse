@@ -49,7 +49,12 @@ from models_ontology import (
     SourceMetadata,
 )
 from services.claim_store import ClaimStore, _compute_claim_id
-from services.entity_store import EntityStore
+from services.employer_store import EmployerEntityStore
+from services.entity_store import (
+    EntityStore,
+    ensure_organization_entity_for_employer,
+    normalize_name,
+)
 from services.evidence_store import EvidenceStore
 from services.llm import SCHOOL_NAME, _resolve_prompt, call_structured_json, get_model_name
 from services.shared_yaml import safe_slug
@@ -298,8 +303,35 @@ def _draft_entity(entity_type: str, canonical_name: str) -> dict[str, Any]:
     }
 
 
+def _find_employer_slug_for_mention(
+    text: str, employer_store: EmployerEntityStore
+) -> tuple[str, str] | None:
+    """Return `(slug, employer_name)` if `text` exactly names a known employer.
+
+    Deliberately strict (normalized full-name or slug equality only, no
+    substring/token matching) — this gates whether a mention resolves to the
+    correctly-keyed `organization-{slug}` entity (see
+    `ensure_organization_entity_for_employer`) instead of being drafted with
+    a `safe_slug(canonical_name)`-derived id, per SPRINT-M2-TASKS.md P0/Task 0.
+    A loose match here would silently reassign unrelated organization
+    mentions to an existing employer record.
+    """
+    target = normalize_name(text)
+    if not target:
+        return None
+    for employer in employer_store.list_employers():
+        name = str(employer.get("employer_name") or "")
+        slug = str(employer.get("slug") or "")
+        if normalize_name(name) == target or normalize_name(slug.replace("_", " ")) == target:
+            return slug, name
+    return None
+
+
 def resolve_mention(
-    mention: MentionCandidate, *, entity_store: EntityStore | None = None
+    mention: MentionCandidate,
+    *,
+    entity_store: EntityStore | None = None,
+    employer_store: EmployerEntityStore | None = None,
 ) -> tuple[ResolutionStatus, str | None, list[str], dict[str, Any] | None]:
     """Classify a single mention. Returns (status, entity_id, candidate_ids, draft)."""
     store = entity_store or EntityStore()
@@ -307,6 +339,15 @@ def resolve_mention(
     if len(candidates) == 1:
         return "matched", candidates[0].entity_id, [], None
     if len(candidates) == 0:
+        if mention.entity_type == "organization":
+            emp_store = employer_store or EmployerEntityStore()
+            match = _find_employer_slug_for_mention(mention.text, emp_store)
+            if match is not None:
+                slug, employer_name = match
+                entity = ensure_organization_entity_for_employer(
+                    slug, employer_name, entity_store=store
+                )
+                return "matched", entity.entity_id, [], None
         return (
             "proposed_new",
             None,

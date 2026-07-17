@@ -275,3 +275,18 @@ class Claim(BaseModel):
                 f"claim_type {claim_type!r}"
             )
         return v
+
+
+# ---------------------------------------------------------------------------
+# Claim context (Milestone 2) — pre-fetched claims injected into chat prompts.
+# See docs/ontology/GROUNDING-DESIGN.md.
+# ---------------------------------------------------------------------------
+
+
+class ClaimContext(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    entity_id: str | None = None
+    entity_name: str | None = None
+    claims: list[Claim] = Field(default_factory=list)
+    coverage_confidence: Literal["high", "medium", "low", "none"] = "none"
