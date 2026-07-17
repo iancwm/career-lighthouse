@@ -44,3 +44,8 @@ vector_store:
 ontology:
   extraction_enabled: false
   pilot_employer_slugs: []
+  # Milestone 2 claim-injection (grounding) feature flag. MUST default to false,
+  # same dark-ship pattern as extraction_enabled. See docs/ontology/GROUNDING-DESIGN.md.
+  grounding_enabled: false
+  max_injected_claims: 10
+  grounding_default_geography: "SG"

@@ -668,3 +668,187 @@ def test_chat_does_not_resurrect_stale_chunks_when_no_active_sources_remain(
     assert r.status_code == 200
     assert mock_llm.call_args.kwargs["chunks"] == []
     assert r.json()["citations"] == []
+
+
+# ---------------------------------------------------------------------------
+# Milestone 2 — grounding (VERIFIED CLAIMS injection), dark-shipped behind
+# ontology.grounding_enabled
+# ---------------------------------------------------------------------------
+
+
+def test_grounding_disabled_by_default_claim_context_is_none_and_service_unused(
+    in_memory_qdrant, mock_embedder
+):
+    """SPRINT-M2-TASKS.md Task 10 (CEO-T6): with the flag at its default
+    (false), ClaimContextService must never be instantiated and
+    chat_with_context() must receive claim_context=None.
+    """
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+    from cfg import kb_cfg
+
+    assert kb_cfg["ontology"]["grounding_enabled"] is False
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    with patch.object(
+        llm_module, "chat_with_context", return_value="general advice"
+    ) as mock_llm, patch(
+        "services.claim_context.ClaimContextService"
+    ) as mock_ccs_class:
+        client = TestClient(app)
+        r = client.post(
+            "/api/chat",
+            json={
+                "message": "What are Goldman's interview stages in Singapore?",
+                "resume_text": None,
+                "history": [],
+            },
+        )
+
+    assert r.status_code == 200
+    mock_ccs_class.assert_not_called()
+    mock_employer_store.get_matched_slugs.assert_not_called()
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("claim_context") is None
+    assert kwargs.get("grounding_employer_slug") is None
+
+
+def test_grounding_enabled_wires_claim_context_and_employer_slug_into_llm(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
+    """When the flag is on, chat_router resolves the single matched employer
+    slug via get_matched_slugs(), passes it to ClaimContextService, and
+    forwards both the resulting ClaimContext and the slug into
+    chat_with_context() (docs/ontology/GROUNDING-DESIGN.md D2/D9).
+    """
+    from datetime import date, datetime, timezone
+
+    from main import app
+    import dependencies
+    import services.llm as llm_module
+    from cfg import kb_cfg
+    from models_ontology import (
+        ClaimConfidence,
+        ClaimContext,
+        ClaimObservationTime,
+        RecruitmentStagePayload,
+    )
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+
+    monkeypatch.setitem(kb_cfg["ontology"], "grounding_enabled", True)
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+    mock_employer_store.get_matched_slugs.return_value = ["goldman_sachs"]
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    fake_claim_context = ClaimContext(
+        entity_id="organization-goldman_sachs",
+        entity_name="Goldman Sachs Singapore",
+        claims=[],
+        coverage_confidence="none",
+    )
+
+    with patch.object(
+        llm_module, "chat_with_context", return_value="grounded advice"
+    ) as mock_llm, patch(
+        "services.claim_context.ClaimContextService"
+    ) as mock_ccs_class:
+        mock_ccs_class.return_value.get_claim_context.return_value = (
+            fake_claim_context
+        )
+        client = TestClient(app)
+        r = client.post(
+            "/api/chat",
+            json={
+                "message": "What are Goldman's interview stages in Singapore?",
+                "resume_text": None,
+                "history": [],
+            },
+        )
+
+    assert r.status_code == 200
+    mock_employer_store.get_matched_slugs.assert_called_once_with(
+        None, "What are Goldman's interview stages in Singapore?"
+    )
+    mock_ccs_class.return_value.get_claim_context.assert_called_once_with(
+        "What are Goldman's interview stages in Singapore?",
+        None,
+        employer_slug="goldman_sachs",
+    )
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("claim_context") is fake_claim_context
+    assert kwargs.get("grounding_employer_slug") == "goldman_sachs"
+
+
+def test_grounding_enabled_ambiguous_employer_match_passes_none_slug(
+    in_memory_qdrant, mock_embedder, monkeypatch
+):
+    """SPRINT-M2-TASKS.md Task 8 (ENG-T2): 0 or >1 matched slugs -> None, not
+    an arbitrary pick.
+    """
+    from main import app
+    import dependencies
+    from cfg import kb_cfg
+    from models_ontology import ClaimContext
+    import services.llm as llm_module
+    from services.career_profiles import get_career_profile_store
+    from services.employer_store import get_employer_store
+
+    monkeypatch.setitem(kb_cfg["ontology"], "grounding_enabled", True)
+
+    store, vec = _make_store(in_memory_qdrant)
+    mock_embedder.encode.return_value = vec
+    mock_ps = _mock_profile_store(get_profile_return=None, match_return=None)
+
+    mock_employer_store = MagicMock()
+    mock_employer_store.to_context_block.return_value = ""
+    mock_employer_store.get_matched_slugs.return_value = ["deloitte", "deloitte_singapore"]
+
+    app.dependency_overrides[dependencies.get_vector_store] = lambda: store
+    app.dependency_overrides[dependencies.get_embedder] = lambda: mock_embedder
+    app.dependency_overrides[get_career_profile_store] = lambda: mock_ps
+    app.dependency_overrides[get_employer_store] = lambda: mock_employer_store
+
+    with patch.object(
+        llm_module, "chat_with_context", return_value="advice"
+    ) as mock_llm, patch(
+        "services.claim_context.ClaimContextService"
+    ) as mock_ccs_class:
+        mock_ccs_class.return_value.get_claim_context.return_value = ClaimContext(
+            coverage_confidence="none"
+        )
+        client = TestClient(app)
+        r = client.post(
+            "/api/chat",
+            json={"message": "Tell me about Deloitte", "resume_text": None, "history": []},
+        )
+
+    assert r.status_code == 200
+    mock_ccs_class.return_value.get_claim_context.assert_called_once_with(
+        "Tell me about Deloitte", None, employer_slug=None
+    )
+    _, kwargs = mock_llm.call_args
+    assert kwargs.get("grounding_employer_slug") is None

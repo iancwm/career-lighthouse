@@ -89,3 +89,21 @@ Computed as: `valid_and_grounded_claims / total_claims_produced`, run over the f
 ## 6. What this evaluation plan deliberately does not cover
 
 Per the spec's non-goals, this plan does not build an ontology-quality dashboard, does not wire evaluation into CI as a blocking gate (the existing pytest suite blocking gate is unaffected — see `MIGRATION-PLAN.md` §1 invariant 4), and does not attempt statistical significance testing given the intentionally small (10-15 item) Milestone-1 gold set. These are reasonable follow-ups once claim-type coverage and real usage volume justify the investment.
+
+## 7. Milestone 2 gold query — grounded chat answers
+
+Per `docs/ontology/SPRINT-M2-TASKS.md` Task 15 (ENG-T7) and `GROUNDING-DESIGN.md`'s
+Success Criteria §1: one gold query registered for the claim-injection (grounding)
+pipeline, exercised by `api/tests/test_grounding_eval.py` (`@pytest.mark.eval`,
+skipped in CI by default — same shape as the `@pytest.mark.integration` tests in
+`test_ai_eval.py`, gated on `ANTHROPIC_API_KEY` being set).
+
+| Query | Fixture claims | Expected behavior |
+|---|---|---|
+| "What are Goldman's interview stages in Singapore?" | 3 approved, non-stale, high-confidence `recruitment_stage` claims for `organization-goldman_sachs`, `scope.geography="SG"` (online application → HireVue video interview → Superday final round) | `chat_with_context()` response contains at least one of `["knowledge base", "per our knowledge base", "based on our records"]` — the VERIFIED CLAIMS block should change model behavior, not just be present in the prompt unused |
+| Same query, `claim_context=None` | — (no claims injected) | Response should NOT contain the KB-attribution phrases above — a negative control proving the eval isn't trivially satisfied by every response |
+
+Both assertions run in `TestGroundingEval` in `test_grounding_eval.py`. This is
+deliberately a single gold query at pilot scope (one employer, one claim type),
+matching `GROUNDING-DESIGN.md`'s "narrowest wedge" framing — expand alongside the
+Milestone-1 gold dataset as more claim types and employers are covered.

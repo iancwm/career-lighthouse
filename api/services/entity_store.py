@@ -211,6 +211,7 @@ class EntityStore(Singleton):
         parent_entity_id: str | None = None,
         geography: str | None = None,
         external_ids: dict[str, str] | None = None,
+        entity_id: str | None = None,
     ) -> Entity:
         """Create (or idempotently return) an Entity for `entity_type`/`canonical_name`.
 
@@ -223,18 +224,54 @@ class EntityStore(Singleton):
 
         The record is validated through the `Entity` Pydantic model before
         being written, so a malformed record never reaches disk.
+
+        `entity_id`, when passed, is used verbatim instead of the derived
+        `{entity_type}-{safe_slug(canonical_name)}` id — no collision
+        escalation applies. This is the explicit-id path required by
+        docs/ontology/GROUNDING-DESIGN.md §D2/D3 (organization entities must
+        resolve to `organization-{employer_slug}`, which does not always
+        equal `safe_slug(canonical_name)`; see SPRINT-M2-TASKS.md P0/Task 0).
+        If a record already exists at that exact id: idempotently return it
+        when `canonical_name` matches, otherwise raise `ValueError` — an
+        explicit id is a caller contract, not a hint to be escalated around.
         """
+        if entity_id is not None:
+            existing_explicit = self.get_entity(entity_type, entity_id)
+            if existing_explicit is not None:
+                if existing_explicit.canonical_name == canonical_name:
+                    return existing_explicit
+                raise ValueError(
+                    f"entity_id {entity_id!r} already exists with canonical_name "
+                    f"{existing_explicit.canonical_name!r}, not {canonical_name!r}"
+                )
+            now = datetime.now(timezone.utc)
+            entity = Entity(
+                entity_id=entity_id,
+                entity_type=entity_type,
+                canonical_name=canonical_name,
+                aliases=list(aliases or []),
+                parent_entity_id=parent_entity_id,
+                geography=geography,
+                external_ids=dict(external_ids or {}),
+                created_at=now,
+                updated_at=now,
+            )
+            atomic_yaml_write(_entity_path(entity_type, entity_id), entity.model_dump())
+            return entity
+
         base_slug = safe_slug(canonical_name) or "entity"
         naive_id = f"{entity_type}-{base_slug}"
         existing = self.get_entity(entity_type, naive_id)
         if existing is not None and existing.canonical_name == canonical_name:
             return existing
 
-        entity_id = self._resolve_entity_id(entity_type, base_slug, canonical_name, geography)
+        resolved_entity_id = self._resolve_entity_id(
+            entity_type, base_slug, canonical_name, geography
+        )
 
         now = datetime.now(timezone.utc)
         entity = Entity(
-            entity_id=entity_id,
+            entity_id=resolved_entity_id,
             entity_type=entity_type,
             canonical_name=canonical_name,
             aliases=list(aliases or []),
@@ -244,10 +281,38 @@ class EntityStore(Singleton):
             created_at=now,
             updated_at=now,
         )
-        atomic_yaml_write(_entity_path(entity_type, entity_id), entity.model_dump())
+        atomic_yaml_write(_entity_path(entity_type, resolved_entity_id), entity.model_dump())
         return entity
 
 
 def get_entity_store() -> "EntityStore":
     """FastAPI dependency accessor — returns the EntityStore singleton."""
     return EntityStore()
+
+
+def ensure_organization_entity_for_employer(
+    employer_slug: str,
+    employer_name: str,
+    *,
+    entity_store: "EntityStore | None" = None,
+) -> Entity:
+    """Idempotently ensure the organization Entity for a `knowledge/employers/`
+    record exists with `entity_id = f"organization-{employer_slug}"`.
+
+    This locks in the GROUNDING-DESIGN.md §D2/D3 convention that Milestone 2's
+    claim-injection fast path depends on: it derives `entity_id` directly from
+    the employer YAML's filename slug rather than from
+    `safe_slug(canonical_name)`, which can diverge (e.g. `ao_shearman.yaml`'s
+    `employer_name: "A&O Shearman Singapore"` slugs to `a_o_shearman_singapore`,
+    not `ao_shearman`). Call this before Stage 2 entity resolution
+    (`ontology_extraction.resolve_mention`) runs for an organization mention
+    that matches a known employer, so the mention resolves to this
+    correctly-keyed entity instead of drafting a divergent one.
+    """
+    store = entity_store or EntityStore()
+    entity_id = f"organization-{employer_slug}"
+    return store.create_entity(
+        "organization",
+        employer_name,
+        entity_id=entity_id,
+    )

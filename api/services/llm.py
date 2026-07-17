@@ -74,7 +74,9 @@ from services.llm_tracing import (
 )
 from models_facts import Fact
 from models_kb import KBAnalysisResult
+from models_ontology import ClaimContext
 from models_tracks import DraftTrackDetail
+from services.claim_context import claim_display_text, stale_caveat_year
 from utils.sanitization import sanitize_for_prompt
 
 from cfg import model_cfg, kb_cfg, prompts_cfg
@@ -782,6 +784,51 @@ def shutdown_langfuse_traces() -> None:
         logger.warning("Failed to shutdown Langfuse traces", exc_info=True)
 
 
+def _build_claim_context_block(claim_context: ClaimContext | None) -> tuple[str, int]:
+    """Build the unsanitized-but-assembled VERIFIED CLAIMS block for `claim_context`.
+
+    Returns (block_text, claims_injected_count). block_text is "" when there is
+    nothing to inject (claim_context is None, coverage_confidence == "none", or
+    claims is empty) — callers must skip injection entirely in that case rather
+    than inject an empty/near-empty block. Each claim's display text is passed
+    through `sanitize_for_prompt()` individually before being joined into the
+    block, per docs/ontology/GROUNDING-DESIGN.md — the block's own literal
+    instruction text does not need sanitizing (it is not derived from any
+    ingested document).
+    """
+    if (
+        claim_context is None
+        or claim_context.coverage_confidence == "none"
+        or not claim_context.claims
+    ):
+        return "", 0
+
+    lines = [
+        "VERIFIED CLAIMS (from Knowledge Base):",
+        "These are verified facts extracted from counsellor notes and employer "
+        "documents.",
+        "Trust these over your general training knowledge. Cite the claim type "
+        "when you use one.",
+        "",
+    ]
+    if claim_context.coverage_confidence == "low":
+        lines.append(
+            f"Note: this information is from {stale_caveat_year(claim_context.claims)} "
+            "and may be outdated."
+        )
+        lines.append("")
+    for claim in claim_context.claims:
+        lines.append(f"• {sanitize_for_prompt(claim_display_text(claim))}")
+    lines.append("")
+    lines.append(
+        "If a student asks about something NOT covered by a VERIFIED CLAIM above, "
+        'respond with: "I don\'t have specific information about that in my '
+        'knowledge base. Based on general knowledge..." — and clearly signal '
+        "it's not KB-grounded."
+    )
+    return "\n".join(lines), len(claim_context.claims)
+
+
 def chat_with_context(
     message: str,
     resume_text: str | None,
@@ -789,14 +836,17 @@ def chat_with_context(
     history: list[dict],
     career_context: str | None = None,
     employer_context: str | None = None,
+    claim_context: ClaimContext | None = None,
+    grounding_employer_slug: str | None = None,
 ) -> str:
     """Chat with context injection for multi-turn career advising conversations.
 
     Injects structured context blocks in a specific order:
-    1. Career profile context (if matched)
-    2. Employer facts (if applicable to the career type)
-    3. KB chunks (retrieved by semantic search)
-    4. Conversation history (most recent N turns)
+    1. VERIFIED CLAIMS (Milestone 2 grounding, if claim_context is non-empty)
+    2. Career profile context (if matched)
+    3. Employer facts (if applicable to the career type)
+    4. KB chunks (retrieved by semantic search)
+    5. Conversation history (most recent N turns)
 
     Automatically adds a disambiguation prompt if no career type is active,
     guiding students to clarify their focus area.
@@ -808,6 +858,15 @@ def chat_with_context(
         history: prior conversation turns
         career_context: formatted career profile block (from profile_to_context_block)
         employer_context: formatted employer facts
+        claim_context: pre-fetched Milestone 2 ClaimContext, or None when
+            grounding is disabled or no entity/claims were resolved for this
+            query (see api/services/claim_context.py). Callers must resolve
+            this themselves before calling — this function never calls the
+            ontology stores directly (docs/ontology/GROUNDING-DESIGN.md keeps
+            service layers decoupled).
+        grounding_employer_slug: the employer slug that triggered fast-path
+            entity resolution for this query (or None) — logged as a Langfuse
+            trace metadata field only, not used for prompt construction.
 
     Returns:
         LLM response text.
@@ -866,35 +925,43 @@ def chat_with_context(
     safe_employer_context = (
         sanitize_for_prompt(employer_context) if employer_context else None
     )
+    # Milestone 2 grounding: each claim's display text is already sanitized
+    # inside _build_claim_context_block — do not sanitize the block again here
+    # (it also contains our own literal instruction text, which sanitizing a
+    # second time would not harm but is unnecessary).
+    full_claim_block, grounding_claims_injected_count = _build_claim_context_block(
+        claim_context
+    )
 
-    # Injection order: career profile → employer facts → KB chunks
-    # Employer facts always appear before KB chunks so authoritative YAML data
-    # supersedes any stale chunk content about the same employers.
+    # Injection order: VERIFIED CLAIMS → career profile → employer facts → KB chunks.
+    # VERIFIED CLAIMS comes first so it is the first thing the LLM reads
+    # (docs/ontology/GROUNDING-DESIGN.md Step 4). Employer facts always appear
+    # before KB chunks so authoritative YAML data supersedes any stale chunk
+    # content about the same employers.
     raw_context_sections = []
+    if full_claim_block:
+        raw_context_sections.append(full_claim_block)
     if safe_career_context:
         raw_context_sections.append(safe_career_context)
     if safe_employer_context:
-        if safe_career_context:
-            raw_context_sections.insert(1, safe_employer_context)
-        else:
-            raw_context_sections.insert(0, safe_employer_context)
+        raw_context_sections.append(safe_employer_context)
     raw_context_sections.append(
         f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}"
     )
     raw_combined_context = "\n\n".join(raw_context_sections)
 
     context_sections = []
+    if full_claim_block:
+        # Stricter cap (// 6, not // 3) — see docs/ontology/GROUNDING-DESIGN.md
+        # Step 4: _join_budgeted_sections is greedy first-fit over
+        # [resume, context, history], so a wide claim-block cap would crowd
+        # out KB chunk budget in core_section below.
+        claim_budget = max_context_chars // 6 if max_context_chars else None
+        context_sections.append(_trim_to_budget(full_claim_block, claim_budget))
     if safe_career_context:
         context_sections.append(_trim_to_budget(safe_career_context, max_context_chars))
     if safe_employer_context:
-        if safe_career_context:
-            context_sections.insert(
-                1, _trim_to_budget(safe_employer_context, max_context_chars)
-            )
-        else:
-            context_sections.insert(
-                0, _trim_to_budget(safe_employer_context, max_context_chars)
-            )
+        context_sections.append(_trim_to_budget(safe_employer_context, max_context_chars))
     context_sections.append(
         f"School knowledge base:\n{kb_text or 'No documents uploaded yet.'}"
     )
@@ -942,6 +1009,12 @@ def chat_with_context(
             "input_chars_pre_trim": input_chars_pre_trim,
             "kb_chunks_retrieved": kb_chunks_retrieved,
             "kb_chunks_sent": len(budgeted_chunks),
+            "grounding_entity_resolved": bool(claim_context and claim_context.entity_id),
+            "grounding_claims_injected_count": grounding_claims_injected_count,
+            "grounding_coverage_confidence": (
+                claim_context.coverage_confidence if claim_context else "none"
+            ),
+            "grounding_employer_slug": grounding_employer_slug,
         },
     )
     return response.content[0].text

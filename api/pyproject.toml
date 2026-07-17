@@ -32,6 +32,10 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 asyncio_mode = "auto"
+markers = [
+    "integration: real embedder/Qdrant/LLM integration tests, skipped in CI by default",
+    "eval: real-LLM quality eval tests (e.g. Milestone 2 grounding), skipped in CI by default",
+]
 
 [dependency-groups]
 dev = [

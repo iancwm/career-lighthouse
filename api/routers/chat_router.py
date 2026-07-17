@@ -14,9 +14,11 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
 
+from cfg import kb_cfg
 from config import settings
 from dependencies import get_embedder, get_student_insight_store, get_vector_store
 from models_chat import ChatRequest, ChatResponse, Citation
+from models_ontology import ClaimContext
 from models_tracks import TrackRegistryEntry
 from services import llm
 from services.career_profiles import (
@@ -66,6 +68,51 @@ def _setting_int(name: str, default: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default
+
+
+def _grounding_enabled() -> bool:
+    """Read ontology.grounding_enabled from kb.yaml — Milestone 2's dark-ship flag.
+
+    MUST default to False (see api/cfg/kb.yaml comment and
+    docs/ontology/GROUNDING-DESIGN.md), same pattern as
+    ontology.extraction_enabled from Milestone 1.
+    """
+    return bool((kb_cfg.get("ontology") or {}).get("grounding_enabled", False))
+
+
+def _resolve_claim_context(
+    employer_store: EmployerEntityStore,
+    active_career_type: Optional[str],
+    message: str,
+) -> tuple[Optional[ClaimContext], Optional[str]]:
+    """Milestone 2 grounding: resolve VERIFIED CLAIMS context for this query.
+
+    Returns (claim_context, employer_slug) — employer_slug is the single
+    matched employer slug used for fast-path entity resolution (or None),
+    surfaced separately for Langfuse trace metadata regardless of whether
+    resolution ultimately produced any claims.
+
+    `ClaimContextService` is imported lazily, inside this flag-gated call,
+    rather than at module top — the API must start safely even if M1's
+    ontology stores are ever partially unavailable
+    (docs/ontology/GROUNDING-DESIGN.md "Lazy import" note). Returns
+    (None, employer_slug) unchanged if grounding is disabled or anything
+    about resolution fails — ClaimContextService.get_claim_context() already
+    has its own broad error-rescue boundary, so no additional try/except is
+    needed here beyond the flag check.
+    """
+    if not _grounding_enabled():
+        return None, None
+
+    matched_slugs = employer_store.get_matched_slugs(active_career_type, message)
+    employer_slug = matched_slugs[0] if len(matched_slugs) == 1 else None
+
+    from services.claim_context import ClaimContextService
+
+    claim_context = ClaimContextService().get_claim_context(
+        message, active_career_type, employer_slug=employer_slug
+    )
+    return claim_context, employer_slug
 
 
 @router.get("/ping")
@@ -233,6 +280,12 @@ def chat(
     )
     employer_context: Optional[str] = employer_block if employer_block else None
 
+    # Milestone 2 grounding: resolve VERIFIED CLAIMS context (dark-shipped
+    # behind ontology.grounding_enabled — see _resolve_claim_context).
+    claim_context, grounding_employer_slug = _resolve_claim_context(
+        employer_store, active_career_type, req.message
+    )
+
     citations = [
         Citation(
             filename=c["payload"]["source_filename"],
@@ -256,6 +309,8 @@ def chat(
         history=[m.model_dump() for m in req.history],
         career_context=career_context,
         employer_context=employer_context,
+        claim_context=claim_context,
+        grounding_employer_slug=grounding_employer_slug,
     )
     if _setting_bool("student_chat_insights_enabled") and len(
         req.message

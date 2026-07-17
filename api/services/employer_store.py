@@ -305,6 +305,45 @@ def _employer_matches_query(employer: dict, query_text: str) -> bool:
     return False
 
 
+def _match_by_name_or_slug(employer: dict, query_text: str) -> bool:
+    """Return True when the query explicitly names the employer by name or slug.
+
+    Strict counterpart to _employer_matches_query() — used for entity resolution
+    (claim-injection fast path), not LLM context formatting. Checks only
+    employer_name and slug fields; deliberately does NOT fall through to the
+    notes/application_process expansion, so e.g. "NGO volunteer work" does not
+    match WWF here even though WWF's notes mention "NGO" (that broader match is
+    intentional in _employer_matches_query() for context injection, but too loose
+    for entity resolution).
+    """
+    if not query_text or not query_text.strip():
+        return False
+
+    query_lower = query_text.lower()
+    query_terms = _normalized_terms(query_text)
+    name = str(employer.get("employer_name") or "").strip().lower()
+    slug = str(employer.get("slug") or "").strip().lower()
+
+    if name and name in query_lower:
+        return True
+    if slug and slug.replace("_", " ") in query_lower:
+        return True
+
+    employer_terms = _normalized_terms(name) | _normalized_terms(slug.replace("_", " "))
+    if not employer_terms:
+        return False
+
+    # Acronym-style employers like DBS or UBS are represented as a single token.
+    if len(employer_terms) == 1:
+        return next(iter(employer_terms)) in query_terms
+
+    # For multi-word names, require all salient terms to appear somewhere in the query.
+    if employer_terms.issubset(query_terms):
+        return True
+
+    return False
+
+
 class EmployerEntityStore(Singleton):
     """Singleton that loads employer entity YAMLs from knowledge/employers/.
 
@@ -507,6 +546,37 @@ class EmployerEntityStore(Singleton):
             lines.append(employer_to_context_block(emp))
         lines.append("=== END EMPLOYER FACTS ===")
         return "\n".join(lines)
+
+    def get_matched_slugs(
+        self,
+        active_career_type: Optional[str] = None,
+        query_text: Optional[str] = None,
+    ) -> list[str]:
+        """Return slugs of employers explicitly named by query_text (strict match).
+
+        Used for entity resolution (claim-injection fast path in chat_router.py),
+        not LLM context formatting. Uses _match_by_name_or_slug() — only
+        employer_name/slug are checked, not notes/application_process, so a
+        query like "NGO volunteer work" does NOT match WWF here even though
+        to_context_block() would inject WWF for that same query via its broader
+        matcher.
+
+        active_career_type is accepted for signature symmetry with
+        to_context_block() but does NOT filter results — name/slug matching runs
+        across all employers regardless of career type, so a first-session
+        student with no active career type who names an employer explicitly
+        still resolves to that employer's slug.
+
+        Returns [] if query_text is empty/falsy or if no employer matches.
+        Order follows list_employers() iteration order.
+        """
+        if not query_text or not query_text.strip():
+            return []
+        return [
+            employer.get("slug", "")
+            for employer in self.list_employers()
+            if _match_by_name_or_slug(employer, query_text)
+        ]
 
     def append_source_document(self, slug: str, filename: str, raw_text: str) -> bool:
         """Append a parsed document's text to the employer's source_documents list.

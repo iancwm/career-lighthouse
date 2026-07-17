@@ -17,9 +17,10 @@ Recently archived:
 - `docs/archived/SPRINT-UX-WORKSPACE-CLARITY.md` — counsellor workspace UX sprint. Remaining A2 admin-tab sweep, D2 sticky local context, and E1/E2 verification shipped 2026-05-02.
 - `docs/archived/SPRINT-LAUNCH-READINESS.md` — security/reliability/KB-perf/alumni-followups sprint. Residual items (B3 UX, E1 accuracy artifact, F3 alumni verification) live in this backlog.
 - `docs/archived/alumni_schema/SPRINT-ALUMNI-CARDS.md` — alumni cards sprint. Residual manual verification lives in this backlog.
+- `docs/archived/SPRINT-SECURITY-RELIABILITY-2026-05-15.md` — security/reliability close-out sprint. All 10 items (S1-S4, R1-R3, T1-T3) shipped and archived 2026-05-20.
+- `docs/archived/AUDIT-2026-04-20.md` — pre-alumni/ontology production-readiness snapshot, superseded by this file and `CHANGELOG.md`. Moved out of the repo root (undocumented path) on 2026-07-17.
 
-Active sprint planning:
-- `docs/archived/SPRINT-SECURITY-RELIABILITY-2026-05-15.md` — security/reliability close-out sprint. All 10 items (S1-S4, R1-R3, T1-T3) are complete and the sprint doc has been archived.
+Note: `docs/ontology/` (`ONTOLOGY-DESIGN.md`, `GROUNDING-DESIGN.md`, `MILESTONE-1.md`, `SPRINT-M2-TASKS.md`, `MIGRATION-PLAN.md`, `EVALUATION-PLAN.md`) is **not** archived even though Milestones 1 and 2 have both shipped — unlike the sprint docs above, these are cited by path from ~17 source/test files (`api/services/entity_store.py`, `claim_store.py`, `ontology_extraction.py`, `claim_context.py`, `llm.py`, `chat_router.py`, and their tests) as the living architecture spec for the ontology subsystem, so they stay in place at their stable path.
 
 ## Now
 
@@ -48,6 +49,12 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Depends on:** Revision metadata on structured facts.
 
 ## Next
+
+### Enable ontology pilot flags for a real employer
+**What:** Seed ≥3 approved `recruitment_stage`/`application_window` claims for Goldman Sachs Singapore in `knowledge/claims/`, set `ontology.extraction_enabled: true` and `ontology.grounding_enabled: true` for that employer in staging `kb.yaml`, then verify via Langfuse that `grounding_claims_injected_count > 0` for a Goldman query before evaluating against `EVALUATION-PLAN.md` gold queries.
+**Why:** Milestones 1 (extraction pipeline) and 2 (claim injection) are both fully shipped but dark-flagged by design — this is a product/business decision, not further engineering, and is the actual next step referenced in `docs/README.md`'s Current State section.
+**Context:** Rollout sequence spelled out in `docs/ontology/GROUNDING-DESIGN.md` ("Rollout sequence" section, steps 4-6) and `docs/ontology/MIGRATION-PLAN.md`.
+**Depends on:** Counsellor time to review/approve claim proposals for the pilot employer; nothing technical is blocking.
 
 ### Path to multi-instance scaling
 **What:** Replace file-based query log with CloudWatch Logs or SQS; move Qdrant to standalone container; remove `WEB_CONCURRENCY=1` constraint.
@@ -104,7 +111,7 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Cons:** Requires query-intent detection (heuristic or lightweight LLM call) — adds latency and complexity to the claim context service.
 **Context:** Claims are currently injected in `ClaimStore` iteration order (YAML file order). The 2,000-char cap (`max_context_chars // 6`) can truncate when claims are verbose or numerous. Registered as a known limitation in `docs/ontology/GROUNDING-DESIGN.md`. Deferred from M2 eng review.
 **Effort:** M (human ~4h / CC ~20min). **Priority:** P3.
-**Depends on:** M2 `ClaimContextService` shipping + pilot data showing ordering causes quality degradation.
+**Depends on:** `ClaimContextService` has shipped (2026-07-17) — remaining blocker is pilot data showing ordering causes quality degradation, once `ontology.grounding_enabled` is turned on for a real employer.
 
 ### Add TTL cache to EntityStore.list_entities() and ClaimStore.list_claims_for_entity()
 **What:** Add a TTL in-memory cache to `EntityStore.list_entities(entity_type)` and `ClaimStore.list_claims_for_entity()`. Follow the same pattern as `list_docs` TTL cache (shipped 2026-04-28).
@@ -112,12 +119,14 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Pros:** Maintains the existing YAML-backed file store without infrastructure changes. Pattern already exists.
 **Cons:** In-memory cache is per-process — single-worker constraint must remain (already enforced by startup guard). Stale reads possible if claims are updated between TTL expiry.
 **Effort:** S (human ~2h / CC ~15min). **Priority:** P3.
-**Depends on:** M1 EntityStore and ClaimStore implementation (Milestone 1 must ship first).
+**Depends on:** Nothing technical — `EntityStore`/`ClaimStore` shipped with Milestone 1 (2026-07-16). Remaining blocker is reaching pilot-scale entity/claim counts to justify the cache.
 
 ## Done
 
 All completed items are documented in the archived sprint files under `docs/archived/`. Key milestones:
 
+- **2026-07-17** Ontology Milestone 2 (grounded chat answers) — `ClaimContextService`, VERIFIED CLAIMS prompt injection, `EmployerEntityStore.get_matched_slugs()`, entity-id convention fix, Langfuse `grounding_*` metrics, gold eval query. `ontology.grounding_enabled` ships `false`. See `docs/ontology/GROUNDING-DESIGN.md` and `docs/ontology/SPRINT-M2-TASKS.md`.
+- **2026-07-16** Ontology Milestone 1 (typed claims/evidence/entities) — `Entity`/`Evidence`/`Claim` models and stores, Stage 1-4 extraction pipeline, `ontology_router.py`, claim review card in `SmartCanvas.tsx`. `ontology.extraction_enabled` ships `false`. See `docs/ontology/MILESTONE-1.md`.
 - **2026-06-06** Circuit breaker + tenacity retry — `_safe_create` in `llm.py` now retries `APITimeoutError` (3 attempts, exp backoff 2–10s) and opens circuit after 5 consecutive failures
 - **2026-05-10** UX Polish Sprint — header polish, optimistic session creation, SessionInbox regression pass
 - **2026-05-20** Security/reliability sprint T3 complete — end-to-end prompt-injection pipeline tests now cover both ingest-time sanitization and chat-time LLM prompt construction
