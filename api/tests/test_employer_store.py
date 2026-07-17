@@ -652,3 +652,126 @@ class TestEmployerMatchesQueryNotes:
             query_text="finance",
         )
         assert "General Corp" not in block
+
+
+# ---------------------------------------------------------------------------
+# EmployerEntityStore.get_matched_slugs() — strict name/slug matching
+# ---------------------------------------------------------------------------
+
+
+class TestGetMatchedSlugs:
+    def test_matches_by_exact_employer_name(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        slugs = store.get_matched_slugs(
+            active_career_type=None, query_text="Tell me about Goldman Sachs"
+        )
+        assert slugs == ["goldman_sachs"]
+
+    def test_matches_by_slug_with_underscores_replaced_by_spaces(
+        self, employers_dir, monkeypatch
+    ):
+        # Use a slug that differs from the exact employer_name string so the
+        # match can only succeed via the slug.replace("_", " ") branch, not
+        # the employer_name substring branch.
+        (employers_dir / "sachs_holdings.yaml").write_text(
+            textwrap.dedent("""\
+            employer_name: The Sachs Company
+            slug: sachs_holdings
+            tracks:
+              - investment_banking
+            ep_requirement: "EP4"
+        """),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        slugs = store.get_matched_slugs(
+            active_career_type=None,
+            query_text="What is the sachs holdings interview process?",
+        )
+        assert slugs == ["sachs_holdings"]
+
+    def test_broad_notes_match_does_not_trigger_strict_match(
+        self, employers_dir, monkeypatch
+    ):
+        (employers_dir / "wwf_singapore.yaml").write_text(
+            textwrap.dedent("""\
+            employer_name: WWF Singapore
+            slug: wwf_singapore
+            tracks:
+              - social_impact_nonprofit
+            ep_requirement: "EP sponsored"
+            notes: "NGO role with compensation 55-70K for partnership officer"
+        """),
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        query = "What is NGO compensation like?"
+
+        # to_context_block DOES inject WWF via the broad notes matcher...
+        block = store.to_context_block(active_career_type=None, query_text=query)
+        assert "WWF Singapore" in block
+
+        # ...but get_matched_slugs must NOT match WWF, since "NGO" is not in
+        # WWF's employer_name or slug.
+        slugs = store.get_matched_slugs(active_career_type=None, query_text=query)
+        assert slugs == []
+
+    def test_ambiguous_query_naming_two_employers_returns_both_slugs(
+        self, employers_dir, monkeypatch
+    ):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        slugs = store.get_matched_slugs(
+            active_career_type=None,
+            query_text="Compare Goldman Sachs and McKinsey offers",
+        )
+        assert set(slugs) == {"goldman_sachs", "mckinsey"}
+        assert len(slugs) == 2
+
+    def test_active_career_type_does_not_filter_results(
+        self, employers_dir, monkeypatch
+    ):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        query = "Tell me about Goldman Sachs"
+        # Goldman is tracked under investment_banking, not consulting or None,
+        # but get_matched_slugs must return the same slug regardless.
+        assert store.get_matched_slugs(None, query) == ["goldman_sachs"]
+        assert (
+            store.get_matched_slugs("investment_banking", query) == ["goldman_sachs"]
+        )
+        assert store.get_matched_slugs("consulting", query) == ["goldman_sachs"]
+        assert (
+            store.get_matched_slugs("public_sector", query) == ["goldman_sachs"]
+        )
+
+    def test_empty_query_returns_empty_list(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        assert store.get_matched_slugs(active_career_type=None, query_text="") == []
+        assert store.get_matched_slugs(active_career_type=None, query_text=None) == []
+
+    def test_no_match_returns_empty_list(self, employers_dir, monkeypatch):
+        monkeypatch.setenv("EMPLOYERS_DIR", str(employers_dir))
+        from services.employer_store import EmployerEntityStore
+
+        store = EmployerEntityStore()
+        slugs = store.get_matched_slugs(
+            active_career_type=None, query_text="What careers are in finance?"
+        )
+        assert slugs == []
