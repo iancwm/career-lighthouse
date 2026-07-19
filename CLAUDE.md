@@ -19,12 +19,14 @@ Before changing code, check these first:
 - `docs/README.md` is the index for sprint docs and archived sprint history.
 - The only maintained documentation paths are `docs/`, `TODOS.md`, and `CHANGELOG.md`.
 - Put sprint docs under `docs/`, active backlog items in `TODOS.md`, and significant shipped feature notes in `CHANGELOG.md`.
+- The legacy YAML rebuild workflow is documented in `docs/ontology/REBUILD-SPRINT.md`; run `cd api && uv run python -m tools.ontology_rebuild <source> --inspect` before any Claude-backed run. Generated files under `build/ontology-rebuild/` are review artifacts, not canonical-store writes.
 
 ## Implementation Learnings
 
 - Filesystem writes are fragile. Docker bind mounts, repo files, `knowledge/`, `logs/`, and local worktrees can be read-only or permission-limited, so expect create/unlink failures and verify writable paths early.
 - Admin/API requests need the real auth path. Keep calls on the same origin, send `X-Admin-Key` deliberately, and check CSP/proxy wiring before chasing app logic.
 - LLM output is untrusted input. Strip code fences, preserve outer JSON arrays, allow repair helpers to return lists, and validate slugs plus field allowlists before any write.
+- Ontology rebuild is an isolated operator workflow: it uses its own direct Claude client rather than `services.llm`/Langfuse. Treat the full legacy YAML as egress-sensitive, require the applicable alumni consent/policy gate, and keep generated bundles in review until a counsellor approves them.
 - Schema drift breaks things quietly. Keep prompts, models, and allowlists aligned, especially for commit/analysis payloads.
 - Import timing and helper choice matter. Prefer top-level imports and the correct client/helper accessor when Python starts failing in surprising ways.
 - Long-running writes need guardrails. Session analysis, Qdrant writes, and ingestion should have timeout, retry, or non-fatal fallback behavior.
