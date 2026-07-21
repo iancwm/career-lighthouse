@@ -150,7 +150,7 @@ uv run python -m tools.ontology_rebuild SOURCE [OPTIONS]
 | `--max-input-chars N` | no | Default 100,000; reject larger input unless explicitly raised | implemented |
 | `--force` | no | Replace an existing non-canonical bundle path atomically | implemented |
 | `--allow-personal-data` | conditional | Required for an input classified as `alumni` | implemented |
-| `--confirm-egress` | yes for API calls | Explicitly confirms that the full YAML may be sent to Anthropic | P0 hardening |
+| `--confirm-egress` | yes for API calls | Explicitly confirms that the full YAML may be sent to Anthropic | implemented |
 | `--answers PATH` | no | Apply a companion answers file and regenerate unresolved questions | P1 |
 | `--json-summary` | no | Emit a machine-readable run summary to stdout without raw content | P2 |
 
@@ -632,7 +632,7 @@ privacy_assessment:
 status: needs_user_input
 ```
 
-The MVP currently records only `model` at the top level. Before the gold pilot, metadata must move to the versioned structures above and `BUNDLE_VERSION` must be bumped once.
+Bundle v1.1 records tool identity, prompt versions, model, call count, and SDK token usage in the versioned metadata structures above. Privacy remains explicitly `unreviewed` until an operator assesses the generated bundle.
 
 ### 13.3 Status rules
 
@@ -692,7 +692,7 @@ The tool must reject an output that:
 - Resolves through a symlink into a protected path.
 - Matches a canonical store path supplied through relevant environment overrides.
 
-The current MVP defaults safely but does not yet enforce every protected output path. This is a release blocker before a real migration run is treated as operationally safe.
+Protected output roots, canonical registry paths, configured store overrides, and symlink-resolved destinations are rejected before any write.
 
 ## 16. Privacy, security, and prompt-injection controls
 
@@ -857,17 +857,17 @@ As of 2026-07-19:
 | Transformation and gap-audit passes | implemented |
 | One repair per pass | implemented |
 | Strict runtime claim validation | implemented |
-| Exact evidence and offsets | implemented; repeated-quote disambiguation pending |
+| Exact evidence and offsets | implemented; repeated-quote disambiguation enforced within field spans |
 | Full top-level field accounting | implemented |
 | Nested duplicate-key detection | implemented |
 | Conservative statuses/confidence | implemented |
 | Atomic mode-`0600` output and overwrite protection | implemented |
 | Alumni personal-data flag | implemented |
-| General egress confirmation | pending P0 |
-| Privacy assessment for non-alumni files | pending P0 |
-| Canonical/protected output-path enforcement | pending P0 |
-| Versioned prompt/tool/call metadata | pending P0 |
-| Deterministic semantic question IDs | pending P0 |
+| General egress confirmation | implemented |
+| Privacy assessment for non-alumni files | implemented |
+| Canonical/protected output-path enforcement | implemented |
+| Versioned prompt/tool/call metadata | implemented |
+| Deterministic semantic question IDs | implemented |
 | Answers workflow | pending P1 |
 | Human-reviewed investment-banking gold bundle | pending P0 pilot |
 | Canonical importer | explicitly out of this sprint |
@@ -883,7 +883,7 @@ The rebuild sprint is complete when:
 - [x] Runtime-supported claims are strict, proposed, reported, and evidence-linked.
 - [x] Unsupported semantics are retained as blocked candidates.
 - [x] Duplicate keys and unaccounted fields cannot disappear silently.
-- [ ] All Phase A P0 hardening tasks pass tests.
+- [x] All Phase A P0 hardening tasks pass tests.
 - [ ] A real investment-banking bundle is reviewed by a counsellor.
 - [ ] The gold fixture and quality report meet §18 targets.
 - [ ] The answers contract is accepted, even if implementation is scheduled separately.
