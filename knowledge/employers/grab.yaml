@@ -4,15 +4,17 @@ tracks:
 - data_science_ai
 - tech_product
 - fintech_compliance
+- banking_technology_pm
 ep_requirement: Not confirmed. Verify EP sponsorship policy before advising international
   candidates.
 singapore_headcount_estimate: Large; expanding data teams 10–20 new analysts/year
   (2024–2025)
-notes: 'Identified as active fintech/superapp data analyst hirer in Singapore (alongside
-  Stripe, Wise, Instacart). Preferences: MITB specialized tracks or bootcamp + portfolio
-  > MBA or MSc. Domain knowledge in payments/fintech valued. Source: Alumni call with
-  Jane Teoh (Stripe), April 2025.'
-last_updated: '2026-04-25'
+notes: 'Grab fintech PMs are part of the 30% external hiring pipeline for banking
+  PM roles at DBS and other major Singapore banks. FinTech PM experience (Grab, Stripe)
+  valued for consumer-facing digital banking projects. Grab offers faster pace + startup
+  energy but higher burnout vs. banking. Source: Sophia Lim (DBS Senior PM) interview,
+  March 2025.'
+last_updated: '2026-07-25'
 intake_seasons: []
 application_process: null
 counsellor_contact: null

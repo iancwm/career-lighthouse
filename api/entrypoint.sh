@@ -27,4 +27,4 @@ prepare_file_parent "${TRACK_PUBLISH_JOURNAL_PATH:-/app/logs/track_publish_journ
 prepare_file_parent "${TRACK_PUBLISH_LOG_PATH:-/app/logs/track_publish_log.jsonl}"
 prepare_file_parent "${TRACKS_VERSION_PATH:-/app/knowledge/.tracks-version}"
 
-exec runuser -u appuser -- env HOME=/home/appuser UV_CACHE_DIR=/home/appuser/.cache/uv sh -lc 'cd /app && exec /usr/local/bin/uv run uvicorn main:app --host 0.0.0.0 --port 8000'
+exec runuser -u appuser -- env HOME=/home/appuser UV_CACHE_DIR=/home/appuser/.cache/uv sh -lc 'cd /app && exec /usr/local/bin/uv run --no-sync uvicorn main:app --host 0.0.0.0 --port 8000'

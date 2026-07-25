@@ -77,6 +77,7 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | `just down` | Stop all services |
 | `just logs` | Follow logs for all services |
 | `just clean` | Stop services and wipe Qdrant data volume |
+| `just rebuild` | Run a full no-cache rebuild; use only when the normal cached `just up` path is broken |
 | `just install` | Install all dependencies (`uv sync` + `npm ci`) |
 | `just format` | Format the Python backend with Ruff |
 | `just format-check` | Verify the Python backend is still Ruff-formatted |
@@ -108,19 +109,26 @@ uv run python -m tools.ontology_rebuild \
 export ANTHROPIC_API_KEY='...'
 uv run python -m tools.ontology_rebuild \
   ../knowledge/career_profiles/investment_banking.yaml \
-  --output ../build/ontology-rebuild/investment_banking.yaml
+  --output ../build/ontology-rebuild/investment_banking.yaml \
+  --confirm-egress
 ```
 
 The generated file is a proposed review bundle containing typed records,
 blocked claims, unmapped fields, provenance, and explicit `needs_user_input`
 questions. Alumni YAML requires the additional `--allow-personal-data` gate
 after the applicable consent and egress policy have been confirmed. The full
-workflow and pending hardening work are specified in
+workflow plus the remaining pilot and answers work are specified in
 [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md).
+
+The API image installs the CPU-only PyTorch build and keeps the embedding model
+under the persistent `transformers_cache` volume. Normal `just up` rebuilds reuse
+the dependency layers, and container startup uses the locked environment without
+running another dependency sync. The first API start may download the model; later
+starts reuse the cached copy.
 
 ## Documentation
 
-The repo has three maintained documentation paths:
+The repo has four maintained documentation paths:
 
 - [docs/README.md](docs/README.md) for sprint docs and archived sprint history
 - [docs/ontology/REBUILD-SPRINT.md](docs/ontology/REBUILD-SPRINT.md) for the legacy YAML-to-ontology rebuild workflow
@@ -131,7 +139,7 @@ If you need to document an active sprint, use the `docs/` root. Once a sprint sh
 
 ## Python Package Management
 
-The backend uses `uv` with [api/pyproject.toml](/home/iancwm/git/career-lighthouse/api/pyproject.toml) as the dependency manifest and [api/uv.lock](/home/iancwm/git/career-lighthouse/api/uv.lock) as the locked resolution.
+The backend uses `uv` with [api/pyproject.toml](api/pyproject.toml) as the dependency manifest and [api/uv.lock](api/uv.lock) as the locked resolution.
 
 ```bash
 cd api
@@ -210,12 +218,12 @@ your local repo into the API container:
 That means:
 
 - Sessions are stored as JSON under `data/sessions/`
-- Employer YAMLs are loaded from [knowledge/employers](/home/iancwm/git/career-lighthouse/knowledge/employers)
-- Career profile YAMLs are loaded from [knowledge/career_profiles](/home/iancwm/git/career-lighthouse/knowledge/career_profiles)
+- Employer YAMLs are loaded from [knowledge/employers](knowledge/employers)
+- Career profile YAMLs are loaded from [knowledge/career_profiles](knowledge/career_profiles)
 - Ontology entities, claims, and evidence are stored under `knowledge/entities/`, `knowledge/claims/`, and `knowledge/evidence/` when the dark-shipped ontology workflows are enabled; extraction may create idempotent evidence and known-employer entities, while claim files are written only after a counsellor approves a claim card
 - Rebuild bundles are review artifacts under `build/ontology-rebuild/`; they are not canonical ontology files and are not imported automatically
 - Draft tracks and track history stay under `knowledge/...`, and missing draft copies are seeded from valid published profiles on first access so the Track Builder stays in sync with the published catalog
-- Query logs are written to [logs/query_log.jsonl](/home/iancwm/git/career-lighthouse/logs/query_log.jsonl)
+- Query logs are written to [logs/query_log.jsonl](logs/query_log.jsonl)
 
 Important distinction:
 

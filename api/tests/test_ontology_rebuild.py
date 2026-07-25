@@ -6,6 +6,7 @@ All Claude calls are represented by QueueClaude; this suite makes no network cal
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -15,11 +16,14 @@ import yaml
 from models_ontology import Claim
 from services.claim_store import _compute_claim_id
 from tools.ontology_rebuild import (
+    AnthropicClaudeClient,
     ClaudeOutputError,
     LegacyTypeError,
     RebuildError,
+    _default_output,
     detect_legacy_type,
     load_legacy_document,
+    main,
     rebuild_legacy_yaml,
     write_bundle,
 )
@@ -33,9 +37,7 @@ class QueueClaude:
         self.calls: list[dict] = []
 
     def complete(self, *, system: str, user: str, max_tokens: int) -> str:
-        self.calls.append(
-            {"system": system, "user": user, "max_tokens": max_tokens}
-        )
+        self.calls.append({"system": system, "user": user, "max_tokens": max_tokens})
         if not self.responses:
             raise AssertionError("Unexpected extra Claude call")
         return self.responses.pop(0)
@@ -216,11 +218,12 @@ def test_rebuild_materializes_review_bundle_and_caps_legacy_confidence(tmp_path)
         claim.scope,
     )
     assert bundle.source_metadata.source_id == bundle.source_metadata.filename
-    assert {need.need_id for need in bundle.needs_user_input} == {
-        "deadline_scope",
-        "original_sources",
+    assert {need.need_kind for need in bundle.needs_user_input} == {
+        "missing_scope",
+        "missing_original_source",
         "schema_priority",
     }
+    assert all(need.need_id.startswith("need-") for need in bundle.needs_user_input)
     assert len(bundle.blocked_claims) == 1
 
 
@@ -346,7 +349,7 @@ structured:
         "structured.salary_min_sgd",
     ]
     duplicate_need = next(
-        need for need in bundle.needs_user_input if need.need_id == "duplicate_values"
+        need for need in bundle.needs_user_input if need.need_kind == "duplicate_value"
     )
     assert duplicate_need.priority == "high"
     assert "structured.salary_min_sgd" in duplicate_need.affected_legacy_fields
@@ -383,9 +386,197 @@ def test_write_bundle_is_atomic_and_refuses_overwrite(tmp_path):
 
     write_bundle(output, bundle)
     payload = yaml.safe_load(output.read_text(encoding="utf-8"))
-    assert payload["bundle_version"] == "1.0"
+    assert payload["bundle_version"] == "1.1"
     assert payload["claims"][0]["review_status"] == "proposed"
+    assert output.stat().st_mode & 0o777 == 0o600
     assert not output.with_suffix(".yaml.tmp").exists()
 
     with pytest.raises(RebuildError, match="already exists"):
         write_bundle(output, bundle)
+
+
+def test_write_bundle_does_not_overwrite_a_concurrent_writer(tmp_path, monkeypatch):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    bundle = rebuild_legacy_yaml(
+        source,
+        QueueClaude(
+            [
+                _valid_extraction("Applications close on 2026-09-30."),
+                _gap_audit(),
+            ]
+        ),
+    )
+    output = tmp_path / "bundle.yaml"
+    original_link = os.link
+
+    def race_output_into_place(source_path, destination_path):
+        Path(destination_path).write_text(
+            "written by another process", encoding="utf-8"
+        )
+        original_link(source_path, destination_path)
+
+    monkeypatch.setattr("tools.ontology_rebuild.os.link", race_output_into_place)
+
+    with pytest.raises(RebuildError, match="already exists"):
+        write_bundle(output, bundle)
+
+    assert output.read_text(encoding="utf-8") == "written by another process"
+    assert not list(tmp_path.glob(".bundle.yaml.*.tmp"))
+
+
+def test_write_bundle_force_replaces_an_existing_bundle(tmp_path):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    bundle = rebuild_legacy_yaml(
+        source,
+        QueueClaude(
+            [
+                _valid_extraction("Applications close on 2026-09-30."),
+                _gap_audit(),
+            ]
+        ),
+    )
+    output = tmp_path / "bundle.yaml"
+    output.write_text("stale bundle", encoding="utf-8")
+
+    write_bundle(output, bundle, force=True)
+
+    payload = yaml.safe_load(output.read_text(encoding="utf-8"))
+    assert payload["migration_id"] == bundle.migration_id
+
+
+def test_v11_metadata_privacy_and_semantic_need_ids_are_materialized(tmp_path):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    extraction = _valid_extraction("Applications close on 2026-09-30.")
+    first_audit = _gap_audit()
+    first_audit["needs_user_input"][0]["need_id"] = "model-wording-a"
+    second_audit = _gap_audit()
+    second_audit["needs_user_input"][0]["need_id"] = "model-wording-b"
+
+    first = rebuild_legacy_yaml(source, QueueClaude([extraction, first_audit]))
+    second = rebuild_legacy_yaml(source, QueueClaude([extraction, second_audit]))
+
+    assert first.bundle_version == "1.1"
+    assert first.tool_metadata.name == "career-lighthouse-ontology-rebuild"
+    assert first.generation_metadata.api_calls == 2
+    assert first.generation_metadata.input_tokens == 0
+    assert first.privacy_assessment.status == "unreviewed"
+    assert first.privacy_assessment.contains_personal_data is None
+    first_ids = {need.need_kind: need.need_id for need in first.needs_user_input}
+    second_ids = {need.need_kind: need.need_id for need in second.needs_user_input}
+    assert first_ids == second_ids
+    assert all(need_id.startswith("need-") for need_id in first_ids.values())
+
+
+def test_cli_records_generation_metadata(tmp_path, monkeypatch):
+    source = tmp_path / "investment_banking.yaml"
+    output = tmp_path / "bundle.yaml"
+    _career_profile(source)
+    claude = QueueClaude(
+        [
+            _valid_extraction("Applications close on 2026-09-30."),
+            _gap_audit(),
+        ]
+    )
+    monkeypatch.setattr(
+        "tools.ontology_rebuild.AnthropicClaudeClient",
+        lambda **_kwargs: claude,
+    )
+
+    result = main(
+        [
+            str(source),
+            "--output",
+            str(output),
+            "--confirm-egress",
+        ]
+    )
+
+    payload = yaml.safe_load(output.read_text(encoding="utf-8"))
+    assert result == 0
+    assert payload["generation_metadata"]["api_calls"] == 2
+
+
+def test_cli_inspect_makes_no_claude_calls(tmp_path, monkeypatch, capsys):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("inspect mode must not create a Claude client")
+
+    monkeypatch.setattr(
+        "tools.ontology_rebuild.AnthropicClaudeClient",
+        fail_if_called,
+    )
+
+    result = main([str(source), "--inspect"])
+
+    assert result == 0
+    assert "detected_type: career_profile" in capsys.readouterr().out
+
+
+def test_anthropic_client_requires_explicit_egress_confirmation():
+    with pytest.raises(RebuildError, match="egress confirmation"):
+        AnthropicClaudeClient(api_key="test-key")
+
+
+def test_source_mutation_aborts_write_and_leaves_no_bundle_or_tmp(tmp_path):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    bundle = rebuild_legacy_yaml(
+        source,
+        QueueClaude(
+            [
+                _valid_extraction("Applications close on 2026-09-30."),
+                _gap_audit(),
+            ]
+        ),
+    )
+    source.write_text(
+        source.read_text(encoding="utf-8") + "notes: changed\n", encoding="utf-8"
+    )
+    output = tmp_path / "bundle.yaml"
+
+    with pytest.raises(RebuildError, match="source changed"):
+        write_bundle(output, bundle)
+
+    assert not output.exists()
+    assert not output.with_suffix(".yaml.tmp").exists()
+
+
+def test_protected_output_paths_and_symlinked_paths_are_rejected(tmp_path, monkeypatch):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    bundle = rebuild_legacy_yaml(
+        source,
+        QueueClaude(
+            [
+                _valid_extraction("Applications close on 2026-09-30."),
+                _gap_audit(),
+            ]
+        ),
+    )
+    protected = tmp_path / "knowledge" / "employers"
+    protected.mkdir(parents=True)
+    monkeypatch.setenv("EMPLOYERS_DIR", str(protected))
+
+    with pytest.raises(RebuildError, match="protected"):
+        write_bundle(protected / "bundle.yaml", bundle)
+
+    symlink_parent = tmp_path / "knowledge-link"
+    symlink_parent.symlink_to(protected, target_is_directory=True)
+    with pytest.raises(RebuildError, match="protected"):
+        write_bundle(symlink_parent / "bundle.yaml", bundle)
+
+
+def test_default_output_is_repo_root_relative():
+    output = _default_output(Path("some/source.yaml"))
+    assert (
+        output
+        == Path(__file__).resolve().parents[2]
+        / "build"
+        / "ontology-rebuild"
+        / "source.ontology.yaml"
+    )

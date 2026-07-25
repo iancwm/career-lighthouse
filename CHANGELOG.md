@@ -5,6 +5,25 @@ Use this file for significant shipped feature changes, not active planning or sp
 
 ## [Unreleased]
 
+## [0.2.0.0] - 2026-07-26
+
+### Added
+
+- Rebuild legacy knowledge YAMLs into reviewable ontology bundles with explicit egress consent, deterministic question IDs, privacy metadata, source-mutation protection, canonical-store safeguards, and race-safe atomic output.
+- Expanded Singapore banking technology, project/program management, financial stability, public-sector economics, and employer guidance while enforcing the runtime schema across every checked-in career profile.
+
+### Changed
+
+- Reduced the API image from roughly 8.7 GB to 384 MB by selecting CPU-only PyTorch, removing duplicated dependency layers and CUDA packages, pinning `uv`, and moving embedding-model downloads into the persistent runtime cache.
+- Reused the built Python environment at container startup instead of synchronizing dependencies again, keeping warm rebuilds and restarts fast and predictable.
+- Persisted ontology entities, claims, and evidence through the existing knowledge volume in Docker Compose.
+
+### Fixed
+
+- Installed the native `libmagic` runtime required by upload validation in the API image.
+- Recorded accurate Claude call/token metadata in CLI-generated ontology bundles and prevented concurrent rebuild processes from overwriting each other.
+- Repaired newly generated career profiles that were being classified as broken because required schema fields were absent.
+
 ### Documentation
 
 - Synchronized the ontology design, milestone, migration, evaluation, and M2 sprint documents with the shipped Milestone 1/2 implementation. Clarified the dedicated claim approval route, dark-flagged pilot state, current trace metadata, and remaining evaluation/governance gates.

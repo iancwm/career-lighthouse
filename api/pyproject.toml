@@ -19,8 +19,17 @@ dependencies = [
     "qdrant-client==1.11.1",
     "sentence-transformers==3.1.1",
     "tenacity>=8.2.0",
+    "torch==2.10.0",
     "uvicorn[standard]==0.30.6",
 ]
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [project.optional-dependencies]
 dev = [
