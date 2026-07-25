@@ -5,6 +5,7 @@ tracks:
 - tech_product
 - legal_ops
 - data_science_ai
+- banking_technology_pm
 ep_requirement: Likely sponsors EP; fintech with strong MAS regulatory presence. Verify
   directly with HR before advising international candidates.
 intake_seasons:
@@ -17,17 +18,18 @@ application_process: 'Skill-based hiring: portfolio review + coding test (SQL, P
   SMU MITB capstone presentations. Direct outreach by hiring managers observed. MITB
   AI/Data Track preferred over generic MITB, bootcamp-only, or MBA. Domain knowledge
   in banking/payments valued.'
-singapore_headcount_estimate: ~150 (ops, eng, data, sales) as of April 2025
+singapore_headcount_estimate: null
 counselor_contact: 'Dr. James Tay. Follow-up required: Invite Jane Teoh (Data Analyst,
   Stripe Singapore, MITB AI ''23) to present at SMU MITB capstone recruitment event
   — fintech companies attending. Jane confirmed willingness to mentor MITB AI cohort
   and support capstone-to-hire pipeline.'
-notes: 'ACTION (Dr. James Tay, April 2025): Confirm Jane Teoh''s availability for
-  SMU MITB capstone recruitment presentation. Stripe hiring managers have attended
-  capstone events previously — coordinate with Stripe Singapore recruiting team for
-  formal participation.'
-last_updated: '2026-04-22'
-singapore_headcount_estimate: null
+notes: 'Stripe fintech PMs are part of the 30% external hiring pipeline for banking
+  PM roles at DBS and other major Singapore banks. FinTech PM experience (Stripe,
+  Grab) valued for consumer-facing digital banking projects. Stripe offers faster
+  pace but higher burnout vs. banking. Coordinate with Stripe product teams for PM-to-PM
+  rotation opportunities for experienced technical PMs. Source: Sophia Lim (DBS Senior
+  PM) interview, March 2025.'
+last_updated: '2026-07-25'
 counsellor_contact: null
 structured:
   facts:

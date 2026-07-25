@@ -1,4 +1,4 @@
-employer_name: DBS
+employer_name: DBS Bank
 slug: dbs
 tracks:
 - investment_banking
@@ -8,23 +8,25 @@ tracks:
 - fintech_compliance
 - model_validation_risk
 - quantitative_finance
+- banking_technology_pm
 ep_requirement: Will sponsor
 intake_seasons:
-- June (primary MQF full-time intake)
-- January (internship rotation start)
-singapore_headcount_estimate: '15–20 PM/BA roles/year; 70% internal promotion from
-  analyst pool, 30% external (consulting: Accenture, Infosys; fintech: Grab)'
-application_process: Entry via BA or Scrum Master roles (not direct PM). Computing
-  degree or IT-related background required. 3–5 years experience typical. DBS Academy
-  internal PM certification path common.
+- rolling
+singapore_headcount_estimate: 40000
+application_process: Campus hiring rare for PM roles. Most entry-level PMs come from
+  analyst/BA progression internally. 70% internal talent (non-PM tech roles + business
+  teams), 30% external (IT consulting firms like Accenture, Infosys, Cognizant; fintech
+  PMs from Stripe, Grab). DBS Academy internal training offers PM certification path.
 counsellor_contact: Atina
-last_updated: '2026-05-09'
-notes: 'Model Risk team: +2 validators hired 2023–2025 driven by MAS 2023 Model Governance
-  Guidelines. DBS offers Year 3 6-month Model Risk Management internship rotation
-  (backtesting + validation exposure) — confirmed pipeline for full-time model validation
-  roles. DBS attends SMU MQF thesis presentations for direct recruitment. Internship
-  alumni: Cayden Lee completed DBS Model Risk rotation Year 3 before joining OCBC
-  full-time. Counselor: Dr. Suresh Kumar.'
+last_updated: '2026-07-25'
+notes: 'DBS hiring 15–20 PM/BA/Scrum Master roles annually. Singapore''s largest bank
+  by market cap (~SGD 500B), top-3 fintech transformer in APAC. Certifications valued:
+  Scrum Master (CSM/CSPO) highly valued, PRINCE2 preferred but not required, PMP useful
+  but less common in Agile-first environments. MBA not required; computing degree
+  or equivalent + 3–5 years tech experience sufficient. DBS Academy (internal training)
+  offers PM certification path. Offers job security + pension + health benefits +
+  career stability vs. FinTech/consulting. Annual raises 2–4%; promotion increases
+  15–20%. Employer pension contribution ~8%.'
 counselor_contact: 'Dr. Suresh Kumar. Alumni contact: Sophia Lim (NUS Computing ''18),
   Senior PM Digital Banking Transformation — available for guest lecture on PM careers
   (target: May 2025, NUS Computing). Follow-up: Connect with NUS Computing faculty
