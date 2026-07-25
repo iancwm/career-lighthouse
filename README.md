@@ -92,11 +92,38 @@ Uses [`just`](https://github.com/casey/just) as a task runner. Run `just` to lis
 | `just push-changes` | Analyze the current diff against `TODOS.md` and `CHANGELOG.md` and summarize progress toward a goal |
 | `just ingest` | Ingest all `demo-data/` files into the running API |
 
+### Legacy YAML ontology rebuild
+
+The operator-only rebuild tool converts one legacy YAML file into a reviewable
+ontology bundle. It detects the legacy YAML family, makes isolated direct Claude
+calls for the proposed mapping and gap audit, and never writes the canonical
+entity/evidence/claim stores. Use inspection first; `--inspect` makes no API
+call:
+
+```bash
+cd api
+uv run python -m tools.ontology_rebuild \
+  ../knowledge/career_profiles/investment_banking.yaml --inspect
+
+export ANTHROPIC_API_KEY='...'
+uv run python -m tools.ontology_rebuild \
+  ../knowledge/career_profiles/investment_banking.yaml \
+  --output ../build/ontology-rebuild/investment_banking.yaml
+```
+
+The generated file is a proposed review bundle containing typed records,
+blocked claims, unmapped fields, provenance, and explicit `needs_user_input`
+questions. Alumni YAML requires the additional `--allow-personal-data` gate
+after the applicable consent and egress policy have been confirmed. The full
+workflow and pending hardening work are specified in
+[`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md).
+
 ## Documentation
 
 The repo has three maintained documentation paths:
 
 - [docs/README.md](docs/README.md) for sprint docs and archived sprint history
+- [docs/ontology/REBUILD-SPRINT.md](docs/ontology/REBUILD-SPRINT.md) for the legacy YAML-to-ontology rebuild workflow
 - [TODOS.md](TODOS.md) for the active backlog
 - [CHANGELOG.md](CHANGELOG.md) for significant shipped feature changes
 
@@ -165,6 +192,7 @@ The career office dashboard (`/admin`) includes:
 - **Query logging**: student queries logged to `./logs/query_log.jsonl` for KB health analysis (single-worker deployments only)
 - **LLM tracing**: every model call emits structured `started`, `ok`, and `error` trace rows. When `LANGFUSE_*` env vars are set, Langfuse is the primary observability source for trace exploration, and the admin Trace Explorer reads Langfuse sessions first with JSONL fallback only when Langfuse is unavailable. Session runs group correctly once `session_id` is propagated. In Docker the API should point at `http://langfuse-web:3000`; the browser-facing UI stays on `http://localhost:3001`. For hosted Langfuse, set `LANGFUSE_HOST` instead. Keep `LANGFUSE_FLUSH_AT` and `LANGFUSE_FLUSH_INTERVAL` low in dev, but let them grow for cloud deployments so tracing stays asynchronous and does not sit on the request path. Session intents are now JSON-only, with the old `<thought>` response plumbing removed from the backend contract, and unexpected client exceptions now record a matching `error` trace instead of leaving orphaned `started` rows.
 - **Langfuse local stack**: the bundled Redis service now health-checks with the configured `LANGFUSE_REDIS_AUTH` password instead of issuing an unauthenticated `PING` against an auth-protected Redis. If you rotate `LANGFUSE_REDIS_AUTH` in `.env`, restart the Langfuse profile so the worker, web service, and Redis healthcheck all stay aligned.
+- **Legacy ontology rebuild**: `api/tools/ontology_rebuild.py` is an operator CLI with its own direct Claude client. It is intentionally outside the API `services.llm`/Langfuse path and emits review bundles under `build/ontology-rebuild/`; it does not auto-import proposals into canonical knowledge.
 - **Live timeout visibility**: session analysis and brief generation can still hit the Anthropic timeout under long or expensive requests, but the request now shows a `started` trace immediately and a matching `error` trace if the model times out. The repair path also retries transient overloads, so a one-off 529 no longer turns into a blank session. Wildly better than staring at a blank spinner.
 - **Data stays local**: only Anthropic Claude API call leaves the deployment (PDPA-compliant)
 
@@ -185,6 +213,7 @@ That means:
 - Employer YAMLs are loaded from [knowledge/employers](/home/iancwm/git/career-lighthouse/knowledge/employers)
 - Career profile YAMLs are loaded from [knowledge/career_profiles](/home/iancwm/git/career-lighthouse/knowledge/career_profiles)
 - Ontology entities, claims, and evidence are stored under `knowledge/entities/`, `knowledge/claims/`, and `knowledge/evidence/` when the dark-shipped ontology workflows are enabled; extraction may create idempotent evidence and known-employer entities, while claim files are written only after a counsellor approves a claim card
+- Rebuild bundles are review artifacts under `build/ontology-rebuild/`; they are not canonical ontology files and are not imported automatically
 - Draft tracks and track history stay under `knowledge/...`, and missing draft copies are seeded from valid published profiles on first access so the Track Builder stays in sync with the published catalog
 - Query logs are written to [logs/query_log.jsonl](/home/iancwm/git/career-lighthouse/logs/query_log.jsonl)
 

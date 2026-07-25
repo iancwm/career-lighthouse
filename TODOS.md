@@ -50,11 +50,35 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 
 ## Next
 
+### Harden the legacy YAML ontology rebuild before pilot
+**What:** Complete the P0 safety gates in [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md): add explicit egress confirmation, protected output-path and symlink checks, a source-hash recheck before writing, unambiguous evidence-span selection, versioned generation/token metadata, deterministic `needs_user_input` IDs, and the non-alumni privacy assessment.
+**Why:** The shipped MVP produces review bundles, but these controls are required before a real migration can run without risking accidental data egress, canonical-store overwrite, ambiguous provenance, or irreproducible reviewer questions.
+**Depends on:** `api/tools/ontology_rebuild.py` MVP and its checked-in no-network test suite.
+**Effort:** M (human ~1–2d / CC ~30–45min). **Priority:** P0.
+
+### Run and review the investment-banking rebuild pilot
+**What:** Run the rebuild against `knowledge/career_profiles/investment_banking.yaml` with the explicit Claude egress approval, review every proposed/blocked record and user-input question with a counsellor, and publish a small gold bundle plus a migration review report.
+**Why:** The new tool needs one end-to-end operator trial to validate type detection, field accounting, evidence grounding, and the boundary between proposed output and canonical persistence before additional legacy families are migrated.
+**Depends on:** Rebuild hardening above, an approved Anthropic data-egress decision, and counsellor review time.
+**Effort:** M (human ~1d / CC ~20–30min). **Priority:** P0.
+
+### Add an answers companion workflow for rebuild questions
+**What:** Accept a reviewer answers YAML keyed by deterministic need IDs, validate answers against the bundle's source hash and ontology version, and emit a revised bundle without rerunning unchanged Claude passes.
+**Why:** `needs_user_input` is currently surfaced for manual action, but a repeatable answers artifact is needed to make migrations auditable and resumable.
+**Depends on:** Rebuild bundle contract and deterministic need IDs from the hardening task.
+**Effort:** M (human ~1d / CC ~20–30min). **Priority:** P1.
+
+### Expand ontology payload coverage for legacy rebuilds
+**What:** Add typed payloads and review/import handling for sponsorship policy, compensation observations, skill requirements, career-track/employer relations, career pathways, and immigration/eligibility facts that are currently represented as blocked claims or unmapped fields.
+**Why:** Preserving only the runtime-supported claim types would lose useful legacy knowledge or force reviewers to re-enter it manually during migration.
+**Depends on:** Ontology schema decisions and the investment-banking pilot's blocked-claim inventory.
+**Effort:** L (human ~2–4d / CC ~1h). **Priority:** P1.
+
 ### Enable ontology pilot flags for a real employer
 **What:** Seed ≥3 approved `recruitment_stage`/`application_window` claims for Goldman Sachs Singapore in `knowledge/claims/`, set the global `ontology.extraction_enabled: true` and `ontology.grounding_enabled: true` flags in staging `kb.yaml`, restrict enabled use to Goldman until per-employer gating exists, then verify via Langfuse that `grounding_claims_injected_count > 0` for a Goldman query before evaluating against `EVALUATION-PLAN.md` gold queries.
 **Why:** Milestones 1 (extraction pipeline) and 2 (claim injection) are both fully shipped but dark-flagged by design — this is a product/business decision, not further engineering, and is the actual next step referenced in `docs/README.md`'s Current State section.
 **Context:** Rollout sequence spelled out in `docs/ontology/GROUNDING-DESIGN.md` ("Rollout sequence" section, steps 4-6) and `docs/ontology/MIGRATION-PLAN.md`.
-**Depends on:** Counsellor time to review/approve claim proposals, completion of the pilot checklist in `MIGRATION-PLAN.md`, and governance sign-off. No implementation task is blocking this decision.
+**Depends on:** Counsellor time to review/approve claim proposals, completion of the pilot checklist in `MIGRATION-PLAN.md`, governance sign-off, and (if the seed claims come from legacy YAML) the rebuild pilot and review report above. No further implementation task is blocking this decision once those inputs are available.
 
 ### Complete the ontology gold evaluation
 **What:** Expand `api/tests/fixtures/ontology_gold_claims.jsonl` from the shipped three-entry slice to the planned 10–15 source documents, add `scripts/eval_ontology_claims.py`, run the full Stage 1–4 evaluation, and publish `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md`.
