@@ -38,6 +38,9 @@ services:
       - EMPLOYER_HISTORY_DIR=/app/knowledge/employers_history
       - SOURCE_LEDGER_DIR=/app/knowledge/source_ledger
       - SOURCE_LEDGER_HISTORY_DIR=/app/knowledge/source_ledger_history
+      - ONTOLOGY_ENTITIES_DIR=/app/knowledge/entities
+      - ONTOLOGY_CLAIMS_DIR=/app/knowledge/claims
+      - ONTOLOGY_EVIDENCE_DIR=/app/knowledge/evidence
       - QUERY_LOG_PATH=/app/logs/query_log.jsonl
       - LLM_TRACE_LOG_PATH=/app/logs/llm_trace_log.jsonl
       - EMERGING_TRACK_SIGNALS_PATH=/app/logs/emerging_track_signals.jsonl

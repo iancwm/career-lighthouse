@@ -1,43 +1,40 @@
 FROM python:3.11-slim
 
-# Enable BuildKit for cache mount support
-ENV DOCKER_BUILDKIT=1
-
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
-
-WORKDIR /app
-
-# Install dependencies with persistent cache across builds
-# Only re-downloads NEW packages; existing cache speeds up rebuilds
-COPY pyproject.toml uv.lock ./
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev --frozen
-
-# Pre-download the embedding model into the image so first boot is fast
-COPY <<EOF /tmp/preload.py
-from sentence_transformers import SentenceTransformer
-SentenceTransformer('all-MiniLM-L6-v2')
-EOF
-RUN --mount=type=cache,target=/root/.cache/huggingface \
-    uv run python /tmp/preload.py && rm /tmp/preload.py
-
-COPY . .
-
-# Allow the container to run as the host user so bind-mounted files in
-# ./knowledge and ./logs are owned by the developer's UID/GID.
-# Pass USER_UID / USER_GID at build time (see docker-compose.yml).
-# Defaults to 1000:1000 (the first non-root user on most Linux systems).
 ARG USER_UID=1000
 ARG USER_GID=1000
 
-RUN addgroup --system --gid ${USER_GID} appgroup && \
-    adduser --system --uid ${USER_UID} --ingroup appgroup --home /home/appuser appuser && \
-    mkdir -p /home/appuser/.cache/uv /app/.cache && \
-    chown -R appuser:appgroup /home/appuser /app/.cache
-RUN chown -R appuser:appgroup /app
+# python-magic is a Python wrapper around this native library. Keep the
+# runtime dependency in the image so importing the upload router works.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libmagic1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && addgroup --system --gid "${USER_GID}" appgroup \
+    && adduser --system --uid "${USER_UID}" --ingroup appgroup \
+        --home /home/appuser appuser \
+    && mkdir -p /app /app/.cache /home/appuser/.cache/uv \
+    && chown -R appuser:appgroup /app /home/appuser
+
+# Pin uv so a new upstream release does not invalidate the dependency layer.
+COPY --from=ghcr.io/astral-sh/uv:0.11.32 /uv /usr/local/bin/uv
+
+WORKDIR /app
 ENV HOME=/home/appuser
 ENV UV_CACHE_DIR=/home/appuser/.cache/uv
+ENV UV_LINK_MODE=copy
+
+# Install dependencies as their final owner. This avoids a recursive chown
+# layer copying the entire virtual environment.
+COPY --chown=appuser:appgroup pyproject.toml uv.lock ./
+USER appuser
+RUN --mount=type=cache,target=/home/appuser/.cache/uv,uid=${USER_UID},gid=${USER_GID} \
+    uv sync --no-dev --frozen --no-install-project
+
+# The embedding model is downloaded on first use into the persistent
+# transformers_cache volume mounted at /app/.cache by docker-compose.yml.
+COPY --chown=appuser:appgroup . .
+RUN chmod 755 /app/entrypoint.sh
+USER root
+
 ENV DATA_PATH=/app/data/qdrant
 ENV SESSIONS_DIR=/app/data/sessions
 ENV CAREER_PROFILES_DIR=/app/knowledge/career_profiles
@@ -52,8 +49,6 @@ ENV TRACKS_VERSION_PATH=/app/knowledge/.tracks-version
 ENV QUERY_LOG_PATH=/app/logs/query_log.jsonl
 ENV LLM_TRACE_LOG_PATH=/app/logs/llm_trace_log.jsonl
 ENV SENTENCE_TRANSFORMERS_HOME=/app/.cache
-
-RUN chmod 755 /app/entrypoint.sh
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 
