@@ -2,6 +2,8 @@
 
 This file tracks only active backlog items. Sprint specs live under `docs/`, and significant shipped feature changes belong in `CHANGELOG.md`.
 
+Frontend-specific follow-up work is tracked in [`web/TODOS.md`](web/TODOS.md).
+
 This backlog is ordered by execution priority:
 - `Now` = highest-risk gaps before broader launch
 - `Next` = important follow-ups once the core security and publishing flows are stable
@@ -50,16 +52,10 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 
 ## Next
 
-### Harden the legacy YAML ontology rebuild before pilot
-**What:** Complete the P0 safety gates in [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md): add explicit egress confirmation, protected output-path and symlink checks, a source-hash recheck before writing, unambiguous evidence-span selection, versioned generation/token metadata, deterministic `needs_user_input` IDs, and the non-alumni privacy assessment.
-**Why:** The shipped MVP produces review bundles, but these controls are required before a real migration can run without risking accidental data egress, canonical-store overwrite, ambiguous provenance, or irreproducible reviewer questions.
-**Depends on:** `api/tools/ontology_rebuild.py` MVP and its checked-in no-network test suite.
-**Effort:** M (human ~1–2d / CC ~30–45min). **Priority:** P0.
-
 ### Run and review the investment-banking rebuild pilot
 **What:** Run the rebuild against `knowledge/career_profiles/investment_banking.yaml` with the explicit Claude egress approval, review every proposed/blocked record and user-input question with a counsellor, and publish a small gold bundle plus a migration review report.
 **Why:** The new tool needs one end-to-end operator trial to validate type detection, field accounting, evidence grounding, and the boundary between proposed output and canonical persistence before additional legacy families are migrated.
-**Depends on:** Rebuild hardening above, an approved Anthropic data-egress decision, and counsellor review time.
+**Depends on:** Rebuild hardening shipped in v0.2.0.0, an approved Anthropic data-egress decision, and counsellor review time.
 **Effort:** M (human ~1d / CC ~20–30min). **Priority:** P0.
 
 ### Add an answers companion workflow for rebuild questions
@@ -152,7 +148,14 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 
 ## Done
 
-All completed items are documented in the archived sprint files under `docs/archived/`. Key milestones:
+Completed milestones are summarized below; older sprint records live under `docs/archived/`.
+
+### Harden the legacy YAML ontology rebuild before pilot
+**What:** Complete the P0 safety gates in [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md): add explicit egress confirmation, protected output-path and symlink checks, a source-hash recheck before writing, unambiguous evidence-span selection, versioned generation/token metadata, deterministic `needs_user_input` IDs, and the non-alumni privacy assessment.
+**Why:** The shipped MVP produces review bundles, but these controls are required before a real migration can run without risking accidental data egress, canonical-store overwrite, ambiguous provenance, or irreproducible reviewer questions.
+**Depends on:** `api/tools/ontology_rebuild.py` MVP and its checked-in no-network test suite.
+**Effort:** M (human ~1–2d / CC ~30–45min). **Priority:** P0.
+**Completed:** v0.2.0.0 (2026-07-26)
 
 - **2026-07-17** Ontology Milestone 2 (grounded chat answers) — `ClaimContextService`, VERIFIED CLAIMS prompt injection, `EmployerEntityStore.get_matched_slugs()`, entity-id convention fix, Langfuse `grounding_*` metrics, gold eval query. `ontology.grounding_enabled` ships `false`. See `docs/ontology/GROUNDING-DESIGN.md` and `docs/ontology/SPRINT-M2-TASKS.md`.
 - **2026-07-16** Ontology Milestone 1 (typed claims/evidence/entities) — `Entity`/`Evidence`/`Claim` models and stores, Stage 1-4 extraction pipeline, `ontology_router.py`, claim review card in `SmartCanvas.tsx`. `ontology.extraction_enabled` ships `false`. See `docs/ontology/MILESTONE-1.md`.

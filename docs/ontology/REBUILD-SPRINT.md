@@ -847,7 +847,7 @@ Each payload must land in `models_ontology`, extraction prompts, validation, sto
 
 ## 21. Current implementation status
 
-As of 2026-07-19:
+As of 2026-07-26:
 
 | Capability | Status |
 |---|---|
@@ -861,7 +861,7 @@ As of 2026-07-19:
 | Full top-level field accounting | implemented |
 | Nested duplicate-key detection | implemented |
 | Conservative statuses/confidence | implemented |
-| Atomic mode-`0600` output and overwrite protection | implemented |
+| Atomic mode-`0600` output and concurrent overwrite protection | implemented |
 | Alumni personal-data flag | implemented |
 | General egress confirmation | implemented |
 | Privacy assessment for non-alumni files | implemented |
@@ -887,6 +887,6 @@ The rebuild sprint is complete when:
 - [ ] A real investment-banking bundle is reviewed by a counsellor.
 - [ ] The gold fixture and quality report meet §18 targets.
 - [ ] The answers contract is accepted, even if implementation is scheduled separately.
-- [ ] Documentation states clearly that bundle generation is not approval or import.
+- [x] Documentation states clearly that bundle generation is not approval or import.
 
 Completion does not require a canonical importer or batch mode. Those require separate authorization after rebuild quality is demonstrated.
