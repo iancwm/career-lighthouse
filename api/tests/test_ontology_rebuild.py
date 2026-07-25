@@ -6,6 +6,7 @@ All Claude calls are represented by QueueClaude; this suite makes no network cal
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +23,7 @@ from tools.ontology_rebuild import (
     _default_output,
     detect_legacy_type,
     load_legacy_document,
+    main,
     rebuild_legacy_yaml,
     write_bundle,
 )
@@ -35,9 +37,7 @@ class QueueClaude:
         self.calls: list[dict] = []
 
     def complete(self, *, system: str, user: str, max_tokens: int) -> str:
-        self.calls.append(
-            {"system": system, "user": user, "max_tokens": max_tokens}
-        )
+        self.calls.append({"system": system, "user": user, "max_tokens": max_tokens})
         if not self.responses:
             raise AssertionError("Unexpected extra Claude call")
         return self.responses.pop(0)
@@ -395,6 +395,57 @@ def test_write_bundle_is_atomic_and_refuses_overwrite(tmp_path):
         write_bundle(output, bundle)
 
 
+def test_write_bundle_does_not_overwrite_a_concurrent_writer(tmp_path, monkeypatch):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    bundle = rebuild_legacy_yaml(
+        source,
+        QueueClaude(
+            [
+                _valid_extraction("Applications close on 2026-09-30."),
+                _gap_audit(),
+            ]
+        ),
+    )
+    output = tmp_path / "bundle.yaml"
+    original_link = os.link
+
+    def race_output_into_place(source_path, destination_path):
+        Path(destination_path).write_text(
+            "written by another process", encoding="utf-8"
+        )
+        original_link(source_path, destination_path)
+
+    monkeypatch.setattr("tools.ontology_rebuild.os.link", race_output_into_place)
+
+    with pytest.raises(RebuildError, match="already exists"):
+        write_bundle(output, bundle)
+
+    assert output.read_text(encoding="utf-8") == "written by another process"
+    assert not list(tmp_path.glob(".bundle.yaml.*.tmp"))
+
+
+def test_write_bundle_force_replaces_an_existing_bundle(tmp_path):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+    bundle = rebuild_legacy_yaml(
+        source,
+        QueueClaude(
+            [
+                _valid_extraction("Applications close on 2026-09-30."),
+                _gap_audit(),
+            ]
+        ),
+    )
+    output = tmp_path / "bundle.yaml"
+    output.write_text("stale bundle", encoding="utf-8")
+
+    write_bundle(output, bundle, force=True)
+
+    payload = yaml.safe_load(output.read_text(encoding="utf-8"))
+    assert payload["migration_id"] == bundle.migration_id
+
+
 def test_v11_metadata_privacy_and_semantic_need_ids_are_materialized(tmp_path):
     source = tmp_path / "investment_banking.yaml"
     _career_profile(source)
@@ -419,6 +470,53 @@ def test_v11_metadata_privacy_and_semantic_need_ids_are_materialized(tmp_path):
     assert all(need_id.startswith("need-") for need_id in first_ids.values())
 
 
+def test_cli_records_generation_metadata(tmp_path, monkeypatch):
+    source = tmp_path / "investment_banking.yaml"
+    output = tmp_path / "bundle.yaml"
+    _career_profile(source)
+    claude = QueueClaude(
+        [
+            _valid_extraction("Applications close on 2026-09-30."),
+            _gap_audit(),
+        ]
+    )
+    monkeypatch.setattr(
+        "tools.ontology_rebuild.AnthropicClaudeClient",
+        lambda **_kwargs: claude,
+    )
+
+    result = main(
+        [
+            str(source),
+            "--output",
+            str(output),
+            "--confirm-egress",
+        ]
+    )
+
+    payload = yaml.safe_load(output.read_text(encoding="utf-8"))
+    assert result == 0
+    assert payload["generation_metadata"]["api_calls"] == 2
+
+
+def test_cli_inspect_makes_no_claude_calls(tmp_path, monkeypatch, capsys):
+    source = tmp_path / "investment_banking.yaml"
+    _career_profile(source)
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("inspect mode must not create a Claude client")
+
+    monkeypatch.setattr(
+        "tools.ontology_rebuild.AnthropicClaudeClient",
+        fail_if_called,
+    )
+
+    result = main([str(source), "--inspect"])
+
+    assert result == 0
+    assert "detected_type: career_profile" in capsys.readouterr().out
+
+
 def test_anthropic_client_requires_explicit_egress_confirmation():
     with pytest.raises(RebuildError, match="egress confirmation"):
         AnthropicClaudeClient(api_key="test-key")
@@ -436,7 +534,9 @@ def test_source_mutation_aborts_write_and_leaves_no_bundle_or_tmp(tmp_path):
             ]
         ),
     )
-    source.write_text(source.read_text(encoding="utf-8") + "notes: changed\n", encoding="utf-8")
+    source.write_text(
+        source.read_text(encoding="utf-8") + "notes: changed\n", encoding="utf-8"
+    )
     output = tmp_path / "bundle.yaml"
 
     with pytest.raises(RebuildError, match="source changed"):
@@ -473,4 +573,10 @@ def test_protected_output_paths_and_symlinked_paths_are_rejected(tmp_path, monke
 
 def test_default_output_is_repo_root_relative():
     output = _default_output(Path("some/source.yaml"))
-    assert output == Path(__file__).resolve().parents[2] / "build" / "ontology-rebuild" / "source.ontology.yaml"
+    assert (
+        output
+        == Path(__file__).resolve().parents[2]
+        / "build"
+        / "ontology-rebuild"
+        / "source.ontology.yaml"
+    )

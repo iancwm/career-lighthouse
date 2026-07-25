@@ -26,6 +26,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Protocol
@@ -577,9 +578,7 @@ def _evidence_offset(
             relative = field_text.find(quote, cursor)
             if relative < 0:
                 break
-            matches.append(
-                (span_start + relative, span_start + relative + len(quote))
-            )
+            matches.append((span_start + relative, span_start + relative + len(quote)))
             cursor = relative + 1
     if not matches:
         raise RebuildError(
@@ -692,20 +691,14 @@ def _root_field(path: str) -> str:
 
 
 def _accounted_top_level_fields(analysis: ExtractionAnalysis) -> set[str]:
-    paths = {
-        path
-        for entity in analysis.entities
-        for path in entity.legacy_field_paths
-    }
+    paths = {path for entity in analysis.entities for path in entity.legacy_field_paths}
     paths.update(
         evidence.legacy_field_path
         for claim in analysis.supported_claims
         for evidence in claim.evidence
     )
     paths.update(
-        path
-        for claim in analysis.blocked_claims
-        for path in claim.legacy_field_paths
+        path for claim in analysis.blocked_claims for path in claim.legacy_field_paths
     )
     paths.update(field.legacy_field_path for field in analysis.unmapped_fields)
     return {_root_field(path) for path in paths if path}
@@ -757,9 +750,13 @@ def _integrity_errors(
             )
     for claim in analysis.supported_claims:
         if claim.subject_ref not in known_refs:
-            errors.append(f"claim {claim.ref} has unknown subject_ref {claim.subject_ref}")
+            errors.append(
+                f"claim {claim.ref} has unknown subject_ref {claim.subject_ref}"
+            )
         if claim.object_ref and claim.object_ref not in known_refs:
-            errors.append(f"claim {claim.ref} has unknown object_ref {claim.object_ref}")
+            errors.append(
+                f"claim {claim.ref} has unknown object_ref {claim.object_ref}"
+            )
         if claim.claim_type not in SUPPORTED_CLAIM_TYPES:
             errors.append(f"claim {claim.ref} uses unsupported type {claim.claim_type}")
         if isinstance(claim.payload, ApplicationWindowPayload):
@@ -978,9 +975,13 @@ def _entity_ids(
             normalized_employer_slug = safe_slug(employer_slug or "")
             if normalized_employer_slug:
                 explicit = f"organization-{normalized_employer_slug}"
-            elif document.legacy_type == "employer" and len(
-                [item for item in proposals if item.entity_type == "organization"]
-            ) == 1:
+            elif (
+                document.legacy_type == "employer"
+                and len(
+                    [item for item in proposals if item.entity_type == "organization"]
+                )
+                == 1
+            ):
                 explicit = f"organization-{safe_slug(legacy_slug)}"
         elif proposal.entity_type == "career_track" and document.legacy_type in {
             "career_profile",
@@ -1043,7 +1044,10 @@ def _resolve_payload_entity_refs(
     payload: ClaimPayload,
     entity_ids: dict[str, str],
 ) -> ClaimPayload:
-    if not isinstance(payload, ApplicationWindowPayload) or payload.programme_id is None:
+    if (
+        not isinstance(payload, ApplicationWindowPayload)
+        or payload.programme_id is None
+    ):
         return payload
     resolved = payload.model_dump(mode="json")
     resolved["programme_id"] = entity_ids[payload.programme_id]
@@ -1193,9 +1197,8 @@ def _deterministic_input_needs(
             )
         )
     if (
-        (analysis.supported_claims or analysis.blocked_claims)
-        and not _has_actionable_source_references(document.payload)
-    ):
+        analysis.supported_claims or analysis.blocked_claims
+    ) and not _has_actionable_source_references(document.payload):
         needs.append(
             UserInputNeed(
                 need_id="original_sources",
@@ -1493,7 +1496,9 @@ def materialize_bundle(
                 "must review this bundle before any external sharing or persistence."
             ),
         ),
-        status="needs_user_input" if needs or analysis.blocked_claims else "ready_for_review",
+        status="needs_user_input"
+        if needs or analysis.blocked_claims
+        else "ready_for_review",
         legacy_source=LegacySourceDescriptor(
             path=str(document.path),
             detected_type=document.legacy_type,
@@ -1622,10 +1627,12 @@ def write_bundle(path: Path, bundle: RebuildBundle, *, force: bool = False) -> N
     """Atomically write a bundle, refusing accidental overwrite by default."""
 
     output = _validate_output_path(path, Path(bundle.legacy_source.path))
-    temporary = output.with_suffix(output.suffix + ".tmp")
+    temporary: Path | None = None
     try:
         if output.exists() and not force:
-            raise RebuildError(f"Output already exists (use --force to replace): {path}")
+            raise RebuildError(
+                f"Output already exists (use --force to replace): {path}"
+            )
         _verify_source_unchanged(bundle)
         try:
             payload = bundle.model_dump(mode="json")
@@ -1634,11 +1641,13 @@ def write_bundle(path: Path, bundle: RebuildBundle, *, force: bool = False) -> N
             raise RebuildError(f"Bundle failed output validation: {exc}") from exc
 
         output.parent.mkdir(parents=True, exist_ok=True)
-        file_descriptor = os.open(
-            temporary,
-            os.O_WRONLY | os.O_CREAT | os.O_EXCL,
-            0o600,
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{output.name}.",
+            suffix=".tmp",
+            dir=output.parent,
         )
+        temporary = Path(temporary_name)
+        os.fchmod(file_descriptor, 0o600)
         with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
             yaml.safe_dump(
                 payload,
@@ -1649,12 +1658,21 @@ def write_bundle(path: Path, bundle: RebuildBundle, *, force: bool = False) -> N
             )
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(temporary, output)
+        if force:
+            os.replace(temporary, output)
+        else:
+            try:
+                os.link(temporary, output)
+            except FileExistsError as exc:
+                raise RebuildError(
+                    f"Output already exists (use --force to replace): {path}"
+                ) from exc
+            temporary.unlink()
         output.chmod(0o600)
     except OSError as exc:
         raise RebuildError(f"Could not write bundle to {path}: {exc}") from exc
     finally:
-        if temporary.is_file() or temporary.is_symlink():
+        if temporary is not None and (temporary.is_file() or temporary.is_symlink()):
             try:
                 temporary.unlink()
             except OSError:
@@ -1662,7 +1680,9 @@ def write_bundle(path: Path, bundle: RebuildBundle, *, force: bool = False) -> N
 
 
 def _default_output(source: Path) -> Path:
-    return REPOSITORY_ROOT / "build" / "ontology-rebuild" / f"{source.stem}.ontology.yaml"
+    return (
+        REPOSITORY_ROOT / "build" / "ontology-rebuild" / f"{source.stem}.ontology.yaml"
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -1689,7 +1709,9 @@ def _build_parser() -> argparse.ArgumentParser:
             f"(default: {DEFAULT_MAX_INPUT_CHARS})"
         ),
     )
-    parser.add_argument("--force", action="store_true", help="Replace an existing output")
+    parser.add_argument(
+        "--force", action="store_true", help="Replace an existing output"
+    )
     parser.add_argument(
         "--allow-personal-data",
         action="store_true",
@@ -1755,13 +1777,11 @@ def main(argv: list[str] | None = None) -> int:
             timeout_seconds=args.timeout,
             confirm_egress=args.confirm_egress,
         )
-        analysis = extract_analysis(document, claude)
-        gap_audit = audit_gaps(document, analysis, claude)
-        bundle = materialize_bundle(
-            document,
-            analysis,
-            gap_audit,
-            model=claude.model,
+        bundle = rebuild_legacy_yaml(
+            args.source,
+            claude,
+            allow_personal_data=args.allow_personal_data,
+            max_input_chars=args.max_input_chars,
         )
         output = (args.output or _default_output(args.source)).resolve()
         write_bundle(output, bundle, force=args.force)
