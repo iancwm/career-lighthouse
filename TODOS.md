@@ -51,7 +51,7 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 ## Next
 
 ### Harden the legacy YAML ontology rebuild before pilot
-**What:** Complete the P0 safety gates in [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md): add explicit egress confirmation, protected output-path and symlink checks, a source-hash recheck before writing, unambiguous evidence-span selection, versioned generation/token metadata, deterministic `needs_user_input` IDs, and the non-alumni privacy assessment.
+**What:** Complete the P0 safety gates in [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md) §20 Phase A (tasks A1–A9): add explicit egress confirmation, protected output-path and symlink checks, a source-hash recheck before writing, unambiguous evidence-span selection, versioned generation/token metadata, deterministic `needs_user_input` IDs, and the non-alumni privacy assessment. Task-level detail and acceptance criteria live in that table — do not restate them here.
 **Why:** The shipped MVP produces review bundles, but these controls are required before a real migration can run without risking accidental data egress, canonical-store overwrite, ambiguous provenance, or irreproducible reviewer questions.
 **Depends on:** `api/tools/ontology_rebuild.py` MVP and its checked-in no-network test suite.
 **Effort:** M (human ~1–2d / CC ~30–45min). **Priority:** P0.
@@ -63,13 +63,13 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Effort:** M (human ~1d / CC ~20–30min). **Priority:** P0.
 
 ### Add an answers companion workflow for rebuild questions
-**What:** Accept a reviewer answers YAML keyed by deterministic need IDs, validate answers against the bundle's source hash and ontology version, and emit a revised bundle without rerunning unchanged Claude passes.
+**What:** Accept a reviewer answers YAML keyed by deterministic need IDs, validate answers against the bundle's source hash and ontology version, and emit a revised bundle without rerunning unchanged Claude passes. Task-level detail in [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md) §20 Phase C (tasks C1–C3).
 **Why:** `needs_user_input` is currently surfaced for manual action, but a repeatable answers artifact is needed to make migrations auditable and resumable.
 **Depends on:** Rebuild bundle contract and deterministic need IDs from the hardening task.
 **Effort:** M (human ~1d / CC ~20–30min). **Priority:** P1.
 
 ### Expand ontology payload coverage for legacy rebuilds
-**What:** Add typed payloads and review/import handling for sponsorship policy, compensation observations, skill requirements, career-track/employer relations, career pathways, and immigration/eligibility facts that are currently represented as blocked claims or unmapped fields.
+**What:** Add typed payloads and review/import handling for sponsorship policy, compensation observations, skill requirements, career-track/employer relations, career pathways, and immigration/eligibility facts that are currently represented as blocked claims or unmapped fields. Implementation order is [`docs/ontology/REBUILD-SPRINT.md`](docs/ontology/REBUILD-SPRINT.md) §20 Phase D.
 **Why:** Preserving only the runtime-supported claim types would lose useful legacy knowledge or force reviewers to re-enter it manually during migration.
 **Depends on:** Ontology schema decisions and the investment-banking pilot's blocked-claim inventory.
 **Effort:** L (human ~2–4d / CC ~1h). **Priority:** P1.
@@ -79,9 +79,10 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Why:** Milestones 1 (extraction pipeline) and 2 (claim injection) are both fully shipped but dark-flagged by design — this is a product/business decision, not further engineering, and is the actual next step referenced in `docs/README.md`'s Current State section.
 **Context:** Rollout sequence spelled out in `docs/ontology/GROUNDING-DESIGN.md` ("Rollout sequence" section, steps 4-6) and `docs/ontology/MIGRATION-PLAN.md`.
 **Depends on:** Counsellor time to review/approve claim proposals, completion of the pilot checklist in `MIGRATION-PLAN.md`, governance sign-off, and (if the seed claims come from legacy YAML) the rebuild pilot and review report above. No further implementation task is blocking this decision once those inputs are available.
+**Effort:** S (governance/product decision, not engineering). **Priority:** P1.
 
 ### Complete the ontology gold evaluation
-**What:** Expand `api/tests/fixtures/ontology_gold_claims.jsonl` from the shipped three-entry slice to the planned 10–15 source documents, add `scripts/eval_ontology_claims.py`, run the full Stage 1–4 evaluation, and publish `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md`.
+**What:** Expand `api/tests/fixtures/ontology_gold_claims.jsonl` from the shipped three-entry slice to the planned 10–15 source documents, add `scripts/eval_ontology_claims.py`, run the full Stage 1–4 evaluation, and publish `docs/ontology/ONTOLOGY-E1-ACCURACY-REPORT.md` (the name deliberately parallels the already-shipped `docs/archived/sprint_cq_finish/E1_accuracy_report.md`, per `EVALUATION-PLAN.md`'s precedent for the same ≥80% field-accuracy bar — not a duplicate of that report).
 **Why:** The current unit/e2e tests prove the pipeline mechanics, but the pilot still needs a hand-scored quality baseline for scope, evidence grounding, ambiguity handling, and unsupported-claim rate.
 **Depends on:** A staging source set and an operator with time to review the generated claims.
 
@@ -149,6 +150,11 @@ These remain top-tier risks, but they need upstream decisions or broader model c
 **Cons:** In-memory cache is per-process — single-worker constraint must remain (already enforced by startup guard). Stale reads possible if claims are updated between TTL expiry.
 **Effort:** S (human ~2h / CC ~15min). **Priority:** P3.
 **Depends on:** Nothing technical — `EntityStore`/`ClaimStore` shipped with Milestone 1 (2026-07-16). Remaining blocker is reaching pilot-scale entity/claim counts to justify the cache.
+
+### Canonical importer and batch processing for the legacy rebuild tool
+**What:** Specify a reviewed import transaction and approval record, implement dry-run-only import first, pilot one approved bundle, then add batch manifest, resume semantics, and aggregate reporting.
+**Why:** `docs/ontology/REBUILD-SPRINT.md` §20 Phase E scopes this as P2 and "separately approved" — explicitly out of the current rebuild sprint. Bundle generation and review remain manual until this ships.
+**Depends on:** Phase A hardening, the investment-banking pilot, and separate authorization once rebuild quality is demonstrated — not scheduled yet.
 
 ## Done
 
