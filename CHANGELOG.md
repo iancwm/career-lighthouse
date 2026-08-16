@@ -34,6 +34,14 @@ See `docs/ontology/MILESTONE-1.md` for the full scope and acceptance criteria (a
 
 See `docs/ontology/GROUNDING-DESIGN.md` for the design rationale and `docs/ontology/SPRINT-M2-TASKS.md` for the implementation task list (all P0/P1 tasks shipped; P2 tasks 11-14 config/lazy-import polish also included).
 
+### Ontology & Metadata Layer — Legacy Rebuild Tooling (MVP)
+
+#### Added
+- **Legacy YAML rebuild tool** (`api/tools/ontology_rebuild.py`): a standalone operator workflow, separate from `services.llm`/Langfuse, that deterministically detects the six legacy career-profile YAML families, runs isolated direct Claude calls (transformation and gap-audit passes, with one repair pass each) to propose typed claims/entities/evidence, and writes a review bundle to disk without importing into any canonical store. Includes strict runtime claim validation, exact evidence excerpts with offsets, full top-level field accounting with nested duplicate-key detection, conservative status/confidence defaults, an alumni personal-data flag, and atomic mode-`0600` output with overwrite protection. A `--inspect` local mode runs detection with no network calls.
+- **Feature scope**: bundle generation only — this is explicitly not approval or import. The P0 safety gates (explicit egress confirmation, protected output-path/symlink enforcement, source-hash recheck, deterministic `needs_user_input` IDs, versioned generation/token metadata, non-alumni privacy assessment), the answers companion workflow, and the investment-banking pilot review remain open, tracked in `TODOS.md`.
+
+See `docs/ontology/REBUILD-SPRINT.md` for the full implementation specification, current status, and definition of done.
+
 ### Security & Reliability (2026-05-15 sprint — all items shipped)
 
 #### Added
